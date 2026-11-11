@@ -4,12 +4,16 @@ export interface ResourceLimits {
   pids: number;
 }
 
+export type SupportedRuntime = 'runc' | 'runsc';
+
 export interface RuntimeSpec {
   instanceId: string;
   tenantId: string;
   image: string;
   limits: ResourceLimits;
   env: Record<string, string>;
+  runtime?: SupportedRuntime;
+  apiServerKey?: string;
 }
 
 export type RuntimeState = 'absent' | 'created' | 'running' | 'exited' | 'restarting' | 'dead';
@@ -43,7 +47,7 @@ export interface RuntimeManager {
   restart(instanceId: string): Promise<void>;
   /** `state: 'absent'` when no container exists. */
   inspect(instanceId: string): Promise<RuntimeInspection>;
-  checkHealth(instanceId: string): Promise<HealthResult>;
+  checkHealth(instanceId: string, apiServerKey?: string): Promise<HealthResult>;
   /** No-op if absent. Volume is kept unless `deleteVolume` is true. */
   remove(instanceId: string, opts: { deleteVolume: boolean }): Promise<void>;
 }

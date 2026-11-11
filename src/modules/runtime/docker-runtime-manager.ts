@@ -122,17 +122,25 @@ export class DockerRuntimeManager implements RuntimeManager {
     });
   }
 
-  async checkHealth(instanceId: string): Promise<HealthResult> {
+  async checkHealth(instanceId: string, apiServerKey?: string): Promise<HealthResult> {
     const i = await this.inspect(instanceId);
     if (i.state !== 'running' || !i.hostPort) {
       return { ok: false, latencyMs: 0, detail: `runtime not running (${i.state})` };
     }
     const t0 = Date.now();
     try {
-      const res = await fetch(`http://127.0.0.1:${i.hostPort}/healthz`, {
+      const headers: Record<string, string> = {};
+      if (apiServerKey) {
+        headers['Authorization'] = `Bearer ${apiServerKey}`;
+      }
+      // Query loopback gateway status
+      const res = await fetch(`http://127.0.0.1:${i.hostPort}/api/sessions`, {
+        headers,
         signal: AbortSignal.timeout(this.healthTimeoutMs),
       });
-      return { ok: res.ok, latencyMs: Date.now() - t0, detail: `HTTP ${res.status}` };
+      // HTTP 200 (authenticated) or HTTP 401 (gateway alive and enforcing auth) confirms daemon health
+      const isAlive = res.status === 200 || res.status === 401;
+      return { ok: isAlive, latencyMs: Date.now() - t0, detail: `HTTP ${res.status}` };
     } catch (e) {
       const name = (e as Error).name === 'TimeoutError' ? 'timeout' : 'connection failed';
       return { ok: false, latencyMs: Date.now() - t0, detail: name };

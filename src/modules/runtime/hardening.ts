@@ -4,9 +4,8 @@ import type { RuntimeSpec } from './types.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export const CONTAINER_PORT = 8080;
-export const DATA_MOUNT = '/data';
-export const RUNTIME_UID_GID = '10001:10001';
+export const CONTAINER_PORT = 8642;
+export const DATA_MOUNT = '/opt/data';
 export const LABEL_MANAGED = 'hermes.cloud/managed';
 export const LABEL_INSTANCE = 'hermes.cloud/instance-id';
 export const LABEL_TENANT = 'hermes.cloud/tenant-id';
@@ -33,34 +32,41 @@ export function buildContainerConfig(spec: RuntimeSpec): Docker.ContainerCreateO
     if (/^DOCKER_/i.test(key)) throw new ValidationError('Environment key not allowed');
   }
 
+  const envMap: Record<string, string> = { ...spec.env };
+  if (spec.apiServerKey && !envMap.API_SERVER_KEY) {
+    envMap.API_SERVER_KEY = spec.apiServerKey;
+  }
+
+  const hostConfig: Docker.HostConfig = {
+    Privileged: false,
+    CapDrop: ['ALL'],
+    SecurityOpt: ['no-new-privileges:true'],
+    Memory: memoryMb * 1048576,
+    MemorySwap: memoryMb * 1048576,
+    NanoCpus: cpuMillis * 1_000_000,
+    PidsLimit: pids,
+    Init: false, // Official image uses internal s6-overlay /init dispatcher
+    RestartPolicy: { Name: 'no' },
+    Binds: [`${volumeName(id)}:${DATA_MOUNT}`],
+    NetworkMode: networkName(id),
+    PortBindings: { [`${CONTAINER_PORT}/tcp`]: [{ HostIp: '127.0.0.1', HostPort: '0' }] },
+  };
+
+  if (spec.runtime) {
+    hostConfig.Runtime = spec.runtime;
+  }
+
   return {
     name: containerName(id),
     Image: spec.image,
-    User: RUNTIME_UID_GID,
-    Env: Object.entries(spec.env).map(([k, v]) => `${k}=${v}`),
+    Cmd: ['gateway', 'run'],
+    Env: Object.entries(envMap).map(([k, v]) => `${k}=${v}`),
     ExposedPorts: { [`${CONTAINER_PORT}/tcp`]: {} },
     Labels: {
       [LABEL_MANAGED]: 'true',
       [LABEL_INSTANCE]: id,
       [LABEL_TENANT]: spec.tenantId.toLowerCase(),
     },
-    HostConfig: {
-      Privileged: false,
-      ReadonlyRootfs: true,
-      CapDrop: ['ALL'],
-      SecurityOpt: ['no-new-privileges:true'],
-      Memory: memoryMb * 1048576,
-      MemorySwap: memoryMb * 1048576,
-      NanoCpus: cpuMillis * 1_000_000,
-      PidsLimit: pids,
-      Init: true,
-      // Recovery is owned by the Reconciler so failures stay visible and bounded.
-      RestartPolicy: { Name: 'no' },
-      Tmpfs: { '/tmp': 'rw,noexec,nosuid,size=64m' },
-      Binds: [`${volumeName(id)}:${DATA_MOUNT}`],
-      NetworkMode: networkName(id),
-      // Loopback only: no direct public exposure (ingress is a later milestone).
-      PortBindings: { [`${CONTAINER_PORT}/tcp`]: [{ HostIp: '127.0.0.1', HostPort: '0' }] },
-    },
+    HostConfig: hostConfig,
   };
 }
