@@ -15,7 +15,8 @@
     "db:migrate": "prisma migrate deploy",
     "db:dev": "prisma migrate dev",
     "dev": "tsx src/main.ts",
-    "demo": "tsx scripts/demo.ts"
+    "demo": "tsx scripts/demo.ts",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
