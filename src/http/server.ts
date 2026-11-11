@@ -23,7 +23,7 @@ function authorized(header: string | undefined, token: string): boolean {
  */
 export function buildServer(deps: { service: InstanceService; config: Config; logger: Logger }): FastifyInstance {
   const { service, config, logger } = deps;
-  const app = Fastify({ loggerInstance: logger as unknown as FastifyBaseLogger, disableRequestLogging: false });
+  const app = Fastify({ loggerInstance: logger as unknown as FastifyBaseLogger });
 
   app.setErrorHandler((err: unknown, req: FastifyRequest, reply: FastifyReply) => {
     if (err instanceof AppError) {
