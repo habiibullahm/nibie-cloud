@@ -1,0 +1,14 @@
+# Development database only. Bound to loopback; never expose publicly.
+services:
+  postgres:
+    image: postgres:16.6
+    environment:
+      POSTGRES_USER: hermes
+      POSTGRES_PASSWORD: hermes_dev_only
+      POSTGRES_DB: hermes
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:
