@@ -53,6 +53,8 @@ H="Authorization: Bearer $ADMIN_TOKEN"
 curl -H "$H" -H "Idempotency-Key: $(uuidgen)" -H 'content-type: application/json' \
   -d '{"name":"my agent","planId":"<plan-uuid>"}' \
   http://127.0.0.1:3000/api/v1/tenants/<tenant-uuid>/instances
+# Reusing an Idempotency-Key with a different name/planId -> 409. Unknown or malformed tenant/plan -> 404.
+# Postgres unreachable -> 503 {error.code: database_unavailable}. Docker unreachable -> 503 runtime_unavailable.
 # GET  /api/v1/tenants/:t/instances[/:i[/status|/events]]
 # POST /api/v1/tenants/:t/instances/:i/{start,stop,restart}      DELETE /api/v1/tenants/:t/instances/:i
 ```

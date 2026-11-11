@@ -38,8 +38,21 @@ ACTIVE|DEGRADED|STOPPED|FAILED → DELETING → DELETED
 ```
 
 Every transition is a database compare-and-set plus an event in one transaction; the loser of a
-race gets `409`. `provision` is idempotent per `(tenant, idempotency key)` and, today, runs
-synchronously in-process (the API still answers `202`). Failure reasons stored are fixed codes
+race gets `409`. `provision` is idempotent per `(tenant, idempotency key)`: the key is **bound to
+its original request** (`name` + `planId`), so reusing it with a different payload answers
+`409 Conflict` instead of silently returning the other instance. It runs synchronously
+in-process today (the API still answers `202`).
+
+**Operation leases.** Each transitional status (`PROVISIONING`, `CONFIGURING`, `STARTING`,
+`STOPPING`, `DELETING`, and reconciler recovery) is owned by one operation: entering it writes
+`operationOwner` + `leaseExpiresAt`, a heartbeat renews the lease every TTL/3 (default TTL 60 s)
+while the operation runs, the operation's own writes are fenced on `operationOwner`, and entering
+a stable status clears the lease. A heartbeat stops after `maxOperationMs` (10 min) so a hung
+operation eventually becomes reapable.
+
+**Database errors.** Tenant/plan lookups no longer swallow errors: malformed or unknown ids are
+`404`; if Postgres is unreachable the API answers `503 database_unavailable` (sanitized body), never
+"not found". Failure reasons stored are fixed codes
 (`runtime_create_failed`, `health_check_timeout`, `runtime_unavailable`, …), never raw Docker errors.
 If Docker is unreachable, existing instances are left untouched (state reverted/unchanged) and the
 API answers `503`.
@@ -74,10 +87,15 @@ unhealthy container is marked `DEGRADED` and restarted only after 3 consecutive 
 Docker outages cause `skipped`, never state changes or burned attempts. `STOPPED` instances are
 never restarted.
 
-Abandoned operations (control-plane crash, DB blip) are resolved by `reapStale()`: transitional
-states older than 5 min are moved on with compare-and-set — `PENDING/PROVISIONING/CONFIGURING →
-FAILED(stalled)` (retry with the same idempotency key), `STARTING → DEGRADED(stalled)` (normal
-recovery follows), `STOPPING → STOPPED`, `DELETING → DELETED`.
+Abandoned operations (control-plane crash, DB blip) are resolved by `reapStale()`. An operation
+counts as abandoned **only when its lease has expired**; a live operation keeps renewing its lease,
+however long it takes, and is never touched. (Rows with no lease fall back to "no update for 5 min".)
+Every reaper write is fenced on the lease still being expired, so a renewal that lands after the scan
+wins. Resolutions: `PENDING/PROVISIONING/CONFIGURING → FAILED(stalled)` (retry with the same
+idempotency key), `STARTING → DEGRADED(stalled)` (normal recovery follows), `STOPPING → STOPPED` and
+`DELETING → DELETED` (the reaper first takes over the lease, then finishes the job). A zombie
+operation that lost its lease cannot overwrite the outcome (its writes are fenced), and only stops
+the container if the instance is still `FAILED`.
 
 ## Image contract
 
@@ -96,7 +114,7 @@ This system is **not production-ready**. Open items, none of which are mitigated
 3. **Runtime isolation not validated (PRD 7.2).** Standard hardened `runc` containers only. No gVisor/microVM evaluation, no escape or kernel-exposure testing, seccomp/AppArmor not verified on target hosts (the dev sandbox uses cgroup v1).
 4. **Real Hermes image unvalidated** (read-only root, uid, ports, health endpoint, telegram transport).
 5. **Operator API only.** Single shared bearer token; no users, tenant membership, rate limits, CSRF or audit log. Never expose it publicly; it binds to loopback.
-6. **Provisioning is synchronous and in-process;** no job queue, dead-letter queue or outbox. A control-plane crash mid-operation is only cleaned up by the 5-minute stale-state reaper (it fails or finishes the operation; it does not resume it). Multiple control-plane replicas are unsupported (each would run its own reconciler).
+6. **Provisioning is synchronous and in-process;** no job queue, dead-letter queue or outbox. A control-plane crash mid-operation is cleaned up by the lease-based reaper after the lease expires (≤ TTL, 60 s by default): it fails or finishes the operation but does not resume it. Several control-plane replicas are unsupported: the lease protects individual operations, but there is no leader election for the reconciler loop, and clock skew between replicas/DB is not handled. A Docker call that hangs without erroring holds its lease until `maxOperationMs`.
 7. **Single node, no scheduler or capacity reservation;** the host port is a random loopback port, with no ingress or TLS.
 8. **No secrets management** (envelope encryption, rotation) — no secrets are stored yet; log redaction is by key path only, so free-text secrets in messages would not be caught.
 9. **No backups/restore, customer shell/file broker, metrics, or suspend/grace/retention lifecycle.**

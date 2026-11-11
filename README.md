@@ -11,6 +11,7 @@ Hermes runtime foundation** (backend only: no dashboard, billing, auth or schedu
 - Source of truth: [docs/prd.md](docs/prd.md)
 - Architecture and decisions: [docs/architecture.md](docs/architecture.md), [docs/adr/](docs/adr)
 - Setup and running: [docs/setup.md](docs/setup.md)
+- Review fixes: [docs/review-fixes.md](docs/review-fixes.md) · checklist: [docs/implementation-checklist.md](docs/implementation-checklist.md)
 - Implementation plan: [docs/superpowers/plans/](docs/superpowers/plans)
 
 Quick start:
