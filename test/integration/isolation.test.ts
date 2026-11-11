@@ -95,6 +95,12 @@ describe('tenant isolation', () => {
     expect(byName.code).not.toBe(0);
   });
 
+  it('enforces the memory limit: an over-allocating process is killed, the container survives', async () => {
+    const r = await sh(a.instanceId, 'x=$(head -c 400000000 /dev/zero | tr "\\0" a); echo ${#x}');
+    expect(r.out.trim()).not.toBe('400000000');
+    expect((await manager.inspect(a.instanceId)).state).toBe('running');
+  });
+
   it('caps the number of processes at the PID limit', async () => {
     const r = await sh(a.instanceId, 'for i in $(seq 1 400); do sleep 60 & done');
     expect(r.code).not.toBe(0);
