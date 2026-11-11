@@ -132,15 +132,16 @@ export class InstanceService {
       throw new ConflictError(`Cannot stop an instance in state ${i.status}`);
     }
     const from = i.status;
-    await transition(this.prisma, { id: i.id, from, to: 'STOPPED', eventType: 'instance.stopped', message: 'Instance stopped' });
+    await transition(this.prisma, { id: i.id, from, to: 'STOPPING', eventType: 'instance.stopping', message: 'Instance stopping' });
     try {
       await this.runtime.stop(i.id);
     } catch (e) {
       await revert(this.prisma, {
-        id: i.id, from: 'STOPPED', to: from, eventType: 'runtime.unavailable', message: 'Stop could not be completed',
+        id: i.id, from: 'STOPPING', to: from, eventType: 'runtime.unavailable', message: 'Stop could not be completed',
       });
       throw e;
     }
+    await transition(this.prisma, { id: i.id, from: 'STOPPING', to: 'STOPPED', eventType: 'instance.stopped', message: 'Instance stopped' });
     return this.get(tenantId, instanceId);
   }
 

@@ -14,6 +14,7 @@ enum InstanceStatus {
   STARTING
   ACTIVE
   DEGRADED
+  STOPPING // internal transitional state: serializes stop against start/restart/delete
   STOPPED // internal: customer-initiated stop (not in PRD 10.2; see ADR)
   FAILED
   DELETING

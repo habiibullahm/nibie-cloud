@@ -127,6 +127,21 @@ describe('InstanceService', () => {
     expect(bad[0]!.reason).toBeInstanceOf(ConflictError);
   });
 
+  it('rejects restart and start with ConflictError while a stop is still in flight', async () => {
+    const real = realRuntime();
+    const slowStop = svc(wrapRuntime(real, {
+      stop: async (id, t) => { await new Promise((r) => setTimeout(r, 800)); await real.stop(id, t); },
+    }));
+    const v = await provision(slowStop);
+    const stopping = slowStop.stop(s.tenant.id, v.id);
+    await new Promise((r) => setTimeout(r, 200));
+    expect((await slowStop.get(s.tenant.id, v.id)).status).toBe('STOPPING');
+    await expect(slowStop.restart(s.tenant.id, v.id)).rejects.toBeInstanceOf(ConflictError);
+    await expect(slowStop.start(s.tenant.id, v.id)).rejects.toBeInstanceOf(ConflictError);
+    expect((await stopping).status).toBe('STOPPED');
+    expect((await realRuntime().inspect(v.id)).state).toBe('exited');
+  });
+
   it('treats repeated stop and delete as no-ops', async () => {
     const service = svc();
     const v = await provision(service);
