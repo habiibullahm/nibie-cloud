@@ -62,12 +62,22 @@ API answers `503`.
 
 ## Recovery (`Reconciler`)
 
-Every 15 s (and on demand) for `ACTIVE`/`DEGRADED` instances: missing/exited container → re-`ensure`
-(same volume) and start, with at most 3 attempts and exponential backoff with jitter
-(2 s × 2ⁿ, cap 60 s); after that the instance stays `DEGRADED` (`recovery_exhausted`) with a single
-`recovery.exhausted` event and no further restarts. A running but unhealthy container is marked
-`DEGRADED` and restarted only after 3 consecutive failed probes. Docker outages cause `skipped`,
-never state changes or burned attempts. `STOPPED` instances are never restarted.
+Every 15 s (and on demand) for `ACTIVE`/`DEGRADED` instances: a missing/exited container is re-`ensure`d
+(same volume) and started, with at most 3 attempts and exponential backoff with jitter
+(2 s × 2ⁿ, cap 60 s). Before touching Docker the reconciler *claims* the instance
+(`→ STARTING`), so a concurrent user stop/delete/restart gets `409` instead of racing it.
+Recovery attempts are only forgiven after the restarted container has stayed up for a stability
+window (default 5 min), so a container that passes one health check and then crashes again still
+exhausts its attempts; after that the instance stays `DEGRADED` (`recovery_exhausted`) with a single
+`recovery.exhausted` event and no further restarts until an operator restarts it. A running but
+unhealthy container is marked `DEGRADED` and restarted only after 3 consecutive failed probes.
+Docker outages cause `skipped`, never state changes or burned attempts. `STOPPED` instances are
+never restarted.
+
+Abandoned operations (control-plane crash, DB blip) are resolved by `reapStale()`: transitional
+states older than 5 min are moved on with compare-and-set — `PENDING/PROVISIONING/CONFIGURING →
+FAILED(stalled)` (retry with the same idempotency key), `STARTING → DEGRADED(stalled)` (normal
+recovery follows), `STOPPING → STOPPED`, `DELETING → DELETED`.
 
 ## Image contract
 
@@ -86,7 +96,7 @@ This system is **not production-ready**. Open items, none of which are mitigated
 3. **Runtime isolation not validated (PRD 7.2).** Standard hardened `runc` containers only. No gVisor/microVM evaluation, no escape or kernel-exposure testing, seccomp/AppArmor not verified on target hosts (the dev sandbox uses cgroup v1).
 4. **Real Hermes image unvalidated** (read-only root, uid, ports, health endpoint, telegram transport).
 5. **Operator API only.** Single shared bearer token; no users, tenant membership, rate limits, CSRF or audit log. Never expose it publicly; it binds to loopback.
-6. **Provisioning is synchronous and in-process;** no job queue, dead-letter queue or outbox. A control-plane crash mid-provision leaves an in-flight status that nothing resumes (STARTING/PROVISIONING are not reconciled).
+6. **Provisioning is synchronous and in-process;** no job queue, dead-letter queue or outbox. A control-plane crash mid-operation is only cleaned up by the 5-minute stale-state reaper (it fails or finishes the operation; it does not resume it). Multiple control-plane replicas are unsupported (each would run its own reconciler).
 7. **Single node, no scheduler or capacity reservation;** the host port is a random loopback port, with no ingress or TLS.
 8. **No secrets management** (envelope encryption, rotation) — no secrets are stored yet; log redaction is by key path only, so free-text secrets in messages would not be caught.
 9. **No backups/restore, customer shell/file broker, metrics, or suspend/grace/retention lifecycle.**

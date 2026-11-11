@@ -16,6 +16,7 @@ describe('canTransition', () => {
     ['STOPPED', 'STARTING'],
     ['ACTIVE', 'STARTING'],
     ['DEGRADED', 'STARTING'],
+    ['PENDING', 'FAILED'],
     ['PROVISIONING', 'FAILED'],
     ['CONFIGURING', 'FAILED'],
     ['STARTING', 'FAILED'],

@@ -215,6 +215,29 @@ describe('InstanceService', () => {
     expect(retried.status).toBe('ACTIVE');
   });
 
+  it('leaves the instance DEGRADED (not STOPPED) when Docker blinks during the post-start health wait', async () => {
+    const service = svc();
+    const v = await provision(service);
+    await service.stop(s.tenant.id, v.id);
+    const blink = svc(wrapRuntime(realRuntime(), {
+      checkHealth: async () => { throw new RuntimeUnavailableError(); },
+    }));
+    const after = await blink.start(s.tenant.id, v.id);
+    expect(after.status).toBe('DEGRADED');
+    expect(after.statusReason).toBe('runtime_unavailable');
+    expect((await realRuntime().inspect(v.id)).state).toBe('running');
+  });
+
+  it('stops the container when provisioning fails on a health timeout', async () => {
+    const unhealthy = svc(wrapRuntime(realRuntime(), {
+      checkHealth: async () => ({ ok: false, latencyMs: 1, detail: 'HTTP 500' }),
+    }), { healthTimeoutMs: 800 });
+    const v = await provision(unhealthy);
+    expect(v.status).toBe('FAILED');
+    expect(v.statusReason).toBe('health_check_timeout');
+    expect((await realRuntime().inspect(v.id)).state).toBe('exited');
+  });
+
   it.each(['', 'x'.repeat(64), 'bad\u0000name', 'line\nbreak'])('rejects invalid name %j', async (name) => {
     await expect(provision(svc(), key(), name)).rejects.toBeInstanceOf(ValidationError);
   });

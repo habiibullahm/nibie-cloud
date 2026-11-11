@@ -19,9 +19,10 @@ let s: Awaited<ReturnType<typeof seed>>;
 let logs = '';
 const logStream = new Writable({ write(c, _e, cb) { logs += c.toString(); cb(); } });
 
-function app(runtime: RuntimeManager = realRuntime()): FastifyInstance {
+function app(runtime: RuntimeManager = realRuntime(), tweak?: (s: InstanceService) => void): FastifyInstance {
   const logger = createLogger({ level: 'debug', stream: logStream });
-  const service = new InstanceService({ prisma, runtime, image, production: false, logger: silentLogger, pollIntervalMs: 200, healthTimeoutMs: 15_000 });
+  const service = new InstanceService({ prisma, runtime, image, production: false, logger, pollIntervalMs: 200, healthTimeoutMs: 15_000 });
+  tweak?.(service);
   return buildServer({
     service, logger,
     config: { nodeEnv: 'test', databaseUrl: 'x', hermesImage: image, port: 0, adminToken: TOKEN, dockerSocketPath: '' },
@@ -115,6 +116,19 @@ describe('REST API', () => {
     expect(res.json().error.code).toBe('runtime_unavailable');
     const status = await ok.inject({ method: 'GET', url: `${base()}/${id}/status`, headers: auth });
     expect(status.json().status).toBe('ACTIVE');
+  });
+
+  it('answers unexpected errors with a generic 500 and never echoes or logs their message', async () => {
+    const boom = app(realRuntime(), (svc) => {
+      svc.list = async () => { throw new Error(`db password=hunter2 token=${TOKEN}`); };
+    });
+    const res = await boom.inject({ method: 'GET', url: base(), headers: auth });
+    expect(res.statusCode).toBe(500);
+    expect(res.json()).toEqual({ error: { code: 'internal_error', message: 'Internal error' } });
+    expect(res.body).not.toContain('hunter2');
+    expect(logs).not.toContain('hunter2');
+    expect(logs).not.toContain(TOKEN);
+    expect(logs).toContain('unhandled error');
   });
 
   it('never returns 500 details and never logs or echoes the admin token', async () => {

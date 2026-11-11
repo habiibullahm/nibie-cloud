@@ -1,8 +1,8 @@
-import type { Instance, PrismaClient } from '@prisma/client';
-import { RuntimeUnavailableError } from '../../shared/errors.js';
+import type { Instance, InstanceStatus, PrismaClient } from '@prisma/client';
+import { ConflictError, RuntimeUnavailableError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import type { RuntimeInspection, RuntimeManager } from '../runtime/types.js';
-import { recordEvent, transition } from './instance-repo.js';
+import { recordEvent, revert, transition } from './instance-repo.js';
 
 export type ReconcileResult = 'ok' | 'recovered' | 'waiting' | 'degraded' | 'exhausted' | 'skipped';
 
@@ -20,9 +20,14 @@ export interface ReconcilerDeps {
   unhealthyThreshold?: number;
   pollIntervalMs?: number;
   healthTimeoutMs?: number;
+  /** A restarted container must stay up this long before its recovery attempts are forgiven. */
+  stabilityWindowMs?: number;
+  /** Transitional states older than this are considered abandoned (crashed control plane, DB blip). */
+  staleTransitionMs?: number;
 }
 
 const WATCHED = ['ACTIVE', 'DEGRADED'] as const;
+const TRANSITIONAL: InstanceStatus[] = ['PENDING', 'PROVISIONING', 'CONFIGURING', 'STARTING', 'STOPPING', 'DELETING'];
 
 function describeState(i: RuntimeInspection): string {
   if (i.state === 'absent') return 'container missing';
@@ -33,7 +38,8 @@ function describeState(i: RuntimeInspection): string {
 /**
  * Compares database state with Docker state and repairs it with bounded, backed-off
  * retries (PRD 13.2). Only gateway readiness is probed, so an upstream model-provider
- * outage never triggers a restart.
+ * outage never triggers a restart. Before it touches Docker it claims the instance
+ * (ACTIVE|DEGRADED -> STARTING) so user operations answer 409 instead of racing it.
  */
 export class Reconciler {
   private readonly d: Required<Omit<ReconcilerDeps, 'prisma' | 'runtime' | 'logger'>> & Pick<ReconcilerDeps, 'prisma' | 'runtime' | 'logger'>;
@@ -45,17 +51,20 @@ export class Reconciler {
       unhealthyThreshold: 3,
       pollIntervalMs: 500,
       healthTimeoutMs: 15_000,
+      stabilityWindowMs: 5 * 60_000,
+      staleTransitionMs: 5 * 60_000,
       ...deps,
     };
   }
 
   async reconcileAll(): Promise<void> {
+    await this.reapStale().catch((e) => this.d.logger.error({ errName: (e as Error).name }, 'stale reaper failed'));
     const rows = await this.d.prisma.instance.findMany({ where: { status: { in: [...WATCHED] } }, select: { id: true } });
     for (const { id } of rows) {
       try {
         await this.reconcileInstance(id);
       } catch (e) {
-        this.d.logger.error({ instanceId: id, err: (e as Error).message }, 'reconcile failed');
+        this.d.logger.error({ instanceId: id, errName: (e as Error).name }, 'reconcile failed');
       }
     }
   }
@@ -66,7 +75,7 @@ export class Reconciler {
       if (running) return;
       running = true;
       this.reconcileAll()
-        .catch((e) => this.d.logger.error({ err: (e as Error).message }, 'reconcile loop failed'))
+        .catch((e) => this.d.logger.error({ errName: (e as Error).name }, 'reconcile loop failed'))
         .finally(() => { running = false; });
     }, intervalMs);
     timer.unref();
@@ -86,18 +95,88 @@ export class Reconciler {
     }
   }
 
+  /**
+   * Resolves operations abandoned mid-flight, so no instance is wedged in a transitional
+   * state with no way out. All changes are compare-and-set: a live operation that
+   * finishes first simply wins. Returns how many instances were resolved.
+   */
+  async reapStale(): Promise<number> {
+    const { prisma, now, staleTransitionMs } = this.d;
+    const rows = await prisma.instance.findMany({
+      where: { status: { in: TRANSITIONAL }, updatedAt: { lt: new Date(now().getTime() - staleTransitionMs) } },
+    });
+    let resolved = 0;
+    for (const i of rows) {
+      try {
+        await this.resolveStale(i);
+        resolved++;
+      } catch (e) {
+        if (e instanceof ConflictError || e instanceof RuntimeUnavailableError) continue;
+        this.d.logger.error({ instanceId: i.id, errName: (e as Error).name }, 'resolving stale instance failed');
+      }
+    }
+    return resolved;
+  }
+
+  private async resolveStale(i: Instance): Promise<void> {
+    const { prisma, runtime } = this.d;
+    const reason = 'stalled';
+    switch (i.status) {
+      case 'PENDING':
+      case 'PROVISIONING':
+      case 'CONFIGURING':
+        await transition(prisma, {
+          id: i.id, from: i.status, to: 'FAILED', reason, eventType: 'provisioning.stalled',
+          message: 'Provisioning stalled; retry with the same idempotency key or delete',
+        });
+        return;
+      case 'STARTING':
+        await transition(prisma, {
+          id: i.id, from: 'STARTING', to: 'DEGRADED', reason, eventType: 'instance.degraded',
+          message: 'Operation stalled; automated recovery will take over',
+        });
+        return;
+      case 'STOPPING':
+        await runtime.stop(i.id);
+        await transition(prisma, { id: i.id, from: 'STOPPING', to: 'STOPPED', eventType: 'instance.stopped', message: 'Instance stopped' });
+        return;
+      case 'DELETING':
+        await runtime.remove(i.id, { deleteVolume: true });
+        await transition(prisma, {
+          id: i.id, from: 'DELETING', to: 'DELETED', eventType: 'instance.deleted', message: 'Instance and data deleted',
+          data: { deletedAt: new Date(), hostPort: null },
+        });
+        return;
+      default:
+    }
+  }
+
   private async onRunning(inst: Instance, insp: RuntimeInspection): Promise<ReconcileResult> {
+    const { prisma, now, stabilityWindowMs } = this.d;
     const health = await this.d.runtime.checkHealth(inst.id);
     if (health.ok) {
-      const unwell = inst.status === 'DEGRADED' || inst.consecutiveFailures > 0 || inst.recoveryAttempts > 0;
-      await this.markHealthy(inst, insp.hostPort, 'Instance is healthy again');
-      return unwell ? 'recovered' : 'ok';
+      const stable = insp.startedAt !== null && now().getTime() - insp.startedAt.getTime() >= stabilityWindowMs;
+      const data = {
+        consecutiveFailures: 0,
+        lastHealthAt: now(),
+        ...(insp.hostPort !== null ? { hostPort: insp.hostPort } : {}),
+        // Forgive past restarts only once the container has proven it stays up.
+        ...(stable ? { recoveryAttempts: 0, nextRecoveryAt: null } : {}),
+      };
+      if (inst.status === 'DEGRADED') {
+        await transition(prisma, {
+          id: inst.id, from: 'DEGRADED', to: 'ACTIVE', eventType: 'instance.active', message: 'Instance is healthy again', data,
+        }).catch((e) => { if (!(e instanceof ConflictError)) throw e; });
+        return 'recovered';
+      }
+      await prisma.instance.updateMany({ where: { id: inst.id, status: 'ACTIVE' }, data });
+      return 'ok';
     }
     const failures = inst.consecutiveFailures + 1;
     if (failures >= this.d.unhealthyThreshold) {
       return this.attemptRecovery(inst, 'restart', `health check failing (${failures} consecutive)`);
     }
-    await this.d.prisma.instance.update({ where: { id: inst.id }, data: { consecutiveFailures: failures } });
+    await prisma.instance.updateMany({ where: { id: inst.id, status: inst.status }, data: { consecutiveFailures: failures } });
     await this.setDegraded(inst, 'health_check_failed', 'instance.degraded', 'Health check failing');
     return 'degraded';
   }
@@ -107,15 +186,19 @@ export class Reconciler {
     if (inst.recoveryAttempts >= maxRecoveryAttempts) return this.markExhausted(inst);
     if (inst.nextRecoveryAt && now() < inst.nextRecoveryAt) return 'waiting';
 
+    const from = inst.status as 'ACTIVE' | 'DEGRADED';
     const attempts = inst.recoveryAttempts + 1;
-    await prisma.instance.update({
-      where: { id: inst.id },
-      data: {
-        recoveryAttempts: attempts,
-        nextRecoveryAt: new Date(now().getTime() + backoffMs(inst.recoveryAttempts)),
-      },
-    });
-    await recordEvent(prisma, inst.id, 'recovery.attempted', `Recovery attempt ${attempts}/${maxRecoveryAttempts}: ${why}`);
+    // Claim first: from here user stop/delete/restart answer 409 until we finish.
+    try {
+      await transition(prisma, {
+        id: inst.id, from, to: 'STARTING', reason: inst.statusReason, eventType: 'recovery.attempted',
+        message: `Recovery attempt ${attempts}/${maxRecoveryAttempts}: ${why}`,
+        data: { recoveryAttempts: attempts, nextRecoveryAt: new Date(now().getTime() + backoffMs(inst.recoveryAttempts)) },
+      });
+    } catch (e) {
+      if (e instanceof ConflictError) return 'skipped'; // someone else is operating on it
+      throw e;
+    }
 
     let healthy = false;
     try {
@@ -135,25 +218,33 @@ export class Reconciler {
       healthy = await this.waitHealthy(inst.id);
     } catch (e) {
       if (e instanceof RuntimeUnavailableError) {
-        // An outage must not burn recovery attempts.
-        await prisma.instance.update({
-          where: { id: inst.id },
+        // An outage must not burn recovery attempts or change the visible state.
+        await revert(prisma, {
+          id: inst.id, from: 'STARTING', to: from, reason: inst.statusReason, eventType: 'runtime.unavailable',
+          message: 'Recovery could not be completed',
           data: { recoveryAttempts: inst.recoveryAttempts, nextRecoveryAt: inst.nextRecoveryAt },
         });
         return 'skipped';
       }
-      this.d.logger.error({ instanceId: inst.id, err: (e as Error).message }, 'recovery attempt failed');
+      this.d.logger.error({ instanceId: inst.id, errName: (e as Error).name }, 'recovery attempt failed');
     }
 
-    const fresh = await prisma.instance.findUniqueOrThrow({ where: { id: inst.id } });
     if (healthy) {
-      const port = (await runtime.inspect(inst.id)).hostPort;
-      await this.markHealthy(fresh, port, 'Recovery succeeded', 'recovery.succeeded');
+      const port = (await runtime.inspect(inst.id).catch(() => null))?.hostPort ?? null;
+      await transition(prisma, {
+        id: inst.id, from: 'STARTING', to: 'ACTIVE', eventType: 'recovery.succeeded', message: 'Recovery succeeded',
+        data: { hostPort: port, lastHealthAt: now(), consecutiveFailures: 0 },
+      });
       return 'recovered';
     }
-    if (attempts >= maxRecoveryAttempts) return this.markExhausted(fresh);
-    await this.setDegraded(fresh, 'recovery_failed', 'instance.degraded', 'Recovery attempt failed');
-    return 'degraded';
+    const exhausted = attempts >= maxRecoveryAttempts;
+    await transition(prisma, {
+      id: inst.id, from: 'STARTING', to: 'DEGRADED',
+      reason: exhausted ? 'recovery_exhausted' : 'recovery_failed',
+      eventType: exhausted ? 'recovery.exhausted' : 'instance.degraded',
+      message: exhausted ? 'Automated recovery exhausted; operator attention required' : 'Recovery attempt failed',
+    });
+    return exhausted ? 'exhausted' : 'degraded';
   }
 
   private async markExhausted(inst: Instance): Promise<ReconcileResult> {
@@ -170,21 +261,8 @@ export class Reconciler {
     if (inst.status === 'ACTIVE') {
       await transition(prisma, { id: inst.id, from: 'ACTIVE', to: 'DEGRADED', reason, eventType, message }).catch(() => undefined);
     } else if (inst.status === 'DEGRADED' && inst.statusReason !== reason) {
-      await prisma.instance.updateMany({ where: { id: inst.id, status: 'DEGRADED' }, data: { statusReason: reason } });
-      await recordEvent(prisma, inst.id, eventType, message);
-    }
-  }
-
-  private async markHealthy(inst: Instance, hostPort: number | null, message: string, eventType = 'instance.active') {
-    const { prisma, now } = this.d;
-    const data = {
-      consecutiveFailures: 0, recoveryAttempts: 0, nextRecoveryAt: null, lastHealthAt: now(), hostPort,
-    };
-    if (inst.status === 'DEGRADED') {
-      await transition(prisma, { id: inst.id, from: 'DEGRADED', to: 'ACTIVE', eventType, message, data }).catch(() => undefined);
-    } else {
-      await prisma.instance.updateMany({ where: { id: inst.id, status: 'ACTIVE' }, data });
-      if (eventType !== 'instance.active') await recordEvent(prisma, inst.id, eventType, message);
+      const res = await prisma.instance.updateMany({ where: { id: inst.id, status: 'DEGRADED' }, data: { statusReason: reason } });
+      if (res.count === 1) await recordEvent(prisma, inst.id, eventType, message);
     }
   }
 

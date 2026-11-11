@@ -1,13 +1,15 @@
 import { randomUUID } from 'node:crypto';
+import { Writable } from 'node:stream';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createPrisma } from '../../src/db/client.js';
 import { InstanceService } from '../../src/modules/instances/instance-service.js';
 import { Reconciler } from '../../src/modules/instances/reconciler.js';
 import type { RuntimeManager } from '../../src/modules/runtime/types.js';
-import { RuntimeUnavailableError } from '../../src/shared/errors.js';
+import { ConflictError, RuntimeUnavailableError } from '../../src/shared/errors.js';
+import { createLogger } from '../../src/shared/logger.js';
 import { resetDb } from '../helpers/db.js';
 import { execIn } from '../helpers/exec.js';
-import { cleanupDocker, docker, realRuntime, seed, silentLogger, wrapRuntime } from '../helpers/service-env.js';
+import { cleanupDocker, docker, realRuntime, seed, silentLogger, waitFor, wrapRuntime } from '../helpers/service-env.js';
 import { ensureStubImage } from '../helpers/stub-image.js';
 
 const prisma = createPrisma(process.env.DATABASE_URL!);
@@ -18,8 +20,8 @@ const advance = (ms: number) => { clock = new Date(clock.getTime() + ms); };
 
 const service = (runtime: RuntimeManager = realRuntime()) =>
   new InstanceService({ prisma, runtime, image, production: false, logger: silentLogger, pollIntervalMs: 200, healthTimeoutMs: 15_000 });
-const reconciler = (runtime: RuntimeManager = realRuntime()) =>
-  new Reconciler({ prisma, runtime, logger: silentLogger, now: () => clock, pollIntervalMs: 200, healthTimeoutMs: 3_000 });
+const reconciler = (runtime: RuntimeManager = realRuntime(), over: Record<string, unknown> = {}) =>
+  new Reconciler({ prisma, runtime, logger: silentLogger, now: () => clock, pollIntervalMs: 200, healthTimeoutMs: 3_000, ...over });
 
 async function provisioned() {
   const v = await service().provision({ tenantId: s.tenant.id, planId: s.plan.id, name: 'a', idempotencyKey: randomUUID() });
@@ -56,7 +58,7 @@ describe('Reconciler', () => {
     expect(await reconciler().reconcileInstance(v.id)).toBe('recovered');
     const r = await row(v.id);
     expect(r.status).toBe('ACTIVE');
-    expect(r.recoveryAttempts).toBe(0);
+    expect(r.recoveryAttempts).toBe(1); // only reset after a stability window, see below
     expect(await boots(v.id)).toBe(2);
     expect((await execIn(docker, v.id, ['cat', '/data/marker'])).out.trim()).toBe('keep');
     expect(await eventTypes(v.id)).toContain('recovery.succeeded');
@@ -173,5 +175,118 @@ describe('Reconciler', () => {
     await reconciler().reconcileAll();
     expect((await row(a.id)).status).toBe('ACTIVE');
     expect((await row(b.id)).status).toBe('ACTIVE');
+  });
+
+  it('bounds a crash loop even when every restart passes one health check before crashing again', async () => {
+    const v = await provisioned();
+    const real = realRuntime();
+    let starts = 0;
+    const counting = wrapRuntime(real, { start: async (id) => { starts++; await real.start(id); } });
+    const rec = reconciler(counting);
+    const results: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      await docker.getContainer(`hermes-${v.id}`).kill();
+      advance(120_000);
+      results.push(await rec.reconcileInstance(v.id));
+    }
+    expect(results).toEqual(['recovered', 'recovered', 'recovered', 'exhausted']);
+    expect(starts).toBe(3);
+    const r = await row(v.id);
+    expect(r.status).toBe('DEGRADED');
+    expect(r.statusReason).toBe('recovery_exhausted');
+  });
+
+  it('resets recovery counters only after the container has stayed up for the stability window', async () => {
+    const v = await provisioned();
+    await docker.getContainer(`hermes-${v.id}`).kill();
+    const rec = reconciler();
+    expect(await rec.reconcileInstance(v.id)).toBe('recovered');
+    expect((await row(v.id)).recoveryAttempts).toBe(1);
+    clock = new Date(Date.now() + 6 * 60_000); // real container start time + > 5 min
+    expect(await rec.reconcileInstance(v.id)).toBe('ok');
+    const r = await row(v.id);
+    expect(r.recoveryAttempts).toBe(0);
+    expect(r.nextRecoveryAt).toBeNull();
+  });
+
+  it('claims the instance during recovery so a concurrent delete or stop gets ConflictError', async () => {
+    const v = await provisioned();
+    await docker.getContainer(`hermes-${v.id}`).kill();
+    const real = realRuntime();
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const slow = wrapRuntime(real, { start: async (id) => { await gate; await real.start(id); } });
+    const pending = reconciler(slow).reconcileInstance(v.id);
+    await waitFor(async () => (await row(v.id)).status === 'STARTING', 3_000);
+    await expect(service().delete(s.tenant.id, v.id)).rejects.toBeInstanceOf(ConflictError);
+    await expect(service().stop(s.tenant.id, v.id)).rejects.toBeInstanceOf(ConflictError);
+    release();
+    expect(await pending).toBe('recovered');
+    expect((await row(v.id)).status).toBe('ACTIVE');
+    expect((await real.inspect(v.id)).state).toBe('running');
+  });
+
+  describe('stale transitional states', () => {
+    const stale = (id: string, status: 'PENDING' | 'PROVISIONING' | 'CONFIGURING' | 'STARTING' | 'STOPPING' | 'DELETING', minutesAgo = 10) =>
+      prisma.instance.update({ where: { id }, data: { status, updatedAt: new Date(Date.now() - minutesAgo * 60_000) } });
+    beforeEach(() => { clock = new Date(); });
+
+    it('moves a stale STARTING instance to DEGRADED so normal recovery takes over', async () => {
+      const v = await provisioned();
+      await stale(v.id, 'STARTING');
+      const rec = reconciler();
+      expect(await rec.reapStale()).toBe(1);
+      expect((await row(v.id)).status).toBe('DEGRADED');
+      expect((await row(v.id)).statusReason).toBe('stalled');
+      expect(await rec.reconcileInstance(v.id)).toBe('recovered');
+      expect((await row(v.id)).status).toBe('ACTIVE');
+    });
+
+    it('finishes a stale DELETING instance', async () => {
+      const v = await provisioned();
+      await stale(v.id, 'DELETING');
+      expect(await reconciler().reapStale()).toBe(1);
+      const r = await row(v.id);
+      expect(r.status).toBe('DELETED');
+      expect(r.deletedAt).not.toBeNull();
+      expect((await realRuntime().inspect(v.id))).toMatchObject({ state: 'absent', volumePresent: false });
+    });
+
+    it('finishes a stale STOPPING instance', async () => {
+      const v = await provisioned();
+      await stale(v.id, 'STOPPING');
+      expect(await reconciler().reapStale()).toBe(1);
+      expect((await row(v.id)).status).toBe('STOPPED');
+      expect((await realRuntime().inspect(v.id)).state).toBe('exited');
+    });
+
+    it('fails a stale PROVISIONING instance so the same idempotency key can retry it', async () => {
+      const v = await provisioned();
+      await stale(v.id, 'PROVISIONING');
+      expect(await reconciler().reapStale()).toBe(1);
+      const r = await row(v.id);
+      expect(r.status).toBe('FAILED');
+      expect(r.statusReason).toBe('stalled');
+      const retried = await service().provision({ tenantId: s.tenant.id, planId: s.plan.id, name: 'a', idempotencyKey: r.idempotencyKey });
+      expect(retried.id).toBe(v.id);
+      expect(retried.status).toBe('ACTIVE');
+    });
+
+    it('leaves recent transitional states alone', async () => {
+      const v = await provisioned();
+      await stale(v.id, 'STARTING', 1);
+      expect(await reconciler().reapStale()).toBe(0);
+      expect((await row(v.id)).status).toBe('STARTING');
+    });
+  });
+
+  it('logs only the error class when reconciling fails, never the message', async () => {
+    const v = await provisioned();
+    let logs = '';
+    const logger = createLogger({ level: 'debug', stream: new Writable({ write(c, _e, cb) { logs += c.toString(); cb(); } }) });
+    const broken = wrapRuntime(realRuntime(), { inspect: async () => { throw new Error('leak SUPERSECRETVALUE'); } });
+    await reconciler(broken, { logger }).reconcileAll();
+    expect(logs).toContain(v.id);
+    expect(logs).not.toContain('SUPERSECRETVALUE');
   });
 });

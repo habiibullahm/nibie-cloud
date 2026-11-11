@@ -1,7 +1,7 @@
 import type { InstanceStatus } from '@prisma/client';
 
 const T: Record<InstanceStatus, readonly InstanceStatus[]> = {
-  PENDING: ['PROVISIONING'],
+  PENDING: ['PROVISIONING', 'FAILED'],
   PROVISIONING: ['CONFIGURING', 'FAILED'],
   CONFIGURING: ['STARTING', 'FAILED'],
   STARTING: ['ACTIVE', 'DEGRADED', 'FAILED'],

@@ -207,6 +207,8 @@ export class InstanceService {
       await transition(this.prisma, {
         id: inst.id, from: current, to: 'FAILED', reason, eventType: 'provisioning.failed', message: `Provisioning failed: ${reason}`,
       }).catch(() => undefined);
+      // A failed instance must not keep consuming node capacity (best effort; the daemon may be down).
+      await this.runtime.stop(inst.id).catch(() => undefined);
       if (e instanceof RuntimeUnavailableError) throw e;
     }
     return this.get(tenantId, inst.id);
@@ -219,6 +221,17 @@ export class InstanceService {
     });
     try {
       await this.runtime[op](i.id);
+    } catch (e) {
+      if (e instanceof RuntimeUnavailableError) {
+        await revert(this.prisma, { id: i.id, from: 'STARTING', to: from, eventType: 'runtime.unavailable', message: 'Operation could not be completed' });
+        throw e;
+      }
+      this.logger.error({ instanceId: i.id, errName: (e as Error).name }, 'start failed');
+      await this.degradeAfterStart(i.id, 'runtime_start_failed');
+      return this.get(i.tenantId, i.id);
+    }
+    // From here the container may be running, so never revert to STOPPED: hand over to the Reconciler.
+    try {
       await this.waitHealthy(i.id);
       const port = (await this.runtime.inspect(i.id)).hostPort;
       await transition(this.prisma, {
@@ -226,17 +239,18 @@ export class InstanceService {
         data: { hostPort: port, lastHealthAt: new Date(), ...RESET_RECOVERY },
       });
     } catch (e) {
-      if (e instanceof RuntimeUnavailableError) {
-        await revert(this.prisma, { id: i.id, from: 'STARTING', to: from, eventType: 'runtime.unavailable', message: 'Operation could not be completed' });
-        throw e;
-      }
-      const reason = e instanceof HealthTimeout ? 'health_check_timeout' : 'runtime_start_failed';
-      this.logger.error({ instanceId: i.id, reason }, 'start failed');
-      await transition(this.prisma, {
-        id: i.id, from: 'STARTING', to: 'DEGRADED', reason, eventType: 'instance.degraded', message: `Instance degraded: ${reason}`,
-      }).catch(() => undefined);
+      const reason = e instanceof HealthTimeout ? 'health_check_timeout'
+        : e instanceof RuntimeUnavailableError ? 'runtime_unavailable' : 'runtime_start_failed';
+      this.logger.error({ instanceId: i.id, reason }, 'start did not complete');
+      await this.degradeAfterStart(i.id, reason);
     }
     return this.get(i.tenantId, i.id);
+  }
+
+  private async degradeAfterStart(instanceId: string, reason: string): Promise<void> {
+    await transition(this.prisma, {
+      id: instanceId, from: 'STARTING', to: 'DEGRADED', reason, eventType: 'instance.degraded', message: `Instance degraded: ${reason}`,
+    }).catch(() => undefined);
   }
 
   private async waitHealthy(instanceId: string): Promise<void> {
