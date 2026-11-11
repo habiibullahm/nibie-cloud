@@ -1,7 +1,12 @@
 import type { Instance, InstanceStatus, Prisma, PrismaClient } from '@prisma/client';
+import type { Lease } from './lease.js';
 import { ConflictError, NotFoundError } from '../../shared/errors.js';
 import { isUuid } from '../../shared/uuid.js';
 import { canTransition } from './state-machine.js';
+
+export const TRANSITIONAL_STATUSES: readonly InstanceStatus[] = [
+  'PENDING', 'PROVISIONING', 'CONFIGURING', 'STARTING', 'STOPPING', 'DELETING',
+];
 
 export interface TransitionOpts {
   id: string;
@@ -13,6 +18,12 @@ export interface TransitionOpts {
   /** Pre-sanitized. */
   message: string;
   data?: Prisma.InstanceUpdateManyMutationInput;
+  /** Take the operation lease. Only meaningful when entering a transitional status. */
+  lease?: Lease;
+  /** The write only applies while this operation still owns the lease (fencing). */
+  owner?: string;
+  /** Extra guard, e.g. "lease has expired" for the reaper. */
+  fence?: Prisma.InstanceWhereInput;
 }
 
 /**
@@ -33,9 +44,18 @@ export async function revert(prisma: PrismaClient, o: TransitionOpts): Promise<v
 
 async function casAndRecord(prisma: PrismaClient, o: TransitionOpts): Promise<void> {
   await prisma.$transaction(async (tx) => {
+    // Entering a stable status releases the lease; staying transitional keeps it.
+    const leaseData = TRANSITIONAL_STATUSES.includes(o.to)
+      ? o.lease ? { operationOwner: o.lease.owner, leaseExpiresAt: o.lease.expiresAt } : {}
+      : { operationOwner: null, leaseExpiresAt: null };
     const res = await tx.instance.updateMany({
-      where: { id: o.id, status: o.from },
-      data: { ...o.data, status: o.to, statusReason: o.reason ?? null },
+      where: {
+        id: o.id,
+        status: o.from,
+        ...(o.owner ? { operationOwner: o.owner } : {}),
+        ...(o.fence ? { AND: [o.fence] } : {}),
+      },
+      data: { ...o.data, ...leaseData, status: o.to, statusReason: o.reason ?? null },
     });
     if (res.count === 0) throw new ConflictError('Instance state changed concurrently');
     await tx.instanceEvent.create({ data: { instanceId: o.id, type: o.eventType, message: o.message } });

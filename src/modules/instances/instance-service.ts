@@ -5,6 +5,7 @@ import { isUuid } from '../../shared/uuid.js';
 import { assertPinnedImage } from '../runtime/image-policy.js';
 import type { RuntimeManager } from '../runtime/types.js';
 import { findOwned, revert, transition } from './instance-repo.js';
+import { newLease, startHeartbeat, type Lease } from './lease.js';
 
 export interface InstanceView {
   id: string;
@@ -24,6 +25,11 @@ export interface InstanceServiceDeps {
   logger: Logger;
   pollIntervalMs?: number;
   healthTimeoutMs?: number;
+  /** Operation lease TTL; a heartbeat renews it every TTL/3 while the operation runs. */
+  leaseTtlMs?: number;
+  /** A single operation stops renewing its lease after this long (hung-operation backstop). */
+  maxOperationMs?: number;
+  now?: () => Date;
 }
 
 class HealthTimeout extends Error {}
@@ -56,6 +62,9 @@ export class InstanceService {
   private readonly logger: Logger;
   private readonly pollIntervalMs: number;
   private readonly healthTimeoutMs: number;
+  private readonly leaseTtlMs: number;
+  private readonly maxOperationMs: number;
+  private readonly now: () => Date;
 
   constructor(deps: InstanceServiceDeps) {
     assertPinnedImage(deps.image, { production: deps.production });
@@ -65,6 +74,9 @@ export class InstanceService {
     this.logger = deps.logger;
     this.pollIntervalMs = deps.pollIntervalMs ?? 500;
     this.healthTimeoutMs = deps.healthTimeoutMs ?? 30_000;
+    this.leaseTtlMs = deps.leaseTtlMs ?? 60_000;
+    this.maxOperationMs = deps.maxOperationMs ?? 10 * 60_000;
+    this.now = deps.now ?? (() => new Date());
   }
 
   async provision(input: { tenantId: string; name: string; planId: string; idempotencyKey: string }): Promise<InstanceView> {
@@ -141,16 +153,19 @@ export class InstanceService {
       throw new ConflictError(`Cannot stop an instance in state ${i.status}`);
     }
     const from = i.status;
-    await transition(this.prisma, { id: i.id, from, to: 'STOPPING', eventType: 'instance.stopping', message: 'Instance stopping' });
-    try {
-      await this.runtime.stop(i.id);
-    } catch (e) {
-      await revert(this.prisma, {
-        id: i.id, from: 'STOPPING', to: from, eventType: 'runtime.unavailable', message: 'Stop could not be completed',
-      });
-      throw e;
-    }
-    await transition(this.prisma, { id: i.id, from: 'STOPPING', to: 'STOPPED', eventType: 'instance.stopped', message: 'Instance stopped' });
+    const lease = this.newLease();
+    await transition(this.prisma, { id: i.id, from, to: 'STOPPING', eventType: 'instance.stopping', message: 'Instance stopping', lease });
+    await this.leased(i.id, lease, async (owner) => {
+      try {
+        await this.runtime.stop(i.id);
+      } catch (e) {
+        await revert(this.prisma, {
+          id: i.id, from: 'STOPPING', to: from, owner, eventType: 'runtime.unavailable', message: 'Stop could not be completed',
+        });
+        throw e;
+      }
+      await transition(this.prisma, { id: i.id, from: 'STOPPING', to: 'STOPPED', owner, eventType: 'instance.stopped', message: 'Instance stopped' });
+    });
     return this.get(tenantId, instanceId);
   }
 
@@ -161,32 +176,57 @@ export class InstanceService {
       throw new ConflictError(`Cannot delete an instance in state ${i.status}`);
     }
     const from = i.status;
-    await transition(this.prisma, { id: i.id, from, to: 'DELETING', eventType: 'deletion.started', message: 'Deletion started' });
-    try {
-      await this.runtime.remove(i.id, { deleteVolume: true });
-    } catch (e) {
-      await revert(this.prisma, {
-        id: i.id, from: 'DELETING', to: from, eventType: 'deletion.failed', message: 'Deletion could not be completed',
+    const lease = this.newLease();
+    await transition(this.prisma, { id: i.id, from, to: 'DELETING', eventType: 'deletion.started', message: 'Deletion started', lease });
+    await this.leased(i.id, lease, async (owner) => {
+      try {
+        await this.runtime.remove(i.id, { deleteVolume: true });
+      } catch (e) {
+        await revert(this.prisma, {
+          id: i.id, from: 'DELETING', to: from, owner, eventType: 'deletion.failed', message: 'Deletion could not be completed',
+        });
+        throw e;
+      }
+      await transition(this.prisma, {
+        id: i.id, from: 'DELETING', to: 'DELETED', owner, eventType: 'instance.deleted', message: 'Instance and data deleted',
+        data: { deletedAt: new Date(), hostPort: null },
       });
-      throw e;
-    }
-    await transition(this.prisma, {
-      id: i.id, from: 'DELETING', to: 'DELETED', eventType: 'instance.deleted', message: 'Instance and data deleted',
-      data: { deletedAt: new Date(), hostPort: null },
     });
     return this.get(tenantId, instanceId);
   }
 
+  private newLease(): Lease {
+    return newLease(this.leaseTtlMs, this.now);
+  }
+
+  /** Runs `fn` while a heartbeat keeps the operation lease alive. `fn` writes only as `owner`. */
+  private async leased<T>(instanceId: string, lease: Lease, fn: (owner: string) => Promise<T>): Promise<T> {
+    const stop = startHeartbeat({
+      prisma: this.prisma, instanceId, owner: lease.owner, ttlMs: this.leaseTtlMs,
+      maxOperationMs: this.maxOperationMs, logger: this.logger, now: this.now,
+    });
+    try {
+      return await fn(lease.owner);
+    } finally {
+      stop();
+    }
+  }
+
   private async runProvision(inst: Instance, plan: Plan): Promise<InstanceView> {
-    const tenantId = inst.tenantId;
+    const lease = this.newLease();
     try {
       await transition(this.prisma, {
-        id: inst.id, from: inst.status, to: 'PROVISIONING', eventType: 'provisioning.started', message: 'Provisioning started',
+        id: inst.id, from: inst.status, to: 'PROVISIONING', eventType: 'provisioning.started', message: 'Provisioning started', lease,
       });
     } catch (e) {
-      if (e instanceof ConflictError) return this.get(tenantId, inst.id); // another caller is driving it
+      if (e instanceof ConflictError) return this.get(inst.tenantId, inst.id); // another caller is driving it
       throw e;
     }
+    return this.leased(inst.id, lease, (owner) => this.provisionSteps(inst, plan, owner));
+  }
+
+  private async provisionSteps(inst: Instance, plan: Plan, owner: string): Promise<InstanceView> {
+    const tenantId = inst.tenantId;
     let current: InstanceStatus = 'PROVISIONING';
     try {
       await this.runtime.ensure({
@@ -196,15 +236,15 @@ export class InstanceService {
         limits: { cpuMillis: plan.cpuMillis, memoryMb: plan.memoryMb, pids: plan.pids },
         env: { HERMES_INSTANCE_ID: inst.id },
       });
-      await transition(this.prisma, { id: inst.id, from: 'PROVISIONING', to: 'CONFIGURING', eventType: 'runtime.created', message: 'Runtime created' });
+      await transition(this.prisma, { id: inst.id, from: 'PROVISIONING', to: 'CONFIGURING', owner, eventType: 'runtime.created', message: 'Runtime created' });
       current = 'CONFIGURING';
-      await transition(this.prisma, { id: inst.id, from: 'CONFIGURING', to: 'STARTING', eventType: 'runtime.starting', message: 'Runtime starting' });
+      await transition(this.prisma, { id: inst.id, from: 'CONFIGURING', to: 'STARTING', owner, eventType: 'runtime.starting', message: 'Runtime starting' });
       current = 'STARTING';
       await this.runtime.start(inst.id);
       await this.waitHealthy(inst.id);
       const port = (await this.runtime.inspect(inst.id)).hostPort;
       await transition(this.prisma, {
-        id: inst.id, from: 'STARTING', to: 'ACTIVE', eventType: 'instance.active', message: 'Instance is active',
+        id: inst.id, from: 'STARTING', to: 'ACTIVE', owner, eventType: 'instance.active', message: 'Instance is active',
         data: { hostPort: port, lastHealthAt: new Date(), ...RESET_RECOVERY },
       });
     } catch (e) {
@@ -213,11 +253,18 @@ export class InstanceService {
           : e instanceof HealthTimeout ? 'health_check_timeout'
             : 'runtime_create_failed';
       this.logger.error({ instanceId: inst.id, reason }, 'provisioning failed');
-      await transition(this.prisma, {
-        id: inst.id, from: current, to: 'FAILED', reason, eventType: 'provisioning.failed', message: `Provisioning failed: ${reason}`,
-      }).catch(() => undefined);
+      let stillOurs = true;
+      try {
+        await transition(this.prisma, {
+          id: inst.id, from: current, to: 'FAILED', reason, owner, eventType: 'provisioning.failed', message: `Provisioning failed: ${reason}`,
+        });
+      } catch {
+        stillOurs = false; // lost the lease (reaped/taken over): do not overwrite the outcome
+      }
       // A failed instance must not keep consuming node capacity (best effort; the daemon may be down).
-      await this.runtime.stop(inst.id).catch(() => undefined);
+      // If we lost ownership, only touch Docker when no other operation has taken the instance since.
+      const settled = stillOurs || (await this.prisma.instance.findUnique({ where: { id: inst.id } }).catch(() => null))?.status === 'FAILED';
+      if (settled) await this.runtime.stop(inst.id).catch(() => undefined);
       if (e instanceof RuntimeUnavailableError) throw e;
     }
     return this.get(tenantId, inst.id);
@@ -225,18 +272,23 @@ export class InstanceService {
 
   private async startFlow(i: Instance, op: 'start' | 'restart'): Promise<InstanceView> {
     const from = i.status;
+    const lease = this.newLease();
     await transition(this.prisma, {
-      id: i.id, from, to: 'STARTING', eventType: `runtime.${op}`, message: op === 'start' ? 'Runtime starting' : 'Runtime restarting',
+      id: i.id, from, to: 'STARTING', lease, eventType: `runtime.${op}`, message: op === 'start' ? 'Runtime starting' : 'Runtime restarting',
     });
+    return this.leased(i.id, lease, (owner) => this.startSteps(i, op, from, owner));
+  }
+
+  private async startSteps(i: Instance, op: 'start' | 'restart', from: InstanceStatus, owner: string): Promise<InstanceView> {
     try {
       await this.runtime[op](i.id);
     } catch (e) {
       if (e instanceof RuntimeUnavailableError) {
-        await revert(this.prisma, { id: i.id, from: 'STARTING', to: from, eventType: 'runtime.unavailable', message: 'Operation could not be completed' });
+        await revert(this.prisma, { id: i.id, from: 'STARTING', to: from, owner, eventType: 'runtime.unavailable', message: 'Operation could not be completed' });
         throw e;
       }
       this.logger.error({ instanceId: i.id, errName: (e as Error).name }, 'start failed');
-      await this.degradeAfterStart(i.id, 'runtime_start_failed');
+      await this.degradeAfterStart(i.id, owner, 'runtime_start_failed');
       return this.get(i.tenantId, i.id);
     }
     // From here the container may be running, so never revert to STOPPED: hand over to the Reconciler.
@@ -244,21 +296,21 @@ export class InstanceService {
       await this.waitHealthy(i.id);
       const port = (await this.runtime.inspect(i.id)).hostPort;
       await transition(this.prisma, {
-        id: i.id, from: 'STARTING', to: 'ACTIVE', eventType: 'instance.active', message: 'Instance is active',
+        id: i.id, from: 'STARTING', to: 'ACTIVE', owner, eventType: 'instance.active', message: 'Instance is active',
         data: { hostPort: port, lastHealthAt: new Date(), ...RESET_RECOVERY },
       });
     } catch (e) {
       const reason = e instanceof HealthTimeout ? 'health_check_timeout'
         : e instanceof RuntimeUnavailableError ? 'runtime_unavailable' : 'runtime_start_failed';
       this.logger.error({ instanceId: i.id, reason }, 'start did not complete');
-      await this.degradeAfterStart(i.id, reason);
+      await this.degradeAfterStart(i.id, owner, reason);
     }
     return this.get(i.tenantId, i.id);
   }
 
-  private async degradeAfterStart(instanceId: string, reason: string): Promise<void> {
+  private async degradeAfterStart(instanceId: string, owner: string, reason: string): Promise<void> {
     await transition(this.prisma, {
-      id: instanceId, from: 'STARTING', to: 'DEGRADED', reason, eventType: 'instance.degraded', message: `Instance degraded: ${reason}`,
+      id: instanceId, from: 'STARTING', to: 'DEGRADED', reason, owner, eventType: 'instance.degraded', message: `Instance degraded: ${reason}`,
     }).catch(() => undefined);
   }
 
@@ -271,4 +323,3 @@ export class InstanceService {
     }
   }
 }
-

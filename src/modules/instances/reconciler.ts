@@ -1,8 +1,9 @@
-import type { Instance, InstanceStatus, PrismaClient } from '@prisma/client';
+import type { Instance, Prisma, PrismaClient } from '@prisma/client';
 import { ConflictError, RuntimeUnavailableError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import type { RuntimeInspection, RuntimeManager } from '../runtime/types.js';
-import { recordEvent, revert, transition } from './instance-repo.js';
+import { TRANSITIONAL_STATUSES, recordEvent, revert, transition } from './instance-repo.js';
+import { newLease, startHeartbeat } from './lease.js';
 
 export type ReconcileResult = 'ok' | 'recovered' | 'waiting' | 'degraded' | 'exhausted' | 'skipped';
 
@@ -22,12 +23,17 @@ export interface ReconcilerDeps {
   healthTimeoutMs?: number;
   /** A restarted container must stay up this long before its recovery attempts are forgiven. */
   stabilityWindowMs?: number;
-  /** Transitional states older than this are considered abandoned (crashed control plane, DB blip). */
+  /**
+   * Fallback for transitional rows that carry no lease (written before leases existed, or
+   * abandoned before one was taken): considered abandoned after this long without updates.
+   */
   staleTransitionMs?: number;
+  /** Lease TTL for recovery operations; renewed every TTL/3 by a heartbeat. */
+  leaseTtlMs?: number;
+  maxOperationMs?: number;
 }
 
 const WATCHED = ['ACTIVE', 'DEGRADED'] as const;
-const TRANSITIONAL: InstanceStatus[] = ['PENDING', 'PROVISIONING', 'CONFIGURING', 'STARTING', 'STOPPING', 'DELETING'];
 
 function describeState(i: RuntimeInspection): string {
   if (i.state === 'absent') return 'container missing';
@@ -53,6 +59,8 @@ export class Reconciler {
       healthTimeoutMs: 15_000,
       stabilityWindowMs: 5 * 60_000,
       staleTransitionMs: 5 * 60_000,
+      leaseTtlMs: 60_000,
+      maxOperationMs: 10 * 60_000,
       ...deps,
     };
   }
@@ -96,19 +104,29 @@ export class Reconciler {
   }
 
   /**
-   * Resolves operations abandoned mid-flight, so no instance is wedged in a transitional
-   * state with no way out. All changes are compare-and-set: a live operation that
-   * finishes first simply wins. Returns how many instances were resolved.
+   * Resolves operations abandoned mid-flight (crashed control plane, DB blip), so no instance
+   * is wedged in a transitional state with no way out. An operation is abandoned only when its
+   * lease has expired: live operations renew their lease with a heartbeat and are never touched.
+   * Rows without a lease fall back to `staleTransitionMs` since the last update. Every write is
+   * fenced on the lease still being expired, so a lease renewed after the scan wins.
+   * Returns how many instances were resolved.
    */
   async reapStale(): Promise<number> {
     const { prisma, now, staleTransitionMs } = this.d;
+    const at = now();
+    const staleWhere: Prisma.InstanceWhereInput = {
+      OR: [
+        { leaseExpiresAt: { lt: at } },
+        { leaseExpiresAt: null, updatedAt: { lt: new Date(at.getTime() - staleTransitionMs) } },
+      ],
+    };
     const rows = await prisma.instance.findMany({
-      where: { status: { in: TRANSITIONAL }, updatedAt: { lt: new Date(now().getTime() - staleTransitionMs) } },
+      where: { status: { in: [...TRANSITIONAL_STATUSES] }, AND: [staleWhere] },
     });
     let resolved = 0;
     for (const i of rows) {
       try {
-        await this.resolveStale(i);
+        await this.resolveStale(i, staleWhere);
         resolved++;
       } catch (e) {
         if (e instanceof ConflictError || e instanceof RuntimeUnavailableError) continue;
@@ -118,7 +136,7 @@ export class Reconciler {
     return resolved;
   }
 
-  private async resolveStale(i: Instance): Promise<void> {
+  private async resolveStale(i: Instance, fence: Prisma.InstanceWhereInput): Promise<void> {
     const { prisma, runtime } = this.d;
     const reason = 'stalled';
     switch (i.status) {
@@ -126,29 +144,51 @@ export class Reconciler {
       case 'PROVISIONING':
       case 'CONFIGURING':
         await transition(prisma, {
-          id: i.id, from: i.status, to: 'FAILED', reason, eventType: 'provisioning.stalled',
+          id: i.id, from: i.status, to: 'FAILED', reason, fence, eventType: 'provisioning.stalled',
           message: 'Provisioning stalled; retry with the same idempotency key or delete',
         });
         return;
       case 'STARTING':
         await transition(prisma, {
-          id: i.id, from: 'STARTING', to: 'DEGRADED', reason, eventType: 'instance.degraded',
+          id: i.id, from: 'STARTING', to: 'DEGRADED', reason, fence, eventType: 'instance.degraded',
           message: 'Operation stalled; automated recovery will take over',
         });
         return;
       case 'STOPPING':
-        await runtime.stop(i.id);
-        await transition(prisma, { id: i.id, from: 'STOPPING', to: 'STOPPED', eventType: 'instance.stopped', message: 'Instance stopped' });
-        return;
-      case 'DELETING':
-        await runtime.remove(i.id, { deleteVolume: true });
-        await transition(prisma, {
-          id: i.id, from: 'DELETING', to: 'DELETED', eventType: 'instance.deleted', message: 'Instance and data deleted',
-          data: { deletedAt: new Date(), hostPort: null },
+      case 'DELETING': {
+        // Take over the lease first (fenced), so nothing else acts while we finish the job.
+        const lease = newLease(this.d.leaseTtlMs, this.d.now);
+        const took = await prisma.instance.updateMany({
+          where: { id: i.id, status: i.status, AND: [fence] },
+          data: { operationOwner: lease.owner, leaseExpiresAt: lease.expiresAt },
         });
+        if (took.count === 0) throw new ConflictError('Lease renewed concurrently');
+        const stopBeat = this.heartbeat(i.id, lease.owner);
+        try {
+          if (i.status === 'STOPPING') {
+            await runtime.stop(i.id);
+            await transition(prisma, { id: i.id, from: 'STOPPING', to: 'STOPPED', owner: lease.owner, eventType: 'instance.stopped', message: 'Instance stopped' });
+          } else {
+            await runtime.remove(i.id, { deleteVolume: true });
+            await transition(prisma, {
+              id: i.id, from: 'DELETING', to: 'DELETED', owner: lease.owner, eventType: 'instance.deleted', message: 'Instance and data deleted',
+              data: { deletedAt: new Date(), hostPort: null },
+            });
+          }
+        } finally {
+          stopBeat();
+        }
         return;
+      }
       default:
     }
+  }
+
+  private heartbeat(instanceId: string, owner: string): () => void {
+    return startHeartbeat({
+      prisma: this.d.prisma, instanceId, owner, ttlMs: this.d.leaseTtlMs,
+      maxOperationMs: this.d.maxOperationMs, logger: this.d.logger, now: this.d.now,
+    });
   }
 
   private async onRunning(inst: Instance, insp: RuntimeInspection): Promise<ReconcileResult> {
@@ -188,10 +228,11 @@ export class Reconciler {
 
     const from = inst.status as 'ACTIVE' | 'DEGRADED';
     const attempts = inst.recoveryAttempts + 1;
+    const lease = newLease(this.d.leaseTtlMs, now);
     // Claim first: from here user stop/delete/restart answer 409 until we finish.
     try {
       await transition(prisma, {
-        id: inst.id, from, to: 'STARTING', reason: inst.statusReason, eventType: 'recovery.attempted',
+        id: inst.id, from, to: 'STARTING', lease, reason: inst.statusReason, eventType: 'recovery.attempted',
         message: `Recovery attempt ${attempts}/${maxRecoveryAttempts}: ${why}`,
         data: { recoveryAttempts: attempts, nextRecoveryAt: new Date(now().getTime() + backoffMs(inst.recoveryAttempts)) },
       });
@@ -200,6 +241,18 @@ export class Reconciler {
       throw e;
     }
 
+    const stopBeat = this.heartbeat(inst.id, lease.owner);
+    try {
+      return await this.recoverSteps(inst, mode, from, attempts, lease.owner);
+    } finally {
+      stopBeat();
+    }
+  }
+
+  private async recoverSteps(
+    inst: Instance, mode: 'start' | 'restart', from: 'ACTIVE' | 'DEGRADED', attempts: number, owner: string,
+  ): Promise<ReconcileResult> {
+    const { prisma, runtime, now, maxRecoveryAttempts } = this.d;
     let healthy = false;
     try {
       if (mode === 'restart') {
@@ -220,7 +273,7 @@ export class Reconciler {
       if (e instanceof RuntimeUnavailableError) {
         // An outage must not burn recovery attempts or change the visible state.
         await revert(prisma, {
-          id: inst.id, from: 'STARTING', to: from, reason: inst.statusReason, eventType: 'runtime.unavailable',
+          id: inst.id, from: 'STARTING', to: from, owner, reason: inst.statusReason, eventType: 'runtime.unavailable',
           message: 'Recovery could not be completed',
           data: { recoveryAttempts: inst.recoveryAttempts, nextRecoveryAt: inst.nextRecoveryAt },
         });
@@ -232,14 +285,14 @@ export class Reconciler {
     if (healthy) {
       const port = (await runtime.inspect(inst.id).catch(() => null))?.hostPort ?? null;
       await transition(prisma, {
-        id: inst.id, from: 'STARTING', to: 'ACTIVE', eventType: 'recovery.succeeded', message: 'Recovery succeeded',
+        id: inst.id, from: 'STARTING', to: 'ACTIVE', owner, eventType: 'recovery.succeeded', message: 'Recovery succeeded',
         data: { hostPort: port, lastHealthAt: now(), consecutiveFailures: 0 },
       });
       return 'recovered';
     }
     const exhausted = attempts >= maxRecoveryAttempts;
     await transition(prisma, {
-      id: inst.id, from: 'STARTING', to: 'DEGRADED',
+      id: inst.id, from: 'STARTING', to: 'DEGRADED', owner,
       reason: exhausted ? 'recovery_exhausted' : 'recovery_failed',
       eventType: exhausted ? 'recovery.exhausted' : 'instance.degraded',
       message: exhausted ? 'Automated recovery exhausted; operator attention required' : 'Recovery attempt failed',

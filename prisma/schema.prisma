@@ -62,6 +62,10 @@ model Instance {
   recoveryAttempts    Int            @default(0)
   nextRecoveryAt      DateTime?      @db.Timestamptz(3)
   lastHealthAt        DateTime?      @db.Timestamptz(3)
+  /// Lease for the in-flight operation (provision/start/stop/delete/recovery). Renewed by a
+  /// heartbeat; the stale reaper only touches rows whose lease has expired.
+  operationOwner      String?        @db.Uuid
+  leaseExpiresAt      DateTime?      @db.Timestamptz(3)
   createdAt           DateTime       @default(now()) @db.Timestamptz(3)
   updatedAt           DateTime       @updatedAt @db.Timestamptz(3)
   deletedAt           DateTime?      @db.Timestamptz(3)
@@ -73,6 +77,7 @@ model Instance {
 
   @@unique([tenantId, idempotencyKey])
   @@index([status])
+  @@index([status, leaseExpiresAt])
   @@index([tenantId])
 }
 
