@@ -3,6 +3,7 @@ import Fastify, { type FastifyBaseLogger, type FastifyInstance, type FastifyRepl
 import { ZodError, z } from 'zod';
 import type { Config } from '../config/env.js';
 import type { InstanceService } from '../modules/instances/instance-service.js';
+import { isDatabaseUnavailable } from '../db/errors.js';
 import { AppError, NotFoundError } from '../shared/errors.js';
 import type { Logger } from '../shared/logger.js';
 
@@ -33,6 +34,10 @@ export function buildServer(deps: { service: InstanceService; config: Config; lo
       return reply.status(400).send({ error: { code: 'validation_error', message: 'Invalid request' } });
     }
     const e = err as { name?: string; statusCode?: number };
+    if (isDatabaseUnavailable(err)) {
+      req.log.error({ errName: e.name }, 'database unavailable');
+      return reply.status(503).send({ error: { code: 'database_unavailable', message: 'Database is temporarily unavailable' } });
+    }
     if (e.statusCode && e.statusCode >= 400 && e.statusCode < 500) {
       return reply.status(e.statusCode).send({ error: { code: 'bad_request', message: 'Bad request' } });
     }

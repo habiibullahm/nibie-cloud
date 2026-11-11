@@ -1,8 +1,7 @@
 import type { Instance, InstanceStatus, Prisma, PrismaClient } from '@prisma/client';
 import { ConflictError, NotFoundError } from '../../shared/errors.js';
+import { isUuid } from '../../shared/uuid.js';
 import { canTransition } from './state-machine.js';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface TransitionOpts {
   id: string;
@@ -49,7 +48,7 @@ export async function recordEvent(prisma: PrismaClient, instanceId: string, type
 
 /** Tenant-scoped lookup. A foreign or malformed id is indistinguishable from a missing one. */
 export async function findOwned(prisma: PrismaClient, tenantId: string, instanceId: string): Promise<Instance> {
-  if (!UUID.test(tenantId) || !UUID.test(instanceId)) throw new NotFoundError('Instance not found');
+  if (!isUuid(tenantId) || !isUuid(instanceId)) throw new NotFoundError('Instance not found');
   const row = await prisma.instance.findFirst({ where: { id: instanceId, tenantId } });
   if (!row) throw new NotFoundError('Instance not found');
   return row;

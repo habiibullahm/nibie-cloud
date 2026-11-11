@@ -84,6 +84,45 @@ describe('REST API', () => {
     expect(del.json().instance.status).toBe('DELETED');
   });
 
+  it('answers 409 when an idempotency key is reused with a different payload', async () => {
+    const a = app();
+    const key = randomUUID();
+    const first = await a.inject({ method: 'POST', url: base(), headers: { ...auth, 'idempotency-key': key }, payload: { name: 'one', planId: s.plan.id } });
+    expect(first.statusCode).toBe(202);
+    const clash = await a.inject({ method: 'POST', url: base(), headers: { ...auth, 'idempotency-key': key }, payload: { name: 'two', planId: s.plan.id } });
+    expect(clash.statusCode).toBe(409);
+    expect(clash.json().error.code).toBe('conflict');
+    const same = await a.inject({ method: 'POST', url: base(), headers: { ...auth, 'idempotency-key': key }, payload: { name: 'one', planId: s.plan.id } });
+    expect(same.statusCode).toBe(202);
+    expect(same.json().instance.id).toBe(first.json().instance.id);
+  });
+
+  it('answers 404 for an unknown tenant or plan and 503 database_unavailable when Postgres is down', async () => {
+    const a = app();
+    const h = { ...auth, 'idempotency-key': randomUUID() };
+    const noTenant = await a.inject({ method: 'POST', url: `/api/v1/tenants/${randomUUID()}/instances`, headers: h, payload: { name: 'x', planId: s.plan.id } });
+    expect(noTenant.statusCode).toBe(404);
+    const noPlan = await a.inject({ method: 'POST', url: base(), headers: h, payload: { name: 'x', planId: randomUUID() } });
+    expect(noPlan.statusCode).toBe(404);
+    expect((await a.inject({ method: 'GET', url: '/api/v1/tenants/not-a-uuid/instances', headers: auth })).statusCode).toBe(404);
+
+    const dead = createPrisma('postgresql://hermes:secretpw@127.0.0.1:1/none?connect_timeout=2');
+    const logger = createLogger({ level: 'debug', stream: logStream });
+    const service = new InstanceService({ prisma: dead, runtime: realRuntime(), image, production: false, logger });
+    const down = buildServer({
+      service, logger,
+      config: { nodeEnv: 'test', databaseUrl: 'x', hermesImage: image, port: 0, adminToken: TOKEN, dockerSocketPath: '' },
+    });
+    const res = await down.inject({ method: 'POST', url: base(), headers: h, payload: { name: 'x', planId: s.plan.id } });
+    expect(res.statusCode).toBe(503);
+    expect(res.json().error.code).toBe('database_unavailable');
+    expect(res.body).not.toContain('secretpw');
+    expect(res.body).not.toContain('127.0.0.1');
+    expect(logs).not.toContain('secretpw');
+    expect((await down.inject({ method: 'GET', url: base(), headers: auth })).statusCode).toBe(503);
+    await dead.$disconnect();
+  });
+
   it('answers 404 when the path tenant does not own the instance, or ids are malformed', async () => {
     const a = app();
     const create = await a.inject({ method: 'POST', url: base(), headers: { ...auth, 'idempotency-key': randomUUID() }, payload: { name: 'x', planId: s.plan.id } });

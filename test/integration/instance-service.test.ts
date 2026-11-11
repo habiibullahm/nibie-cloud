@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Instance } from '@prisma/client';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { Prisma } from '@prisma/client';
 import { createPrisma } from '../../src/db/client.js';
 import { InstanceService } from '../../src/modules/instances/instance-service.js';
 import type { RuntimeManager } from '../../src/modules/runtime/types.js';
@@ -250,5 +251,90 @@ describe('InstanceService', () => {
     const [c] = await containersFor(v.id);
     expect(JSON.stringify(c)).not.toContain('rm -rf');
     expect(c!.Names[0]).toBe(`/hermes-${v.id}`);
+  });
+
+  describe('idempotency key is bound to its request payload', () => {
+    it('rejects reuse of a key with a different name (409) and returns the original for the same payload', async () => {
+      const service = svc();
+      const k = key();
+      const first = await provision(service, k, 'original');
+      await expect(provision(service, k, 'different')).rejects.toBeInstanceOf(ConflictError);
+      const again = await provision(service, k, 'original');
+      expect(again.id).toBe(first.id);
+      expect(await prisma.instance.count()).toBe(1);
+    });
+
+    it('rejects reuse of a key with a different plan (409) without touching the instance', async () => {
+      const service = svc();
+      const other = await prisma.plan.create({ data: { slug: 'other', cpuMillis: 250, memoryMb: 128, pids: 64, storageMb: 512 } });
+      const k = key();
+      const first = await provision(service, k);
+      await expect(
+        service.provision({ tenantId: s.tenant.id, planId: other.id, name: 'my agent', idempotencyKey: k }),
+      ).rejects.toBeInstanceOf(ConflictError);
+      expect((await service.get(s.tenant.id, first.id)).status).toBe('ACTIVE');
+      expect((await prisma.instance.findUniqueOrThrow({ where: { id: first.id } })).planId).toBe(s.plan.id);
+    });
+
+    it('does not re-drive a FAILED instance when the retry has a different payload', async () => {
+      const real = realRuntime();
+      let ensures = 0;
+      const failing = svc(wrapRuntime(real, { ensure: async (spec) => { ensures++; await real.ensure(spec); throw new Error('x'); } }));
+      const k = key();
+      const failed = await provision(failing, k, 'a');
+      expect(failed.status).toBe('FAILED');
+      await expect(provision(failing, k, 'b')).rejects.toBeInstanceOf(ConflictError);
+      expect(ensures).toBe(1);
+    });
+
+    it('lets exactly one payload win when concurrent calls share a key but not a payload', async () => {
+      const service = svc();
+      const k = key();
+      const results = await Promise.allSettled(
+        ['A', 'B', 'A', 'B', 'A', 'B'].map((name) => provision(service, k, name)),
+      );
+      const ok = results.filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof provision>>> => r.status === 'fulfilled');
+      const bad = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+      expect(new Set(ok.map((r) => r.value.id)).size).toBe(1);
+      expect(ok.length).toBeGreaterThanOrEqual(1);
+      expect(bad.length).toBeGreaterThanOrEqual(1);
+      for (const r of bad) expect(r.reason).toBeInstanceOf(ConflictError);
+      const rows = await prisma.instance.findMany();
+      expect(rows).toHaveLength(1);
+      // every fulfilled call carried the winning payload
+      expect(ok.every((r) => r.value.name === rows[0]!.name)).toBe(true);
+      expect(await containersFor(rows[0]!.id)).toHaveLength(1);
+    });
+  });
+
+  describe('tenant and plan lookups', () => {
+    it.each([
+      ['unknown tenant', () => ({ tenantId: randomUUID() })],
+      ['malformed tenant id', () => ({ tenantId: 'not-a-uuid' })],
+      ['unknown plan', () => ({ planId: randomUUID() })],
+      ['malformed plan id', () => ({ planId: 'nope' })],
+    ])('answers NotFoundError for %s', async (_label, over) => {
+      await expect(
+        svc().provision({ tenantId: s.tenant.id, planId: s.plan.id, name: 'x', idempotencyKey: key(), ...over() }),
+      ).rejects.toBeInstanceOf(NotFoundError);
+    });
+
+    it('answers NotFoundError (not a 500) when listing a malformed tenant id', async () => {
+      await expect(svc().list('not-a-uuid')).rejects.toBeInstanceOf(NotFoundError);
+    });
+
+    it('surfaces a database outage as a database error, never as "not found"', async () => {
+      const dead = createPrisma('postgresql://hermes:x@127.0.0.1:1/none?connect_timeout=2');
+      const service = new InstanceService({
+        prisma: dead, runtime: realRuntime(), image, production: false, logger: silentLogger,
+      });
+      const err = await service
+        .provision({ tenantId: s.tenant.id, planId: s.plan.id, name: 'x', idempotencyKey: key() })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(Prisma.PrismaClientInitializationError);
+      expect(err).not.toBeInstanceOf(NotFoundError);
+      await expect(service.list(s.tenant.id)).rejects.toBeInstanceOf(Prisma.PrismaClientInitializationError);
+      await dead.$disconnect();
+    });
   });
 });

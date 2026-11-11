@@ -1,6 +1,7 @@
 import type { Instance, InstanceStatus, Plan, PrismaClient } from '@prisma/client';
 import { ConflictError, NotFoundError, RuntimeUnavailableError, ValidationError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
+import { isUuid } from '../../shared/uuid.js';
 import { assertPinnedImage } from '../runtime/image-policy.js';
 import type { RuntimeManager } from '../runtime/types.js';
 import { findOwned, revert, transition } from './instance-repo.js';
@@ -69,9 +70,12 @@ export class InstanceService {
   async provision(input: { tenantId: string; name: string; planId: string; idempotencyKey: string }): Promise<InstanceView> {
     validateName(input.name);
     if (!input.idempotencyKey || input.idempotencyKey.length > 128) throw new ValidationError('invalid idempotency key');
-    const tenant = await this.prisma.tenant.findUnique({ where: { id: input.tenantId } }).catch(() => null);
+    // Malformed ids are "not found"; real database failures are left to surface (HTTP 503).
+    if (!isUuid(input.tenantId)) throw new NotFoundError('Tenant not found');
+    if (!isUuid(input.planId)) throw new NotFoundError('Plan not found');
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: input.tenantId } });
     if (!tenant) throw new NotFoundError('Tenant not found');
-    const plan = await this.prisma.plan.findUnique({ where: { id: input.planId } }).catch(() => null);
+    const plan = await this.prisma.plan.findUnique({ where: { id: input.planId } });
     if (!plan) throw new NotFoundError('Plan not found');
     const node = await this.prisma.runtimeNode.findFirst({ where: { schedulable: true }, orderBy: { name: 'asc' } });
     if (!node) throw new RuntimeUnavailableError('No schedulable runtime node');
@@ -89,6 +93,10 @@ export class InstanceService {
       const existing = await this.prisma.instance.findFirstOrThrow({
         where: { tenantId: tenant.id, idempotencyKey: input.idempotencyKey },
       });
+      // The key is bound to its original request: reuse with another payload is a client error.
+      if (existing.name !== input.name || existing.planId !== plan.id) {
+        throw new ConflictError('Idempotency-Key was already used with a different request');
+      }
       return existing.status === 'FAILED' ? this.runProvision(existing, plan) : toView(existing);
     }
     return this.runProvision(row, plan);
@@ -99,6 +107,7 @@ export class InstanceService {
   }
 
   async list(tenantId: string): Promise<InstanceView[]> {
+    if (!isUuid(tenantId)) throw new NotFoundError('Tenant not found');
     const rows = await this.prisma.instance.findMany({ where: { tenantId, deletedAt: null }, orderBy: { createdAt: 'asc' } });
     return rows.map(toView);
   }
