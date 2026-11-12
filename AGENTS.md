@@ -58,8 +58,9 @@ pnpm typecheck && pnpm lint && pnpm test    # also: pnpm build
 pnpm vitest run test/status.test.ts         # single file
 ```
 
-Last verified in a cloud sandbox on 2026-11-12: backend `tsc` clean and 89/89 unit tests; dashboard
-`typecheck`, `lint` and 44/44 tests. Integration tests were not re-run in that check.
+Last verified in a cloud sandbox on 2026-11-12: backend `tsc` clean and 196/196 unit tests, Postgres-only
+integration files passing; dashboard `typecheck`, `lint` and 44/44 tests (earlier run). Docker-backed
+integration tests were not re-run (Docker Hub rate limiting blocked the stub image build).
 
 ## Architecture (the parts that span files)
 
@@ -88,6 +89,13 @@ Last verified in a cloud sandbox on 2026-11-12: backend `tsc` clean and 89/89 un
   `/api/sessions`; a 401 marks the instance `DEGRADED` (`auth_rejected`) without a restart.
   `HERMES_MASTER_KEY` and `HERMES_RUNTIME` (`runc` default, `runsc` for gVisor) only apply to
   containers created afterwards.
+- **Disk quota and egress** (`runtime/volume-quota.ts`, `runtime/egress-canary.ts`, `ops/egress/`):
+  `HERMES_DISK_QUOTA` and `HERMES_EGRESS_POLICY` are `enforce|off` (`off` refused in production). Tenant
+  volumes carry a size quota from `Plan.storageMb` and tenant bridges are named `hn<12 hex>` so one host
+  iptables chain can filter them; the control plane refuses unquotaed volumes and unnamed networks
+  (`volume_quota_missing`, `network_policy_missing`) and runs an egress canary at startup. Neither the XFS
+  kernel quota nor the egress rules have been verified on a real host: see `docs/disk-quota-host-notes.md`
+  and `docs/egress-host-notes.md`.
 - **Images must be pinned:** no `latest` in any environment, `name@sha256:<digest>` when
   `NODE_ENV=production` (`runtime/image-policy.ts`). `test/fixtures/hermes-stub` is a stand-in that
   mimics the official contract; `test/fixtures/hermes-stub/*` must stay LF (`.gitattributes`).

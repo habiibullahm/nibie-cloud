@@ -1,6 +1,6 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-12 (documentation tidy). Index of all docs: [README.md](README.md).
+Last updated: 2026-11-12 (egress controls branch). Index of all docs: [README.md](README.md).
 
 ## Where things stand
 
@@ -44,7 +44,7 @@ model backend, any run on the owner's Windows workstation (reported to have no `
 Earlier claims of "25/25 live checks on runc and runsc" and the `@google/design.md` lint/export results
 have not been reproduced.
 
-## Disk quota branch (`feat/disk-quota`)
+## Disk quota (merged to `main` in PR #3)
 
 Re-run in a cloud sandbox (Docker 29.9, ext4, Postgres 16): `pnpm build` clean; `pnpm test:unit`
 135/135; integration files that need only Postgres (`disk-wiring`, `disk-monitor`, `key-wiring`,
@@ -59,6 +59,33 @@ refuse an absent or unquotaed volume (`volume_quota_missing`; user start/restart
 instance keeps its previous status). Known and deferred: a refused reconciler restart is recorded as
 `recovery_failed`, not `volume_quota_missing`, and `disk.quota_mismatch` is written on every
 `ensure()` while the mismatch lasts, not once.
+
+## Egress controls branch (`feat/egress-controls`)
+
+Plan: [superpowers/plans/2026-11-12-egress-controls.md](superpowers/plans/2026-11-12-egress-controls.md);
+spec: [superpowers/specs/2026-11-12-egress-controls-design.md](superpowers/specs/2026-11-12-egress-controls-design.md).
+Tasks 1, 3, 4, 5, 6 and 7 are done; **Tasks 2 (host spike, from step 3 on) and 8 (live verification) are
+open** and need a Docker host that can run containers.
+
+Run in a cloud sandbox (Docker 29.9.2, nf_tables `iptables` 1.8.10, Postgres 16): `pnpm build` clean;
+`pnpm test:unit` 196/196; the Postgres-only integration files (`network-policy`, `disk-wiring`,
+`key-wiring`, `disk-monitor`, `schema`, plus the real-daemon canary test) 40 passed, 2 skipped (they need
+a canary image and the rules); `shellcheck` clean on `ops/egress/hermes-egress.sh`. Also run once by
+hand: the ruleset applied for real (idempotent, `remove` and `status` behave), `DockerRuntimeManager`
+network creation against the real daemon (bridge name honored, stale network and collision refused), and
+the control plane exiting with the fixed canary message when the canary image is missing.
+
+**Not verified, so do not claim it:** that tenant traffic is blocked on a real host (no container could
+be started in the sandbox: Docker Hub rate limiting blocked every image pull), the canary with a real
+image (neither the "rules absent" nor the "rules applied" case), runc and runsc behaviour, rule
+persistence across a Docker restart and a reboot, DNS on the real host, the live harness egress checks
+(`test/validation/egress-checks.ts`, never run), and the new-connection cap, which is an unmeasured
+placeholder (`NEW_CONN_RATE=200/sec`). Details: [egress-host-notes.md](egress-host-notes.md).
+
+New files: `ops/egress/` (script, example config, systemd unit), `src/modules/runtime/egress-canary.ts`,
+[runbook-egress.md](runbook-egress.md), [egress-host-notes.md](egress-host-notes.md). New configuration:
+`HERMES_EGRESS_POLICY`, `HERMES_CANARY_IMAGE`, `HERMES_CANARY_PRIVATE_IP` ([setup.md](setup.md)). New
+failure reason: `network_policy_missing`.
 
 ## Known issues
 
@@ -86,7 +113,9 @@ instance keeps its previous status). Known and deferred: a refused reconciler re
   focus ring). `apps/web/README.md` already follows them.
 - Re-run the live harness on a host with gVisor (ideally cgroup v2) and fill the "Verification run"
   section of [milestone-2-runtime-security.md](milestone-2-runtime-security.md).
-- Disk quota is implemented on branch `feat/disk-quota` (spec and plan under `docs/superpowers/`) and
-  awaits review. Not verified on an XFS host: the plan's Task 1 (host spike) and Task 8 (live
-  verification) are still open, see [disk-quota-host-notes.md](disk-quota-host-notes.md). Network
-  egress controls are specified (spec and plan written) but not implemented.
+- Disk quota is merged (PR #3). Not verified on an XFS host: the plan's Task 1 (host spike) and
+  Task 8 (live verification) are still open, see [disk-quota-host-notes.md](disk-quota-host-notes.md).
+- Egress controls are implemented on branch `feat/egress-controls` and await review. They are not
+  verified on a Docker host (plan Tasks 2 and 8), see [egress-host-notes.md](egress-host-notes.md). The
+  location of NibieRouter (public URL or private address needing an exception) and the abuse policy
+  (PRD 21 item 11) are still undecided.

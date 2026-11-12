@@ -1,7 +1,8 @@
 # Network egress controls for tenant containers
 
 Date: 2026-11-12
-Status: draft for review (not approved, nothing implemented, nothing committed)
+Status: approved by the owner (2026-11-12) and implemented on branch `feat/egress-controls`; host
+verification (plan Task 8) is open, so nothing here is proven on a Docker host yet.
 Related: PRD 7.3 (network policy and SSRF), PRD 7.1 ("Do not use host networking"),
 `docs/architecture.md` known gap 2. Companion spec: `2026-11-12-disk-quota-design.md`.
 
@@ -66,8 +67,10 @@ Non-goals (stay open)
 - An existing network without that bridge name, when the policy is `enforce`: the instance goes to
   `FAILED` with the fixed reason `network_policy_missing`. Docker cannot change a network's bridge
   name in place, so the fix is to delete and reprovision. There are no production tenants yet.
-- **Unverified, confirmed first in the plan:** that Docker honors this option on the pinned Docker
-  version (28.x on the dev machine) and that the resulting interface name is what the rules see.
+- **Verified (cloud sandbox, Docker 29.9.2):** Docker honors the option and the interface is named
+  exactly as asked; a bridge-name collision is HTTP 403 `networks have same bridge name` (a duplicate
+  network name is 409). **Not verified:** that the rules see that interface for container traffic, on
+  runc or runsc (no container could be started there). Details: `docs/egress-host-notes.md`.
 
 ### 5.2 Host ruleset (`ops/egress/`, new)
 
@@ -98,9 +101,14 @@ Notes
   the repo's secrets. No credentials appear in rules or docs.
 - **Starting rate cap is a placeholder.** The spec does not claim a value is correct; the plan measures
   a normal Hermes workload on the host and sets the cap above it.
-- **Unverified, confirmed first in the plan:** that `DOCKER-USER` contents survive a Docker restart
-  and a host reboot with the systemd unit ordering above; and that DNS from a tenant works end to end
-  with the default resolver list on the real host.
+- **Implemented differently from the list above:** the chain ends with `RETURN`, not `ACCEPT`, so
+  Docker's own chains and the host firewall still see public traffic (an `ACCEPT` in `DOCKER-USER`
+  would skip Docker's isolation chains). Established, DNS and exception rules still `ACCEPT`. The
+  host-local reject sits in the shared chain and can only match traffic arriving through `INPUT`.
+- **Verified (sandbox kernel, real `iptables`):** the ruleset loads, `apply` is idempotent (one jump
+  per base chain), `remove` and `status` behave. **Unverified:** that `DOCKER-USER` contents survive a
+  Docker restart and a host reboot with the systemd unit ordering above; and that DNS from a tenant
+  works end to end with the default resolver list on the real host.
 
 ### 5.3 Control-plane configuration and canary (`src/config/env.ts`, startup)
 
@@ -171,7 +179,7 @@ re-checked against the tree at plan time.
 
 ## 7. Risks and open points
 
-- **Docker option and rule persistence are unverified** (5.1, 5.2); first plan tasks.
+- **Rule persistence and traffic behaviour are unverified** (5.1, 5.2): plan Tasks 2 (steps 3 to 6) and 8.
 - **gVisor (`runsc`) network path** is untested against these rules; the live harness covers both
   runtimes before this is called done.
 - **The rate cap value is unknown** until measured; too low breaks legitimate agents, too high does
