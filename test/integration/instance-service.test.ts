@@ -15,7 +15,7 @@ let image: string;
 let s: Awaited<ReturnType<typeof seed>>;
 
 const svc = (runtime: RuntimeManager = realRuntime(), over: Record<string, unknown> = {}) =>
-  new InstanceService({ masterKey: TEST_MASTER_KEY,
+  new InstanceService({ masterKey: TEST_MASTER_KEY, diskQuota: 'off',
     prisma, runtime, image, production: false, logger: silentLogger,
     pollIntervalMs: 200, healthTimeoutMs: 15_000, ...over,
   });
@@ -324,7 +324,7 @@ describe('InstanceService', () => {
 
     it('surfaces a database outage as a database error, never as "not found"', async () => {
       const dead = createPrisma('postgresql://hermes:x@127.0.0.1:1/none?connect_timeout=2');
-      const service = new InstanceService({ masterKey: TEST_MASTER_KEY,
+      const service = new InstanceService({ masterKey: TEST_MASTER_KEY, diskQuota: 'off',
         prisma: dead, runtime: realRuntime(), image, production: false, logger: silentLogger,
       });
       const err = await service

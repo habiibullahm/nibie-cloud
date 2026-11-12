@@ -25,11 +25,11 @@ const image = await ensureStubImage();
 const prisma = createPrisma(databaseUrl);
 const docker = new Docker();
 const runtime = new DockerRuntimeManager({ docker, logger });
-const service = new InstanceService({ prisma, runtime, image, production: false, logger, masterKey, pollIntervalMs: 250 });
-const reconciler = new Reconciler({ prisma, runtime, logger, masterKey, pollIntervalMs: 250 });
+const service = new InstanceService({ prisma, runtime, image, production: false, logger, masterKey, diskQuota: 'off', pollIntervalMs: 250 });
+const reconciler = new Reconciler({ prisma, runtime, logger, masterKey, diskQuota: 'off', pollIntervalMs: 250 });
 const app = buildServer({
   service, logger,
-  config: { nodeEnv: 'development', databaseUrl, hermesImage: image, port: 0, adminToken, dockerSocketPath: '', masterKey, runtime: 'runc' },
+  config: { nodeEnv: 'development', databaseUrl, hermesImage: image, port: 0, adminToken, dockerSocketPath: '', masterKey, runtime: 'runc', diskQuota: 'off', diskCheckIntervalMs: 300_000 },
 });
 
 const step = (m: string) => console.log(`\n== ${m}`);

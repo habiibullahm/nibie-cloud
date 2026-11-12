@@ -16,9 +16,9 @@ await assertRuntimeAvailable(docker, config.runtime);
 const runtime = new DockerRuntimeManager({ docker, logger });
 const service = new InstanceService({
   prisma, runtime, image: config.hermesImage, production: config.nodeEnv === 'production', logger,
-  masterKey: config.masterKey, containerRuntime: config.runtime,
+  masterKey: config.masterKey, containerRuntime: config.runtime, diskQuota: config.diskQuota,
 });
-const reconciler = new Reconciler({ prisma, runtime, logger, masterKey: config.masterKey, containerRuntime: config.runtime });
+const reconciler = new Reconciler({ prisma, runtime, logger, masterKey: config.masterKey, containerRuntime: config.runtime, diskQuota: config.diskQuota });
 const app = buildServer({ service, config, logger });
 
 const stopReconciler = reconciler.start(15_000);

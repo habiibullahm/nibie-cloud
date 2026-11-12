@@ -20,7 +20,8 @@ const newSpec = (): RuntimeSpec => {
     instanceId,
     tenantId: randomUUID(),
     image,
-    limits: { cpuMillis: 500, memoryMb: 256, pids: 128 },
+    limits: { cpuMillis: 500, memoryMb: 256, pids: 128, storageMb: 1024 },
+    diskQuota: 'off',
     env: {},
     apiServerKey: randomUUID().replace(/-/g, '') + randomUUID().replace(/-/g, ''),
   };

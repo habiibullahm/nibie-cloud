@@ -52,7 +52,8 @@ function spec(over: Partial<RuntimeSpec> = {}): RuntimeSpec {
     instanceId: randomUUID(),
     tenantId: randomUUID(),
     image: IMAGE,
-    limits: { cpuMillis: 1000, memoryMb: 1024, pids: 256 },
+    limits: { cpuMillis: 1000, memoryMb: 1024, pids: 256, storageMb: 1024 },
+    diskQuota: (process.env.HERMES_DISK_QUOTA as 'enforce' | 'off' | undefined) ?? 'off',
     env: {},
     apiServerKey: randomUUID().replace(/-/g, '') + randomUUID().replace(/-/g, ''),
     ...over,
@@ -135,7 +136,7 @@ async function main(): Promise<void> {
     check('live container: memory limit enforced', info.HostConfig.Memory === 1024 * 1048576, info.HostConfig.Memory);
 
     // ---- 6. runsc selection ----
-    const b = spec({ runtime: 'runsc', limits: { cpuMillis: 1000, memoryMb: 1024, pids: 256 } });
+    const b = spec({ runtime: 'runsc', limits: { cpuMillis: 1000, memoryMb: 1024, pids: 256, storageMb: 1024 } });
     created.push(b.instanceId);
     await rm.ensure(b);
     await rm.start(b.instanceId);

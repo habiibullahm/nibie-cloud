@@ -2,15 +2,21 @@ export interface ResourceLimits {
   cpuMillis: number;
   memoryMb: number;
   pids: number;
+  /** Persistent volume quota in MB, enforced by the kernel when the volume is created. */
+  storageMb: number;
 }
 
 export type SupportedRuntime = 'runc' | 'runsc';
+
+/** `enforce`: tenant volumes are created with a size quota and never run without one. */
+export type DiskQuotaMode = 'enforce' | 'off';
 
 export interface RuntimeSpec {
   instanceId: string;
   tenantId: string;
   image: string;
   limits: ResourceLimits;
+  diskQuota: DiskQuotaMode;
   env: Record<string, string>;
   runtime?: SupportedRuntime;
   apiServerKey?: string;
