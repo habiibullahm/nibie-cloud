@@ -33,6 +33,12 @@ export function buildContainerConfig(spec: RuntimeSpec): Docker.ContainerCreateO
   }
 
   const envMap: Record<string, string> = { ...spec.env };
+  if (!envMap.API_SERVER_HOST) {
+    envMap.API_SERVER_HOST = '0.0.0.0';
+  }
+  if (!envMap.API_SERVER_PORT) {
+    envMap.API_SERVER_PORT = String(CONTAINER_PORT);
+  }
   if (spec.apiServerKey && !envMap.API_SERVER_KEY) {
     envMap.API_SERVER_KEY = spec.apiServerKey;
   }
