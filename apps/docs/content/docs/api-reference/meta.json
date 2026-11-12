@@ -1,0 +1,13 @@
+{
+  "title": "API Reference",
+  "root": true,
+  "pages": [
+    "index",
+    "autentikasi",
+    "error-dan-idempotensi",
+    "---Endpoint---",
+    "akun-dan-paket",
+    "instances",
+    "endpoint-berikutnya"
+  ]
+}

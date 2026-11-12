@@ -1,0 +1,99 @@
+---
+title: Instances
+description: Membuat, melihat, dan mengatur siklus hidup instance Hermes.
+---
+
+<Callout type="error" title="Draft">
+Endpoint di halaman ini sudah ada di backend operator, tetapi **versi pelanggan** (dengan token login,
+bukan token operator) masih dirancang. Contoh memakai path versi pelanggan.
+</Callout>
+
+## Objek instance
+
+```json
+{
+  "id": "…",
+  "tenantId": "…",
+  "name": "agen-pribadi",
+  "status": "ACTIVE",
+  "statusReason": null,
+  "accessUrl": null,
+  "createdAt": "2026-11-12T10:00:00.000Z"
+}
+```
+
+| Field | Arti |
+| --- | --- |
+| `id` | ID instance. |
+| `name` | Nama yang kamu berikan. |
+| `status` | Status instance. Lihat [status instance](/instance-dan-status). |
+| `statusReason` | Alasan yang tidak sensitif bila ada masalah, atau `null`. |
+| `accessUrl` | URL akses. Sementara masih alamat lokal sampai ingress subdomain tersedia, jadi jangan tampilkan ke pengguna sebagai URL sungguhan. |
+| `createdAt` | Waktu dibuat (ISO 8601). |
+
+Nilai `status` di API memakai huruf besar, misalnya `PENDING`, `PROVISIONING`, `CONFIGURING`, `STARTING`,
+`ACTIVE`, `DEGRADED`, `STOPPING`, `STOPPED`, `FAILED`, `DELETING`, `DELETED`.
+
+## POST /instances
+
+Membuat instance. Memerlukan header [`Idempotency-Key`](/api-reference/error-dan-idempotensi#idempotency-key).
+
+| Body | Tipe | Keterangan |
+| --- | --- | --- |
+| `name` | string | Nama instance. |
+| `planId` | string | ID dari `GET /plans`. |
+
+Body diperiksa ketat: field lain ditolak.
+
+Respons `202 Accepted`:
+
+```json
+{ "instance": { "id": "…", "status": "PENDING", "…": "…" } }
+```
+
+<Callout type="warn" title="Dibatasi selama beta">
+Sampai pembayaran aktif, pembuatan instance hanya untuk akun yang diizinkan (selain itu `403
+provisioning_not_enabled`). Ada batas jumlah instance per akun (melewati batas mendapat `409`), dan
+pembuatan instance dibatasi 5 permintaan per 10 menit per pengguna.
+</Callout>
+
+## GET /instances
+
+Daftar instance milik tenant-mu.
+
+```json
+{ "instances": [ { "id": "…", "name": "agen-pribadi", "status": "ACTIVE", "…": "…" } ] }
+```
+
+## GET /instances/:id
+
+Satu instance. Respons: `{ "instance": { … } }`.
+
+## GET /instances/:id/status
+
+Ringkasan status:
+
+```json
+{ "status": "ACTIVE", "statusReason": null, "accessUrl": null }
+```
+
+Gunakan endpoint ini untuk polling setelah aksi yang mengembalikan `202`.
+
+## GET /instances/:id/events
+
+Riwayat perubahan status instance. Respons: `{ "events": [ … ] }`.
+
+## Aksi siklus hidup
+
+| Endpoint | Fungsi |
+| --- | --- |
+| `POST /instances/:id/start` | Menyalakan instance yang berhenti. |
+| `POST /instances/:id/stop` | Menghentikan instance. |
+| `POST /instances/:id/restart` | Memulai ulang instance. |
+| `DELETE /instances/:id` | Menghapus instance. |
+
+Semuanya mengembalikan `202 Accepted` dengan `{ "instance": { … } }`. Perubahan status diproses dengan
+aman terhadap permintaan yang berbarengan: bila aksimu kalah bersaing dengan aksi lain pada instance yang
+sama, kamu mendapat `409`.
+
+Mengakses instance tenant lain pada semua endpoint di atas selalu menghasilkan `404`.

@@ -1,0 +1,51 @@
+---
+title: Paket dan penagihan
+description: Cara kerja paket hosting, pembayaran, upgrade, dan perpanjangan.
+---
+
+<Callout type="warn" title="Harga belum ditetapkan">
+Harga paket belum final. Angka akan dipublikasikan setelah pemakaian sumber daya per instance, biaya
+jaringan, backup, dan biaya lainnya diukur selama beta. Dokumentasi ini sengaja tidak mencantumkan angka.
+</Callout>
+
+## Yang ditagih
+
+- **Langganan hosting** berulang (bulanan), untuk container, penyimpanan, backup, dan operasi infrastruktur.
+- **Pemakaian AI** ditagih terpisah oleh NibieRouter atau penyedia pilihanmu. Lihat [Provider AI](/provider-ai).
+
+Tidak ada token AI yang dibundel di paket hosting, dan tidak ada janji pemakaian AI tanpa batas.
+
+## Paket berbasis batas sumber daya
+
+Setiap paket dipetakan ke batas nyata yang diterapkan pada container, bukan sekadar label. Dimensi yang
+dipertimbangkan:
+
+- Kuota CPU
+- Batas memori
+- Kuota penyimpanan permanen
+- Batas jumlah proses
+- Kebijakan jaringan keluar
+- Frekuensi dan lama retensi backup
+- Fitur opsional seperti custom domain
+
+Dashboard menampilkan batas CPU, RAM, penyimpanan, dan jaringan setiap paket sebelum kamu membayar. Paket atau
+wilayah hanya ditampilkan jika ada kapasitas untuk menjalankannya.
+
+## Pembayaran
+
+- Pembayaran memakai payment gateway yang mendukung metode di Indonesia, termasuk QRIS bila tersedia.
+- Server memverifikasi tanda tangan dan keaslian notifikasi pembayaran, lalu mencocokkan referensi invoice,
+  jumlah, mata uang, dan status.
+- Instance **tidak** diaktifkan hanya karena kamu kembali dari halaman pembayaran. Aktivasi menunggu
+  verifikasi server.
+- Setiap perubahan status pembayaran dicatat dan bisa diaudit.
+
+## Upgrade dan perpanjangan
+
+- Upgrade dihitung secara prorata atau mulai siklus berikutnya, sesuai kebijakan penagihan yang akan
+  dipublikasikan.
+- Instance yang sedang berjalan tidak diubah ukurannya sebelum pembayaran dan pengecekan kapasitas berhasil.
+  Bila paket baru tidak muat di server saat ini, instance dijadwalkan pindah atau kamu diberi tahu bahwa
+  kapasitas belum tersedia.
+- Perpanjangan mengaktifkan kembali instance yang `Suspended` hanya setelah pembayaran terverifikasi dan
+  kapasitas tersedia.

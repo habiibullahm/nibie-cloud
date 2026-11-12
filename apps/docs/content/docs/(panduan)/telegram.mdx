@@ -1,0 +1,45 @@
+---
+title: Telegram
+description: Hubungkan bot Telegram milikmu ke instance Hermes.
+---
+
+<Callout type="info" title="Draft">
+Pengaturan Telegram di dashboard masih berupa pratinjau. Mode polling atau webhook akan mengikuti dukungan
+gateway Hermes pada image yang dipakai.
+</Callout>
+
+Telegram adalah kanal pesan pertama yang didukung. Kamu memakai **bot milikmu sendiri**.
+
+## Langkah
+
+<Steps>
+<Step>
+
+### Buat bot di BotFather
+
+Di Telegram, buat bot lewat BotFather dan salin token bot-nya.
+
+</Step>
+<Step>
+
+### Masukkan token di dashboard
+
+Server memeriksa token ke endpoint identitas bot Telegram, menyimpannya terenkripsi, lalu mengonfigurasi
+instance Hermes-mu.
+
+</Step>
+<Step>
+
+### Kirim pesan uji
+
+Verifikasi bahwa bot bisa menerima dan membalas pesan uji.
+
+</Step>
+</Steps>
+
+## Hal penting
+
+- Satu token bot **tidak** dipakai bersama beberapa pelanggan. Setiap instance memakai bot masing-masing.
+- Token bisa diganti dan dicabut. Token disamarkan di semua log dan respons tampilan.
+- Aktifkan kontrol pairing dan allowlist Hermes supaya hanya orang yang kamu izinkan yang bisa berbicara
+  dengan agenmu. Panduan konfigurasi aman yang direkomendasikan akan ditambahkan di sini.

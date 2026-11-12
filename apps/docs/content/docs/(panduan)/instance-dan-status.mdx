@@ -1,0 +1,46 @@
+---
+title: Instance dan status
+description: Apa itu instance, dan arti setiap status yang tampil di dashboard.
+---
+
+Satu **instance** adalah satu container Hermes yang khusus untukmu, dengan satu volume penyimpanan
+permanen. Container dan volume itu tidak dipakai bersama pelanggan lain.
+
+Setelah dibuat, instance tetap ada di antara restart. Data di volume-mu (konfigurasi, file, skill) bertahan
+walau container dimulai ulang atau dipulihkan.
+
+## Status instance
+
+| Status | Artinya | Yang bisa kamu lakukan |
+| --- | --- | --- |
+| `Pending` | Permintaan diterima, menunggu diproses. | Menunggu. |
+| `Provisioning` | Container dan volume sedang dibuat. | Menunggu, progres terlihat di dashboard. |
+| `Starting` | Hermes dijalankan dan dicek kesehatannya. | Menunggu. |
+| `Active` | Instance sehat dan siap dipakai. | Pakai Hermes, restart, atau hentikan. |
+| `Degraded` | Ada masalah. Nibie Cloud mencoba memulihkan otomatis, atau butuh tindakanmu. | Baca alasan yang ditampilkan, lalu ikuti langkah berikutnya. |
+| `Suspended` | Dihentikan karena langganan lewat masa tenggang. Data disimpan 30 hari. | [Perpanjang langganan](/siklus-langganan). |
+| `Failed` | Provisioning atau pemulihan gagal. | Baca alasan dan hubungi [bantuan](/bantuan). |
+| `Deleting` | Instance dan datanya sedang dihapus. | Tidak ada. |
+| `Deleted` | Instance sudah dihapus. | Tidak ada. |
+
+Untuk setiap kegagalan yang terlihat olehmu, dashboard menampilkan alasan yang tidak sensitif dan langkah
+berikutnya.
+
+<Callout type="info" title="Catatan implementasi">
+Daftar di atas adalah status untuk pelanggan menurut rancangan produk. Di dalam sistem ada tahap perantara
+tambahan (misalnya `CONFIGURING`, `STOPPING`, dan `STOPPED` saat kamu menghentikan instance sendiri).
+</Callout>
+
+## Pemulihan otomatis
+
+Bila container crash, Nibie Cloud mencoba memulainya lagi dengan jeda yang makin panjang (maksimal 3 percobaan
+berturut-turut). Jika tetap gagal, status menjadi `Degraded` dan operator diberi tahu.
+
+Gangguan di sisi penyedia model AI **tidak** memicu restart. Hermes yang sehat tidak dimulai ulang hanya
+karena penyedia AI sedang bermasalah. Lihat [Provider AI](/provider-ai#bila-penyedia-ai-bermasalah).
+
+## Aksi pada instance
+
+- **Restart** untuk memulai ulang Hermes.
+- **Stop dan start** bila diizinkan oleh status langganan dan kebijakan produk.
+- **Web Console** untuk shell di dalam container-mu. Lihat [Web Console](/web-console).

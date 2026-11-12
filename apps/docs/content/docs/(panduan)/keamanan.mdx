@@ -1,0 +1,41 @@
+---
+title: Keamanan dan isolasi
+description: Bagaimana instance-mu diisolasi dan data sensitifmu dilindungi.
+---
+
+<Callout type="warn" title="Belum siap produksi">
+Platform masih dalam tahap pengembangan awal. Beberapa pengamanan (misalnya verifikasi kuota disk dan aturan
+egress di host sungguhan, serta evaluasi isolasi yang lebih kuat) belum selesai diverifikasi. Halaman ini
+menjelaskan baseline yang dirancang, bukan jaminan produksi.
+</Callout>
+
+Karena kamu bisa membuka shell dan memasang skill kustom, workload pelanggan diperlakukan sebagai **kode
+tidak tepercaya**. Container standar saja bukan jaminan keamanan yang cukup, jadi ada beberapa lapisan.
+
+## Isolasi instance
+
+- Satu container dan satu volume khusus per pelanggan.
+- Tidak berjalan sebagai container privileged, dan socket Docker tidak pernah dipasang ke container pelanggan.
+- Capability Linux yang tidak perlu dilepas dan `no-new-privileges` aktif.
+- Batas CPU, memori, jumlah proses, dan disk diterapkan.
+- Tidak memakai jaringan host, dan tidak memasang direktori host yang luas.
+- Image runtime di-pin ke versi atau digest yang tetap. Tidak pernah memakai tag `latest` di produksi.
+- Sebelum peluncuran publik, isolasi yang lebih kuat (misalnya gVisor atau microVM) akan dievaluasi.
+
+## Jaringan
+
+Beban kerja tenant tidak boleh menjangkau jaringan control-plane privat, endpoint manajemen host, layanan
+metadata cloud, atau tenant lain. Lalu lintas keluar yang diperlukan (Telegram, penyedia model, sumber
+paket) dikontrol di level jaringan, bukan hanya lewat validasi URL.
+
+## Secret
+
+- API key penyedia dan token Telegram dienkripsi saat disimpan.
+- Secret tidak pernah dikembalikan dalam teks biasa setelah kamu menyimpannya.
+- Secret disamarkan dari log, trace, dan pesan galat.
+- Kamu bisa mengganti, merotasi, dan mencabut kredensial.
+
+## Tanggung jawabmu
+
+- Skill kustom yang kamu pasang bisa menjalankan kode. Pasang hanya dari sumber yang kamu percaya.
+- Aktifkan allowlist atau pairing Telegram supaya hanya orang yang kamu izinkan yang bisa mengakses agenmu.

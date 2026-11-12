@@ -1,0 +1,58 @@
+---
+title: Akun dan paket
+description: GET /me dan GET /plans.
+---
+
+<Callout type="error" title="Draft">
+Bentuk respons mengikuti rancangan backend dan dapat berubah.
+</Callout>
+
+## GET /me
+
+Mengembalikan akun yang sedang login.
+
+```bash
+curl https://api.cloud.nibie.app/api/v1/me \
+  -H "Authorization: Bearer <TOKEN_SESI_LOGIN>"
+```
+
+```json
+{
+  "id": "…",
+  "email": "kamu@contoh.id",
+  "tenantId": "…"
+}
+```
+
+Saat permintaan terverifikasi pertama kali, akun dan tenant pribadimu dibuat otomatis.
+
+## GET /plans
+
+Mengembalikan paket yang sedang aktif beserta batas sumber dayanya.
+
+```json
+{
+  "plans": [
+    {
+      "id": "…",
+      "slug": "…",
+      "name": "…",
+      "cpuMillis": 1000,
+      "memoryMb": 1024,
+      "storageMb": 5120,
+      "pids": 256,
+      "monthlyPriceIdr": null
+    }
+  ]
+}
+```
+
+| Field | Arti |
+| --- | --- |
+| `cpuMillis` | Kuota CPU dalam milli-core (1000 = 1 core). |
+| `memoryMb` | Batas memori dalam MB. |
+| `storageMb` | Kuota penyimpanan permanen dalam MB. |
+| `pids` | Batas jumlah proses. |
+| `monthlyPriceIdr` | Harga bulanan dalam rupiah. Saat ini selalu `null` karena harga belum ditetapkan. |
+
+Angka pada contoh hanya ilustrasi untuk menunjukkan bentuk respons, bukan paket yang ditawarkan.

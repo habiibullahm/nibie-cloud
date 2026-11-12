@@ -1,0 +1,29 @@
+---
+title: Autentikasi
+description: Cara mengautentikasi permintaan ke API pelanggan.
+---
+
+<Callout type="error" title="Draft">
+Rancangan ini belum final dan belum aktif.
+</Callout>
+
+Setiap permintaan ke API pelanggan harus membawa token sesi login di header `Authorization`:
+
+```bash
+curl https://api.cloud.nibie.app/api/v1/me \
+  -H "Authorization: Bearer <TOKEN_SESI_LOGIN>"
+```
+
+## Aturan
+
+- Hanya skema `Bearer` yang diterima.
+- Token yang hilang, rusak, kedaluwarsa, atau tidak valid semuanya mendapat satu respons yang sama,
+  `401 unauthorized`, supaya tidak membocorkan alasan penolakan.
+- Token tidak pernah muncul di respons atau log.
+- Token pelanggan hanya berlaku di API pelanggan. Token itu tidak bisa dipakai di endpoint operator, dan
+  token operator tidak bisa dipakai di API pelanggan.
+- Browser hanya boleh memanggil API dari origin dashboard resmi. Cookie tidak dipakai, hanya bearer token.
+
+<Callout type="warn" title="Jangan bagikan token">
+Token sesi memberi akses ke akunmu. Jangan menaruhnya di repositori, log, atau chat.
+</Callout>

@@ -1,0 +1,22 @@
+---
+title: Backup dan restore
+description: Bagaimana data instance-mu dicadangkan dan dipulihkan.
+---
+
+<Callout type="warn" title="Draft">
+Frekuensi dan lama retensi backup belum ditetapkan. Keduanya akan divalidasi selama beta dan dipublikasikan
+sebelum peluncuran publik berbayar.
+</Callout>
+
+## Prinsip
+
+- Data permanen instance dicadangkan sesuai jadwal.
+- Backup juga dibuat sebelum upgrade atau migrasi yang berisiko.
+- Backup dienkripsi saat transit dan saat disimpan, serta disimpan di luar server runtime.
+- Setiap backup dicatat statusnya: ukuran, checksum, waktu, dan kepemilikan tenant.
+- Retensi backup diatur terpisah dari retensi 30 hari untuk instance yang di-suspend.
+
+## Restore
+
+Restore dilakukan ke volume baru atau lingkungan pemulihan terisolasi. Integritasnya diverifikasi dulu,
+baru lalu lintas dialihkan. Dua container aktif tidak pernah menulis ke volume yang sama pada saat restore.

@@ -1,0 +1,24 @@
+{
+  "title": "Panduan",
+  "root": true,
+  "pages": [
+    "index",
+    "quickstart",
+    "---Konsep---",
+    "instance-dan-status",
+    "paket-dan-penagihan",
+    "siklus-langganan",
+    "---Konfigurasi---",
+    "provider-ai",
+    "telegram",
+    "---Kelola instance---",
+    "kelola-instance",
+    "file-manager",
+    "web-console",
+    "backup-dan-restore",
+    "custom-domain",
+    "---Lainnya---",
+    "keamanan",
+    "bantuan"
+  ]
+}

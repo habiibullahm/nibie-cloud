@@ -1,0 +1,50 @@
+---
+title: Siklus langganan
+description: Masa tenggang, suspend, retensi data 30 hari, dan pembatalan.
+---
+
+Kebijakan di halaman ini sudah disetujui sebagai rancangan produk. Detail penagihan (misalnya kapan tepatnya
+masa tenggang dimulai) akan ditampilkan jelas di dashboard dan dipublikasikan sebelum peluncuran publik.
+
+## Ringkasan
+
+| Hal | Kebijakan |
+| --- | --- |
+| Masa tenggang | 3 hari setelah langganan jatuh tempo atau pembayaran tertunda |
+| Retensi data setelah suspend | 30 hari |
+| Pembatalan | Instance tetap aktif sampai masa berlangganan yang sudah dibayar habis |
+
+## Alur
+
+```text
+Active
+  → Grace period        (langganan jatuh tempo, belum dibayar)
+      → Active          (pembayaran terverifikasi)
+      → Suspended       (masa tenggang 3 hari habis)
+
+Suspended
+  → Active              (perpanjangan dibayar dalam masa retensi 30 hari)
+  → Deleting → Deleted  (masa retensi habis)
+```
+
+## Suspend
+
+- Runtime dihentikan supaya tidak terus memakai sumber daya.
+- Volume dan metadata pemulihan disimpan selama **30 hari**.
+- Akses normal ke instance ditutup selama suspend.
+- Kamu mendapat pemberitahuan sebelum suspend dan sebelum penghapusan permanen.
+
+## Memulihkan instance
+
+Bila kamu memperpanjang dalam masa retensi, instance diaktifkan kembali setelah pembayaran terverifikasi dan
+kapasitas dicek.
+
+## Penghapusan
+
+Di akhir masa retensi, data runtime dan secret terkait dihapus. Penyelesaian penghapusan dicatat di audit
+trail. Aturan kedaluwarsa backup akan dijelaskan di kebijakan penghapusan data untuk pelanggan.
+
+## Membatalkan langganan
+
+Pembatalan hanya menjadwalkan **tidak diperpanjang**. Instance tidak langsung berhenti, dan tetap berjalan
+sampai masa berlangganan yang sudah dibayar habis. Setelah itu berlaku aturan masa tenggang dan suspend di atas.

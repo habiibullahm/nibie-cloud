@@ -1,0 +1,33 @@
+---
+title: Kelola instance
+description: Halaman-halaman dashboard untuk mengelola instance Hermes-mu.
+---
+
+Setiap instance punya halaman kelola dengan area berikut.
+
+| Area | Fungsi |
+| --- | --- |
+| **Access** | URL instance, petunjuk akses, dan kredensial yang dibuat otomatis bila ada. |
+| **Hermes** | Status Hermes dan pengelolaan agen atau runtime yang relevan. |
+| **Monitor** | CPU, memori, disk, jaringan, uptime, dan riwayat pemakaian sumber daya. |
+| **Logs** | Log aplikasi dan runtime milik instance-mu, dengan secret yang disamarkan. |
+| **Upgrade & Renew** | Upgrade paket, perpanjangan, dan status langganan. Lihat [Paket dan penagihan](/paket-dan-penagihan). |
+| **Custom Domain** | Setup dan verifikasi domain sendiri, bila didukung. Lihat [Custom domain](/custom-domain). |
+| **File Manager** | Menjelajah dan mengubah file di volume permanenmu. Lihat [File Manager](/file-manager). |
+| **Configuration** | Konfigurasi provider, pengaturan environment, dan runtime. |
+
+<Callout type="info" title="Pratinjau data">
+Di versi pratinjau dashboard, sebagian besar halaman ini (Monitor, Logs, File Manager, Backup, Billing,
+Domain) menampilkan data contoh dan diberi label **Preview data**. Yang sudah terhubung ke backend hanyalah
+daftar dan aksi dasar instance: lihat, buat, start, stop, restart, dan hapus.
+</Callout>
+
+## Aksi instance
+
+- Restart
+- Stop dan start, bila diizinkan oleh status langganan
+- Buka [Web Console](/web-console)
+- Lihat status deploy dan kesehatan
+
+Dashboard tidak pernah menampilkan path filesystem host, akses socket Docker, kredensial host, detail jaringan
+internal, atau log infrastruktur tanpa batas.
