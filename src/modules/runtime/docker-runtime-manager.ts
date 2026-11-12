@@ -11,7 +11,10 @@ import {
   networkName,
   volumeName,
 } from './hardening.js';
-import type { HealthResult, RuntimeInspection, RuntimeManager, RuntimeSpec, RuntimeState } from './types.js';
+import {
+  AUTH_REJECTED_DETAIL,
+  type HealthResult, type RuntimeInspection, type RuntimeManager, type RuntimeSpec, type RuntimeState,
+} from './types.js';
 
 const CONNECTION_CODES = new Set(['ECONNREFUSED', 'ENOENT', 'EACCES', 'ECONNRESET', 'ETIMEDOUT', 'EPIPE']);
 
@@ -138,9 +141,13 @@ export class DockerRuntimeManager implements RuntimeManager {
         headers,
         signal: AbortSignal.timeout(this.healthTimeoutMs),
       });
-      // HTTP 200 (authenticated) or HTTP 401 (gateway alive and enforcing auth) confirms daemon health
-      const isAlive = res.status === 200 || res.status === 401;
-      return { ok: isAlive, latencyMs: Date.now() - t0, detail: `HTTP ${res.status}` };
+      const latencyMs = Date.now() - t0;
+      if (apiServerKey) {
+        // With a key, only an authenticated 200 is ready; 401 means the gateway rejected our key.
+        return { ok: res.status === 200, latencyMs, detail: res.status === 401 ? AUTH_REJECTED_DETAIL : `HTTP ${res.status}` };
+      }
+      // Without a key, 200 or 401 (gateway alive and enforcing auth) confirms the daemon is up.
+      return { ok: res.status === 200 || res.status === 401, latencyMs, detail: `HTTP ${res.status}` };
     } catch (e) {
       const name = (e as Error).name === 'TimeoutError' ? 'timeout' : 'connection failed';
       return { ok: false, latencyMs: Date.now() - t0, detail: name };

@@ -5,16 +5,20 @@ import { buildServer } from './http/server.js';
 import { InstanceService } from './modules/instances/instance-service.js';
 import { Reconciler } from './modules/instances/reconciler.js';
 import { DockerRuntimeManager } from './modules/runtime/docker-runtime-manager.js';
+import { assertRuntimeAvailable } from './modules/runtime/runtime-availability.js';
 import { createLogger } from './shared/logger.js';
 
 const config = loadConfig();
 const logger = createLogger();
 const prisma = createPrisma(config.databaseUrl);
-const runtime = new DockerRuntimeManager({ docker: new Docker({ socketPath: config.dockerSocketPath }), logger });
+const docker = new Docker({ socketPath: config.dockerSocketPath });
+await assertRuntimeAvailable(docker, config.runtime);
+const runtime = new DockerRuntimeManager({ docker, logger });
 const service = new InstanceService({
   prisma, runtime, image: config.hermesImage, production: config.nodeEnv === 'production', logger,
+  masterKey: config.masterKey, containerRuntime: config.runtime,
 });
-const reconciler = new Reconciler({ prisma, runtime, logger });
+const reconciler = new Reconciler({ prisma, runtime, logger, masterKey: config.masterKey, containerRuntime: config.runtime });
 const app = buildServer({ service, config, logger });
 
 const stopReconciler = reconciler.start(15_000);

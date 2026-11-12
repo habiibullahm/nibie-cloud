@@ -9,7 +9,7 @@ import { ConflictError, RuntimeUnavailableError } from '../../src/shared/errors.
 import { createLogger } from '../../src/shared/logger.js';
 import { resetDb } from '../helpers/db.js';
 import { execIn } from '../helpers/exec.js';
-import { cleanupDocker, docker, realRuntime, seed, silentLogger, waitFor, wrapRuntime } from '../helpers/service-env.js';
+import { TEST_MASTER_KEY, authFor, cleanupDocker, docker, realRuntime, seed, silentLogger, waitFor, wrapRuntime } from '../helpers/service-env.js';
 import { ensureStubImage } from '../helpers/stub-image.js';
 
 const prisma = createPrisma(process.env.DATABASE_URL!);
@@ -19,9 +19,9 @@ let clock = new Date('2026-01-01T00:00:00Z');
 const advance = (ms: number) => { clock = new Date(clock.getTime() + ms); };
 
 const service = (runtime: RuntimeManager = realRuntime()) =>
-  new InstanceService({ prisma, runtime, image, production: false, logger: silentLogger, pollIntervalMs: 200, healthTimeoutMs: 15_000 });
+  new InstanceService({ masterKey: TEST_MASTER_KEY, prisma, runtime, image, production: false, logger: silentLogger, pollIntervalMs: 200, healthTimeoutMs: 15_000 });
 const reconciler = (runtime: RuntimeManager = realRuntime(), over: Record<string, unknown> = {}) =>
-  new Reconciler({ prisma, runtime, logger: silentLogger, now: () => clock, pollIntervalMs: 200, healthTimeoutMs: 3_000, ...over });
+  new Reconciler({ masterKey: TEST_MASTER_KEY, prisma, runtime, logger: silentLogger, now: () => clock, pollIntervalMs: 200, healthTimeoutMs: 3_000, ...over });
 
 async function provisioned() {
   const v = await service().provision({ tenantId: s.tenant.id, planId: s.plan.id, name: 'a', idempotencyKey: randomUUID() });
@@ -32,7 +32,8 @@ const row = (id: string) => prisma.instance.findUniqueOrThrow({ where: { id } })
 const eventTypes = async (id: string) => (await prisma.instanceEvent.findMany({ where: { instanceId: id } })).map((e) => e.type);
 async function boots(id: string) {
   const r = await realRuntime().inspect(id);
-  return ((await (await fetch(`http://127.0.0.1:${r.hostPort}/state`)).json()) as { boots: number }).boots;
+  const res = await fetch(`http://127.0.0.1:${r.hostPort}/state`, { headers: authFor(id) });
+  return ((await res.json()) as { boots: number }).boots;
 }
 
 describe('Reconciler', () => {
@@ -53,23 +54,23 @@ describe('Reconciler', () => {
 
   it('recovers a killed container with data intact', async () => {
     const v = await provisioned();
-    await execIn(docker, v.id, ['sh', '-c', 'echo keep > /data/marker']);
+    await execIn(docker, v.id, ['sh', '-c', 'echo keep > /opt/data/marker']);
     await docker.getContainer(`hermes-${v.id}`).kill();
     expect(await reconciler().reconcileInstance(v.id)).toBe('recovered');
     const r = await row(v.id);
     expect(r.status).toBe('ACTIVE');
     expect(r.recoveryAttempts).toBe(1); // only reset after a stability window, see below
     expect(await boots(v.id)).toBe(2);
-    expect((await execIn(docker, v.id, ['cat', '/data/marker'])).out.trim()).toBe('keep');
+    expect((await execIn(docker, v.id, ['cat', '/opt/data/marker'])).out.trim()).toBe('keep');
     expect(await eventTypes(v.id)).toContain('recovery.succeeded');
   });
 
   it('recovers when the container is gone but the volume remains', async () => {
     const v = await provisioned();
-    await execIn(docker, v.id, ['sh', '-c', 'echo keep > /data/marker']);
+    await execIn(docker, v.id, ['sh', '-c', 'echo keep > /opt/data/marker']);
     await docker.getContainer(`hermes-${v.id}`).remove({ force: true });
     expect(await reconciler().reconcileInstance(v.id)).toBe('recovered');
-    expect((await execIn(docker, v.id, ['cat', '/data/marker'])).out.trim()).toBe('keep');
+    expect((await execIn(docker, v.id, ['cat', '/opt/data/marker'])).out.trim()).toBe('keep');
   });
 
   it('bounds a crash loop: backoff, then exhausted with one event and no further starts', async () => {

@@ -7,9 +7,7 @@ import { InstanceService } from '../../src/modules/instances/instance-service.js
 import type { RuntimeManager } from '../../src/modules/runtime/types.js';
 import { ConflictError, NotFoundError, RuntimeUnavailableError, ValidationError } from '../../src/shared/errors.js';
 import { resetDb } from '../helpers/db.js';
-import {
-  cleanupDocker, containersFor, docker, key, realRuntime, seed, silentLogger, waitFor, wrapRuntime,
-} from '../helpers/service-env.js';
+import { TEST_MASTER_KEY, authFor, cleanupDocker, containersFor, docker, key, realRuntime, seed, silentLogger, waitFor, wrapRuntime } from '../helpers/service-env.js';
 import { ensureStubImage } from '../helpers/stub-image.js';
 
 const prisma = createPrisma(process.env.DATABASE_URL!);
@@ -17,7 +15,7 @@ let image: string;
 let s: Awaited<ReturnType<typeof seed>>;
 
 const svc = (runtime: RuntimeManager = realRuntime(), over: Record<string, unknown> = {}) =>
-  new InstanceService({
+  new InstanceService({ masterKey: TEST_MASTER_KEY,
     prisma, runtime, image, production: false, logger: silentLogger,
     pollIntervalMs: 200, healthTimeoutMs: 15_000, ...over,
   });
@@ -51,7 +49,7 @@ describe('InstanceService', () => {
     expect((await containersFor(v.id))).toHaveLength(1);
     const types = (await service.events(s.tenant.id, v.id)).map((e) => e.type);
     expect(types).toEqual(expect.arrayContaining(['provisioning.started', 'instance.active']));
-    const res = await fetch(`${v.accessUrl}/healthz`);
+    const res = await fetch(`${v.accessUrl}/api/sessions`, { headers: authFor(v.id) });
     expect(res.status).toBe(200);
   });
 
@@ -111,7 +109,8 @@ describe('InstanceService', () => {
     const restarted = await service.restart(s.tenant.id, v.id);
     expect(restarted.status).toBe('ACTIVE');
     expect(restarted.accessUrl).not.toBeNull();
-    expect((await fetch(`${restarted.accessUrl}/healthz`)).status).toBe(200);
+    expect((await fetch(`${restarted.accessUrl}/api/sessions`, { headers: authFor(v.id) })).status).toBe(200);
+    expect((await fetch(`${restarted.accessUrl}/api/sessions`)).status).toBe(401);
   });
 
   it('lets exactly one of two concurrent restart/stop calls win; the other gets ConflictError', async () => {
@@ -325,7 +324,7 @@ describe('InstanceService', () => {
 
     it('surfaces a database outage as a database error, never as "not found"', async () => {
       const dead = createPrisma('postgresql://hermes:x@127.0.0.1:1/none?connect_timeout=2');
-      const service = new InstanceService({
+      const service = new InstanceService({ masterKey: TEST_MASTER_KEY,
         prisma: dead, runtime: realRuntime(), image, production: false, logger: silentLogger,
       });
       const err = await service

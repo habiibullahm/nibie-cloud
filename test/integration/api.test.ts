@@ -9,7 +9,7 @@ import type { RuntimeManager } from '../../src/modules/runtime/types.js';
 import { RuntimeUnavailableError } from '../../src/shared/errors.js';
 import { createLogger } from '../../src/shared/logger.js';
 import { resetDb } from '../helpers/db.js';
-import { cleanupDocker, realRuntime, seed, silentLogger, waitFor, wrapRuntime } from '../helpers/service-env.js';
+import { TEST_MASTER_KEY, cleanupDocker, realRuntime, seed, silentLogger, waitFor, wrapRuntime } from '../helpers/service-env.js';
 import { ensureStubImage } from '../helpers/stub-image.js';
 
 const TOKEN = 'test-admin-token-0123456789abcdef';
@@ -21,11 +21,11 @@ const logStream = new Writable({ write(c, _e, cb) { logs += c.toString(); cb(); 
 
 function app(runtime: RuntimeManager = realRuntime(), tweak?: (s: InstanceService) => void): FastifyInstance {
   const logger = createLogger({ level: 'debug', stream: logStream });
-  const service = new InstanceService({ prisma, runtime, image, production: false, logger, pollIntervalMs: 200, healthTimeoutMs: 15_000 });
+  const service = new InstanceService({ masterKey: TEST_MASTER_KEY, prisma, runtime, image, production: false, logger, pollIntervalMs: 200, healthTimeoutMs: 15_000 });
   tweak?.(service);
   return buildServer({
     service, logger,
-    config: { nodeEnv: 'test', databaseUrl: 'x', hermesImage: image, port: 0, adminToken: TOKEN, dockerSocketPath: '' },
+    config: { nodeEnv: 'test', databaseUrl: 'x', hermesImage: image, port: 0, adminToken: TOKEN, dockerSocketPath: '', masterKey: TEST_MASTER_KEY, runtime: 'runc' },
   });
 }
 const auth = { authorization: `Bearer ${TOKEN}` };
@@ -108,10 +108,10 @@ describe('REST API', () => {
 
     const dead = createPrisma('postgresql://hermes:secretpw@127.0.0.1:1/none?connect_timeout=2');
     const logger = createLogger({ level: 'debug', stream: logStream });
-    const service = new InstanceService({ prisma: dead, runtime: realRuntime(), image, production: false, logger });
+    const service = new InstanceService({ masterKey: TEST_MASTER_KEY, prisma: dead, runtime: realRuntime(), image, production: false, logger });
     const down = buildServer({
       service, logger,
-      config: { nodeEnv: 'test', databaseUrl: 'x', hermesImage: image, port: 0, adminToken: TOKEN, dockerSocketPath: '' },
+      config: { nodeEnv: 'test', databaseUrl: 'x', hermesImage: image, port: 0, adminToken: TOKEN, dockerSocketPath: '', masterKey: TEST_MASTER_KEY, runtime: 'runc' },
     });
     const res = await down.inject({ method: 'POST', url: base(), headers: h, payload: { name: 'x', planId: s.plan.id } });
     expect(res.statusCode).toBe(503);

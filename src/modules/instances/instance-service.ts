@@ -2,8 +2,9 @@ import type { Instance, InstanceStatus, Plan, PrismaClient } from '@prisma/clien
 import { ConflictError, NotFoundError, RuntimeUnavailableError, ValidationError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import { isUuid } from '../../shared/uuid.js';
+import { deriveApiKey } from '../runtime/api-key.js';
 import { assertPinnedImage } from '../runtime/image-policy.js';
-import type { RuntimeManager } from '../runtime/types.js';
+import type { RuntimeManager, SupportedRuntime } from '../runtime/types.js';
 import { findOwned, revert, transition } from './instance-repo.js';
 import { newLease, startHeartbeat, type Lease } from './lease.js';
 
@@ -23,6 +24,10 @@ export interface InstanceServiceDeps {
   image: string;
   production: boolean;
   logger: Logger;
+  /** Source of every instance's derived API server key. Never logged or stored. */
+  masterKey: string;
+  /** OCI runtime for new containers (`runc` or `runsc`); the daemon default when omitted. */
+  containerRuntime?: SupportedRuntime;
   pollIntervalMs?: number;
   healthTimeoutMs?: number;
   /** Operation lease TTL; a heartbeat renews it every TTL/3 while the operation runs. */
@@ -59,6 +64,8 @@ export class InstanceService {
   private readonly prisma: PrismaClient;
   private readonly runtime: RuntimeManager;
   private readonly image: string;
+  private readonly masterKey: string;
+  private readonly containerRuntime: SupportedRuntime | undefined;
   private readonly logger: Logger;
   private readonly pollIntervalMs: number;
   private readonly healthTimeoutMs: number;
@@ -71,6 +78,8 @@ export class InstanceService {
     this.prisma = deps.prisma;
     this.runtime = deps.runtime;
     this.image = deps.image;
+    this.masterKey = deps.masterKey;
+    this.containerRuntime = deps.containerRuntime;
     this.logger = deps.logger;
     this.pollIntervalMs = deps.pollIntervalMs ?? 500;
     this.healthTimeoutMs = deps.healthTimeoutMs ?? 30_000;
@@ -235,6 +244,8 @@ export class InstanceService {
         image: inst.image,
         limits: { cpuMillis: plan.cpuMillis, memoryMb: plan.memoryMb, pids: plan.pids },
         env: { HERMES_INSTANCE_ID: inst.id },
+        apiServerKey: this.apiKey(inst.id),
+        runtime: this.containerRuntime,
       });
       await transition(this.prisma, { id: inst.id, from: 'PROVISIONING', to: 'CONFIGURING', owner, eventType: 'runtime.created', message: 'Runtime created' });
       current = 'CONFIGURING';
@@ -314,10 +325,14 @@ export class InstanceService {
     }).catch(() => undefined);
   }
 
+  private apiKey(instanceId: string): string {
+    return deriveApiKey(this.masterKey, instanceId);
+  }
+
   private async waitHealthy(instanceId: string): Promise<void> {
     const end = Date.now() + this.healthTimeoutMs;
     for (;;) {
-      if ((await this.runtime.checkHealth(instanceId)).ok) return;
+      if ((await this.runtime.checkHealth(instanceId, this.apiKey(instanceId))).ok) return;
       if (Date.now() >= end) throw new HealthTimeout();
       await new Promise((r) => setTimeout(r, this.pollIntervalMs));
     }

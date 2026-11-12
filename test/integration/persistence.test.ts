@@ -12,9 +12,11 @@ const manager = new DockerRuntimeManager({ docker, logger: createLogger({ level:
 let image: string;
 const ids: string[] = [];
 
+const KEY = randomUUID().replace(/-/g, '') + randomUUID().replace(/-/g, '');
+
 async function boots(id: string): Promise<number> {
   const i = await manager.inspect(id);
-  const res = await fetch(`http://127.0.0.1:${i.hostPort}/state`);
+  const res = await fetch(`http://127.0.0.1:${i.hostPort}/state`, { headers: { Authorization: `Bearer ${KEY}` } });
   return ((await res.json()) as { boots: number }).boots;
 }
 
@@ -26,20 +28,21 @@ describe('persistence', () => {
     for (const id of ids.splice(0)) await manager.remove(id, { deleteVolume: true });
   });
 
-  it('keeps /data across container removal and recreation, and wipes it on volume delete', async () => {
+  it('keeps /opt/data across container removal and recreation, and wipes it on volume delete', async () => {
     const spec: RuntimeSpec = {
       instanceId: randomUUID(),
       tenantId: randomUUID(),
       image,
       limits: { cpuMillis: 500, memoryMb: 256, pids: 128 },
       env: {},
+      apiServerKey: KEY,
     };
     ids.push(spec.instanceId);
 
     await manager.ensure(spec);
     await manager.start(spec.instanceId);
     expect(await boots(spec.instanceId)).toBe(1);
-    await execIn(docker, spec.instanceId, ['sh', '-c', 'echo persisted > /data/marker']);
+    await execIn(docker, spec.instanceId, ['sh', '-c', 'echo persisted > /opt/data/marker']);
 
     await manager.remove(spec.instanceId, { deleteVolume: false });
     expect((await manager.inspect(spec.instanceId)).state).toBe('absent');
@@ -47,13 +50,13 @@ describe('persistence', () => {
     await manager.ensure(spec);
     await manager.start(spec.instanceId);
     expect(await boots(spec.instanceId)).toBe(2);
-    const r = await execIn(docker, spec.instanceId, ['cat', '/data/marker']);
+    const r = await execIn(docker, spec.instanceId, ['cat', '/opt/data/marker']);
     expect(r.out.trim()).toBe('persisted');
 
     await manager.remove(spec.instanceId, { deleteVolume: true });
     await manager.ensure(spec);
     await manager.start(spec.instanceId);
     expect(await boots(spec.instanceId)).toBe(1);
-    expect((await execIn(docker, spec.instanceId, ['cat', '/data/marker'])).code).not.toBe(0);
+    expect((await execIn(docker, spec.instanceId, ['cat', '/opt/data/marker'])).code).not.toBe(0);
   });
 });

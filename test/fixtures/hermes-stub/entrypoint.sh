@@ -1,7 +1,6 @@
 #!/bin/sh
-# Persistence evidence: count how many times this runtime has booted against /data.
-n=$(cat /data/boots 2>/dev/null || echo 0)
-echo $((n + 1)) > /data/boots
-nc -lk -p 8080 -e /srv/stub/handler.sh
-# nc only returns if it is killed (POST /crash): exit non-zero like a crashed gateway.
-exit 3
+# Mirrors the s6 init: runs as root, takes ownership of the data volume, then drops privileges.
+# Without CHOWN, SETUID and SETGID this fails the way the real image does.
+set -e
+chown 10000:10000 /opt/data
+exec su -s /bin/sh hermes -c 'exec /srv/stub/server.sh'

@@ -22,6 +22,7 @@ const newSpec = (): RuntimeSpec => {
     image,
     limits: { cpuMillis: 500, memoryMb: 256, pids: 128 },
     env: {},
+    apiServerKey: randomUUID().replace(/-/g, '') + randomUUID().replace(/-/g, ''),
   };
 };
 
@@ -67,9 +68,11 @@ describe('DockerRuntimeManager', () => {
     expect(i.hostPort).toBeGreaterThanOrEqual(1024);
     expect(i.hostPort).toBeLessThanOrEqual(65535);
     const h = await manager.checkHealth(s.instanceId);
-    expect(h.ok).toBe(true);
+    expect(h.ok).toBe(true); // no key: a 401 still proves the gateway is alive
+    expect((await manager.checkHealth(s.instanceId, s.apiServerKey)).ok).toBe(true);
+    expect((await manager.checkHealth(s.instanceId, 'wrong-key')).detail).toBe('auth rejected');
     const info = await docker.getContainer(`hermes-${s.instanceId}`).inspect();
-    expect(info.NetworkSettings.Ports['8080/tcp']![0]!.HostIp).toBe('127.0.0.1');
+    expect(info.NetworkSettings.Ports['8642/tcp']![0]!.HostIp).toBe('127.0.0.1');
   });
 
   it('stop then start works and stop is idempotent', async () => {

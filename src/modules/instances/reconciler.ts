@@ -1,7 +1,8 @@
 import type { Instance, Prisma, PrismaClient } from '@prisma/client';
 import { ConflictError, RuntimeUnavailableError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
-import type { RuntimeInspection, RuntimeManager } from '../runtime/types.js';
+import { deriveApiKey } from '../runtime/api-key.js';
+import { AUTH_REJECTED_DETAIL, type RuntimeInspection, type RuntimeManager, type SupportedRuntime } from '../runtime/types.js';
 import { TRANSITIONAL_STATUSES, recordEvent, revert, transition } from './instance-repo.js';
 import { newLease, startHeartbeat } from './lease.js';
 
@@ -16,6 +17,10 @@ export interface ReconcilerDeps {
   prisma: PrismaClient;
   runtime: RuntimeManager;
   logger: Logger;
+  /** Source of every instance's derived API server key. Never logged or stored. */
+  masterKey: string;
+  /** OCI runtime for recreated containers (`runc` or `runsc`); the daemon default when omitted. */
+  containerRuntime?: SupportedRuntime;
   now?: () => Date;
   maxRecoveryAttempts?: number;
   unhealthyThreshold?: number;
@@ -48,7 +53,8 @@ function describeState(i: RuntimeInspection): string {
  * (ACTIVE|DEGRADED -> STARTING) so user operations answer 409 instead of racing it.
  */
 export class Reconciler {
-  private readonly d: Required<Omit<ReconcilerDeps, 'prisma' | 'runtime' | 'logger'>> & Pick<ReconcilerDeps, 'prisma' | 'runtime' | 'logger'>;
+  private readonly d: Required<Omit<ReconcilerDeps, 'prisma' | 'runtime' | 'logger' | 'masterKey' | 'containerRuntime'>> &
+    Pick<ReconcilerDeps, 'prisma' | 'runtime' | 'logger' | 'masterKey' | 'containerRuntime'>;
 
   constructor(deps: ReconcilerDeps) {
     this.d = {
@@ -184,6 +190,10 @@ export class Reconciler {
     }
   }
 
+  private apiKey(instanceId: string): string {
+    return deriveApiKey(this.d.masterKey, instanceId);
+  }
+
   private heartbeat(instanceId: string, owner: string): () => void {
     return startHeartbeat({
       prisma: this.d.prisma, instanceId, owner, ttlMs: this.d.leaseTtlMs,
@@ -193,7 +203,7 @@ export class Reconciler {
 
   private async onRunning(inst: Instance, insp: RuntimeInspection): Promise<ReconcileResult> {
     const { prisma, now, stabilityWindowMs } = this.d;
-    const health = await this.d.runtime.checkHealth(inst.id);
+    const health = await this.d.runtime.checkHealth(inst.id, this.apiKey(inst.id));
     if (health.ok) {
       const stable = insp.startedAt !== null && now().getTime() - insp.startedAt.getTime() >= stabilityWindowMs;
       const data = {
@@ -211,6 +221,12 @@ export class Reconciler {
       }
       await prisma.instance.updateMany({ where: { id: inst.id, status: 'ACTIVE' }, data });
       return 'ok';
+    }
+    if (health.detail === AUTH_REJECTED_DETAIL) {
+      // A restart keeps the container's old key, so it cannot fix a key mismatch (for example a
+      // changed HERMES_MASTER_KEY). Say so instead of restarting every tenant until recovery is exhausted.
+      await this.setDegraded(inst, 'auth_rejected', 'instance.degraded', 'Gateway rejected the instance API key; recreate the container');
+      return 'degraded';
     }
     const failures = inst.consecutiveFailures + 1;
     if (failures >= this.d.unhealthyThreshold) {
@@ -265,6 +281,8 @@ export class Reconciler {
           image: inst.image,
           limits: { cpuMillis: plan.cpuMillis, memoryMb: plan.memoryMb, pids: plan.pids },
           env: { HERMES_INSTANCE_ID: inst.id },
+          apiServerKey: this.apiKey(inst.id),
+          runtime: this.d.containerRuntime,
         });
         await runtime.start(inst.id);
       }
@@ -324,7 +342,7 @@ export class Reconciler {
     const { runtime, pollIntervalMs, healthTimeoutMs } = this.d;
     const end = Date.now() + healthTimeoutMs;
     for (;;) {
-      if ((await runtime.checkHealth(instanceId)).ok) return true;
+      if ((await runtime.checkHealth(instanceId, this.apiKey(instanceId))).ok) return true;
       if (Date.now() >= end) return false;
       const { state } = await runtime.inspect(instanceId);
       if (state === 'exited' || state === 'dead' || state === 'absent') return false;

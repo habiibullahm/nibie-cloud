@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import Docker from 'dockerode';
 import type { PrismaClient } from '@prisma/client';
+import { deriveApiKey } from '../../src/modules/runtime/api-key.js';
 import { DockerRuntimeManager } from '../../src/modules/runtime/docker-runtime-manager.js';
 import type { RuntimeManager } from '../../src/modules/runtime/types.js';
 import { createLogger } from '../../src/shared/logger.js';
@@ -8,6 +9,13 @@ import { createLogger } from '../../src/shared/logger.js';
 export const docker = new Docker();
 export const silentLogger = createLogger({ level: 'silent' });
 export const realRuntime = () => new DockerRuntimeManager({ docker, logger: silentLogger });
+
+export const TEST_MASTER_KEY = 'test-master-key-'.padEnd(32, 'x');
+
+/** Authorization header for an instance created by a service/reconciler using TEST_MASTER_KEY. */
+export const authFor = (instanceId: string): { Authorization: string } => ({
+  Authorization: `Bearer ${deriveApiKey(TEST_MASTER_KEY, instanceId)}`,
+});
 
 export const TEST_PLAN = { slug: 'test-small', cpuMillis: 500, memoryMb: 256, pids: 128, storageMb: 1024 };
 
@@ -27,7 +35,7 @@ export function wrapRuntime(inner: RuntimeManager, overrides: Partial<RuntimeMan
     stop: (i, t) => inner.stop(i, t),
     restart: (i) => inner.restart(i),
     inspect: (i) => inner.inspect(i),
-    checkHealth: (i) => inner.checkHealth(i),
+    checkHealth: (i, k) => inner.checkHealth(i, k),
     remove: (i, o) => inner.remove(i, o),
     ...overrides,
   };

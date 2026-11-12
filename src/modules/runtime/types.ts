@@ -27,6 +27,9 @@ export interface RuntimeInspection {
   volumePresent: boolean;
 }
 
+/** `HealthResult.detail` when the gateway answered 401 to the key we sent: restarting cannot fix that. */
+export const AUTH_REJECTED_DETAIL = 'auth rejected';
+
 export interface HealthResult {
   ok: boolean;
   latencyMs: number;

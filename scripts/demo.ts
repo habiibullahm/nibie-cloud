@@ -10,6 +10,7 @@ import { createPrisma } from '../src/db/client.js';
 import { buildServer } from '../src/http/server.js';
 import { InstanceService } from '../src/modules/instances/instance-service.js';
 import { Reconciler } from '../src/modules/instances/reconciler.js';
+import { deriveApiKey } from '../src/modules/runtime/api-key.js';
 import { DockerRuntimeManager } from '../src/modules/runtime/docker-runtime-manager.js';
 import { createLogger } from '../src/shared/logger.js';
 import { ensureStubImage } from '../test/helpers/stub-image.js';
@@ -17,17 +18,18 @@ import { ensureStubImage } from '../test/helpers/stub-image.js';
 const keep = process.argv.includes('--keep');
 const databaseUrl = process.env.DATABASE_URL ?? 'postgresql://hermes:hermes_dev_only@127.0.0.1:5433/hermes';
 const adminToken = randomUUID() + randomUUID(); // ephemeral, never printed
+const masterKey = randomUUID() + randomUUID(); // ephemeral, never printed
 const logger = createLogger({ level: 'warn' });
 
 const image = await ensureStubImage();
 const prisma = createPrisma(databaseUrl);
 const docker = new Docker();
 const runtime = new DockerRuntimeManager({ docker, logger });
-const service = new InstanceService({ prisma, runtime, image, production: false, logger, pollIntervalMs: 250 });
-const reconciler = new Reconciler({ prisma, runtime, logger, pollIntervalMs: 250 });
+const service = new InstanceService({ prisma, runtime, image, production: false, logger, masterKey, pollIntervalMs: 250 });
+const reconciler = new Reconciler({ prisma, runtime, logger, masterKey, pollIntervalMs: 250 });
 const app = buildServer({
   service, logger,
-  config: { nodeEnv: 'development', databaseUrl, hermesImage: image, port: 0, adminToken, dockerSocketPath: '' },
+  config: { nodeEnv: 'development', databaseUrl, hermesImage: image, port: 0, adminToken, dockerSocketPath: '', masterKey, runtime: 'runc' },
 });
 
 const step = (m: string) => console.log(`\n== ${m}`);
@@ -38,7 +40,9 @@ const api = async (method: string, path: string, body?: unknown, headers: Record
   });
   return res.json();
 };
-const state = async (url: string) => ((await (await fetch(`${url}/state`)).json()) as { boots: number }).boots;
+const authFor = (id: string) => ({ Authorization: `Bearer ${deriveApiKey(masterKey, id)}` });
+const state = async (url: string, id: string) =>
+  ((await (await fetch(`${url}/state`, { headers: authFor(id) })).json()) as { boots: number }).boots;
 const sh = (id: string, script: string) =>
   execFileSync('docker', ['exec', `hermes-${id}`, 'sh', '-c', script], { encoding: 'utf8' }).trim();
 
@@ -59,19 +63,21 @@ try {
 
   step('Access + persist data');
   let url = created.instance.accessUrl as string;
-  console.log(`GET ${url}/healthz ->`, (await fetch(`${url}/healthz`)).status, `boots=${await state(url)}`);
-  sh(id, 'echo hello-from-tenant > /data/marker');
+  const unauth = (await fetch(`${url}/api/sessions`)).status;
+  const authed = (await fetch(`${url}/api/sessions`, { headers: authFor(id) })).status;
+  console.log(`GET ${url}/api/sessions -> ${unauth} without key, ${authed} with key, boots=${await state(url, id)}`);
+  sh(id, 'echo hello-from-tenant > /opt/data/marker');
 
   step('Restart via API');
   url = (await api('POST', `/tenants/${tenant.id}/instances/${id}/restart`)).instance.accessUrl;
-  console.log(`boots=${await state(url)} marker=${sh(id, 'cat /data/marker')}`);
+  console.log(`boots=${await state(url, id)} marker=${sh(id, 'cat /opt/data/marker')}`);
 
   step('Simulate crash (docker kill) and let the reconciler recover');
   await docker.getContainer(`hermes-${id}`).kill();
   console.log('reconcile ->', await reconciler.reconcileInstance(id));
   url = (await api('GET', `/tenants/${tenant.id}/instances/${id}`)).instance.accessUrl;
-  const boots = await state(url);
-  const marker = sh(id, 'cat /data/marker');
+  const boots = await state(url, id);
+  const marker = sh(id, 'cat /opt/data/marker');
   console.log(`boots=${boots} marker=${marker}`);
 
   step('Event timeline');
