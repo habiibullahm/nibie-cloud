@@ -13,7 +13,7 @@ export default function AccountPage() {
   const me = useMe()
   return (
     <div className="grid gap-8">
-      <PageHeader eyebrow="Settings" title="Account" description="Your Hermes Cloud profile and sign-in." />
+      <PageHeader title="Account" description="Your Hermes Cloud profile and sign-in." />
       <Card className="max-w-2xl">
         <CardHeader>
           <CardTitle>Profile</CardTitle>

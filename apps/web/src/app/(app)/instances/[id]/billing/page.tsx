@@ -4,9 +4,10 @@ import { CalendarClock } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
+import { ComingSoon } from "@/components/app/coming-soon"
 import { KeyValue } from "@/components/app/key-value"
 import { PreviewNote } from "@/components/app/preview-note"
+import { QueryFallback } from "@/components/app/query-fallback"
 import { usePlans, useSubscription } from "@/hooks/use-hermes"
 import type { SubscriptionState } from "@/lib/api/types"
 import { formatCpu, formatDate, formatMb, formatPriceIdr } from "@/lib/format"
@@ -25,7 +26,7 @@ export default function BillingPage() {
   const id = useInstanceId()
   const sub = useSubscription(id)
   const plans = usePlans()
-  if (!sub.data || !plans.data) return <Skeleton className="h-64 bg-card" />
+  if (!sub.data || !plans.data) return <QueryFallback what="your subscription" queries={[sub, plans]} className="h-64" />
   const current = plans.data.find((p) => p.id === sub.data.planId)
 
   return (
@@ -49,7 +50,7 @@ export default function BillingPage() {
         <CardContent className="grid gap-6">
           <KeyValue
             items={[
-              { k: "Plan", v: current?.name ?? "—" },
+              { k: "Plan", v: current?.name ?? "Unknown plan" },
               { k: "Status", v: STATE[sub.data.state] },
               { k: "Billing cycle", v: "Monthly" },
               { k: "Renews on", v: formatDate(sub.data.currentPeriodEnd) },
@@ -64,11 +65,13 @@ export default function BillingPage() {
             <p>Cancelling stops renewal; the instance stays active until the end of the paid period.</p>
           </div>
         </CardContent>
-        <CardFooter className="flex-wrap border-t">
+        {/* TODO(billing): wire renew and cancel to the payment gateway (PRD §5.4). */}
+        <CardFooter className="flex-wrap items-center gap-3 border-t">
           <Button disabled>Renew now</Button>
           <Button variant="ghost" disabled>
             Cancel subscription
           </Button>
+          <ComingSoon />
         </CardFooter>
       </Card>
 
@@ -89,8 +92,9 @@ export default function BillingPage() {
                   {formatCpu(p.cpuMillis)} · {formatMb(p.memoryMb)} · {formatMb(p.storageMb)}
                 </p>
                 <p className="text-muted-foreground">Price {formatPriceIdr(p.monthlyPriceIdr)}</p>
+                {/* TODO(billing): plan switching needs payment plus a capacity check (PRD §5.5). */}
                 <Button variant="outline" disabled className="mt-auto">
-                  {isCurrent ? "Current plan" : "Switch plan"}
+                  {isCurrent ? "Current plan" : "Switch plan (coming soon)"}
                 </Button>
               </li>
             )

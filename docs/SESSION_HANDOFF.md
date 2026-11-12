@@ -6,6 +6,20 @@
 > design-foundation run and are kept for traceability; where they disagree with
 > `docs/HANDOFF_TO_CLAUDE.md`, the newer document wins.
 
+## Update: dashboard antislop pass (2026-11-12, branch `fix/web-antislop-review`)
+
+Frontend only (`apps/web`); no backend, Prisma or runtime files changed.
+
+- Reviewed the dashboard with the `antislop-ai` rule sets: 25 findings in
+  `apps/web/anti-slop/audit-001-2026-11-12.md`, outcomes in `report-001-2026-11-12.md`.
+- Fixed: touch targets, pointer cursors, landmarks and titles, error states, unsourced copy claims,
+  dead links and controls, placeholder logo, preview labelling in mock mode. A ponytail review and a
+  final click-through followed; they also fixed a crash when leaving the Console page and a false
+  "URL copied" toast.
+- Checks: typecheck, lint, 45 Vitest tests, `next build`, 44-step Playwright click-through.
+- Open for Nash: outline and secondary button edges are below 3:1 against the page because
+  DESIGN.md keeps `border-strong` for inputs. Changing that is a DESIGN.md decision.
+
 ## Update — hardening wiring run (2026-11-12, later still)
 
 Spec and plan approved by Nash, then executed inline in a sandbox copy of the repo (the local

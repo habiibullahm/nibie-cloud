@@ -1,12 +1,13 @@
 "use client"
 
 import { Copy, ExternalLink, KeyRound } from "lucide-react"
-import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PreviewNote } from "@/components/app/preview-note"
+import { QueryFallback } from "@/components/app/query-fallback"
 import { useAccess, useInstance } from "@/hooks/use-hermes"
+import { copyWithToast } from "@/lib/copy"
 import { useInstanceId } from "../instance-frame"
 
 export default function AccessPage() {
@@ -36,10 +37,7 @@ export default function AccessPage() {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    void navigator.clipboard?.writeText(url)
-                    toast.success("URL copied")
-                  }}
+                  onClick={() => void copyWithToast(url, "URL")}
                 >
                   <Copy aria-hidden="true" />
                   Copy URL
@@ -68,7 +66,7 @@ export default function AccessPage() {
               ))}
             </ol>
           ) : (
-            <Skeleton className="h-20 bg-elevated" />
+            <QueryFallback what="access instructions" queries={[access]} className="h-20 bg-elevated" />
           )}
         </CardContent>
       </Card>
@@ -76,13 +74,13 @@ export default function AccessPage() {
       <Card className="lg:col-span-2">
         <CardHeader>
           <CardTitle>Credentials</CardTitle>
-          <CardDescription>Secrets are shown once when created and never again.</CardDescription>
+          <CardDescription>How secrets for this instance are handled.</CardDescription>
         </CardHeader>
         <CardContent className="flex items-start gap-3">
           <KeyRound className="mt-1 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <p className="text-muted-foreground">
             The gateway API key is generated per instance and managed by Hermes Cloud. Provider keys and your Telegram
-            token are stored encrypted and only their last four characters are displayed.
+            token are stored encrypted and redacted from logs.
           </p>
         </CardContent>
       </Card>

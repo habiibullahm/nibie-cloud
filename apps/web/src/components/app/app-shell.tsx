@@ -29,7 +29,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             onClick={onNavigate}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-sm border-l-2 border-transparent px-3 py-2 text-muted-foreground no-underline transition-colors outline-none hover:bg-card hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "flex items-center gap-3 rounded-sm border-l-2 border-transparent px-3 py-2 text-muted-foreground pointer-coarse:py-3 no-underline transition-colors outline-none hover:bg-card hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               active && "border-l-foreground bg-card text-foreground"
             )}
           >
@@ -51,15 +51,6 @@ function RailFooter() {
         <span className="type-label">Data</span>
         <span className="type-mono rounded-sm border px-2 py-1">{mode === "live" ? "live api" : "mock"}</span>
       </div>
-      <a
-        href="https://t.me/"
-        target="_blank"
-        rel="noreferrer"
-        className="flex items-center gap-2 rounded-sm text-muted-foreground no-underline outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-      >
-        <LifeBuoy className="size-4" aria-hidden="true" />
-        Support on Telegram
-      </a>
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-foreground">{me.data?.name ?? " "}</p>
@@ -81,16 +72,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-dvh lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
       <a
         href="#main"
-        className="fixed top-2 left-2 z-[100] -translate-y-[200%] rounded-sm bg-foreground px-4 py-2 text-background focus:translate-y-0"
+        className="fixed top-2 left-2 z-[100] -translate-y-[200%] rounded-sm bg-foreground px-4 py-2 text-background focus:translate-y-0 pointer-coarse:py-3"
       >
         Skip to content
       </a>
 
-      <aside className="sticky top-0 hidden h-dvh flex-col gap-6 overflow-y-auto border-r px-4 py-6 lg:flex">
+      <header className="sticky top-0 hidden h-dvh flex-col gap-6 overflow-y-auto border-r px-4 py-6 lg:flex">
         <Brand />
         <NavLinks />
         <RailFooter />
-      </aside>
+      </header>
 
       <header className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b bg-background px-4 py-3 lg:hidden">
         <Brand />
@@ -112,9 +103,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </Sheet>
       </header>
 
-      <main id="main" tabIndex={-1} className="min-w-0 px-4 pt-6 pb-12 outline-none sm:px-6 lg:px-8 lg:pt-10">
-        <div className="mx-auto w-full max-w-[1080px]">{children}</div>
-      </main>
+      <div className="flex min-h-dvh min-w-0 flex-col">
+        <main id="main" tabIndex={-1} className="flex-1 px-4 pt-6 pb-12 outline-none sm:px-6 lg:px-8 lg:pt-10">
+          <div className="mx-auto w-full max-w-[1080px]">{children}</div>
+        </main>
+        <SiteFooter className="px-4 sm:px-6 lg:px-8" />
+      </div>
     </div>
+  )
+}
+
+/** Page footer, shared with the auth screens. */
+export function SiteFooter({ className }: { className?: string }) {
+  return (
+    <footer className={cn("border-t py-4 text-muted-foreground", className)}>
+      <div className="mx-auto flex w-full max-w-[1080px] items-center gap-2">
+        <LifeBuoy className="size-4 shrink-0" aria-hidden="true" />
+        {/* TODO(support): link the Telegram support handle once it exists (PRD §3, "Initial support: Telegram"). */}
+        <p>Support on Telegram, coming soon.</p>
+      </div>
+    </footer>
   )
 }

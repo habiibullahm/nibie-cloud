@@ -5,6 +5,9 @@ Last updated: 2026-11-12 (hardening wiring run; uncommitted, see the section bel
 > **Read first:** `docs/HANDOFF_TO_CLAUDE.md` — the authoritative state transfer for the next
 > implementing agent. It supersedes any older summary where they disagree.
 
+> **Dashboard (2026-11-12):** `apps/web` is on `main`. Branch `fix/web-antislop-review` applies an
+> antislop review (audit and report in `apps/web/anti-slop/`); see `docs/SESSION_HANDOFF.md`.
+
 ## Current milestone
 
 Milestone 1 (runtime foundation) is complete and committed. Milestone 2.2 — End-to-End Runtime

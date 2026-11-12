@@ -51,7 +51,7 @@ export function formatTime(iso: string): string {
 }
 
 export function formatDuration(seconds: number): string {
-  if (seconds <= 0) return "—"
+  if (seconds <= 0) return "Not running"
   const d = Math.floor(seconds / 86400)
   const h = Math.floor((seconds % 86400) / 3600)
   const m = Math.floor((seconds % 3600) / 60)

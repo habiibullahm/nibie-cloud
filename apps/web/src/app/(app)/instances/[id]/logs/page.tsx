@@ -7,10 +7,10 @@ import { useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { SectionTitle } from "@/components/app/page-header"
 import { PreviewNote } from "@/components/app/preview-note"
+import { QueryFallback } from "@/components/app/query-fallback"
 import { useLogs } from "@/hooks/use-hermes"
 import type { LogLevel } from "@/lib/api/types"
 import { formatTime } from "@/lib/format"
@@ -71,13 +71,15 @@ export default function LogsPage() {
       </p>
 
       <div className="max-h-[560px] overflow-auto rounded-md border bg-card" role="log" aria-label="Instance logs" aria-live={follow ? "polite" : "off"}>
-        {logs.isLoading ? (
-          <Skeleton className="m-4 h-40 bg-elevated" />
-        ) : logs.data && logs.data.length === 0 ? (
+        {!logs.data ? (
+          <div className="p-4">
+            <QueryFallback what="logs" queries={[logs]} className="h-40 bg-elevated" />
+          </div>
+        ) : logs.data.length === 0 ? (
           <p className="p-4 text-muted-foreground">No log lines match these filters.</p>
         ) : (
           <ol className="type-mono min-w-max py-2">
-            {logs.data?.map((l, i) => (
+            {logs.data.map((l, i) => (
               <li key={i} className="grid grid-cols-[72px_56px_72px_minmax(0,1fr)] gap-3 px-4 py-1 hover:bg-row-hover">
                 <time dateTime={l.t} className="text-muted-foreground">
                   {formatTime(l.t)}
