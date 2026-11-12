@@ -1,5 +1,52 @@
 # Session Handoff — 2026-11-12 (design foundation + runtime commit)
 
+> **Superseded in part.** The current authoritative handoff is `docs/HANDOFF_TO_CLAUDE.md`
+> (written 2026-11-12, handoff-to-Claude run). It contains the verified Git state, the reconciled
+> decision set, and the next steps. The notes below are the historical record of the
+> design-foundation run and are kept for traceability; where they disagree with
+> `docs/HANDOFF_TO_CLAUDE.md`, the newer document wins.
+
+## Update — hardening wiring run (2026-11-12, later still)
+
+Spec and plan approved by Nash, then executed inline in a sandbox copy of the repo (the local
+workstation has no `node_modules` or `pnpm`). Result applied to the working tree **uncommitted**.
+Full description: `docs/CURRENT_STATE.md`, "Uncommitted work: hardening wiring".
+
+- Done: key and runtime wiring, strict readiness, startup runsc check, stub rework, updated
+  integration tests and demo, docs (architecture, setup, `.env.example`, ADR 0002 amendment), new
+  `docs/milestone-2-runtime-security.md` (partial reconstruction).
+- Verified in the sandbox (Docker 29.9, cgroup v1, runc only): tsc clean, 89 unit and 101 integration
+  tests pass, harness runc checks pass against the official image, end-to-end provision and recovery
+  on the official image works with the derived key.
+- Not verified: gVisor, cgroup v2 / production host, the local Windows workstation.
+- Next: Nash reviews and commits (or asks for changes); re-run the harness with gVisor and fill the
+  "Verification run" section; check the new `.gitattributes` (stub files stay LF).
+
+## Update — handoff-to-Claude run (2026-11-12, later same day)
+
+Reconciliation pass. Read-only inspection of Git plus review of every document; no implementation
+work, no dependency install, no provider or infrastructure change.
+
+- Created `docs/HANDOFF_TO_CLAUDE.md` (section A overview, B approved decisions, C actual state,
+  D current design task, E technical notes, F next steps, G discrepancies).
+- Updated `docs/CURRENT_STATE.md` to match verified state.
+- **Corrected:** the design files were committed as `b7bd10e`, not `34935be`. `34935be` was
+  `commit --amend`ed into `b7bd10e` at 09:10:33 (visible in `git reflog`, not in `git log`).
+- **Found:** `design-preview.html` already exists untracked (81,606 bytes, 1,333 lines, seven
+  sections, written 14:58 today). It is a complete component specimen sheet, unreviewed and
+  unapproved. Preserved untouched.
+- **Found:** `docs/milestone-2-runtime-security.md` does not exist and was never committed, though
+  both continuity docs referred to it. Milestone 2.2 evidence must be reconstructed.
+- **Found:** `docs/architecture.md` "Image contract" still documents the stub contract
+  (8080 / `/data` / uid 10001) rather than the implemented official-image contract
+  (8642 / `/opt/data` / s6 uid 10000 + 8 caps). Flagged, not changed.
+- **Found:** no `node_modules` and no `pnpm` on this workstation, so the documented test results
+  could not be re-executed. They are now recorded as prior claims, not verified facts.
+- Working tree at handoff: branch `feat/official-image-compatibility`, HEAD `b7bd10e`, one
+  untracked file, nothing staged, no stashes, nothing committed by this run.
+
+## Historical: design foundation run
+
 ## Work completed in this run
 
 1. Committed the pending RuntimeManager hardening work as `760f361`
@@ -33,7 +80,8 @@
 - Earlier in run: `src/modules/runtime/hardening.ts`,
   `test/unit/hardening.test.ts`, `test/validation/runtime-manager-live.ts` (commit 760f361)
 
-All four files are committed as `34935be` on `feat/official-image-compatibility`.
+All four files are committed as `b7bd10e` on `feat/official-image-compatibility`
+(this commit was created as `34935be` and then `--amend`ed; `34935be` survives only in the reflog).
 
 ## Decisions established
 
@@ -66,14 +114,17 @@ All four files are committed as `34935be` on `feat/official-image-compatibility`
 
 ## Remaining work
 
-- Fold WS1–WS5 Milestone 2.2 evidence into `docs/milestone-2-runtime-security.md`
-  (consolidated pass/fail + reproducible failure cases; WS4b benchmark numbers).
+- Write `docs/milestone-2-runtime-security.md` (it does not exist; create it) with the WS1–WS5
+  Milestone 2.2 evidence (consolidated pass/fail + reproducible failure cases; WS4b benchmark numbers).
 - Wire the validated hardening baseline (caps/read-only rootfs/tmpfs) into the provisioner path.
 - Decide and document the frontend approval gate before any dashboard work.
 
 ## Next recommended task
 
-Milestone 2.2 documentation consolidation: update
-`docs/milestone-2-runtime-security.md` with the WS1–WS5 acceptance evidence
-(environment + digest, commands, pass/fail per workstream, implemented vs canary-validated vs
-proposed, remaining production blockers). ~30–45 min. Do not start automatically.
+**Present `design-preview.html` for human visual approval, then wait.** It already exists untracked
+and needs review, not authoring. No dashboard work follows until that approval is explicit.
+
+After approval, the Milestone 2.2 documentation consolidation
+(`docs/milestone-2-runtime-security.md`, which must be written from scratch) is the honest next
+piece of project work, followed by correcting the stale image contract in `docs/architecture.md`.
+Do not start either automatically. Full ordering in `docs/HANDOFF_TO_CLAUDE.md` section F.
