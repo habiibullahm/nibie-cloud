@@ -12,6 +12,7 @@ real tool output win, then CURRENT_STATE, then everything else.
 | [architecture.md](architecture.md) | What the backend builds today, the hardening table, the image contract, known gaps. |
 | [setup.md](setup.md) | Prerequisites, first run, commands, configuration variables, operator API usage. |
 | [milestone-2-runtime-security.md](milestone-2-runtime-security.md) | Milestone 2.2 runtime-security evidence. A partial reconstruction; each result is tagged re-run or reported. |
+| [disk-quota-host-notes.md](disk-quota-host-notes.md) | What was and was not verified about Docker volume quotas on a real host. |
 | [adr/](adr) | Architecture decision records: [0001](adr/0001-docker-direct-no-orchestrator.md), [0002](adr/0002-hardened-container-baseline.md). |
 
 Also outside `docs/`: [../AGENTS.md](../AGENTS.md) (agent instructions), [../DESIGN.md](../DESIGN.md)
@@ -26,5 +27,5 @@ DESIGN.md), [../apps/web/README.md](../apps/web/README.md) (dashboard).
 | [HANDOFF_TO_CLAUDE.md](HANDOFF_TO_CLAUDE.md) | State-transfer snapshot taken at commit `b7bd10e`. Several statements in it are no longer true; see its banner. |
 | [implementation-checklist.md](implementation-checklist.md) | Milestone 1 plan tasks and review rounds. |
 | [review-fixes.md](review-fixes.md) | Milestone 1 review round 2 fixes. |
-| [superpowers/plans/](superpowers/plans) | Implementation plans: runtime foundation (2026-11-11), hardening wiring and frontend dashboard (2026-11-12). |
-| [superpowers/specs/](superpowers/specs) | Design spec for the hardening wiring (2026-11-12). |
+| [superpowers/plans/](superpowers/plans) | Implementation plans: runtime foundation (2026-11-11), hardening wiring, frontend dashboard, disk quota and egress controls (2026-11-12). |
+| [superpowers/specs/](superpowers/specs) | Design specs: hardening wiring, disk quota and egress controls (2026-11-12). |

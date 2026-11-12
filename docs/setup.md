@@ -5,6 +5,7 @@
 - Node.js 22+, pnpm 10
 - A **Linux Docker daemon** reachable at `/var/run/docker.sock` (Docker Engine, or Docker Desktop with Linux containers)
 - PostgreSQL 16 (provided by `compose.yaml`)
+- For production-like runs with `HERMES_DISK_QUOTA=enforce` (the default): Docker's data root on **XFS mounted with project quotas** (see below)
 
 ## First run
 
@@ -44,7 +45,26 @@ DATABASE_URL=postgresql://hermes:hermes_dev_only@127.0.0.1:5433/hermes_test pnpm
 | `PORT` | Default 3000. The API always binds `127.0.0.1` |
 | `DOCKER_SOCKET_PATH` | Default `/var/run/docker.sock` |
 | `HERMES_MASTER_KEY` | Required, at least 32 characters (`openssl rand -hex 32`). Every instance's `API_SERVER_KEY` is derived from it (HMAC-SHA256 with the instance id); it is never stored or logged. Changing it makes running instances reject the new keys: the Reconciler marks them `DEGRADED` (`auth_rejected`) without restarting them, and they stay that way until their containers are recreated (see below) |
+| `HERMES_DISK_QUOTA` | `enforce` (default) or `off`. `enforce` creates every tenant volume with `Plan.storageMb` as its size limit and refuses to run a volume that has none. `off` is rejected when `NODE_ENV=production` |
+| `HERMES_DISK_CHECK_INTERVAL_MS` | Default `300000` (5 minutes), minimum `1000`. How often the DiskMonitor reads volume usage and records `disk.warning`, `disk.full` and `disk.ok` events |
 | `HERMES_RUNTIME` | `runc` (default) or `runsc` (gVisor). With `runsc`, startup fails if the Docker daemon does not list that runtime. Applies only to containers created from now on |
+
+## Disk quota host setup (XFS)
+
+Tenant volumes are size-limited with XFS project quotas, so Docker's data root (default
+`/var/lib/docker`) must live on an XFS filesystem mounted with `prjquota` (also written `pquota`).
+
+1. Create or mount an XFS filesystem (a dedicated disk is simplest), with the `prjquota` mount option.
+2. Point Docker's `data-root` at it (`/etc/docker/daemon.json`), stop Docker, move or recreate the data,
+   and start Docker. Doing this on a host that already runs containers is disruptive.
+3. Check: `findmnt -T /var/lib/docker -o TARGET,FSTYPE,OPTIONS` shows `xfs` and `prjquota`/`pquota`.
+4. Start the control plane. With `HERMES_DISK_QUOTA=enforce` it creates and removes a small probe volume
+   and exits with a message naming `HERMES_DISK_QUOTA` if Docker refuses the size option.
+
+On a filesystem without quota support (for example ext4) Docker refuses to create a sized volume
+(HTTP 400, "quota size requested but no quota support"). Use `HERMES_DISK_QUOTA=off` only for local
+development and tests; it is rejected when `NODE_ENV=production`. What has and has not been checked
+on a real host is in [disk-quota-host-notes.md](disk-quota-host-notes.md).
 
 ## Recreating an existing instance's container
 
