@@ -60,6 +60,34 @@ export const containerName = (id: string): string => `hermes-${uuid(id)}`;
 export const volumeName = (id: string): string => `hermes-data-${uuid(id)}`;
 export const networkName = (id: string): string => `hermes-net-${uuid(id)}`;
 
+export const BRIDGE_NAME_OPTION = 'com.docker.network.bridge.name';
+
+/**
+ * Linux interface name of a tenant's bridge: `hn` plus the first 12 hex characters of the instance
+ * UUID (14 characters, under the 15 character limit). The host ruleset in `ops/egress/` matches the
+ * `hn` prefix, so every tenant network must carry exactly this name.
+ */
+export const bridgeName = (id: string): string => `hn${uuid(id).replace(/-/g, '').slice(0, 12)}`;
+
+/** Tenant network: its own bridge with the policy-matched name, ICC off and IPv6 off. */
+export function buildNetworkConfig(instanceId: string, tenantId?: string): Docker.NetworkCreateOptions {
+  const id = uuid(instanceId);
+  return {
+    Name: networkName(id),
+    Driver: 'bridge',
+    EnableIPv6: false,
+    Options: {
+      [BRIDGE_NAME_OPTION]: bridgeName(id),
+      'com.docker.network.bridge.enable_icc': 'false',
+    },
+    Labels: {
+      [LABEL_MANAGED]: 'true',
+      [LABEL_INSTANCE]: id,
+      ...(tenantId ? { [LABEL_TENANT]: uuid(tenantId) } : {}),
+    },
+  };
+}
+
 export function buildContainerConfig(spec: RuntimeSpec): Docker.ContainerCreateOptions {
   const id = uuid(spec.instanceId);
   uuid(spec.tenantId);

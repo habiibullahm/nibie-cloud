@@ -1,4 +1,4 @@
-import { VolumeQuotaMissingError } from '../../src/shared/errors.js';
+import { NetworkPolicyMissingError, VolumeQuotaMissingError } from '../../src/shared/errors.js';
 import {
   AUTH_REJECTED_DETAIL,
   type DiskQuotaMode, type HealthResult, type RuntimeInspection, type RuntimeManager, type RuntimeSpec,
@@ -19,6 +19,8 @@ export class FakeRuntime implements RuntimeManager {
   volumeQuotaMb: number | null = null;
   /** When true `ensure()` refuses like a manager that found an unquotaed volume while enforcing. */
   quotaMissing = false;
+  /** When true `ensure()` refuses like a manager that found a tenant network without the policy bridge name. */
+  networkPolicyMissing = false;
   /** Used bytes per instance id, as `volumeUsage()` reports them. */
   readonly usage = new Map<string, number>();
   /** When set, `volumeUsage()` throws it (e.g. a RuntimeUnavailableError). */
@@ -27,6 +29,7 @@ export class FakeRuntime implements RuntimeManager {
 
   async ensure(spec: RuntimeSpec): Promise<{ hostPort: number | null; volumeQuotaMb: number | null }> {
     this.ensured.push(spec);
+    if (this.networkPolicyMissing) throw new NetworkPolicyMissingError();
     if (this.quotaMissing) throw new VolumeQuotaMissingError();
     if (!this.containers.has(spec.instanceId)) {
       this.containers.set(spec.instanceId, { key: spec.apiServerKey, running: false });

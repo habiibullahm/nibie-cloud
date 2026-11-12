@@ -1,5 +1,5 @@
 import type { Instance, InstanceStatus, Plan, PrismaClient } from '@prisma/client';
-import { ConflictError, NotFoundError, RuntimeUnavailableError, ValidationError, VolumeQuotaMissingError } from '../../shared/errors.js';
+import { ConflictError, NetworkPolicyMissingError, NotFoundError, RuntimeUnavailableError, ValidationError, VolumeQuotaMissingError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import { isUuid } from '../../shared/uuid.js';
 import { deriveApiKey } from '../runtime/api-key.js';
@@ -273,6 +273,7 @@ export class InstanceService {
       const reason =
         e instanceof RuntimeUnavailableError ? 'runtime_unavailable'
           : e instanceof VolumeQuotaMissingError ? 'volume_quota_missing'
+          : e instanceof NetworkPolicyMissingError ? 'network_policy_missing'
           : e instanceof HealthTimeout ? 'health_check_timeout'
             : 'runtime_create_failed';
       this.logger.error({ instanceId: inst.id, reason }, 'provisioning failed');
