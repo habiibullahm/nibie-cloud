@@ -1,0 +1,108 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/shadcn.css";
+@import "fumadocs-ui/css/preset.css";
+
+@source "../../node_modules/fumadocs-ui/dist/**/*.js";
+
+/*
+ * Nibie Cloud docs theme. Every literal below is transcribed from the root DESIGN.md and is the
+ * same variable set the dashboard (apps/web) uses; fumadocs-ui's shadcn preset maps its --color-fd-*
+ * tokens onto these. Dark-neutral only: DESIGN.md defines no light palette.
+ * Terracotta (--primary) is not used for links or accents here, only for the primary button fill.
+ */
+:root {
+  --hc-primary: #f3f4f6;
+  --hc-secondary: #9ca3aa;
+  --hc-tertiary: #ad5b3c;
+  --hc-neutral: #0b0d0f;
+  --hc-on-tertiary: #ffffff;
+  --hc-border: #2a2f34;
+  --hc-border-strong: #6b747c;
+  --hc-card-bg: #14171a;
+  --hc-elevated: #1b1f23;
+  --hc-secondary-surface: #24292e;
+  --hc-destructive: #b84a4a;
+
+  --background: var(--hc-neutral);
+  --foreground: var(--hc-primary);
+  --card: var(--hc-card-bg);
+  --card-foreground: var(--hc-primary);
+  --popover: var(--hc-elevated);
+  --popover-foreground: var(--hc-primary);
+  --primary: var(--hc-tertiary);
+  --primary-foreground: var(--hc-on-tertiary);
+  --secondary: var(--hc-secondary-surface);
+  --secondary-foreground: var(--hc-primary);
+  --muted: var(--hc-secondary-surface);
+  --muted-foreground: var(--hc-secondary);
+  --accent: var(--hc-secondary-surface);
+  --accent-foreground: var(--hc-primary);
+  --destructive: var(--hc-destructive);
+  --border: var(--hc-border);
+  --input: var(--hc-border-strong);
+  --ring: var(--hc-primary);
+  --sidebar: var(--hc-neutral);
+  --sidebar-foreground: var(--hc-primary);
+  --sidebar-border: var(--hc-border);
+  --sidebar-accent: var(--hc-secondary-surface);
+  --sidebar-accent-foreground: var(--hc-primary);
+  --sidebar-primary-foreground: var(--hc-on-tertiary);
+  --sidebar-ring: var(--hc-primary);
+
+  color-scheme: dark;
+}
+
+/*
+ * fumadocs-ui paints the active sidebar item, the active TOC entry and callout accents with
+ * --color-fd-primary. DESIGN.md reserves terracotta for the primary button fill, so those stay neutral.
+ */
+:root,
+.dark,
+#nd-sidebar {
+  --color-fd-primary: var(--hc-primary);
+  --color-fd-primary-foreground: var(--hc-neutral);
+}
+
+@theme {
+  --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* rounded.sm / rounded.md only. */
+  --radius-xs: 4px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --radius-xl: 8px;
+  --radius-2xl: 8px;
+}
+
+body {
+  font-size: 0.875rem; /* typography.body-md */
+  font-weight: 400;
+  line-height: 1.55;
+  -webkit-text-size-adjust: 100%;
+}
+
+::selection {
+  background: var(--hc-secondary-surface);
+  color: var(--hc-primary);
+}
+
+/* typography.h1 and label-caps use Bricolage Grotesque. */
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-heading);
+}
+
+/* Links in prose stay neutral and underlined; terracotta is reserved for the primary button. */
+.prose a:not([data-card]) {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: var(--hc-border-strong);
+}
+.prose a:not([data-card]):hover {
+  text-decoration-color: var(--hc-primary);
+}

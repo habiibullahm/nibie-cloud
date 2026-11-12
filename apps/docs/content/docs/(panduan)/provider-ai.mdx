@@ -1,0 +1,34 @@
+---
+title: Provider AI
+description: Pilih NibieRouter sebagai default atau bawa API key sendiri (BYOK).
+---
+
+<Callout type="info" title="Draft">
+Pengaturan provider di dashboard masih berupa pratinjau. Detail integrasi NibieRouter (misalnya key per
+tenant dan pelaporan pemakaian) belum final.
+</Callout>
+
+Hermes membutuhkan penyedia model AI. Ada dua pilihan, dan keduanya ditagih terpisah dari hosting.
+
+## NibieRouter (default)
+
+Jalur paling mudah: terhubung tanpa kamu perlu membuat akun penyedia lain. Pemakaian AI ditagih lewat
+NibieRouter, bukan lewat tagihan hosting. Pemakaian AI hanya ditampilkan di dashboard bila data dari sisi
+NibieRouter sudah akurat dan tersedia.
+
+## BYOK (bawa API key sendiri)
+
+Kamu memasukkan kredensial penyedia yang kamu pilih. Yang perlu diketahui:
+
+- API key dienkripsi saat disimpan, dan **tidak pernah ditampilkan kembali** setelah kamu menyimpannya.
+- Ada aksi **Test koneksi** yang tidak memperlihatkan key.
+- Key bisa diganti dan dihapus kapan saja.
+- Biaya pemakaian ditagih oleh penyedia itu, bukan oleh Nibie Cloud.
+- Bila kamu memakai base URL kustom, alamatnya divalidasi. Alamat ke jaringan privat, loopback, atau metadata
+  cloud ditolak untuk mencegah SSRF.
+
+## Bila penyedia AI bermasalah
+
+Dashboard membedakan **masalah penyedia** dari **masalah instance**. Jika penyedia sedang gangguan, kamu
+melihat status koneksi penyedia dan pesan galat yang sudah disanitasi. Instance yang sehat tidak di-restart
+hanya karena penyedia AI tidak merespons.

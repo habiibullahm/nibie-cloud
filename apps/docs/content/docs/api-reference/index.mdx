@@ -1,0 +1,46 @@
+---
+title: Ikhtisar API
+description: API pelanggan Nibie Cloud untuk mengelola instance Hermes secara terprogram.
+---
+
+<Callout type="error" title="Draft: belum bisa dipakai">
+API pelanggan masih dirancang dan **belum tersedia untuk umum**. Halaman di bagian ini diturunkan dari
+rancangan produk dan spesifikasi backend, dan dapat berubah. Skema final, mekanisme autentikasi, katalog
+galat, dan spesifikasi OpenAPI akan dirampungkan saat implementasi.
+</Callout>
+
+## Base URL
+
+```text
+https://api.cloud.nibie.app/api/v1
+```
+
+Semua path di bagian ini relatif terhadap base URL tersebut.
+
+## Prinsip API
+
+- Aksi yang berjalan lama (provisioning, restart, restore, dan sejenisnya) mengembalikan `202 Accepted`.
+  Status akhir diambil lewat endpoint status.
+- Setiap akses sumber daya diverifikasi per tenant. Mengakses instance milik tenant lain mengembalikan
+  `404`, bukan `403`.
+- Aksi yang sensitif terhadap duplikasi (membuat instance) memakai [idempotency key](/api-reference/error-dan-idempotensi).
+- Galat selalu disanitasi dan tidak pernah memuat secret atau kredensial infrastruktur.
+- Autentikasi, console, file, dan provisioning dikenai rate limit.
+- Respons memakai `Cache-Control: no-store`.
+
+## Daftar halaman
+
+<Cards>
+  <Card title="Autentikasi" href="/api-reference/autentikasi">
+    Cara mengirim token pada setiap permintaan.
+  </Card>
+  <Card title="Akun dan paket" href="/api-reference/akun-dan-paket">
+    GET /me dan GET /plans.
+  </Card>
+  <Card title="Instances" href="/api-reference/instances">
+    Membuat, melihat, dan mengatur siklus hidup instance.
+  </Card>
+  <Card title="Error dan idempotensi" href="/api-reference/error-dan-idempotensi">
+    Format galat dan header Idempotency-Key.
+  </Card>
+</Cards>

@@ -1,0 +1,23 @@
+---
+title: Web Console
+description: Shell di dalam container Hermes-mu, langsung dari dashboard.
+---
+
+<Callout type="info" title="Draft">
+Fitur ini belum tersedia di backend. Halaman ini menjelaskan perilaku yang dirancang.
+</Callout>
+
+Web Console membuka shell di dalam container instance-mu. Kamu punya akses shell penuh **di dalam
+container-mu sendiri**, tetapi tidak ada akses ke server host, dan tidak ada SSH ke host.
+
+## Batasan
+
+- Sesi shell punya batas jumlah sesi, batas perintah, dan batas waktu tidak aktif.
+- Setiap sesi dicatat sebagai event audit.
+- Sesi dibuat lewat broker eksekusi yang dibatasi pada tenant-mu, bukan lewat akses Docker langsung.
+
+## Skill kustom
+
+Kamu boleh memasang skill kustom di instance-mu. Skill dan dependensinya dianggap tidak tepercaya dan hanya
+dipasang di dalam runtime-mu. Skill tidak bisa mengakses kredensial platform atau tenant lain. Ingat bahwa
+skill bisa menjalankan kode, dan bisa memengaruhi instance-mu sendiri.

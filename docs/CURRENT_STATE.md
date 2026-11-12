@@ -124,3 +124,14 @@ failure reason: `network_policy_missing`.
   verified on a Docker host (plan Tasks 2 and 8), see [egress-host-notes.md](egress-host-notes.md). The
   location of NibieRouter (public URL or private address needing an exception) and the abuse policy
   (PRD 21 item 11) are still undecided.
+
+## Customer docs site (`apps/docs`), 2026-11-12
+
+- New standalone package `apps/docs` (Fumadocs, Next.js 16, static export, `basePath` `/docs`) for
+  `cloud.nibie.app/docs`. Content in Indonesian, written from `docs/prd.md` and the backend spec only;
+  unfinished features and the whole API reference carry `Draft` callouts. No prices are stated.
+- Verified in a cloud sandbox: `pnpm typecheck`, `pnpm lint`, `pnpm build` (20 pages + static search
+  index), Playwright at 1440 and 390 px (no console errors, no horizontal overflow, search works).
+- Not done: uncommitted until the owner approves; no Cloudflare route or deployment for `/docs*`;
+  `@google/design.md` lint not run; fumadocs callout icon colours (blue, amber, red) are library
+  defaults, not `DESIGN.md` tokens, and need an owner decision.

@@ -1,0 +1,18 @@
+---
+title: File Manager
+description: Jelajahi dan ubah file di volume permanen instance-mu.
+---
+
+<Callout type="info" title="Draft">
+Fitur ini belum tersedia di backend. Halaman ini menjelaskan perilaku yang dirancang.
+</Callout>
+
+File Manager memungkinkan kamu menelusuri, mengunggah, membaca, mengubah, dan menghapus file di **volume
+permanen instance-mu**.
+
+## Batasan keamanan
+
+- Semua operasi dibatasi pada volume permanen milikmu. Tidak ada akses ke filesystem host.
+- Path divalidasi untuk mencegah traversal dan symlink yang keluar dari volume.
+- Setiap aksi diautentikasi dan kepemilikan tenant diverifikasi di server.
+- Browser tidak pernah mengirim ID container, path host, atau parameter Docker.

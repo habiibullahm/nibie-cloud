@@ -1,0 +1,50 @@
+---
+title: Error dan idempotensi
+description: Format galat dan cara aman mengulang permintaan membuat instance.
+---
+
+<Callout type="error" title="Draft">
+Katalog kode galat lengkap belum final. Kode di bawah ini adalah yang sudah muncul di rancangan.
+</Callout>
+
+## Format galat
+
+Semua galat memakai satu bentuk:
+
+```json
+{
+  "error": {
+    "code": "unauthorized",
+    "message": "Unauthorized"
+  }
+}
+```
+
+Pesan galat disanitasi. Pesan tidak pernah memuat secret, token, atau detail infrastruktur.
+
+| HTTP | `code` | Kapan |
+| --- | --- | --- |
+| 401 | `unauthorized` | Token hilang atau tidak valid. |
+| 403 | `provisioning_not_enabled` | Akunmu belum diizinkan membuat instance (tahap beta). |
+| 404 | | Sumber daya tidak ada, atau bukan milik tenant-mu. |
+| 409 | | Konflik status (mis. aksi bentrok dengan operasi yang sedang berjalan) atau batas jumlah instance. |
+| 429 | | Terkena rate limit. |
+| 500 | `internal_error` | Galat server. |
+
+## Idempotency-Key
+
+`POST /instances` mewajibkan header `Idempotency-Key` (1 sampai 128 karakter). Gunakan nilai acak unik,
+misalnya UUID, untuk setiap *niat* membuat instance.
+
+```bash
+curl -X POST https://api.cloud.nibie.app/api/v1/instances \
+  -H "Authorization: Bearer <TOKEN_SESI_LOGIN>" \
+  -H "Idempotency-Key: 4b2a3a52-7a0e-4a3a-9d0d-3a2d0a7a3c11" \
+  -H "Content-Type: application/json" \
+  -d '{ "name": "agen-pribadi", "planId": "<ID_PAKET>" }'
+```
+
+- Mengulang permintaan dengan key yang sama dan isi yang sama tidak membuat instance kedua. Kamu mendapat
+  instance yang sama.
+- Key terikat pada `name` dan `planId`. Memakai key yang sama dengan isi berbeda ditolak.
+- Aman untuk mengulang setelah koneksi putus atau timeout.
