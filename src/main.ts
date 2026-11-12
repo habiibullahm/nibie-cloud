@@ -7,6 +7,7 @@ import { DiskMonitor } from './modules/instances/disk-monitor.js';
 import { Reconciler } from './modules/instances/reconciler.js';
 import { DockerRuntimeManager } from './modules/runtime/docker-runtime-manager.js';
 import { assertDiskQuotaSupported } from './modules/runtime/disk-quota-check.js';
+import { EgressCanaryError, EgressPolicyError, runEgressCanary } from './modules/runtime/egress-canary.js';
 import { assertRuntimeAvailable } from './modules/runtime/runtime-availability.js';
 import { createLogger } from './shared/logger.js';
 
@@ -16,6 +17,16 @@ const prisma = createPrisma(config.databaseUrl);
 const docker = new Docker({ socketPath: config.dockerSocketPath });
 await assertRuntimeAvailable(docker, config.runtime);
 await assertDiskQuotaSupported(docker, config.diskQuota);
+if (config.egressPolicy === 'enforce') {
+  // Refuse to serve tenants when the host ruleset is missing: the error names the failed check only.
+  try {
+    await runEgressCanary({ docker, image: config.canaryImage!, privateIp: config.canaryPrivateIp, logger });
+  } catch (e) {
+    if (e instanceof EgressPolicyError || e instanceof EgressCanaryError) logger.error(e.message);
+    else logger.error('Egress canary failed unexpectedly');
+    process.exit(1);
+  }
+}
 const runtime = new DockerRuntimeManager({ docker, logger });
 const service = new InstanceService({
   prisma, runtime, image: config.hermesImage, production: config.nodeEnv === 'production', logger,
