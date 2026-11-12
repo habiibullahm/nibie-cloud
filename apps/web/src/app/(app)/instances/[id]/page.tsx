@@ -2,15 +2,16 @@
 
 import Link from "next/link"
 import { Check, CircleX, Copy, Minus, TriangleAlert } from "lucide-react"
-import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PreviewNote } from "@/components/app/preview-note"
+import { QueryFallback } from "@/components/app/query-fallback"
 import { ProvisionProgress } from "@/components/app/provision-progress"
 import { useEvents, useInstance, useProvider, useTelegram } from "@/hooks/use-hermes"
 import { isTransitional, presentStatus, provisionStepIndex } from "@/lib/api/status"
 import type { Instance } from "@/lib/api/types"
+import { copyWithToast } from "@/lib/copy"
 import { formatDateTime, formatRelative } from "@/lib/format"
 import { useInstanceId } from "./instance-frame"
 
@@ -27,7 +28,7 @@ export default function OverviewPage() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Deploying</CardTitle>
-            <CardDescription>This usually takes under a minute. You can leave this page; we keep going.</CardDescription>
+            <CardDescription>You can leave this page. Deployment continues in the background.</CardDescription>
           </CardHeader>
           <CardContent>
             <ProvisionProgress status={instance.status} />
@@ -62,17 +63,14 @@ function StatusCard({ instance }: { instance: Instance }) {
           <span className="type-label text-muted-foreground">Instance URL</span>
           {instance.accessUrl ? (
             <div className="flex min-w-0 items-center gap-2">
-              <a href={instance.accessUrl} target="_blank" rel="noreferrer" className="type-mono min-w-0 truncate text-foreground">
+              <a href={instance.accessUrl} target="_blank" rel="noreferrer" className="type-mono min-w-0 truncate text-foreground pointer-coarse:py-3">
                 {instance.accessUrl}
               </a>
               <Button
                 variant="ghost"
                 size="icon-sm"
                 aria-label="Copy instance URL"
-                onClick={() => {
-                  void navigator.clipboard?.writeText(instance.accessUrl!)
-                  toast.success("URL copied")
-                }}
+                onClick={() => void copyWithToast(instance.accessUrl!, "URL")}
               >
                 <Copy aria-hidden="true" />
               </Button>
@@ -121,14 +119,18 @@ function HealthCard({ instance }: { instance: Instance }) {
         : isTransitional(s)
           ? ["none", "Waiting for runtime"]
           : ["none", "Offline"]
-  const prov: [Health, string] = !provider.data
+  const prov: [Health, string] = provider.error
+    ? ["warn", "Could not check"]
+    : !provider.data
     ? ["none", "Loading"]
     : provider.data.status === "connected"
       ? ["ok", provider.data.kind === "nibierouter" ? "NibieRouter connected" : "Own key connected"]
       : provider.data.status === "error"
         ? ["fail", "Connection error"]
         : ["warn", "Not tested"]
-  const tg: [Health, string] = !telegram.data
+  const tg: [Health, string] = telegram.error
+    ? ["warn", "Could not check"]
+    : !telegram.data
     ? ["none", "Loading"]
     : !telegram.data.configured
       ? ["none", "Not set up"]
@@ -172,8 +174,8 @@ function EventsCard({ instance }: { instance: Instance }) {
         <CardDescription>Deployment and health events for this instance.</CardDescription>
       </CardHeader>
       <CardContent>
-        {events.isLoading ? (
-          <Skeleton className="h-24 bg-elevated" />
+        {!events.data ? (
+          <QueryFallback what="activity" queries={[events]} className="h-24 bg-elevated" />
         ) : list.length === 0 ? (
           <p className="text-muted-foreground">No events yet.</p>
         ) : (

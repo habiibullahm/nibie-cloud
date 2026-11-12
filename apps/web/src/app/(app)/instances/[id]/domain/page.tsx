@@ -6,9 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Skeleton } from "@/components/ui/skeleton"
+import { ComingSoon } from "@/components/app/coming-soon"
 import { EmptyState } from "@/components/app/empty-state"
 import { PreviewNote } from "@/components/app/preview-note"
+import { QueryFallback } from "@/components/app/query-fallback"
 import { useInstance, useInstanceMeta, usePlans } from "@/hooks/use-hermes"
 import { useInstanceId } from "../instance-frame"
 
@@ -19,7 +20,7 @@ export default function DomainPage() {
   const plans = usePlans()
   const plan = plans.data?.find((p) => p.id === meta.data?.planId)
 
-  if (!instance || !plan) return <Skeleton className="h-48 bg-card" />
+  if (!instance || !plan) return <QueryFallback what="domain settings" queries={[meta, plans]} />
 
   if (!plan.customDomain) {
     return (
@@ -54,8 +55,10 @@ export default function DomainPage() {
           </p>
         </div>
       </CardContent>
-      <CardFooter className="border-t">
-        <p className="text-muted-foreground">Custom domains depend on the ingress rollout and are not available yet.</p>
+      {/* TODO(domain): enable once the ingress supports customer domains and certificate issuance. */}
+      <CardFooter className="flex-wrap items-center gap-3 border-t">
+        <ComingSoon />
+        <p className="text-muted-foreground">Custom domains depend on the ingress rollout.</p>
       </CardFooter>
     </Card>
   )

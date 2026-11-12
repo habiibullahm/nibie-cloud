@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
+import { QueryFallback } from "@/components/app/query-fallback"
 import { KeyValue } from "@/components/app/key-value"
 import { PageHeader, SectionTitle } from "@/components/app/page-header"
 import { PreviewNote } from "@/components/app/preview-note"
@@ -35,7 +35,8 @@ export function DeployForm() {
   // PRD §4.2: only advertise regions the scheduler can place an instance in.
   const placeable = useMemo(() => regions.data?.filter((r) => r.hasCapacity) ?? [], [regions.data])
   const region = placeable.find((r) => r.id === (regionId || placeable[0]?.id))
-  const plan = plans.data?.find((p) => p.id === (planId || plans.data?.[1]?.id))
+  // Default to the smallest plan: no tier is promoted, and upgrading later is always possible.
+  const plan = plans.data?.find((p) => p.id === (planId || plans.data?.[0]?.id))
   const nameError = validateInstanceName(name)
 
   const submit = (e: React.FormEvent) => {
@@ -51,12 +52,7 @@ export function DeployForm() {
   return (
     <form onSubmit={submit} noValidate className="grid gap-8">
       <PageHeader
-        eyebrow={
-          <>
-            <span>Deploy</span>
-            <PreviewNote what="Plans, regions and pricing" />
-          </>
-        }
+        actions={<PreviewNote what="Plans, regions and pricing" />}
         title="Deploy a Hermes instance"
         description="Your instance runs in its own container with dedicated persistent storage. You can change plans later."
       />
@@ -91,13 +87,13 @@ export function DeployForm() {
             <SectionTitle>
               <span id="sec-region">2 · Region</span>
             </SectionTitle>
-            {regions.isLoading ? (
-              <Skeleton className="h-16 max-w-md bg-card" />
+            {!regions.data ? (
+              <QueryFallback what="regions" queries={[regions]} className="h-16 max-w-md" />
             ) : placeable.length === 0 ? (
               <Alert>
                 <Info aria-hidden="true" />
                 <AlertTitle>No capacity right now</AlertTitle>
-                <AlertDescription>All regions are full. We add capacity regularly; try again later.</AlertDescription>
+                <AlertDescription>All regions are full right now. Try again later.</AlertDescription>
               </Alert>
             ) : (
               <RadioGroup
@@ -120,8 +116,8 @@ export function DeployForm() {
             <SectionTitle>
               <span id="sec-plan">3 · Plan</span>
             </SectionTitle>
-            {plans.isLoading ? (
-              <Skeleton className="h-40 bg-card" />
+            {!plans.data ? (
+              <QueryFallback what="plans" queries={[plans]} className="h-40" />
             ) : (
               <RadioGroup value={plan?.id} onValueChange={setPlanId} aria-label="Plan" className="grid gap-3 md:grid-cols-3">
                 {plans.data?.map((p) => (
@@ -179,22 +175,27 @@ export function DeployForm() {
           <KeyValue
             className="sm:grid-cols-[max-content_1fr]"
             items={[
-              { k: "Name", v: <span className="type-mono">{name.trim() || "—"}</span> },
-              { k: "Region", v: region ? region.name : "—" },
-              { k: "Plan", v: plan ? plan.name : "—" },
               {
-                k: "Resources",
-                v: plan ? (
-                  <span className="type-mono">
-                    {formatCpu(plan.cpuMillis)} · {formatMb(plan.memoryMb)} · {formatMb(plan.storageMb)}
-                  </span>
-                ) : (
-                  "—"
-                ),
+                k: "Name",
+                v: name.trim() ? <span className="type-mono">{name.trim()}</span> : <span className="text-muted-foreground">Not set</span>,
               },
+              { k: "Region", v: region ? region.name : <Unset loading={regions.isLoading} /> },
+              { k: "Plan", v: plan ? plan.name : <Unset loading={plans.isLoading} /> },
+              ...(plan
+                ? [
+                    {
+                      k: "Resources",
+                      v: (
+                        <span className="type-mono">
+                          {formatCpu(plan.cpuMillis)} · {formatMb(plan.memoryMb)} · {formatMb(plan.storageMb)}
+                        </span>
+                      ),
+                    },
+                  ]
+                : []),
               { k: "Network", v: "Dedicated container, platform egress policy" },
               { k: "Billing", v: cycle === "monthly" ? "Monthly" : cycle },
-              { k: "Price", v: plan ? formatPriceIdr(plan.monthlyPriceIdr) : "—" },
+              ...(plan ? [{ k: "Price", v: formatPriceIdr(plan.monthlyPriceIdr) }] : []),
             ]}
           />
           <Alert>
@@ -218,6 +219,10 @@ export function DeployForm() {
       </div>
     </form>
   )
+}
+
+function Unset({ loading }: { loading: boolean }) {
+  return <span className="text-muted-foreground">{loading ? "Loading" : "Not available"}</span>
 }
 
 function OptionCard({

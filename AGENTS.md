@@ -118,4 +118,5 @@ shadcn/ui is the exclusive component foundation for Hermes Cloud frontend work, 
 - Status is never conveyed by color alone. Text meets WCAG AA contrast; visible focus states, keyboard
   navigation and reduced motion are required.
 - Terracotta (`tertiary`) is used only for the primary button fill, the checked checkbox and the
-  switch-on track. `border-strong` is for form-control boundaries only.
+  switch-on track. `border-strong` is only for form-control boundaries and the edges of outline and
+  secondary buttons.

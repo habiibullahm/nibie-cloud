@@ -12,11 +12,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { KeyValue } from "@/components/app/key-value"
 import { PreviewNote } from "@/components/app/preview-note"
+import { QueryFallback } from "@/components/app/query-fallback"
 import { errorMessage, keys, useInstanceMeta, usePlans, useProvider, useTelegram } from "@/hooks/use-hermes"
 import { getApi, type ProviderConfig, type ProviderKind, type TelegramConfig } from "@/lib/api"
 import { formatCpu, formatMb, formatRelative } from "@/lib/format"
@@ -69,7 +69,7 @@ function ConnectionStatus({ config }: { config: ProviderConfig }) {
 
 function ProviderSection({ id }: { id: string }) {
   const provider = useProvider(id)
-  if (!provider.data) return <Skeleton className="h-64 bg-card" />
+  if (!provider.data) return <QueryFallback what="the AI provider settings" queries={[provider]} className="h-64" />
   return <ProviderForm key={provider.data.id} id={id} cfg={provider.data} />
 }
 
@@ -192,7 +192,7 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
                     aria-describedby="byok-url-hint"
                   />
                   <p id="byok-url-hint" className="text-muted-foreground">
-                    Must be a public https endpoint. Private and internal addresses are rejected.
+                    Must be a public https endpoint.
                   </p>
                 </div>
               ) : null}
@@ -258,7 +258,7 @@ function ChoiceCard({
 
 function TelegramSection({ id }: { id: string }) {
   const telegram = useTelegram(id)
-  if (!telegram.data) return <Skeleton className="h-64 bg-card" />
+  if (!telegram.data) return <QueryFallback what="the Telegram settings" queries={[telegram]} className="h-64" />
   return <TelegramForm id={id} cfg={telegram.data} />
 }
 
@@ -423,7 +423,7 @@ function RuntimeSection({ id }: { id: string }) {
   const plan = plans.data?.find((p) => p.id === meta.data?.planId)
   const [preBackup, setPreBackup] = useState(true)
 
-  if (!meta.data || !plan) return <Skeleton className="h-48 bg-card" />
+  if (!meta.data || !plan) return <QueryFallback what="the runtime details" queries={[meta, plans]} />
 
   return (
     <Card>

@@ -22,6 +22,9 @@ Last updated: 2026-11-12 (documentation tidy). Index of all docs: [README.md](RE
   [superpowers/plans/2026-11-12-frontend-dashboard.md](superpowers/plans/2026-11-12-frontend-dashboard.md)).
   It is a preview: mock data by default, instance endpoints through a dev bridge in `live` mode,
   auth and billing are UI shells. See [../apps/web/README.md](../apps/web/README.md).
+  Branch `fix/web-antislop-review` (PR #2) applies an antislop review: audit and report in
+  `apps/web/anti-slop/`, 45 dashboard tests. It also gives outline and secondary buttons
+  `border-strong` edges (approved by Nash, recorded in `DESIGN.md`).
 
 ## Verified tests
 

@@ -17,7 +17,8 @@ pnpm dev                # http://localhost:3100
 
 Checks: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
 
-Tips: `/instances?empty` shows the empty state. Mock data lives in the browser and resets on reload
+Tips: `/instances?empty` shows the empty state, and adding `?fail` to any page makes every preview
+endpoint fail so you can see the error states. Mock data lives in the browser and resets on reload
 (the three seeded instances keep fixed ids so deep links work; instances you deploy do not).
 
 ## Data modes
@@ -67,6 +68,31 @@ shadcn components in `src/components/ui` are the official new-york-v4 sources, c
 the tokens above. They were copied from the shadcn/ui repository because the shadcn CLI registry
 (ui.shadcn.com) was not reachable from the build sandbox; `components.json` is set up so
 `pnpm dlx shadcn@latest add <component>` works normally from a machine with access.
+
+## Design read
+
+Written down so each choice has a reason (antislop R-31, R-37). The full review is in
+[`anti-slop/`](anti-slop/).
+
+- **Job of the screens:** an operator-style console for one person's agents. The decision on most
+  screens is "is my agent healthy, and what do I do next", so status and the next action lead.
+- **Dials:** ENERGY 1 (quiet, neutral surfaces; terracotta only on the primary action, checked
+  checkbox and switch-on), RHYTHM 2 (cards, tables and key-value lists vary by content; no repeated
+  section template), MOTION 1 (hover and focus states only; spinners only while something is
+  really in progress, and all motion stops under `prefers-reduced-motion`).
+- **Kept on purpose:**
+  - Lucide icons: AGENTS.md says "Prefer Lucide icons".
+  - Uppercase tracked labels: DESIGN.md `label-caps`.
+  - Dark-only: DESIGN.md defines one dark-neutral theme.
+- **Button edges:** outline and secondary buttons use `border-strong` (4.09:1 on the page), so their
+  boundary meets the 3:1 non-text contrast bar. Approved by Nash on 2026-11-12 and recorded in
+  DESIGN.md.
+- **Touch targets:** on coarse pointers every control gets at least a 44x44px hit area through the
+  `hit-area` utility in `globals.css` (an invisible `::after`, so nothing moves on desktop). Text
+  inputs grow to 44px on touch.
+- **Honest placeholders:** there is no logo yet, so the brand is the product name as text. Sections
+  without a backend carry a "Preview data" note (tap to read why); controls with no backend carry a
+  "Coming soon" label and a `TODO` in code.
 
 ## Layout
 

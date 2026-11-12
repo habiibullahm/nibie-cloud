@@ -1,34 +1,38 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowRight, Boxes, Plus, RefreshCw } from "lucide-react"
+import { Boxes, Plus, RefreshCw } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/app/empty-state"
 import { PageHeader } from "@/components/app/page-header"
+import { PreviewNote } from "@/components/app/preview-note"
 import { StatusBadge } from "@/components/app/status-badge"
-import { errorMessage, useInstanceMeta, useInstances, usePlans } from "@/hooks/use-hermes"
+import { errorMessage, useApiMode, useInstanceMeta, useInstances, usePlans } from "@/hooks/use-hermes"
 import type { Instance } from "@/lib/api/types"
 import { presentStatus } from "@/lib/api/status"
 import { formatRelative, shortId } from "@/lib/format"
 
 export function InstancesView() {
   const { data, isLoading, error, refetch, isFetching } = useInstances()
+  const mock = useApiMode() === "mock"
 
   return (
     <div className="grid gap-8">
       <PageHeader
-        eyebrow="Workspace"
         title="Instances"
         description="Each instance is a dedicated Hermes runtime with its own persistent storage."
         actions={
-          <Button asChild>
-            <Link href="/deploy">
-              <Plus aria-hidden="true" />
-              Deploy instance
-            </Link>
-          </Button>
+          <>
+            {mock ? <PreviewNote what="These instances" reason="mock" /> : null}
+            <Button asChild>
+              <Link href="/deploy">
+                <Plus aria-hidden="true" />
+                Deploy instance
+              </Link>
+            </Button>
+          </>
         }
       />
 
@@ -44,7 +48,7 @@ export function InstancesView() {
           </AlertDescription>
         </Alert>
       ) : isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2" aria-busy="true" aria-label="Loading instances">
+        <div className="grid gap-4 md:grid-cols-2" role="status" aria-label="Loading instances">
           {[0, 1].map((i) => (
             <Skeleton key={i} className="h-40 rounded-md bg-card" />
           ))}
@@ -56,10 +60,7 @@ export function InstancesView() {
           description="Deploy your first Hermes agent. Choose a plan and region, name it, and we handle the runtime, storage and recovery."
           action={
             <Button asChild variant="outline">
-              <Link href="/deploy">
-                Start a deployment
-                <ArrowRight aria-hidden="true" />
-              </Link>
+              <Link href="/deploy">Start a deployment</Link>
             </Button>
           }
         />
@@ -106,8 +107,8 @@ function InstanceCard({ instance }: { instance: Instance }) {
       {reason ? <p className="text-muted-foreground">{reason}</p> : null}
       <div className="mt-auto flex items-center justify-between gap-3 border-t pt-3 text-muted-foreground">
         <span>Created {formatRelative(instance.createdAt)}</span>
-        <span className="inline-flex items-center gap-1 text-foreground" aria-hidden="true">
-          Manage <ArrowRight className="size-4" />
+        <span className="text-foreground underline decoration-input underline-offset-4" aria-hidden="true">
+          Manage
         </span>
       </div>
     </article>

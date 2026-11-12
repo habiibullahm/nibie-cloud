@@ -28,7 +28,10 @@ export default function ConsolePage() {
   const inputRef = useRef<HTMLInputElement>(null)
   const endRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => endRef.current?.scrollIntoView({ block: "nearest" }), [lines])
+  // Braces matter: newer browsers return a Promise from scrollIntoView, and React would call it as the cleanup.
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: "nearest" })
+  }, [lines])
 
   if (!instance) return <Skeleton className="h-64 bg-card" />
   if (!runtimeReachable(instance.status)) {
@@ -98,7 +101,8 @@ export default function ConsolePage() {
         </div>
       </CardContent>
       <CardFooter className="flex-wrap justify-between gap-3 border-t">
-        <p className="text-muted-foreground">Sessions close after 15 minutes idle and are recorded in your audit log.</p>
+        {/* PRD §7 asks for idle timeouts and audit events; the timeout length is not decided yet. */}
+        <p className="text-muted-foreground">Idle sessions time out, and each session is recorded as an audit event.</p>
         {session ? (
           <Button variant="secondary" onClick={() => {
               setSession(false)

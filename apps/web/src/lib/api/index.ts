@@ -1,4 +1,4 @@
-import type { ApiMode, HermesApi } from "./client"
+import { ApiError, type ApiMode, type HermesApi } from "./client"
 import { createLiveInstancesApi } from "./live"
 import { createMockApi } from "./mock"
 
@@ -18,8 +18,16 @@ export function getApi(): HermesApi {
     const mock = createMockApi({ empty: true, synthesizeUnknown: true })
     singleton = { mode: "live", instances: createLiveInstancesApi(), preview: mock.preview }
   } else {
-    const empty = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("empty")
-    singleton = createMockApi({ empty })
+    const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null
+    const mock = createMockApi({ empty: params?.has("empty") ?? false })
+    // `?fail` makes every preview endpoint reject, to check the error states (antislop R-27).
+    singleton = params?.has("fail") ? { ...mock, preview: failingPreview(mock.preview) } : mock
   }
   return singleton
+}
+
+/** Same shape as `preview`, but every call rejects with a 503. */
+export function failingPreview(preview: HermesApi["preview"]): HermesApi["preview"] {
+  const fail = () => Promise.reject(new ApiError(503, "unavailable", "The preview service is unavailable."))
+  return Object.fromEntries(Object.keys(preview).map((k) => [k, fail])) as unknown as HermesApi["preview"]
 }

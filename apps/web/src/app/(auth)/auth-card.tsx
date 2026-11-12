@@ -21,7 +21,7 @@ export function AuthCard({ mode }: { mode: "sign-in" | "register" }) {
       <CardHeader>
         <h1 className="type-h1">{register ? "Create account" : "Sign in"}</h1>
         <CardDescription>
-          {register ? "Deploy your own Hermes agent in a few minutes." : "Welcome back. Manage your Hermes instances."}
+          {register ? "Deploy your own Hermes agent." : "Welcome back. Manage your Hermes instances."}
         </CardDescription>
       </CardHeader>
       <form
@@ -48,8 +48,10 @@ export function AuthCard({ mode }: { mode: "sign-in" | "register" }) {
           {register ? (
             <div className="flex items-start gap-3">
               <Checkbox id="terms" checked={terms} onCheckedChange={(v) => setTerms(v === true)} className="mt-1" />
-              <Label htmlFor="terms" className="text-muted-foreground">
+              {/* TODO(legal): link the terms of service and data retention policy once they are published. */}
+              <Label htmlFor="terms" className="block text-muted-foreground">
                 I agree to the terms of service and the data retention policy.
+                <span className="mt-1 block">Neither is published yet.</span>
               </Label>
             </div>
           ) : null}
@@ -63,7 +65,7 @@ export function AuthCard({ mode }: { mode: "sign-in" | "register" }) {
           </Button>
           <p className="text-center text-muted-foreground">
             {register ? "Already have an account? " : "New to Hermes Cloud? "}
-            <Link href={register ? "/sign-in" : "/register"} className="text-foreground">
+            <Link href={register ? "/sign-in" : "/register"} className="hit-area relative text-foreground">
               {register ? "Sign in" : "Create an account"}
             </Link>
           </p>

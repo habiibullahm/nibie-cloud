@@ -129,6 +129,55 @@
   a {
     text-underline-offset: 4px;
   }
+  /* Every enabled control shows the pointer; disabled ones say so (antislop R-39). */
+  a[href],
+  button,
+  summary,
+  select,
+  label[for],
+  label:has(> input[type="checkbox"], > input[type="radio"], > button[role="radio"], > button[role="checkbox"]),
+  [role="button"],
+  [role="link"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="menuitemradio"],
+  [role="option"],
+  [role="radio"],
+  [role="checkbox"],
+  [role="switch"],
+  [role="combobox"],
+  input[type="checkbox"],
+  input[type="radio"] {
+    cursor: pointer;
+  }
+  :disabled,
+  [aria-disabled="true"],
+  [data-disabled] {
+    cursor: not-allowed;
+  }
+  label:has(+ :disabled) {
+    cursor: not-allowed;
+  }
+}
+
+/*
+ * Touch hit area: on coarse pointers every control gets at least a 44x44px target (antislop R-03)
+ * without changing how it looks. The element must be positioned (`relative` or `absolute`).
+ */
+@utility hit-area {
+  @media (pointer: coarse) {
+    &::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 100%;
+      height: 100%;
+      min-width: 44px;
+      min-height: 44px;
+      transform: translate(-50%, -50%);
+    }
+  }
 }
 
 @layer components {

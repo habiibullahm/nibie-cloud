@@ -2,13 +2,15 @@
 
 import Link from "next/link"
 import { useParams, usePathname } from "next/navigation"
+import { useEffect } from "react"
 import { ArrowLeft } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { InstanceActions } from "@/components/app/instance-actions"
+import { PreviewNote } from "@/components/app/preview-note"
 import { StatusBadge } from "@/components/app/status-badge"
-import { useInstance, useInstanceMeta, usePlans } from "@/hooks/use-hermes"
+import { useApiMode, useInstance, useInstanceMeta, usePlans } from "@/hooks/use-hermes"
 import { ApiError } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { shortId } from "@/lib/format"
@@ -19,12 +21,24 @@ const SECTIONS = [
   { slug: "monitor", label: "Monitor" },
   { slug: "logs", label: "Logs" },
   { slug: "configuration", label: "Configuration" },
-  { slug: "files", label: "File Manager" },
+  { slug: "files", label: "File manager" },
   { slug: "console", label: "Console" },
   { slug: "backups", label: "Backups" },
-  { slug: "billing", label: "Upgrade & Renew" },
-  { slug: "domain", label: "Custom Domain" },
+  { slug: "billing", label: "Upgrade & renew" },
+  { slug: "domain", label: "Custom domain" },
 ]
+
+function sectionFor(pathname: string, base: string) {
+  const rest = pathname.slice(base.length).split("/")[1] ?? ""
+  return SECTIONS.find((s) => s.slug === rest) ?? SECTIONS[0]!
+}
+
+/** Instance pages are client-rendered, so the tab title is set here (antislop R-39: unique titles). */
+function useDocumentTitle(title: string | null) {
+  useEffect(() => {
+    if (title) document.title = `${title} · Hermes Cloud`
+  }, [title])
+}
 
 export function useInstanceId(): string {
   const { id } = useParams<{ id: string }>()
@@ -39,6 +53,8 @@ export function InstanceFrame({ children }: { children: React.ReactNode }) {
   const plans = usePlans()
   const plan = plans.data?.find((p) => p.id === meta.data?.planId)
   const base = `/instances/${id}`
+  const mock = useApiMode() === "mock"
+  useDocumentTitle(instance ? `${sectionFor(pathname, base).label} · ${instance.name}` : null)
 
   if (error) {
     const notFound = error instanceof ApiError && error.status === 404
@@ -77,6 +93,7 @@ export function InstanceFrame({ children }: { children: React.ReactNode }) {
                   {plan ? ` · ${plan.name.toLowerCase()}` : ""}
                   {meta.data ? ` · ${meta.data.regionId} · ${meta.data.runtime}` : ""}
                 </span>
+                {mock ? <PreviewNote what="This instance and its events" reason="mock" /> : null}
               </div>
               <h1 className="type-h1 break-words">{instance.name}</h1>
             </>
@@ -100,7 +117,7 @@ export function InstanceFrame({ children }: { children: React.ReactNode }) {
                   href={href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "-mb-px inline-flex rounded-t-sm border-b-2 border-transparent px-3 py-2 whitespace-nowrap text-muted-foreground no-underline transition-colors outline-none hover:bg-elevated hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    "hit-area relative -mb-px inline-flex rounded-t-sm border-b-2 border-transparent px-3 py-2 whitespace-nowrap text-muted-foreground no-underline transition-colors outline-none hover:bg-elevated hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     active && "border-foreground text-foreground"
                   )}
                 >
@@ -121,7 +138,7 @@ function BackLink() {
   return (
     <Link
       href="/instances"
-      className="inline-flex w-fit items-center gap-2 rounded-sm text-muted-foreground no-underline outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="hit-area relative inline-flex w-fit items-center gap-2 rounded-sm text-muted-foreground no-underline outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       <ArrowLeft className="size-4" aria-hidden="true" />
       All instances

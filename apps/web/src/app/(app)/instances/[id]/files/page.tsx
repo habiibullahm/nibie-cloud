@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { EmptyState } from "@/components/app/empty-state"
 import { PreviewNote } from "@/components/app/preview-note"
+import { QueryFallback } from "@/components/app/query-fallback"
 import { useFileContent, useFiles, useInstance } from "@/hooks/use-hermes"
 import { runtimeReachable } from "@/lib/api/status"
 import { formatBytes, formatRelative } from "@/lib/format"
@@ -27,7 +28,7 @@ export default function FilesPage() {
     return (
       <EmptyState
         icon={<HardDrive />}
-        title="File Manager needs a running instance"
+        title="File manager needs a running instance"
         description="Start the instance to browse its persistent volume. Your files are kept while it is stopped."
       />
     )
@@ -42,7 +43,7 @@ export default function FilesPage() {
           <CardTitle>Volume</CardTitle>
           <CardDescription>Your instance’s persistent storage. Nothing outside it is reachable.</CardDescription>
           <CardAction>
-            <PreviewNote what="File Manager" />
+            <PreviewNote what="File manager" />
           </CardAction>
         </CardHeader>
         <CardContent className="grid gap-3">
@@ -72,10 +73,10 @@ export default function FilesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {files.isLoading ? (
+                {!files.data ? (
                   <TableRow>
                     <TableCell colSpan={3}>
-                      <Skeleton className="h-6 bg-elevated" />
+                      <QueryFallback what="this folder" queries={[files]} className="h-6 bg-elevated" />
                     </TableCell>
                   </TableRow>
                 ) : files.data?.length === 0 ? (
@@ -90,7 +91,7 @@ export default function FilesPage() {
                       <TableCell>
                         <button
                           type="button"
-                          className="inline-flex cursor-pointer items-center gap-2 rounded-sm text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                          className="hit-area relative inline-flex cursor-pointer items-center gap-2 rounded-sm text-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                           onClick={() => {
                             if (f.type === "dir") {
                               setPath(f.path)
@@ -105,7 +106,7 @@ export default function FilesPage() {
                           <span className="sr-only">{f.type === "dir" ? "(folder)" : "(file)"}</span>
                         </button>
                       </TableCell>
-                      <TableCell className="type-mono text-right text-muted-foreground">{f.type === "dir" ? "—" : formatBytes(f.size)}</TableCell>
+                      <TableCell className="type-mono text-right text-muted-foreground">{f.type === "dir" ? null : formatBytes(f.size)}</TableCell>
                       <TableCell className="text-muted-foreground">{formatRelative(f.modifiedAt)}</TableCell>
                     </TableRow>
                   ))
@@ -124,8 +125,8 @@ export default function FilesPage() {
         </CardHeader>
         <CardContent>
           {open ? (
-            content.isLoading ? (
-              <Skeleton className="h-40 bg-elevated" />
+            content.data === undefined ? (
+              <QueryFallback what="this file" queries={[content]} className="h-40 bg-elevated" />
             ) : (
               <pre className="type-mono max-h-[420px] overflow-auto rounded-sm border bg-background p-4 whitespace-pre-wrap">{content.data}</pre>
             )
