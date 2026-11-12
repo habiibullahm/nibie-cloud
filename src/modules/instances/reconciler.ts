@@ -3,7 +3,7 @@ import { ConflictError, RuntimeUnavailableError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import { deriveApiKey } from '../runtime/api-key.js';
 import { AUTH_REJECTED_DETAIL, type RuntimeInspection, type DiskQuotaMode, type RuntimeManager, type SupportedRuntime } from '../runtime/types.js';
-import { TRANSITIONAL_STATUSES, recordEvent, revert, transition } from './instance-repo.js';
+import { TRANSITIONAL_STATUSES, noteQuotaMismatch, recordEvent, revert, transition } from './instance-repo.js';
 import { newLease, startHeartbeat } from './lease.js';
 
 export type ReconcileResult = 'ok' | 'recovered' | 'waiting' | 'degraded' | 'exhausted' | 'skipped';
@@ -277,7 +277,7 @@ export class Reconciler {
         await runtime.restart(inst.id);
       } else {
         const plan = await prisma.plan.findUniqueOrThrow({ where: { id: inst.planId } });
-        await runtime.ensure({
+        const ensured = await runtime.ensure({
           instanceId: inst.id,
           tenantId: inst.tenantId,
           image: inst.image,
@@ -287,6 +287,7 @@ export class Reconciler {
           apiServerKey: this.apiKey(inst.id),
           runtime: this.d.containerRuntime,
         });
+        await noteQuotaMismatch(prisma, inst.id, ensured.volumeQuotaMb, plan.storageMb);
         await runtime.start(inst.id);
       }
       healthy = await this.waitHealthy(inst.id);

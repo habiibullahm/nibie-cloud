@@ -1,11 +1,11 @@
 import type { Instance, InstanceStatus, Plan, PrismaClient } from '@prisma/client';
-import { ConflictError, NotFoundError, RuntimeUnavailableError, ValidationError } from '../../shared/errors.js';
+import { ConflictError, NotFoundError, RuntimeUnavailableError, ValidationError, VolumeQuotaMissingError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import { isUuid } from '../../shared/uuid.js';
 import { deriveApiKey } from '../runtime/api-key.js';
 import { assertPinnedImage } from '../runtime/image-policy.js';
 import type { DiskQuotaMode, RuntimeManager, SupportedRuntime } from '../runtime/types.js';
-import { findOwned, revert, transition } from './instance-repo.js';
+import { findOwned, noteQuotaMismatch, revert, transition } from './instance-repo.js';
 import { newLease, startHeartbeat, type Lease } from './lease.js';
 
 export interface InstanceView {
@@ -242,7 +242,7 @@ export class InstanceService {
     const tenantId = inst.tenantId;
     let current: InstanceStatus = 'PROVISIONING';
     try {
-      await this.runtime.ensure({
+      const ensured = await this.runtime.ensure({
         instanceId: inst.id,
         tenantId,
         image: inst.image,
@@ -252,6 +252,7 @@ export class InstanceService {
         apiServerKey: this.apiKey(inst.id),
         runtime: this.containerRuntime,
       });
+      await noteQuotaMismatch(this.prisma, inst.id, ensured.volumeQuotaMb, plan.storageMb);
       await transition(this.prisma, { id: inst.id, from: 'PROVISIONING', to: 'CONFIGURING', owner, eventType: 'runtime.created', message: 'Runtime created' });
       current = 'CONFIGURING';
       await transition(this.prisma, { id: inst.id, from: 'CONFIGURING', to: 'STARTING', owner, eventType: 'runtime.starting', message: 'Runtime starting' });
@@ -266,6 +267,7 @@ export class InstanceService {
     } catch (e) {
       const reason =
         e instanceof RuntimeUnavailableError ? 'runtime_unavailable'
+          : e instanceof VolumeQuotaMissingError ? 'volume_quota_missing'
           : e instanceof HealthTimeout ? 'health_check_timeout'
             : 'runtime_create_failed';
       this.logger.error({ instanceId: inst.id, reason }, 'provisioning failed');
