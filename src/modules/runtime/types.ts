@@ -53,6 +53,12 @@ export interface RuntimeManager {
    * quota the volume actually has (null when none).
    */
   ensure(spec: RuntimeSpec): Promise<{ hostPort: number | null; volumeQuotaMb: number | null }>;
+  /**
+   * Fail-closed guard for the paths that start an existing container without `ensure()` (user start or
+   * restart, reconciler restart): throws `VolumeQuotaMissingError` when `mode` is `enforce` and the
+   * tenant volume is absent or has no quota. Does nothing when `mode` is `off`.
+   */
+  assertVolumeQuota(instanceId: string, mode: DiskQuotaMode): Promise<void>;
   start(instanceId: string): Promise<void>;
   /** No-op if already stopped or absent. */
   stop(instanceId: string, timeoutSec?: number): Promise<void>;

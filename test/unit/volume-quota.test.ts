@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { DockerRuntimeManager } from '../../src/modules/runtime/docker-runtime-manager.js';
-import { volumeName } from '../../src/modules/runtime/hardening.js';
+import { LABEL_INSTANCE, LABEL_MANAGED, volumeName } from '../../src/modules/runtime/hardening.js';
 import type { RuntimeSpec } from '../../src/modules/runtime/types.js';
 import { readVolumeQuotaMb, sizedVolumeOpts } from '../../src/modules/runtime/volume-quota.js';
 import { VolumeQuotaMissingError } from '../../src/shared/errors.js';
@@ -100,6 +100,77 @@ describe('sized tenant volumes', () => {
   it('turns a create-time "no quota support" rejection into VolumeQuotaMissingError', async () => {
     const f = fakeDocker({ rejectSized: true });
     await expect(manager(f).ensure(spec())).rejects.toBeInstanceOf(VolumeQuotaMissingError);
+  });
+});
+
+describe('assertVolumeQuota', () => {
+  it('refuses an existing volume without a quota when enforce', async () => {
+    const f = fakeDocker();
+    const s = spec();
+    f.volumes.set(volumeName(s.instanceId), { Name: volumeName(s.instanceId), Options: null });
+    await expect(manager(f).assertVolumeQuota(s.instanceId, 'enforce')).rejects.toBeInstanceOf(VolumeQuotaMissingError);
+  });
+
+  it('refuses an absent volume when enforce (cannot confirm a quota)', async () => {
+    await expect(manager(fakeDocker()).assertVolumeQuota(randomUUID(), 'enforce')).rejects.toBeInstanceOf(VolumeQuotaMissingError);
+  });
+
+  it('accepts a volume that has a quota when enforce', async () => {
+    const f = fakeDocker();
+    const s = spec();
+    f.volumes.set(volumeName(s.instanceId), { Name: volumeName(s.instanceId), Options: { size: '512m' } });
+    await expect(manager(f).assertVolumeQuota(s.instanceId, 'enforce')).resolves.toBeUndefined();
+  });
+
+  it('does nothing when off, whatever the volume looks like', async () => {
+    await expect(manager(fakeDocker()).assertVolumeQuota(randomUUID(), 'off')).resolves.toBeUndefined();
+  });
+});
+
+describe('volumeUsage', () => {
+  const labels = (id: string | null, managed = true) => ({
+    ...(managed ? { [LABEL_MANAGED]: 'true' } : {}),
+    ...(id ? { [LABEL_INSTANCE]: id } : {}),
+  });
+  const vol = (Name: string, Labels: Record<string, string>, Size?: number) =>
+    ({ Name, Labels, UsageData: Size === undefined ? undefined : { Size, RefCount: 1 } });
+
+  function managerWithDf(volumes: unknown, calls: unknown[] = []) {
+    const docker = {
+      modem: {
+        dial: (opts: unknown, cb: (err: Error | null, data?: unknown) => void) => {
+          calls.push(opts);
+          cb(null, { Volumes: volumes });
+        },
+      },
+    };
+    return new DockerRuntimeManager({ docker: docker as never, logger: silent });
+  }
+
+  it('keeps only managed volumes with an instance label and a size of 0 or more', async () => {
+    const [a, b, c, d, e, f] = [randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+    const m = managerWithDf([
+      vol('v-ok', labels(a), 5_242_880),
+      vol('v-zero', labels(b), 0),
+      vol('v-negative', labels(c), -1),
+      vol('v-nosize', labels(d)),
+      vol('v-unmanaged', labels(e, false), 100),
+      vol('v-nolabel', labels(null), 100),
+      vol('v-upper', labels(f.toUpperCase()), 7),
+    ]);
+    const usage = await m.volumeUsage();
+    expect([...usage.entries()].sort()).toEqual([[a, 5_242_880], [b, 0], [f, 7]].sort());
+  });
+
+  it('returns an empty map when Docker reports no volumes (null)', async () => {
+    expect((await managerWithDf(null).volumeUsage()).size).toBe(0);
+  });
+
+  it('asks Docker for volumes only, with the query in options', async () => {
+    const calls: { path: string; options?: unknown }[] = [];
+    await managerWithDf([], calls as unknown[]).volumeUsage();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ path: '/system/df?', method: 'GET', options: { type: 'volume' } });
   });
 });
 

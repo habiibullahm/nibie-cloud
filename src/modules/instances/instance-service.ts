@@ -299,8 +299,13 @@ export class InstanceService {
 
   private async startSteps(i: Instance, op: 'start' | 'restart', from: InstanceStatus, owner: string): Promise<InstanceView> {
     try {
+      await this.runtime.assertVolumeQuota(i.id, this.diskQuota);
       await this.runtime[op](i.id);
     } catch (e) {
+      if (e instanceof VolumeQuotaMissingError) {
+        await revert(this.prisma, { id: i.id, from: 'STARTING', to: from, owner, eventType: 'runtime.start_refused', message: 'Start refused: volume has no disk quota' });
+        throw e;
+      }
       if (e instanceof RuntimeUnavailableError) {
         await revert(this.prisma, { id: i.id, from: 'STARTING', to: from, owner, eventType: 'runtime.unavailable', message: 'Operation could not be completed' });
         throw e;

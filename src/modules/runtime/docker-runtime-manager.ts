@@ -13,7 +13,7 @@ import {
 } from './hardening.js';
 import {
   AUTH_REJECTED_DETAIL,
-  type HealthResult, type RuntimeInspection, type RuntimeManager, type RuntimeSpec, type RuntimeState,
+  type DiskQuotaMode, type HealthResult, type RuntimeInspection, type RuntimeManager, type RuntimeSpec, type RuntimeState,
 } from './types.js';
 import { isQuotaUnsupported, readVolumeQuotaMb, sizedVolumeOpts } from './volume-quota.js';
 
@@ -74,6 +74,20 @@ export class DockerRuntimeManager implements RuntimeManager {
       }
       this.logger.info({ instanceId: spec.instanceId }, 'runtime ensured');
       return { hostPort: null, volumeQuotaMb };
+    });
+  }
+
+  async assertVolumeQuota(instanceId: string, mode: DiskQuotaMode): Promise<void> {
+    if (mode !== 'enforce') return;
+    await guard(async () => {
+      let volume: Docker.VolumeInspectInfo;
+      try {
+        volume = await this.docker.getVolume(volumeName(instanceId)).inspect();
+      } catch (e) {
+        if (statusCode(e) === 404) throw new VolumeQuotaMissingError();
+        throw e;
+      }
+      if (readVolumeQuotaMb(volume) === null) throw new VolumeQuotaMissingError();
     });
   }
 

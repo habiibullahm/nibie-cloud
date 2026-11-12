@@ -3,10 +3,11 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createPrisma } from '../../src/db/client.js';
 import { InstanceService } from '../../src/modules/instances/instance-service.js';
 import { Reconciler } from '../../src/modules/instances/reconciler.js';
+import { VolumeQuotaMissingError } from '../../src/shared/errors.js';
 import { createLogger } from '../../src/shared/logger.js';
 import { resetDb } from '../helpers/db.js';
 import { FakeRuntime } from '../helpers/fake-runtime.js';
-import { TEST_MASTER_KEY, TEST_PLAN, seed } from '../helpers/service-env.js';
+import { TEST_MASTER_KEY, TEST_PLAN, seed, wrapRuntime } from '../helpers/service-env.js';
 
 // Needs Postgres only: the runtime is an in-memory fake, so these tests do not depend on Docker.
 const prisma = createPrisma(process.env.DATABASE_URL!);
@@ -90,5 +91,50 @@ describe('disk quota wiring', () => {
     const rt = new FakeRuntime();
     const v = await provision(service(rt, 'off'));
     expect(await eventTypes(v.id)).not.toContain('disk.quota_mismatch');
+  });
+
+  it('a user start with a missing quota is refused and never starts the container', async () => {
+    const rt = new FakeRuntime();
+    rt.volumeQuotaMb = TEST_PLAN.storageMb;
+    const svc = service(rt);
+    const v = await provision(svc);
+    await svc.stop(s.tenant.id, v.id);
+    rt.quotaMissing = true;
+    await expect(svc.start(s.tenant.id, v.id)).rejects.toBeInstanceOf(VolumeQuotaMissingError);
+    expect((await rt.inspect(v.id)).state).not.toBe('running');
+    expect((await prisma.instance.findUniqueOrThrow({ where: { id: v.id } })).status).toBe('STOPPED');
+    expect(await eventTypes(v.id)).toContain('runtime.start_refused');
+  });
+
+  it('a user start still works without a quota when quotas are off', async () => {
+    const rt = new FakeRuntime();
+    const svc = service(rt, 'off');
+    const v = await provision(svc);
+    await svc.stop(s.tenant.id, v.id);
+    rt.quotaMissing = true;
+    expect((await svc.start(s.tenant.id, v.id)).status).toBe('ACTIVE');
+  });
+
+  it('a user restart with a missing quota is refused and leaves the instance as it was', async () => {
+    const rt = new FakeRuntime();
+    rt.volumeQuotaMb = TEST_PLAN.storageMb;
+    const svc = service(rt);
+    const v = await provision(svc);
+    rt.quotaMissing = true;
+    await expect(svc.restart(s.tenant.id, v.id)).rejects.toBeInstanceOf(VolumeQuotaMissingError);
+    expect(rt.restarts).toBe(0);
+    expect((await prisma.instance.findUniqueOrThrow({ where: { id: v.id } })).status).toBe('ACTIVE');
+  });
+
+  it('a reconciler restart with a missing quota never restarts the container', async () => {
+    const rt = new FakeRuntime();
+    rt.volumeQuotaMb = TEST_PLAN.storageMb;
+    const v = await provision(service(rt));
+    rt.quotaMissing = true;
+    const unhealthy = wrapRuntime(rt, { checkHealth: async () => ({ ok: false, latencyMs: 1, detail: 'HTTP 500' }) });
+    const rec = reconciler(unhealthy as FakeRuntime);
+    for (let i = 0; i < 3; i += 1) await rec.reconcileInstance(v.id);
+    expect(rt.restarts).toBe(0);
+    expect((await prisma.instance.findUniqueOrThrow({ where: { id: v.id } })).status).toBe('DEGRADED');
   });
 });

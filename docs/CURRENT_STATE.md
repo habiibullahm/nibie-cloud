@@ -47,11 +47,18 @@ have not been reproduced.
 ## Disk quota branch (`feat/disk-quota`)
 
 Re-run in a cloud sandbox (Docker 29.9, ext4, Postgres 16): `pnpm build` clean; `pnpm test:unit`
-128/128; integration files that need only Postgres (`disk-wiring`, `disk-monitor`, `key-wiring`,
+135/135; integration files that need only Postgres (`disk-wiring`, `disk-monitor`, `key-wiring`,
 `schema`) pass. Docker-backed integration tests could not run there because the stub image build was
 blocked by Docker Hub rate limiting (HTTP 429), so the new `runtime-manager` integration test for the
 unquotaed-volume refusal has not run; the same behaviour was checked once with a throwaway script
 against the real daemon. Not verified: kernel enforcement on XFS, `runsc`, a live DiskMonitor run.
+
+Starting an existing container is guarded too: with `HERMES_DISK_QUOTA=enforce`, a user start or
+restart and the reconciler's restart check the volume first (`RuntimeManager.assertVolumeQuota`) and
+refuse an absent or unquotaed volume (`volume_quota_missing`; user start/restart answer 409 and the
+instance keeps its previous status). Known and deferred: a refused reconciler restart is recorded as
+`recovery_failed`, not `volume_quota_missing`, and `disk.quota_mismatch` is written on every
+`ensure()` while the mismatch lasts, not once.
 
 ## Known issues
 

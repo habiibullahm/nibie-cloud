@@ -1,7 +1,7 @@
 import { VolumeQuotaMissingError } from '../../src/shared/errors.js';
 import {
   AUTH_REJECTED_DETAIL,
-  type HealthResult, type RuntimeInspection, type RuntimeManager, type RuntimeSpec,
+  type DiskQuotaMode, type HealthResult, type RuntimeInspection, type RuntimeManager, type RuntimeSpec,
 } from '../../src/modules/runtime/types.js';
 
 /**
@@ -32,6 +32,11 @@ export class FakeRuntime implements RuntimeManager {
       this.containers.set(spec.instanceId, { key: spec.apiServerKey, running: false });
     }
     return { hostPort: null, volumeQuotaMb: this.volumeQuotaMb };
+  }
+
+  /** Mirrors the real manager: refuses only when quotas are enforced and the volume has none. */
+  async assertVolumeQuota(_id: string, mode: DiskQuotaMode): Promise<void> {
+    if (mode === 'enforce' && this.quotaMissing) throw new VolumeQuotaMissingError();
   }
 
   async start(id: string): Promise<void> {
