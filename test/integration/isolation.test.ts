@@ -20,7 +20,7 @@ const spec = (image: string): RuntimeSpec => ({
   tenantId: randomUUID(),
   image,
   limits: { cpuMillis: 500, memoryMb: 256, pids: 128, storageMb: 1024 },
-    diskQuota: 'off',
+    diskQuota: 'off', egressPolicy: 'off',
   env: {},
   apiServerKey: randomUUID().replace(/-/g, '') + randomUUID().replace(/-/g, ''),
 });

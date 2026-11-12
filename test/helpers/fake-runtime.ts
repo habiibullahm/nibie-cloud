@@ -1,7 +1,7 @@
-import { VolumeQuotaMissingError } from '../../src/shared/errors.js';
+import { NetworkPolicyMissingError, VolumeQuotaMissingError } from '../../src/shared/errors.js';
 import {
   AUTH_REJECTED_DETAIL,
-  type DiskQuotaMode, type HealthResult, type RuntimeInspection, type RuntimeManager, type RuntimeSpec,
+  type DiskQuotaMode, type EgressPolicyMode, type HealthResult, type RuntimeInspection, type RuntimeManager, type RuntimeSpec,
 } from '../../src/modules/runtime/types.js';
 
 /**
@@ -19,6 +19,8 @@ export class FakeRuntime implements RuntimeManager {
   volumeQuotaMb: number | null = null;
   /** When true `ensure()` refuses like a manager that found an unquotaed volume while enforcing. */
   quotaMissing = false;
+  /** When true `ensure()` refuses like a manager that found a tenant network without the policy bridge name. */
+  networkPolicyMissing = false;
   /** Used bytes per instance id, as `volumeUsage()` reports them. */
   readonly usage = new Map<string, number>();
   /** When set, `volumeUsage()` throws it (e.g. a RuntimeUnavailableError). */
@@ -27,6 +29,7 @@ export class FakeRuntime implements RuntimeManager {
 
   async ensure(spec: RuntimeSpec): Promise<{ hostPort: number | null; volumeQuotaMb: number | null }> {
     this.ensured.push(spec);
+    if (this.networkPolicyMissing) throw new NetworkPolicyMissingError();
     if (this.quotaMissing) throw new VolumeQuotaMissingError();
     if (!this.containers.has(spec.instanceId)) {
       this.containers.set(spec.instanceId, { key: spec.apiServerKey, running: false });
@@ -37,6 +40,11 @@ export class FakeRuntime implements RuntimeManager {
   /** Mirrors the real manager: refuses only when quotas are enforced and the volume has none. */
   async assertVolumeQuota(_id: string, mode: DiskQuotaMode): Promise<void> {
     if (mode === 'enforce' && this.quotaMissing) throw new VolumeQuotaMissingError();
+  }
+
+  /** Mirrors the real manager: refuses only when the policy is enforced and the network lacks the name. */
+  async assertNetworkPolicy(_id: string, mode: EgressPolicyMode): Promise<void> {
+    if (mode === 'enforce' && this.networkPolicyMissing) throw new NetworkPolicyMissingError();
   }
 
   async start(id: string): Promise<void> {

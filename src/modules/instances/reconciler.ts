@@ -2,7 +2,7 @@ import type { Instance, Prisma, PrismaClient } from '@prisma/client';
 import { ConflictError, RuntimeUnavailableError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import { deriveApiKey } from '../runtime/api-key.js';
-import { AUTH_REJECTED_DETAIL, type RuntimeInspection, type DiskQuotaMode, type RuntimeManager, type SupportedRuntime } from '../runtime/types.js';
+import { AUTH_REJECTED_DETAIL, type RuntimeInspection, type DiskQuotaMode, type EgressPolicyMode, type RuntimeManager, type SupportedRuntime } from '../runtime/types.js';
 import { TRANSITIONAL_STATUSES, noteQuotaMismatch, recordEvent, revert, transition } from './instance-repo.js';
 import { newLease, startHeartbeat } from './lease.js';
 
@@ -23,6 +23,8 @@ export interface ReconcilerDeps {
   containerRuntime?: SupportedRuntime;
   /** `enforce` creates tenant volumes with the plan's size quota and refuses to run without one. */
   diskQuota: DiskQuotaMode;
+  /** `enforce` refuses to reuse a tenant network that lacks the bridge name the host ruleset matches. */
+  egressPolicy: EgressPolicyMode;
   now?: () => Date;
   maxRecoveryAttempts?: number;
   unhealthyThreshold?: number;
@@ -55,8 +57,8 @@ function describeState(i: RuntimeInspection): string {
  * (ACTIVE|DEGRADED -> STARTING) so user operations answer 409 instead of racing it.
  */
 export class Reconciler {
-  private readonly d: Required<Omit<ReconcilerDeps, 'prisma' | 'runtime' | 'logger' | 'masterKey' | 'containerRuntime' | 'diskQuota'>> &
-    Pick<ReconcilerDeps, 'prisma' | 'runtime' | 'logger' | 'masterKey' | 'containerRuntime' | 'diskQuota'>;
+  private readonly d: Required<Omit<ReconcilerDeps, 'prisma' | 'runtime' | 'logger' | 'masterKey' | 'containerRuntime' | 'diskQuota' | 'egressPolicy'>> &
+    Pick<ReconcilerDeps, 'prisma' | 'runtime' | 'logger' | 'masterKey' | 'containerRuntime' | 'diskQuota' | 'egressPolicy'>;
 
   constructor(deps: ReconcilerDeps) {
     this.d = {
@@ -275,6 +277,7 @@ export class Reconciler {
     try {
       if (mode === 'restart') {
         await runtime.assertVolumeQuota(inst.id, this.d.diskQuota);
+        await runtime.assertNetworkPolicy(inst.id, this.d.egressPolicy);
         await runtime.restart(inst.id);
       } else {
         const plan = await prisma.plan.findUniqueOrThrow({ where: { id: inst.planId } });
@@ -284,6 +287,7 @@ export class Reconciler {
           image: inst.image,
           limits: { cpuMillis: plan.cpuMillis, memoryMb: plan.memoryMb, pids: plan.pids, storageMb: plan.storageMb },
           diskQuota: this.d.diskQuota,
+          egressPolicy: this.d.egressPolicy,
           env: { HERMES_INSTANCE_ID: inst.id },
           apiServerKey: this.apiKey(inst.id),
           runtime: this.d.containerRuntime,

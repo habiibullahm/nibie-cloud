@@ -19,6 +19,7 @@ const spec = (over: Partial<RuntimeSpec> = {}): RuntimeSpec => ({
   image: `nousresearch/hermes-agent@sha256:${'a'.repeat(64)}`,
   limits: { cpuMillis: 500, memoryMb: 256, pids: 128, storageMb: 1024 },
   diskQuota: 'enforce',
+  egressPolicy: 'enforce',
   env: { FOO: 'bar' },
   ...over,
 });

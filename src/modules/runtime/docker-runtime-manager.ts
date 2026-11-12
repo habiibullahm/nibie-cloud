@@ -1,19 +1,22 @@
 import Docker from 'dockerode';
-import { AppError, RuntimeUnavailableError, VolumeQuotaMissingError } from '../../shared/errors.js';
+import { AppError, NetworkPolicyMissingError, RuntimeUnavailableError, VolumeQuotaMissingError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import {
+  BRIDGE_NAME_OPTION,
   CONTAINER_PORT,
   LABEL_INSTANCE,
   LABEL_MANAGED,
   LABEL_TENANT,
+  bridgeName,
   buildContainerConfig,
+  buildNetworkConfig,
   containerName,
   networkName,
   volumeName,
 } from './hardening.js';
 import {
   AUTH_REJECTED_DETAIL,
-  type DiskQuotaMode, type HealthResult, type RuntimeInspection, type RuntimeManager, type RuntimeSpec, type RuntimeState,
+  type DiskQuotaMode, type EgressPolicyMode, type HealthResult, type RuntimeInspection, type RuntimeManager, type RuntimeSpec, type RuntimeState,
 } from './types.js';
 import { isQuotaUnsupported, readVolumeQuotaMb, sizedVolumeOpts } from './volume-quota.js';
 
@@ -88,6 +91,20 @@ export class DockerRuntimeManager implements RuntimeManager {
         throw e;
       }
       if (readVolumeQuotaMb(volume) === null) throw new VolumeQuotaMissingError();
+    });
+  }
+
+  async assertNetworkPolicy(instanceId: string, mode: EgressPolicyMode): Promise<void> {
+    if (mode !== 'enforce') return;
+    await guard(async () => {
+      let network: Docker.NetworkInspectInfo;
+      try {
+        network = await this.docker.getNetwork(networkName(instanceId)).inspect();
+      } catch (e) {
+        if (statusCode(e) === 404) throw new NetworkPolicyMissingError();
+        throw e;
+      }
+      if (network.Options?.[BRIDGE_NAME_OPTION] !== bridgeName(instanceId)) throw new NetworkPolicyMissingError();
     });
   }
 
@@ -260,23 +277,38 @@ export class DockerRuntimeManager implements RuntimeManager {
     return enforce ? spec.limits.storageMb : null;
   }
 
+  /**
+   * Creates the tenant network with the bridge name the host egress ruleset matches. With the policy
+   * enforced, a network that exists without that name is never reused: Docker cannot rename a bridge in
+   * place, and a container on it would bypass the rules.
+   */
   private async ensureNetwork(spec: RuntimeSpec): Promise<void> {
     const name = networkName(spec.instanceId);
+    const enforce = spec.egressPolicy === 'enforce';
+    const wanted = bridgeName(spec.instanceId);
+    const checkExisting = (n: Docker.NetworkInspectInfo): void => {
+      if (enforce && n.Options?.[BRIDGE_NAME_OPTION] !== wanted) throw new NetworkPolicyMissingError();
+    };
     try {
-      await this.docker.getNetwork(name).inspect();
+      checkExisting(await this.docker.getNetwork(name).inspect());
       return;
     } catch (e) {
       if (statusCode(e) !== 404) throw e;
     }
     try {
-      await this.docker.createNetwork({
-        Name: name,
-        Driver: 'bridge',
-        Options: { 'com.docker.network.bridge.enable_icc': 'false' },
-        Labels: { [LABEL_MANAGED]: 'true', [LABEL_INSTANCE]: spec.instanceId },
-      });
+      await this.docker.createNetwork(buildNetworkConfig(spec.instanceId, spec.tenantId));
     } catch (e) {
-      if (statusCode(e) !== 409) throw e;
+      if (statusCode(e) === 409) {
+        // Lost a race with a concurrent ensure: judge the winner, never retry.
+        checkExisting(await this.docker.getNetwork(name).inspect());
+        return;
+      }
+      // Docker answers 403 when another network already owns this bridge name.
+      if (enforce && statusCode(e) === 403 && /same bridge name/i.test((e as Error).message ?? '')) {
+        this.logger.warn({ instanceId: spec.instanceId, reason: 'bridge_name_conflict' }, 'tenant bridge name already in use');
+        throw new NetworkPolicyMissingError('Tenant bridge name is already in use');
+      }
+      throw e;
     }
   }
 

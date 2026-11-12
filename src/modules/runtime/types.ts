@@ -11,12 +11,16 @@ export type SupportedRuntime = 'runc' | 'runsc';
 /** `enforce`: tenant volumes are created with a size quota and never run without one. */
 export type DiskQuotaMode = 'enforce' | 'off';
 
+/** `enforce`: tenant networks must carry the `hn` bridge name the host ruleset matches. */
+export type EgressPolicyMode = 'enforce' | 'off';
+
 export interface RuntimeSpec {
   instanceId: string;
   tenantId: string;
   image: string;
   limits: ResourceLimits;
   diskQuota: DiskQuotaMode;
+  egressPolicy: EgressPolicyMode;
   env: Record<string, string>;
   runtime?: SupportedRuntime;
   apiServerKey?: string;
@@ -59,6 +63,13 @@ export interface RuntimeManager {
    * tenant volume is absent or has no quota. Does nothing when `mode` is `off`.
    */
   assertVolumeQuota(instanceId: string, mode: DiskQuotaMode): Promise<void>;
+  /**
+   * Fail-closed guard for the paths that start an existing container without `ensure()`: throws
+   * `NetworkPolicyMissingError` when `mode` is `enforce` and the tenant network is absent or lacks the
+   * `hn` bridge name the host ruleset matches (a network created before the policy existed). Does
+   * nothing when `mode` is `off`.
+   */
+  assertNetworkPolicy(instanceId: string, mode: EgressPolicyMode): Promise<void>;
   start(instanceId: string): Promise<void>;
   /** No-op if already stopped or absent. */
   stop(instanceId: string, timeoutSec?: number): Promise<void>;

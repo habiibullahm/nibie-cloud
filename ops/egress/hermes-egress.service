@@ -1,0 +1,21 @@
+[Unit]
+Description=Hermes tenant egress ruleset
+Documentation=file:///opt/hermes-cloud/docs/runbook-egress.md
+# DOCKER-USER only exists once Docker is up.
+After=docker.service network-online.target
+Requires=docker.service
+# A Docker restart restarts this unit, which re-inserts the jumps if Docker rebuilt its chains.
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/hermes-cloud/ops/egress/hermes-egress.sh apply --config /etc/hermes-egress/egress.conf
+# `systemctl reload hermes-egress` re-reads the config. apply validates it first, then swaps the chain
+# atomically, so a typo leaves the running rules untouched.
+ExecReload=/opt/hermes-cloud/ops/egress/hermes-egress.sh apply --config /etc/hermes-egress/egress.conf
+# There is deliberately no ExecStop: stopping or restarting this unit must never remove the rules.
+# Removing them is a manual decision: hermes-egress.sh remove.
+
+[Install]
+WantedBy=multi-user.target

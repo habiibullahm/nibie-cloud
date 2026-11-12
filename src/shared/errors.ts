@@ -39,3 +39,14 @@ export class VolumeQuotaMissingError extends AppError {
     super(message, 409, 'volume_quota_missing');
   }
 }
+
+/**
+ * The tenant network does not carry the bridge name the host egress ruleset matches (an old network, or
+ * a name collision), so enforcing the policy is impossible. Docker cannot rename a bridge in place:
+ * delete and reprovision.
+ */
+export class NetworkPolicyMissingError extends AppError {
+  constructor(message = 'Tenant network does not match the egress policy') {
+    super(message, 409, 'network_policy_missing');
+  }
+}

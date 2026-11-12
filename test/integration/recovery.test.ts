@@ -19,9 +19,9 @@ let clock = new Date('2026-01-01T00:00:00Z');
 const advance = (ms: number) => { clock = new Date(clock.getTime() + ms); };
 
 const service = (runtime: RuntimeManager = realRuntime()) =>
-  new InstanceService({ masterKey: TEST_MASTER_KEY, diskQuota: 'off', prisma, runtime, image, production: false, logger: silentLogger, pollIntervalMs: 200, healthTimeoutMs: 15_000 });
+  new InstanceService({ masterKey: TEST_MASTER_KEY, diskQuota: 'off', egressPolicy: 'off', prisma, runtime, image, production: false, logger: silentLogger, pollIntervalMs: 200, healthTimeoutMs: 15_000 });
 const reconciler = (runtime: RuntimeManager = realRuntime(), over: Record<string, unknown> = {}) =>
-  new Reconciler({ masterKey: TEST_MASTER_KEY, diskQuota: 'off', prisma, runtime, logger: silentLogger, now: () => clock, pollIntervalMs: 200, healthTimeoutMs: 3_000, ...over });
+  new Reconciler({ masterKey: TEST_MASTER_KEY, diskQuota: 'off', egressPolicy: 'off', prisma, runtime, logger: silentLogger, now: () => clock, pollIntervalMs: 200, healthTimeoutMs: 3_000, ...over });
 
 async function provisioned() {
   const v = await service().provision({ tenantId: s.tenant.id, planId: s.plan.id, name: 'a', idempotencyKey: randomUUID() });

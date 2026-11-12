@@ -1,0 +1,17 @@
+# Hermes egress ruleset configuration (copy to /etc/hermes-egress/egress.conf and edit).
+# Read by hermes-egress.sh as plain KEY=VALUE lines. It is parsed, never executed.
+# The addresses below are documentation ranges (RFC 5737), not real hosts.
+
+# Upstream DNS resolvers tenant containers may reach, space-separated IPv4. Needed when a resolver sits
+# on a private address, which the ruleset otherwise blocks. Public resolvers need no entry.
+# Use the resolvers Docker forwards to on this host (see the host's /etc/resolv.conf or systemd-resolved).
+RESOLVERS="192.0.2.53"
+
+# Single ip:port exceptions, space-separated, TCP only. Empty by default. This is the place for a
+# private NibieRouter address if one is ever used, for example: EXCEPTIONS="198.51.100.20:8443"
+EXCEPTIONS=""
+
+# Cap on NEW connections per tenant source address: <number>/<sec|min|hour>. The burst equals the number.
+# PLACEHOLDER: this value is not measured. Measure a normal Hermes workload on the host and set it
+# above that peak with headroom before relying on it (see docs/egress-host-notes.md).
+NEW_CONN_RATE="200/sec"

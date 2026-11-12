@@ -47,6 +47,9 @@ DATABASE_URL=postgresql://hermes:hermes_dev_only@127.0.0.1:5433/hermes_test pnpm
 | `HERMES_MASTER_KEY` | Required, at least 32 characters (`openssl rand -hex 32`). Every instance's `API_SERVER_KEY` is derived from it (HMAC-SHA256 with the instance id); it is never stored or logged. Changing it makes running instances reject the new keys: the Reconciler marks them `DEGRADED` (`auth_rejected`) without restarting them, and they stay that way until their containers are recreated (see below) |
 | `HERMES_DISK_QUOTA` | `enforce` (default) or `off`. `enforce` creates every tenant volume with `Plan.storageMb` as its size limit and refuses to run a volume that has none. `off` is rejected when `NODE_ENV=production` |
 | `HERMES_DISK_CHECK_INTERVAL_MS` | Default `300000` (5 minutes), minimum `1000`. How often the DiskMonitor reads volume usage and records `disk.warning`, `disk.full` and `disk.ok` events |
+| `HERMES_EGRESS_POLICY` | `enforce` (default) or `off`. `enforce` names every tenant bridge `hn<12 hex>`, refuses a network without that name (`network_policy_missing`) and runs the startup canary. `off` is rejected when `NODE_ENV=production` |
+| `HERMES_CANARY_IMAGE` | Required when `HERMES_EGRESS_POLICY=enforce`: an image with `sh` and `nc`, pinned as `name@sha256:<64 hex>` (a tag is rejected). It is not pulled for you: `docker pull` it first |
+| `HERMES_CANARY_PRIVATE_IP` | Optional IPv4 address of this host. If set, the canary also checks that a tenant cannot reach it |
 | `HERMES_RUNTIME` | `runc` (default) or `runsc` (gVisor). With `runsc`, startup fails if the Docker daemon does not list that runtime. Applies only to containers created from now on |
 
 ## Disk quota host setup (XFS)
@@ -65,6 +68,29 @@ On a filesystem without quota support (for example ext4) Docker refuses to creat
 (HTTP 400, "quota size requested but no quota support"). Use `HERMES_DISK_QUOTA=off` only for local
 development and tests; it is rejected when `NODE_ENV=production`. What has and has not been checked
 on a real host is in [disk-quota-host-notes.md](disk-quota-host-notes.md).
+
+## Egress ruleset host setup
+
+Tenant networks are filtered by one iptables chain that must be loaded on every runtime host
+(`HERMES_EGRESS_POLICY=enforce` exits at startup if it is not). Steps (Debian or Ubuntu with
+`iptables`; the unit assumes the repository is at `/opt/hermes-cloud`, adjust the paths otherwise):
+
+1. `sudo install -d /etc/hermes-egress && sudo cp ops/egress/egress.conf.example /etc/hermes-egress/egress.conf`
+2. Edit `RESOLVERS` (the upstream DNS servers Docker forwards to; a private resolver must be listed),
+   leave `EXCEPTIONS` empty unless a single `ip:port` must stay reachable, and review `NEW_CONN_RATE`
+   (a placeholder until measured).
+3. Review without changing anything: `ops/egress/hermes-egress.sh apply --dry-run --config /etc/hermes-egress/egress.conf`
+4. `sudo cp ops/egress/hermes-egress.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now hermes-egress.service`
+   (after config changes use `systemctl reload hermes-egress.service`; the unit never removes the rules
+   on stop or restart)
+5. `sudo ops/egress/hermes-egress.sh status` must exit 0.
+6. Pull the canary image by digest (it needs `sh` and a busybox-compatible `nc`, for example busybox;
+   a build without `-z`/`-w`/`-l -p` is reported as `nc_unusable`), set `HERMES_CANARY_IMAGE` (and optionally `HERMES_CANARY_PRIVATE_IP`),
+   and start the control plane.
+
+What was and was not verified, and how to operate and debug the rules:
+[egress-host-notes.md](egress-host-notes.md), [runbook-egress.md](runbook-egress.md). Existing tenant
+networks created before this policy have no `hn` name and must be deleted and reprovisioned.
 
 ## Recreating an existing instance's container
 
