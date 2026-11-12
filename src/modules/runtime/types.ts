@@ -11,12 +11,16 @@ export type SupportedRuntime = 'runc' | 'runsc';
 /** `enforce`: tenant volumes are created with a size quota and never run without one. */
 export type DiskQuotaMode = 'enforce' | 'off';
 
+/** `enforce`: tenant networks must carry the `hn` bridge name the host ruleset matches. */
+export type EgressPolicyMode = 'enforce' | 'off';
+
 export interface RuntimeSpec {
   instanceId: string;
   tenantId: string;
   image: string;
   limits: ResourceLimits;
   diskQuota: DiskQuotaMode;
+  egressPolicy: EgressPolicyMode;
   env: Record<string, string>;
   runtime?: SupportedRuntime;
   apiServerKey?: string;

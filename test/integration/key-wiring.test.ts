@@ -21,10 +21,10 @@ const logger = createLogger({ level: 'debug', stream: logStream });
 const service = (rt: FakeRuntime, over: Record<string, unknown> = {}) =>
   new InstanceService({
     prisma, runtime: rt, image: IMAGE, production: false, logger, pollIntervalMs: 20, healthTimeoutMs: 300,
-    masterKey: TEST_MASTER_KEY, diskQuota: 'off', containerRuntime: 'runc', ...over,
+    masterKey: TEST_MASTER_KEY, diskQuota: 'off', egressPolicy: 'off', containerRuntime: 'runc', ...over,
   });
 const reconciler = (rt: FakeRuntime) =>
-  new Reconciler({ prisma, runtime: rt, logger, pollIntervalMs: 20, healthTimeoutMs: 300, masterKey: TEST_MASTER_KEY, diskQuota: 'off', containerRuntime: 'runc' });
+  new Reconciler({ prisma, runtime: rt, logger, pollIntervalMs: 20, healthTimeoutMs: 300, masterKey: TEST_MASTER_KEY, diskQuota: 'off', egressPolicy: 'off', containerRuntime: 'runc' });
 const provision = (svc: InstanceService) =>
   svc.provision({ tenantId: s.tenant.id, planId: s.plan.id, name: 'a', idempotencyKey: randomUUID() });
 

@@ -17,12 +17,12 @@ let s: Awaited<ReturnType<typeof seed>>;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const service = (runtime: RuntimeManager = realRuntime(), over: Record<string, unknown> = {}) =>
-  new InstanceService({ masterKey: TEST_MASTER_KEY, diskQuota: 'off',
+  new InstanceService({ masterKey: TEST_MASTER_KEY, diskQuota: 'off', egressPolicy: 'off',
     prisma, runtime, image, production: false, logger: silentLogger,
     pollIntervalMs: 100, healthTimeoutMs: 20_000, leaseTtlMs: 600, ...over,
   });
 const reaper = (runtime: RuntimeManager = realRuntime(), over: Record<string, unknown> = {}) =>
-  new Reconciler({ masterKey: TEST_MASTER_KEY, diskQuota: 'off',
+  new Reconciler({ masterKey: TEST_MASTER_KEY, diskQuota: 'off', egressPolicy: 'off',
     prisma, runtime, logger: silentLogger, pollIntervalMs: 100, healthTimeoutMs: 3_000,
     leaseTtlMs: 600, staleTransitionMs: 1_000, ...over,
   });

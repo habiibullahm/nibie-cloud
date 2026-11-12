@@ -4,7 +4,7 @@ import type { Logger } from '../../shared/logger.js';
 import { isUuid } from '../../shared/uuid.js';
 import { deriveApiKey } from '../runtime/api-key.js';
 import { assertPinnedImage } from '../runtime/image-policy.js';
-import type { DiskQuotaMode, RuntimeManager, SupportedRuntime } from '../runtime/types.js';
+import type { DiskQuotaMode, EgressPolicyMode, RuntimeManager, SupportedRuntime } from '../runtime/types.js';
 import { findOwned, noteQuotaMismatch, revert, transition } from './instance-repo.js';
 import { newLease, startHeartbeat, type Lease } from './lease.js';
 
@@ -30,6 +30,8 @@ export interface InstanceServiceDeps {
   containerRuntime?: SupportedRuntime;
   /** `enforce` creates tenant volumes with the plan's size quota and refuses to run without one. */
   diskQuota: DiskQuotaMode;
+  /** `enforce` refuses to reuse a tenant network that lacks the bridge name the host ruleset matches. */
+  egressPolicy: EgressPolicyMode;
   pollIntervalMs?: number;
   healthTimeoutMs?: number;
   /** Operation lease TTL; a heartbeat renews it every TTL/3 while the operation runs. */
@@ -69,6 +71,7 @@ export class InstanceService {
   private readonly masterKey: string;
   private readonly containerRuntime: SupportedRuntime | undefined;
   private readonly diskQuota: DiskQuotaMode;
+  private readonly egressPolicy: EgressPolicyMode;
   private readonly logger: Logger;
   private readonly pollIntervalMs: number;
   private readonly healthTimeoutMs: number;
@@ -84,6 +87,7 @@ export class InstanceService {
     this.masterKey = deps.masterKey;
     this.containerRuntime = deps.containerRuntime;
     this.diskQuota = deps.diskQuota;
+    this.egressPolicy = deps.egressPolicy;
     this.logger = deps.logger;
     this.pollIntervalMs = deps.pollIntervalMs ?? 500;
     this.healthTimeoutMs = deps.healthTimeoutMs ?? 30_000;
@@ -248,6 +252,7 @@ export class InstanceService {
         image: inst.image,
         limits: { cpuMillis: plan.cpuMillis, memoryMb: plan.memoryMb, pids: plan.pids, storageMb: plan.storageMb },
         diskQuota: this.diskQuota,
+        egressPolicy: this.egressPolicy,
         env: { HERMES_INSTANCE_ID: inst.id },
         apiServerKey: this.apiKey(inst.id),
         runtime: this.containerRuntime,

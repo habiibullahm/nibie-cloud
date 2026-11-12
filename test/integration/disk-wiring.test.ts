@@ -17,10 +17,10 @@ let s: Awaited<ReturnType<typeof seed>>;
 const service = (rt: FakeRuntime, diskQuota: 'enforce' | 'off' = 'enforce') =>
   new InstanceService({
     prisma, runtime: rt, image: 'hermes-stub:0.2.0', production: false, logger, pollIntervalMs: 20, healthTimeoutMs: 300,
-    masterKey: TEST_MASTER_KEY, diskQuota,
+    masterKey: TEST_MASTER_KEY, diskQuota, egressPolicy: 'off',
   });
 const reconciler = (rt: FakeRuntime, diskQuota: 'enforce' | 'off' = 'enforce') =>
-  new Reconciler({ prisma, runtime: rt, logger, pollIntervalMs: 20, healthTimeoutMs: 300, masterKey: TEST_MASTER_KEY, diskQuota });
+  new Reconciler({ prisma, runtime: rt, logger, pollIntervalMs: 20, healthTimeoutMs: 300, masterKey: TEST_MASTER_KEY, diskQuota, egressPolicy: 'off' });
 const provision = (svc: InstanceService) =>
   svc.provision({ tenantId: s.tenant.id, planId: s.plan.id, name: 'a', idempotencyKey: randomUUID() });
 const eventTypes = async (id: string) => (await prisma.instanceEvent.findMany({ where: { instanceId: id } })).map((e) => e.type);

@@ -19,9 +19,9 @@ await assertDiskQuotaSupported(docker, config.diskQuota);
 const runtime = new DockerRuntimeManager({ docker, logger });
 const service = new InstanceService({
   prisma, runtime, image: config.hermesImage, production: config.nodeEnv === 'production', logger,
-  masterKey: config.masterKey, containerRuntime: config.runtime, diskQuota: config.diskQuota,
+  masterKey: config.masterKey, containerRuntime: config.runtime, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy,
 });
-const reconciler = new Reconciler({ prisma, runtime, logger, masterKey: config.masterKey, containerRuntime: config.runtime, diskQuota: config.diskQuota });
+const reconciler = new Reconciler({ prisma, runtime, logger, masterKey: config.masterKey, containerRuntime: config.runtime, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy });
 const app = buildServer({ service, config, logger });
 
 const stopReconciler = reconciler.start(15_000);

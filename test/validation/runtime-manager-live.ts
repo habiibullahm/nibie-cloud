@@ -54,6 +54,7 @@ function spec(over: Partial<RuntimeSpec> = {}): RuntimeSpec {
     image: IMAGE,
     limits: { cpuMillis: 1000, memoryMb: 1024, pids: 256, storageMb: 1024 },
     diskQuota: (process.env.HERMES_DISK_QUOTA as 'enforce' | 'off' | undefined) ?? 'off',
+    egressPolicy: (process.env.HERMES_EGRESS_POLICY as 'enforce' | 'off' | undefined) ?? 'off',
     env: {},
     apiServerKey: randomUUID().replace(/-/g, '') + randomUUID().replace(/-/g, ''),
     ...over,
