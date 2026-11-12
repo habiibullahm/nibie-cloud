@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hermes Cloud — Design System</title>
+<meta name="description" content="Component and token reference for Hermes Cloud. Generated from the root DESIGN.md; visual reference only, not an application.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=Onest:wght@300..700&display=swap" rel="stylesheet">
+<style>
+/* ─────────────────────────────────────────────────────────────
+   TOKENS — every value below is transcribed from root DESIGN.md
+   (colors, typography, rounded, spacing). Nothing else defines a
+   hex, size, weight, radius or spacing step. Interaction states
+   are derived from those tokens with color-mix(); no new literal.
+   Typography: exactly four styles — h1, body-md, label-caps, mono.
+   ───────────────────────────────────────────────────────────── */
+:root{
+  --color-primary:#F3F4F6;
+  --color-secondary:#9CA3AA;
+  --color-tertiary:#AD5B3C;
+  --color-neutral:#0B0D0F;
+  --color-on-tertiary:#FFFFFF;
+  --color-border:#2A2F34;
+  --color-border-strong:#6B747C;
+  --color-card-bg:#14171A;
+  --color-elevated:#1B1F23;
+  --color-secondary-surface:#24292E;
+  --color-destructive:#B84A4A;
+
+  --radius-sm:4px;
+  --radius-md:8px;
+
+  --spacing-xs:4px;
+  --spacing-sm:8px;
+  --spacing-md:12px;
+  --spacing-lg:16px;
+  --spacing-xl:24px;
+  --spacing-xl2:32px;
+  --spacing-xl3:40px;
+  --spacing-xl4:48px;
+
+  --font-h1:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --font-body-md:"Onest",ui-sans-serif,system-ui,sans-serif;
+  --font-label-caps:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --font-mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+
+  --text-h1:1.75rem;
+  --text-body-md:0.875rem;
+  --text-label-caps:0.75rem;
+  --text-mono:0.8125rem;
+
+  --weight-h1:700;
+  --weight-body-md:400;
+  --weight-label-caps:600;
+  --weight-mono:400;
+
+  /* Token-derived interaction values (CSS math on DESIGN.md tokens) */
+  --tertiary-hover:color-mix(in srgb,var(--color-tertiary) 86%,var(--color-neutral));
+  --tertiary-active:color-mix(in srgb,var(--color-tertiary) 74%,var(--color-neutral));
+  --destructive-hover:color-mix(in srgb,var(--color-destructive) 86%,var(--color-neutral));
+  --surface-hover:color-mix(in srgb,var(--color-secondary-surface) 88%,var(--color-primary));
+  --row-hover:color-mix(in srgb,var(--color-secondary-surface) 46%,var(--color-card-bg));
+  --disabled-bg:color-mix(in srgb,var(--color-secondary-surface) 40%,var(--color-neutral));
+  --disabled-fg:color-mix(in srgb,var(--color-secondary) 46%,var(--color-neutral));
+  --backdrop:color-mix(in srgb,var(--color-neutral) 78%,transparent);
+  /* Focus ring: 2px neutral-foreground band on a 2px page-floor offset */
+  --focus-ring:0 0 0 2px var(--color-neutral),0 0 0 4px var(--color-primary);
+  --rail-w:240px;
+  --thumb:16px;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--color-neutral);color:var(--color-primary);
+  font-family:var(--font-body-md);font-size:var(--text-body-md);font-weight:var(--weight-body-md);
+  line-height:1.55;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+
+/* ── The four type styles. Everything else inherits one of these. ── */
+h1,h2{
+  font-family:var(--font-h1);font-size:var(--text-h1);font-weight:var(--weight-h1);
+  line-height:1.15;letter-spacing:-0.015em;margin:0;
+}
+h3,.label,th,.eyebrow,.nav__label,.brand__meta,.meta dt,.state-row--head span,.pass,.badge--status{
+  font-family:var(--font-label-caps);font-size:var(--text-label-caps);font-weight:var(--weight-label-caps);
+  letter-spacing:.085em;text-transform:uppercase;line-height:1.4;margin:0;
+}
+h4{
+  font-family:var(--font-body-md);font-size:var(--text-body-md);font-weight:var(--weight-body-md);
+  line-height:1.55;margin:0;color:var(--color-primary);
+}
+code,kbd,samp,pre,.mono,.type-tag,.swatch__name,.swatch__hex,.elev__hex,.space-val,.meta dd,.nav a .n,.section__num,.badge--mono,.ratio{
+  font-family:var(--font-mono);font-size:var(--text-mono);font-weight:var(--weight-mono);
+}
+p{margin:0}
+a{color:var(--color-primary);text-decoration-color:var(--color-border-strong);text-underline-offset:4px}
+a:hover{text-decoration-color:var(--color-primary)}
+:focus-visible{outline:none;box-shadow:var(--focus-ring);border-radius:var(--radius-sm)}
+::selection{background:var(--color-secondary-surface);color:var(--color-primary)}
+button,input,select,textarea{font-family:var(--font-body-md);font-size:var(--text-body-md);font-weight:var(--weight-body-md);line-height:1.55}
+
+/* ── Skip link ────────────────────────────────────────────── */
+.skip{
+  position:fixed;top:var(--spacing-sm);left:var(--spacing-sm);z-index:100;
+  padding:var(--spacing-sm) var(--spacing-lg);border-radius:var(--radius-sm);
+  background:var(--color-primary);color:var(--color-neutral);text-decoration:none;
+  transform:translateY(-200%);
+}
+.skip:focus{transform:none;box-shadow:0 0 0 2px var(--color-neutral),0 0 0 4px var(--color-primary)}
+
+/* ── Layout ───────────────────────────────────────────────── */
+.shell{display:grid;grid-template-columns:var(--rail-w) minmax(0,1fr);min-height:100vh}
+
+.rail{
+  position:sticky;top:0;height:100vh;overflow-y:auto;
+  border-right:1px solid var(--color-border);background:var(--color-neutral);
+  padding:var(--spacing-xl) var(--spacing-lg);
+  display:flex;flex-direction:column;gap:var(--spacing-xl);
+}
+.brand{display:flex;flex-direction:column;gap:var(--spacing-xs)}
+.brand__mark{display:flex;align-items:center;gap:var(--spacing-sm)}
+.brand__glyph{width:24px;height:24px;flex:0 0 24px;color:var(--color-primary)}
+.brand__name{font-family:var(--font-label-caps);font-size:var(--text-label-caps);font-weight:var(--weight-label-caps);letter-spacing:.085em;text-transform:uppercase}
+.brand__meta{color:var(--color-secondary)}
+.nav{display:flex;flex-direction:column;gap:var(--spacing-xs)}
+.nav__label{color:var(--color-secondary);padding:0 var(--spacing-sm) var(--spacing-sm)}
+.nav a{
+  display:flex;align-items:baseline;gap:var(--spacing-sm);
+  padding:var(--spacing-sm);border-radius:var(--radius-sm);
+  color:var(--color-secondary);text-decoration:none;border-left:2px solid transparent;
+  transition:color .12s ease,background-color .12s ease;
+}
+.nav a:hover{color:var(--color-primary);background:var(--color-card-bg)}
+.nav a[aria-current="true"]{color:var(--color-primary);border-left-color:var(--color-primary);background:var(--color-card-bg)}
+.nav a .n{color:var(--color-secondary);min-width:var(--spacing-xl)}
+.rail__foot{
+  margin-top:auto;display:flex;flex-direction:column;gap:var(--spacing-sm);
+  border-top:1px solid var(--color-border);padding-top:var(--spacing-lg);color:var(--color-secondary);
+}
+
+.main{min-width:0;padding:var(--spacing-xl3) var(--spacing-xl2) var(--spacing-xl4)}
+.main:focus{outline:none}
+.wrap{max-width:1080px;margin:0 auto}
+
+/* ── Doc header ───────────────────────────────────────────── */
+.doc-head{border-bottom:1px solid var(--color-border);padding-bottom:var(--spacing-xl)}
+.eyebrow{color:var(--color-secondary);display:flex;align-items:center;gap:var(--spacing-sm);flex-wrap:wrap}
+.eyebrow .sep::before{content:"·"}
+.doc-head h1{margin:var(--spacing-md) 0}
+.lede{color:var(--color-secondary);max-width:66ch}
+.meta-row{
+  display:flex;flex-wrap:wrap;gap:var(--spacing-lg) var(--spacing-xl);
+  margin:var(--spacing-xl) 0 0;padding-top:var(--spacing-lg);border-top:1px solid var(--color-border);
+}
+.meta{display:flex;flex-direction:column;gap:var(--spacing-xs)}
+.meta dt{color:var(--color-secondary)}
+.meta dd{margin:0;color:var(--color-primary)}
+
+/* ── Sections ─────────────────────────────────────────────── */
+.section{padding-top:var(--spacing-xl3);scroll-margin-top:var(--spacing-xl)}
+.section__head{display:flex;align-items:baseline;gap:var(--spacing-md);margin-bottom:var(--spacing-md)}
+.section__num{color:var(--color-secondary)}
+.section__desc{color:var(--color-secondary);max-width:70ch;margin-bottom:var(--spacing-xl)}
+
+/* ── Specimen blocks ──────────────────────────────────────── */
+.spec{border-top:1px solid var(--color-border);padding-top:var(--spacing-lg);margin-top:var(--spacing-xl)}
+.spec:first-of-type{border-top:0;padding-top:0;margin-top:0}
+.spec__head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--spacing-md);margin-bottom:var(--spacing-md);flex-wrap:wrap}
+.spec__title{color:var(--color-primary)}
+.spec__note{color:var(--color-secondary);max-width:56ch}
+.canvas{
+  background:var(--color-card-bg);border:1px solid var(--color-border);
+  border-radius:var(--radius-md);padding:var(--spacing-xl);
+}
+.canvas--floor{background:var(--color-neutral)}
+.canvas--flush{padding:0;overflow:hidden}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:var(--spacing-md)}
+.row--tight{gap:var(--spacing-sm)}
+.row--top{align-items:flex-start}
+.card-head{justify-content:space-between;min-height:var(--spacing-xl2)}
+.row--xl{gap:var(--spacing-xl)}
+.row--xl2{gap:var(--spacing-xl2)}
+.stack{display:grid;gap:var(--spacing-md)}
+.field{display:grid;gap:var(--spacing-sm);max-width:320px}
+.field--wide{max-width:none}
+.gap-top{margin-top:var(--spacing-lg)}
+.muted{color:var(--color-secondary)}
+
+/* ── Typography specimens ─────────────────────────────────── */
+.type-row{display:grid;grid-template-columns:112px minmax(0,1fr);gap:var(--spacing-lg);align-items:baseline;padding:var(--spacing-md) 0;border-bottom:1px solid var(--color-border)}
+.type-row:last-child{border-bottom:0}
+.type-pad{padding:0 var(--spacing-xl)}
+.type-tag{color:var(--color-secondary)}
+.type-h1{font-family:var(--font-h1);font-size:var(--text-h1);font-weight:var(--weight-h1);letter-spacing:-0.015em;line-height:1.15}
+.type-bodymd{font-family:var(--font-body-md);font-size:var(--text-body-md);font-weight:var(--weight-body-md)}
+.type-label{font-family:var(--font-label-caps);font-size:var(--text-label-caps);font-weight:var(--weight-label-caps);letter-spacing:.085em;text-transform:uppercase;color:var(--color-secondary)}
+.type-mono{font-family:var(--font-mono);font-size:var(--text-mono);font-weight:var(--weight-mono)}
+.measure{max-width:64ch;color:var(--color-secondary)}
+.h-map{display:grid;gap:0}
+.h-map > div{display:grid;grid-template-columns:112px minmax(0,1fr) auto;gap:var(--spacing-lg);align-items:baseline;padding:var(--spacing-md) 0;border-bottom:1px solid var(--color-border)}
+.h-map > div:last-child{border-bottom:0}
+.h-map .map{color:var(--color-secondary);white-space:nowrap}
+
+/* ── Color specimens ──────────────────────────────────────── */
+.swatches{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--color-border);border:1px solid var(--color-border);border-radius:var(--radius-md);overflow:hidden}
+.swatch{background:var(--color-card-bg);display:flex;flex-direction:column}
+.swatch--wide{grid-column:span 2}
+.swatch__chip{height:64px;border-bottom:1px solid var(--color-border)}
+.swatch__body{padding:var(--spacing-md);display:grid;gap:var(--spacing-xs)}
+.swatch__name{color:var(--color-primary)}
+.swatch__hex{color:var(--color-secondary);text-transform:uppercase}
+.swatch__role{color:var(--color-secondary)}
+
+.elev-stack{display:grid;gap:var(--spacing-sm)}
+.elev{display:flex;align-items:center;gap:var(--spacing-lg);padding:var(--spacing-md) var(--spacing-lg);border:1px solid var(--color-border);border-radius:var(--radius-sm);flex-wrap:wrap}
+.elev__label{min-width:128px}
+.elev__hex{color:var(--color-secondary);text-transform:uppercase}
+.elev__role{color:var(--color-secondary);margin-left:auto}
+
+/* ── Tables ───────────────────────────────────────────────── */
+.table-wrap{overflow-x:auto;border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-card-bg)}
+table{width:100%;border-collapse:collapse}
+caption{text-align:left;padding:var(--spacing-md) var(--spacing-lg);color:var(--color-secondary);border-bottom:1px solid var(--color-border)}
+th{
+  text-align:left;color:var(--color-secondary);
+  padding:var(--spacing-sm) var(--spacing-lg);border-bottom:1px solid var(--color-border);
+  white-space:nowrap;background:var(--color-card-bg);
+}
+td{padding:var(--spacing-sm) var(--spacing-lg);border-bottom:1px solid var(--color-border);vertical-align:middle;white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--row-hover)}
+td.mono{color:var(--color-secondary)}
+td .chip{width:12px;height:12px;border-radius:var(--radius-sm);border:1px solid var(--color-border);display:inline-block;vertical-align:-2px;margin-right:var(--spacing-sm)}
+.num{font-variant-numeric:tabular-nums}
+
+/* ── Spacing + radius ─────────────────────────────────────── */
+.space-row{display:grid;grid-template-columns:56px 1fr 64px;gap:var(--spacing-lg);align-items:center;padding:var(--spacing-xs) 0}
+.space-bar{display:block;background:var(--color-secondary);height:var(--spacing-sm)}
+.space-val{color:var(--color-secondary);text-align:right}
+.radius-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--spacing-lg)}
+.radius-demo{border:1px solid var(--color-border);background:var(--color-elevated);padding:var(--spacing-lg);display:grid;gap:var(--spacing-xs)}
+.radius-demo--sm{border-radius:var(--radius-sm)}
+.radius-demo--md{border-radius:var(--radius-md)}
+.radius-demo span{color:var(--color-secondary)}
+
+/* ── Buttons ──────────────────────────────────────────────── */
+.btn{
+  -webkit-appearance:none;appearance:none;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;gap:var(--spacing-sm);
+  padding:10px 16px;border-radius:var(--radius-sm);border:1px solid transparent;
+  transition:background-color .12s ease,border-color .12s ease,color .12s ease;
+  text-decoration:none;
+}
+.btn:focus-visible{box-shadow:var(--focus-ring);outline:none}
+.btn[disabled],.btn[aria-disabled="true"]{cursor:not-allowed;background:var(--disabled-bg);color:var(--disabled-fg);border-color:transparent;pointer-events:none}
+.btn--primary{background:var(--color-tertiary);color:var(--color-on-tertiary)}
+.btn--primary:hover,.btn--primary.is-hover{background:var(--tertiary-hover)}
+.btn--primary:active{background:var(--tertiary-active)}
+.btn--secondary{background:var(--color-secondary-surface);color:var(--color-primary)}
+.btn--secondary:hover,.btn--secondary.is-hover{background:var(--surface-hover)}
+.btn--outline{background:var(--color-neutral);color:var(--color-primary);border-color:var(--color-border)}
+.btn--outline:hover,.btn--outline.is-hover{background:var(--color-card-bg);border-color:var(--color-secondary)}
+.btn--ghost{background:transparent;color:var(--color-primary)}
+.btn--ghost:hover{background:var(--color-secondary-surface)}
+.btn--destructive{background:var(--color-destructive);color:var(--color-on-tertiary)}
+.btn--destructive:hover{background:var(--destructive-hover)}
+.btn--sm{padding:var(--spacing-sm) var(--spacing-md)}
+.btn--icon{padding:0;width:var(--spacing-xl3);height:var(--spacing-xl3)}
+.btn svg{width:16px;height:16px;flex:0 0 16px}
+.is-focus{box-shadow:var(--focus-ring)}
+
+/* ── Form controls ────────────────────────────────────────── */
+/* border-strong is scoped to: input, textarea, select, unchecked checkbox, off-state switch track. */
+.input,.textarea,.select{
+  color:var(--color-primary);
+  background:var(--color-elevated);border:1px solid var(--color-border-strong);
+  border-radius:var(--radius-sm);padding:10px 12px;width:100%;
+  transition:border-color .12s ease,box-shadow .12s ease;
+}
+.input::placeholder,.textarea::placeholder{color:var(--color-secondary);opacity:1}
+.input:hover,.textarea:hover,.select:hover{border-color:var(--color-secondary)}
+.input:focus-visible,.textarea:focus-visible,.select:focus-visible{
+  border-color:var(--color-primary);box-shadow:var(--focus-ring);outline:none;
+}
+.textarea{min-height:88px;resize:vertical}
+.select{-webkit-appearance:none;appearance:none;cursor:pointer;padding-right:var(--spacing-xl2)}
+.select-wrap{position:relative;display:block}
+.select-chev{position:absolute;right:var(--spacing-md);top:50%;width:12px;height:12px;margin-top:-6px;pointer-events:none;color:var(--color-secondary)}
+.label{color:var(--color-secondary)}
+.hint{color:var(--color-secondary)}
+.error-text{color:var(--color-primary);display:flex;align-items:center;gap:var(--spacing-sm)}
+.error-text svg{width:16px;height:16px;flex:0 0 16px;color:var(--color-destructive)}
+.is-invalid,.input.is-invalid:hover{border-color:var(--color-destructive)}
+.input.is-invalid:focus-visible{border-color:var(--color-primary)}
+
+/* Checkbox — the input is a 24×24 hit target; the visible 16px box is drawn on ::before. */
+.check{display:flex;align-items:flex-start;gap:var(--spacing-sm);cursor:pointer;max-width:340px;min-height:32px}
+.check input{
+  -webkit-appearance:none;appearance:none;margin:0;flex:0 0 24px;width:24px;height:24px;
+  background:transparent;border:0;cursor:pointer;position:relative;border-radius:var(--radius-sm);
+}
+.check input::before{
+  content:"";position:absolute;inset:var(--spacing-xs);
+  border:1px solid var(--color-border-strong);border-radius:var(--radius-sm);background:var(--color-elevated);
+  transition:background-color .12s ease,border-color .12s ease;
+}
+.check input:hover::before{border-color:var(--color-secondary)}
+.check input:checked::before{background:var(--color-tertiary);border-color:var(--color-tertiary)}
+.check input:checked::after{
+  content:"";position:absolute;inset:var(--spacing-xs);
+  background:var(--color-on-tertiary);
+  -webkit-mask:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center/12px no-repeat;
+  mask:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center/12px no-repeat;
+}
+.check input:focus-visible{box-shadow:none}
+.check input:focus-visible::before{box-shadow:var(--focus-ring)}
+.check input{color:var(--color-primary)}
+.check input[disabled],.check input[disabled]:hover{cursor:not-allowed;color:var(--color-secondary)}
+.check input[disabled]::before{background:var(--disabled-bg);border-color:var(--color-border)}
+.check__text{display:grid;gap:var(--spacing-xs);padding-top:var(--spacing-xs)}
+.check__title{color:var(--color-primary)}
+.check__text .hint{display:block}
+
+/* Switch — a real button with role="switch"; 40×24 target. */
+.switch{display:flex;align-items:center;gap:var(--spacing-md);min-height:32px}
+.switch__track{
+  -webkit-appearance:none;appearance:none;flex:0 0 40px;width:40px;height:24px;padding:0;
+  border-radius:var(--radius-md);background:var(--color-elevated);
+  border:1px solid var(--color-border-strong);position:relative;cursor:pointer;color:var(--color-primary);
+  transition:background-color .14s ease,border-color .14s ease;
+}
+.switch__track::after{
+  content:"";position:absolute;top:50%;left:var(--spacing-xs);width:var(--thumb);height:var(--thumb);
+  margin-top:calc(var(--thumb) / -2);border-radius:var(--radius-sm);
+  background:var(--color-secondary);
+  transition:left .14s ease,background-color .14s ease;
+}
+.switch__track[aria-checked="true"]{background:var(--color-tertiary);border-color:var(--color-tertiary)}
+.switch__track[aria-checked="true"]::after{left:calc(100% - var(--thumb) - var(--spacing-xs));background:var(--color-on-tertiary)}
+.switch__track:hover{border-color:var(--color-secondary)}
+.switch__track[aria-checked="true"]:hover{border-color:var(--color-tertiary);background:var(--tertiary-hover)}
+.switch__track:focus-visible{box-shadow:var(--focus-ring);outline:none;border-radius:var(--radius-md)}
+.switch__track[disabled]{background:var(--disabled-bg);border-color:var(--color-border);cursor:not-allowed}
+.switch__track[disabled]::after{background:var(--disabled-fg)}
+.switch label{cursor:pointer;padding:var(--spacing-xs) 0}
+.switch__track[disabled] + label{cursor:not-allowed;color:var(--color-secondary)}
+
+/* ── Badges ───────────────────────────────────────────────── */
+.badge{
+  display:inline-flex;align-items:center;gap:var(--spacing-sm);
+  padding:var(--spacing-xs) var(--spacing-sm);border-radius:var(--radius-sm);
+  border:1px solid var(--color-border);background:var(--color-elevated);color:var(--color-primary);
+}
+.badge svg{width:12px;height:12px;flex:0 0 12px}
+.badge--active{background:var(--color-secondary-surface);border-color:var(--color-secondary-surface)}
+.badge--stopped{color:var(--color-secondary)}
+.badge--failed{border-color:var(--color-destructive)}
+.badge--failed svg{color:var(--color-destructive)}
+.badge--mono{color:var(--color-secondary)}
+.sq{width:8px;height:8px;flex:0 0 8px;background:currentColor;border-radius:var(--radius-sm)}
+.sq--hollow{background:transparent;border:1px solid currentColor}
+
+/* ── Tabs ─────────────────────────────────────────────────── */
+.tabs{display:grid;gap:var(--spacing-lg)}
+.tablist{display:flex;gap:var(--spacing-xs);border-bottom:1px solid var(--color-border);flex-wrap:wrap}
+.tab{
+  -webkit-appearance:none;appearance:none;background:transparent;border:0;cursor:pointer;
+  color:var(--color-secondary);
+  padding:var(--spacing-sm) var(--spacing-md);border-bottom:2px solid transparent;margin-bottom:-1px;
+  transition:color .12s ease,border-color .12s ease;border-radius:var(--radius-sm) var(--radius-sm) 0 0;
+}
+.tab:hover{color:var(--color-primary);background:var(--color-elevated)}
+.tab[aria-selected="true"]{color:var(--color-primary);border-bottom-color:var(--color-primary)}
+.tab:focus-visible{box-shadow:var(--focus-ring);outline:none}
+.tabpanel{padding-top:var(--spacing-sm);color:var(--color-secondary)}
+.tabpanel[hidden]{display:none}
+.tabpanel .lead{color:var(--color-primary)}
+
+/* ── Alerts ───────────────────────────────────────────────── */
+.alert{display:flex;gap:var(--spacing-md);padding:var(--spacing-md) var(--spacing-lg);border:1px solid var(--color-border);border-radius:var(--radius-sm);background:var(--color-card-bg);align-items:flex-start}
+.alert svg{width:16px;height:16px;flex:0 0 16px;margin-top:var(--spacing-xs);color:var(--color-primary)}
+.alert__body{display:grid;gap:var(--spacing-xs)}
+.alert__title{color:var(--color-primary)}
+.alert__desc{color:var(--color-secondary)}
+.alert--danger{border-color:var(--color-destructive)}
+.alert--danger svg{color:var(--color-destructive)}
+
+/* ── Tooltip ──────────────────────────────────────────────── */
+.tt-wrap{position:relative;display:inline-flex}
+.tt{
+  position:absolute;left:50%;bottom:100%;margin-bottom:var(--spacing-sm);
+  transform:translateX(calc(-50% + var(--shift,0px)));
+  width:max-content;max-width:min(320px,calc(100vw - 2 * var(--spacing-sm)));
+  background:var(--color-elevated);color:var(--color-primary);
+  border:1px solid var(--color-border);border-radius:var(--radius-sm);
+  padding:var(--spacing-sm) var(--spacing-md);z-index:20;
+}
+.tt[hidden]{display:none}
+/* invisible bridge so the pointer can travel from trigger to tooltip (WCAG 1.4.13 hoverable) */
+.tt::before{content:"";position:absolute;left:0;right:0;top:100%;height:var(--spacing-sm)}
+.tt--below{bottom:auto;top:100%;margin-bottom:0;margin-top:var(--spacing-sm)}
+.tt--below::before{top:auto;bottom:100%}
+
+/* ── Popover ──────────────────────────────────────────────── */
+.pop-wrap{position:relative;display:inline-flex}
+.pop{
+  position:absolute;top:100%;left:0;margin-top:var(--spacing-sm);z-index:30;
+  width:min(256px,calc(100vw - 2 * var(--spacing-sm)));
+  transform:translateX(var(--shift,0px));
+  background:var(--color-elevated);border:1px solid var(--color-border);
+  border-radius:var(--radius-md);padding:var(--spacing-md);display:grid;gap:var(--spacing-sm);
+}
+.pop[hidden]{display:none}
+.pop--above{top:auto;bottom:100%;margin-top:0;margin-bottom:var(--spacing-sm)}
+.pop__title{color:var(--color-primary)}
+.pop__desc{color:var(--color-secondary)}
+.pop__row{display:flex;justify-content:space-between;gap:var(--spacing-md);border-top:1px solid var(--color-border);padding-top:var(--spacing-sm)}
+.pop__row span:first-child{color:var(--color-secondary)}
+.pop__row span:last-child{font-family:var(--font-mono);font-size:var(--text-mono)}
+
+/* ── Dialog ───────────────────────────────────────────────── */
+dialog.dlg{
+  border:1px solid var(--color-border);border-radius:var(--radius-md);
+  background:var(--color-elevated);color:var(--color-primary);
+  padding:0;width:min(420px,calc(100vw - 2 * var(--spacing-lg)));box-shadow:none;
+}
+dialog.dlg::backdrop{background:var(--backdrop)}
+.dlg__head{padding:var(--spacing-lg) var(--spacing-xl) 0;display:grid;gap:var(--spacing-sm)}
+.dlg__head h3{color:var(--color-primary)}
+.dlg__head p{color:var(--color-secondary)}
+.dlg__body{padding:var(--spacing-lg) var(--spacing-xl);display:grid;gap:var(--spacing-sm)}
+.dlg__foot{
+  display:flex;justify-content:flex-end;gap:var(--spacing-sm);
+  padding:var(--spacing-md) var(--spacing-xl);border-top:1px solid var(--color-border);
+  background:var(--color-card-bg);border-radius:0 0 var(--radius-md) var(--radius-md);
+}
+
+/* ── Spinner (SVG, no border-radius) ──────────────────────── */
+.spinner{width:16px;height:16px;flex:0 0 16px;animation:spin .62s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── State matrix ─────────────────────────────────────────── */
+.state-grid{display:grid;gap:1px;background:var(--color-border);border:1px solid var(--color-border);border-radius:var(--radius-md);overflow:hidden}
+.state-row{display:grid;grid-template-columns:104px repeat(auto-fit,minmax(120px,1fr));gap:var(--spacing-md);background:var(--color-card-bg);padding:var(--spacing-md) var(--spacing-lg);align-items:center}
+.state-row--head{background:var(--color-elevated)}
+.state-row--head span{color:var(--color-secondary)}
+.state-row__label{color:var(--color-primary)}
+
+/* ── A11y findings ────────────────────────────────────────── */
+.findings{display:grid;gap:var(--spacing-md)}
+.finding{border:1px solid var(--color-border);border-radius:var(--radius-md);padding:var(--spacing-lg);display:grid;gap:var(--spacing-sm);background:var(--color-card-bg)}
+.finding__head{display:flex;align-items:center;gap:var(--spacing-sm);flex-wrap:wrap}
+.finding__head h3{color:var(--color-primary)}
+.finding p{color:var(--color-secondary)}
+.finding code{color:var(--color-primary);background:var(--color-elevated);border:1px solid var(--color-border);padding:0 var(--spacing-xs);border-radius:var(--radius-sm)}
+.pass{display:inline-flex;align-items:center;gap:var(--spacing-xs);color:var(--color-primary)}
+.pass svg{width:12px;height:12px}
+.ratio{color:var(--color-primary);font-variant-numeric:tabular-nums}
+
+.footer{
+  margin-top:var(--spacing-xl4);padding-top:var(--spacing-lg);
+  border-top:1px solid var(--color-border);color:var(--color-secondary);
+  display:flex;justify-content:space-between;gap:var(--spacing-lg);flex-wrap:wrap;
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .rail{
+    position:sticky;top:0;z-index:40;height:auto;max-height:none;
+    border-right:0;border-bottom:1px solid var(--color-border);
+    padding:var(--spacing-sm) var(--spacing-lg);
+    flex-direction:row;align-items:center;gap:var(--spacing-lg);
+    background:var(--color-neutral);
+  }
+  .rail__foot{display:none}
+  .brand{flex-direction:row;align-items:baseline;gap:var(--spacing-sm);flex:0 0 auto}
+  .brand__meta{display:none}
+  .nav{
+    flex-direction:row;overflow-x:auto;gap:var(--spacing-xs);flex:1;min-width:0;
+    scrollbar-width:none;-ms-overflow-style:none;
+  }
+  .nav::-webkit-scrollbar{display:none}
+  .nav__label{display:none}
+  .nav a{border-left:0;border-bottom:2px solid transparent;white-space:nowrap;border-radius:0}
+  .nav a[aria-current="true"]{border-bottom-color:var(--color-primary);background:transparent}
+  .main{padding:var(--spacing-xl) var(--spacing-lg) var(--spacing-xl3)}
+  .meta-row{gap:var(--spacing-md) var(--spacing-xl)}
+}
+@media (max-width:720px){
+  .swatches{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:640px){
+  .type-row{grid-template-columns:1fr;gap:var(--spacing-xs)}
+  .h-map > div{grid-template-columns:1fr;gap:var(--spacing-xs)}
+  .space-row{grid-template-columns:48px 1fr 64px;gap:var(--spacing-md)}
+  .state-row{grid-template-columns:1fr;gap:var(--spacing-sm)}
+  .state-row--head{display:none}
+  .canvas{padding:var(--spacing-lg)}
+  .row .btn{flex:1 1 auto}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}
+  .spinner{opacity:.7}
+}
+@media print{
+  .rail,.skip{display:none}
+  .shell{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="shell">
+
+  <!-- ── Rail ─────────────────────────────────────────────── -->
+  <nav class="rail" aria-label="Design system sections">
+    <div class="brand">
+      <span class="brand__mark">
+        <svg class="brand__glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 2.6 20.4 7v10L12 21.4 3.6 17V7Z"/><path d="M12 8.2v7.6"/><path d="m8.5 10.1 7 3.8"/>
+        </svg>
+        <span class="brand__name">Hermes Cloud</span>
+      </span>
+      <span class="brand__meta">Design System</span>
+    </div>
+
+    <div class="nav" id="nav">
+      <span class="nav__label">Contents</span>
+      <a href="#direction"><span class="n">01</span>Direction</a>
+      <a href="#typography"><span class="n">02</span>Typography</a>
+      <a href="#color"><span class="n">03</span>Color</a>
+      <a href="#space"><span class="n">04</span>Space &amp; shape</a>
+      <a href="#components"><span class="n">05</span>Components</a>
+      <a href="#states"><span class="n">06</span>States</a>
+      <a href="#accessibility"><span class="n">07</span>Accessibility</a>
+    </div>
+
+    <div class="rail__foot">
+      <span>Spec: DESIGN.md · alpha</span>
+      <span>Reference only. Not an application.</span>
+    </div>
+  </nav>
+
+  <!-- ── Main ─────────────────────────────────────────────── -->
+  <main class="main" id="main" tabindex="-1">
+    <div class="wrap">
+
+      <header class="doc-head">
+        <p class="eyebrow">
+          <span>Design foundation</span><span class="sep" aria-hidden="true"></span>
+          <span>shadcn/ui</span><span class="sep" aria-hidden="true"></span>
+          <span>Dark-neutral first</span>
+        </p>
+        <h1>Hermes Cloud design system</h1>
+        <p class="lede">
+          The visual contract for Hermes Cloud — a managed hosting control plane for Hermes agents.
+          A quiet, dense operations console: near-black surfaces, neutral type, and terracotta held
+          back for the primary action. This page is a specimen sheet for review, not a product screen.
+        </p>
+        <dl class="meta-row">
+          <div class="meta"><dt>Source of truth</dt><dd>DESIGN.md</dd></div>
+          <div class="meta"><dt>Components</dt><dd>shadcn/ui</dd></div>
+          <div class="meta"><dt>Type</dt><dd>Bricolage · Onest</dd></div>
+          <div class="meta"><dt>Radius</dt><dd>4 / 8 px</dd></div>
+          <div class="meta"><dt>Spacing</dt><dd>4→48 px</dd></div>
+        </dl>
+      </header>
+
+      <!-- 01 ─────────────────────────────────────────────── -->
+      <section class="section" id="direction" aria-labelledby="h-direction">
+        <div class="section__head">
+          <span class="section__num">01</span>
+          <h2 id="h-direction">Brand &amp; design direction</h2>
+        </div>
+        <p class="section__desc">
+          Depth is tonal, not optical. Surfaces step up from the page floor in three restrained
+          moves and are separated by a single hairline border. Terracotta marks the primary action
+          and the checked or on state of a control — nothing else.
+        </p>
+
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">Surface hierarchy</h3>
+            <p class="spec__note">Three levels. No shadows, no glow, no glass.</p>
+          </div>
+          <div class="canvas">
+            <div class="elev-stack">
+              <div class="elev" style="background:var(--color-neutral)">
+                <span class="elev__label">Neutral</span>
+                <span class="elev__hex">#0B0D0F</span>
+                <span class="elev__role">Page floor · app background</span>
+              </div>
+              <div class="elev" style="background:var(--color-card-bg)">
+                <span class="elev__label">Card</span>
+                <span class="elev__hex">#14171A</span>
+                <span class="elev__role">Default panel · table body</span>
+              </div>
+              <div class="elev" style="background:var(--color-elevated)">
+                <span class="elev__label">Elevated</span>
+                <span class="elev__hex">#1B1F23</span>
+                <span class="elev__role">Inputs · popovers · dialogs</span>
+              </div>
+              <div class="elev" style="background:var(--color-secondary-surface)">
+                <span class="elev__label">Secondary</span>
+                <span class="elev__hex">#24292E</span>
+                <span class="elev__role">Secondary buttons · inset wells</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">Palette</h3>
+            <p class="spec__note">Eleven semantic tokens. Components reference the role, never the hex.</p>
+          </div>
+          <div class="swatches">
+            <div class="swatch"><div class="swatch__chip" style="background:var(--color-neutral)"></div><div class="swatch__body"><span class="swatch__name">neutral</span><span class="swatch__hex">#0B0D0F</span><span class="swatch__role">Background</span></div></div>
+            <div class="swatch"><div class="swatch__chip" style="background:var(--color-card-bg)"></div><div class="swatch__body"><span class="swatch__name">card-bg</span><span class="swatch__hex">#14171A</span><span class="swatch__role">Surface</span></div></div>
+            <div class="swatch"><div class="swatch__chip" style="background:var(--color-elevated)"></div><div class="swatch__body"><span class="swatch__name">elevated</span><span class="swatch__hex">#1B1F23</span><span class="swatch__role">Elevated surface</span></div></div>
+            <div class="swatch"><div class="swatch__chip" style="background:var(--color-secondary-surface)"></div><div class="swatch__body"><span class="swatch__name">secondary-surface</span><span class="swatch__hex">#24292E</span><span class="swatch__role">Secondary surface</span></div></div>
+            <div class="swatch"><div class="swatch__chip" style="background:var(--color-border)"></div><div class="swatch__body"><span class="swatch__name">border</span><span class="swatch__hex">#2A2F34</span><span class="swatch__role">Decorative &amp; structural lines</span></div></div>
+            <div class="swatch"><div class="swatch__chip" style="background:var(--color-border-strong)"></div><div class="swatch__body"><span class="swatch__name">border-strong</span><span class="swatch__hex">#6B747C</span><span class="swatch__role">Form-control boundaries only</span></div></div>
+            <div class="swatch"><div class="swatch__chip" style="background:var(--color-primary)"></div><div class="swatch__body"><span class="swatch__name">primary</span><span class="swatch__hex">#F3F4F6</span><span class="swatch__role">Foreground · focus ring</span></div></div>
+            <div class="swatch"><div class="swatch__chip" style="background:var(--color-secondary)"></div><div class="swatch__body"><span class="swatch__name">secondary</span><span class="swatch__hex">#9CA3AA</span><span class="swatch__role">Muted foreground</span></div></div>
+            <div class="swatch"><div class="swatch__chip" style="background:var(--color-tertiary)"></div><div class="swatch__body"><span class="swatch__name">tertiary</span><span class="swatch__hex">#AD5B3C</span><span class="swatch__role">Primary action fill · checked · switch on</span></div></div>
+            <div class="swatch"><div class="swatch__chip" style="background:var(--color-destructive)"></div><div class="swatch__body"><span class="swatch__name">destructive</span><span class="swatch__hex">#B84A4A</span><span class="swatch__role">Destructive action · error</span></div></div>
+            <div class="swatch swatch--wide"><div class="swatch__chip" style="background:var(--color-on-tertiary)"></div><div class="swatch__body"><span class="swatch__name">on-tertiary</span><span class="swatch__hex">#FFFFFF</span><span class="swatch__role">Text on accent and destructive fills</span></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 02 ─────────────────────────────────────────────── -->
+      <section class="section" id="typography" aria-labelledby="h-typography">
+        <div class="section__head">
+          <span class="section__num">02</span>
+          <h2 id="h-typography">Typography</h2>
+        </div>
+        <p class="section__desc">
+          Bricolage Grotesque carries structure; Onest carries reading. Monospace is reserved for
+          identifiers, versions, and technical values — never for prose.
+        </p>
+
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">Heading elements</h3>
+            <p class="spec__note">h1–h4 are semantic only. Each maps to one of the four tokens below.</p>
+          </div>
+          <div class="canvas">
+            <div class="h-map">
+              <div><span class="type-tag">h1</span><span class="type-h1">Instance provisioning</span><span class="map type-mono">token h1</span></div>
+              <div><span class="type-tag">h2</span><span class="type-h1">Runtime configuration</span><span class="map type-mono">token h1</span></div>
+              <div><span class="type-tag">h3</span><span class="type-label" style="color:var(--color-primary)">Storage and quota</span><span class="map type-mono">token label-caps</span></div>
+              <div><span class="type-tag">h4</span><span class="type-bodymd">Network policy</span><span class="map type-mono">token body-md</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">Token specimens</h3>
+            <p class="spec__note">Exactly the four styles defined in DESIGN.md.</p>
+          </div>
+          <div class="canvas canvas--flush">
+            <div class="type-pad">
+              <div class="type-row">
+                <span class="type-tag">h1</span>
+                <span class="type-h1">Every instance runs in its own container</span>
+              </div>
+              <div class="type-row">
+                <span class="type-tag">body-md</span>
+                <span class="type-bodymd measure">Body copy sits at 14px with a generous line height. Paragraphs are kept to a comfortable measure so dense operational text stays readable without opening up the layout.</span>
+              </div>
+              <div class="type-row">
+                <span class="type-tag">label-caps</span>
+                <span class="type-label">Container status</span>
+              </div>
+              <div class="type-row">
+                <span class="type-tag">mono</span>
+                <span class="type-mono">hermes-4f2a91c8 · v0.23.1 · 8642/tcp</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">Labels &amp; muted text</h3>
+            <p class="spec__note">Muted foreground clears AA on every surface in the system.</p>
+          </div>
+          <div class="canvas">
+            <div class="stack">
+              <p class="type-bodymd">Primary foreground on card surface — <span class="muted">secondary foreground for supporting detail</span>.</p>
+              <p class="hint">Helper text uses body-md in the secondary foreground: field guidance, timestamps and inline metadata.</p>
+              <p class="type-mono muted">2026-11-12T03:00:12Z · snapshot a879dc7a</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 03 ─────────────────────────────────────────────── -->
+      <section class="section" id="color" aria-labelledby="h-color">
+        <div class="section__head">
+          <span class="section__num">03</span>
+          <h2 id="h-color">Color tokens</h2>
+        </div>
+        <p class="section__desc">
+          Every token with its measured contrast against the surface it is intended for.
+          Ratios below are computed from the hex values in DESIGN.md, not estimated.
+        </p>
+
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">Token reference</h3>
+            <p class="spec__note">Contrast measured against the intended pairing surface.</p>
+          </div>
+          <div class="table-wrap" tabindex="0" role="region" aria-label="Contrast ratios table, scrollable">
+            <table>
+              <caption>WCAG 2.2 contrast ratios · AA text requires 4.5:1, non-text UI 3:1</caption>
+              <thead>
+                <tr><th scope="col">Token</th><th scope="col">Hex</th><th scope="col">Role</th><th scope="col">Pairs with</th><th scope="col">Ratio</th><th scope="col">Status</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><span class="chip" style="background:var(--color-primary)"></span>primary</td><td class="mono">#F3F4F6</td><td>Foreground text</td><td class="mono">neutral</td><td class="num">17.69</td><td>AAA text</td></tr>
+                <tr><td><span class="chip" style="background:var(--color-primary)"></span>primary</td><td class="mono">#F3F4F6</td><td>Text on lightest surface</td><td class="mono">secondary-surface</td><td class="num">13.33</td><td>AAA text</td></tr>
+                <tr><td><span class="chip" style="background:var(--color-secondary)"></span>secondary</td><td class="mono">#9CA3AA</td><td>Muted foreground</td><td class="mono">neutral</td><td class="num">7.63</td><td>AAA text</td></tr>
+                <tr><td><span class="chip" style="background:var(--color-secondary)"></span>secondary</td><td class="mono">#9CA3AA</td><td>Muted on panel</td><td class="mono">secondary-surface</td><td class="num">5.75</td><td>AA text</td></tr>
+                <tr><td><span class="chip" style="background:var(--color-on-tertiary)"></span>on-tertiary</td><td class="mono">#FFFFFF</td><td>Text on primary action</td><td class="mono">tertiary</td><td class="num">4.84</td><td>AA text</td></tr>
+                <tr><td><span class="chip" style="background:var(--color-on-tertiary)"></span>on-tertiary</td><td class="mono">#FFFFFF</td><td>Text on danger</td><td class="mono">destructive</td><td class="num">5.10</td><td>AA text</td></tr>
+                <tr><td><span class="chip" style="background:var(--color-border-strong)"></span>border-strong</td><td class="mono">#6B747C</td><td>Control boundary</td><td class="mono">neutral</td><td class="num">4.09</td><td>Non-text ≥ 3:1</td></tr>
+                <tr><td><span class="chip" style="background:var(--color-border-strong)"></span>border-strong</td><td class="mono">#6B747C</td><td>Control boundary</td><td class="mono">card-bg</td><td class="num">3.78</td><td>Non-text ≥ 3:1</td></tr>
+                <tr><td><span class="chip" style="background:var(--color-border-strong)"></span>border-strong</td><td class="mono">#6B747C</td><td>Control boundary</td><td class="mono">elevated</td><td class="num">3.48</td><td>Non-text ≥ 3:1</td></tr>
+                <tr><td><span class="chip" style="background:var(--color-primary)"></span>primary</td><td class="mono">#F3F4F6</td><td>Focus ring (lowest surface)</td><td class="mono">secondary-surface</td><td class="num">13.33</td><td>Non-text ≥ 3:1</td></tr>
+                <tr><td><span class="chip" style="background:var(--color-tertiary)"></span>tertiary</td><td class="mono">#AD5B3C</td><td>Checked box · switch on</td><td class="mono">card-bg</td><td class="num">3.72</td><td>Non-text ≥ 3:1</td></tr>
+                <tr><td><span class="chip" style="background:var(--color-destructive)"></span>destructive</td><td class="mono">#B84A4A</td><td>Invalid-field border</td><td class="mono">elevated</td><td class="num">3.25</td><td>Non-text ≥ 3:1</td></tr>
+                <tr><td><span class="chip" style="background:var(--color-border)"></span>border</td><td class="mono">#2A2F34</td><td>Decorative &amp; structural</td><td class="mono">neutral</td><td class="num">1.44</td><td>Exempt · decorative</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">Borders &amp; focus</h3>
+            <p class="spec__note">Focus ring is a 2px neutral-foreground band on a 2px page-floor offset — at least 13.33:1 on every surface.</p>
+          </div>
+          <div class="canvas">
+            <div class="row row--xl row--top">
+              <div class="field" style="flex:1 1 240px">
+                <span class="label">Decorative · border</span>
+                <div class="radius-demo radius-demo--md"><span>Card, divider, table row, alert</span></div>
+              </div>
+              <div class="field" style="flex:1 1 240px">
+                <label class="label" for="f-bs">Control · border-strong</label>
+                <input class="input" id="f-bs" type="text" placeholder="Input, textarea, select">
+              </div>
+            </div>
+            <div class="row gap-top">
+              <button class="btn btn--outline" type="button">Tab to focus me</button>
+              <button class="btn btn--secondary" type="button">Focusable secondary</button>
+              <input class="input" style="max-width:200px" type="text" placeholder="Focus this input" aria-label="Focus demonstration input">
+            </div>
+            <p class="hint gap-top">Use Tab. Every interactive element in this document carries the same ring.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 04 ─────────────────────────────────────────────── -->
+      <section class="section" id="space" aria-labelledby="h-space">
+        <div class="section__head">
+          <span class="section__num">04</span>
+          <h2 id="h-space">Spacing &amp; shape</h2>
+        </div>
+        <p class="section__desc">
+          A 4px-based scale with eight named steps. Only these values appear in layout;
+          radii are limited to 4px and 8px, and pill shapes are not part of the system.
+        </p>
+
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">Spacing scale</h3>
+            <p class="spec__note">Bar length is drawn at true scale.</p>
+          </div>
+          <div class="canvas">
+            <div class="space-row"><span class="type-tag">xs</span><span class="space-bar" style="width:var(--spacing-xs)"></span><span class="space-val">4px</span></div>
+            <div class="space-row"><span class="type-tag">sm</span><span class="space-bar" style="width:var(--spacing-sm)"></span><span class="space-val">8px</span></div>
+            <div class="space-row"><span class="type-tag">md</span><span class="space-bar" style="width:var(--spacing-md)"></span><span class="space-val">12px</span></div>
+            <div class="space-row"><span class="type-tag">lg</span><span class="space-bar" style="width:var(--spacing-lg)"></span><span class="space-val">16px</span></div>
+            <div class="space-row"><span class="type-tag">xl</span><span class="space-bar" style="width:var(--spacing-xl)"></span><span class="space-val">24px</span></div>
+            <div class="space-row"><span class="type-tag">xl2</span><span class="space-bar" style="width:var(--spacing-xl2)"></span><span class="space-val">32px</span></div>
+            <div class="space-row"><span class="type-tag">xl3</span><span class="space-bar" style="width:var(--spacing-xl3)"></span><span class="space-val">40px</span></div>
+            <div class="space-row"><span class="type-tag">xl4</span><span class="space-bar" style="width:var(--spacing-xl4)"></span><span class="space-val">48px</span></div>
+          </div>
+        </div>
+
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">Radius</h3>
+            <p class="spec__note">sm for controls, md for contained surfaces.</p>
+          </div>
+          <div class="canvas">
+            <div class="radius-grid">
+              <div class="radius-demo radius-demo--sm"><span class="type-bodymd" style="color:var(--color-primary)">4px</span><span>rounded.sm — buttons, inputs, badges</span></div>
+              <div class="radius-demo radius-demo--md"><span class="type-bodymd" style="color:var(--color-primary)">8px</span><span>rounded.md — cards, dialogs, popovers</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 05 ─────────────────────────────────────────────── -->
+      <section class="section" id="components" aria-labelledby="h-components">
+        <div class="section__head">
+          <span class="section__num">05</span>
+          <h2 id="h-components">Component showcase</h2>
+        </div>
+        <p class="section__desc">
+          Specimens composed from shadcn/ui primitives styled with the tokens above. Production
+          components will use the official registry and CLI — these are the visual target only.
+        </p>
+
+        <!-- Buttons -->
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">Buttons</h3>
+            <p class="spec__note">One terracotta button per view. Secondary and outline carry the rest.</p>
+          </div>
+          <div class="canvas">
+            <div class="row">
+              <button class="btn btn--primary" type="button">Provision instance</button>
+              <button class="btn btn--secondary" type="button">Restart</button>
+              <button class="btn btn--outline" type="button">View logs</button>
+              <button class="btn btn--ghost" type="button">Cancel</button>
+              <button class="btn btn--destructive" type="button">Destroy</button>
+            </div>
+            <div class="row gap-top">
+              <button class="btn btn--secondary btn--sm" type="button">Small</button>
+              <button class="btn btn--outline btn--icon" type="button" aria-label="Copy identifier">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="1.5"/><path d="M5 15V4.5A1.5 1.5 0 0 1 6.5 3H15"/></svg>
+              </button>
+              <button class="btn btn--outline" type="button" disabled>Disabled</button>
+              <button class="btn btn--secondary" type="button" aria-busy="true" disabled>
+                <svg class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><circle cx="12" cy="12" r="9" opacity=".3"/><path d="M21 12a9 9 0 0 0-9-9" stroke-linecap="round"/></svg>Provisioning
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Inputs -->
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">Inputs &amp; textarea</h3>
+            <p class="spec__note">Labels sit above controls in caps. Errors pair color with an icon and text.</p>
+          </div>
+          <div class="canvas">
+            <div class="row row--xl row--top">
+              <div class="field" style="flex:1 1 240px">
+                <label class="label" for="f-name">Instance name</label>
+                <input class="input" id="f-name" type="text" placeholder="tenant-01" value="tenant-01">
+                <span class="hint">Lowercase, hyphens only.</span>
+              </div>
+              <div class="field" style="flex:1 1 240px">
+                <label class="label" for="f-err">Region</label>
+                <input class="input is-invalid" id="f-err" type="text" value="apac-sgp-9" aria-invalid="true" aria-describedby="f-err-msg">
+                <span class="error-text" id="f-err-msg">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></svg>
+                  Region not available for this plan.
+                </span>
+              </div>
+            </div>
+            <div class="field field--wide gap-top">
+              <label class="label" for="f-ta">Notes</label>
+              <textarea class="textarea" id="f-ta" placeholder="Operational context for this instance…"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Select -->
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">Select</h3>
+            <p class="spec__note">Native element, token-styled — keyboard and screen-reader behaviour comes free.</p>
+          </div>
+          <div class="canvas">
+            <div class="row row--xl">
+              <div class="field">
+                <label class="label" for="f-sel">Runtime</label>
+                <div class="select-wrap"><select class="select" id="f-sel">
+                  <option>runc (default)</option>
+                  <option>runsc (gVisor)</option>
+                </select><svg class="select-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></div>
+              </div>
+              <div class="field">
+                <label class="label" for="f-sel2">Status filter</label>
+                <div class="select-wrap"><select class="select" id="f-sel2">
+                  <option>All states</option>
+                  <option>Active</option>
+                  <option>Degraded</option>
+                  <option>Stopped</option>
+                </select><svg class="select-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Checkbox + switch -->
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">Checkbox &amp; switch</h3>
+            <p class="spec__note">Checkbox for selection, switch for immediate effect. Targets are at least 24×24.</p>
+          </div>
+          <div class="canvas">
+            <div class="row row--xl2 row--top">
+              <div class="stack">
+                <label class="check">
+                  <input type="checkbox" checked>
+                  <span class="check__text"><span class="check__title">Read-only root filesystem</span><span class="hint">Applied to every new instance.</span></span>
+                </label>
+                <label class="check">
+                  <input type="checkbox">
+                  <span class="check__text"><span class="check__title">Automatic restic backup</span><span class="hint">Daily at 03:00 UTC.</span></span>
+                </label>
+                <label class="check">
+                  <input type="checkbox" disabled>
+                  <span class="check__text"><span class="check__title">Cross-region replication</span><span class="hint">Not available on this plan.</span></span>
+                </label>
+              </div>
+              <div class="stack">
+                <div class="switch"><button type="button" class="switch__track" role="switch" id="sw1" aria-checked="true"></button><label for="sw1">gVisor sandbox</label></div>
+                <div class="switch"><button type="button" class="switch__track" role="switch" id="sw2" aria-checked="false"></button><label for="sw2">Telegram channel</label></div>
+                <div class="switch"><button type="button" class="switch__track" role="switch" id="sw3" aria-checked="false" disabled></button><label for="sw3">HA failover</label></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Badges -->
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">Badges</h3>
+            <p class="spec__note">Status is always carried by its text label; each also has its own icon shape.</p>
+          </div>
+          <div class="canvas">
+            <div class="row">
+              <span class="badge badge--status badge--active"><span class="sq" aria-hidden="true"></span>Active</span>
+              <span class="badge badge--status badge--degraded"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17v.01"/></svg>Degraded</span>
+              <span class="badge badge--status badge--stopped"><span class="sq sq--hollow" aria-hidden="true"></span>Stopped</span>
+              <span class="badge badge--status badge--failed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></svg>Failed</span>
+              <span class="badge badge--mono">runc</span>
+              <span class="badge badge--mono">runsc</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cards -->
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">Cards</h3>
+            <p class="spec__note">Restrained contrast, hairline border, no elevation shadow.</p>
+          </div>
+          <div class="canvas canvas--floor">
+            <div class="row row--xl" style="align-items:stretch">
+              <article class="canvas" style="flex:1 1 260px;padding:var(--spacing-lg);display:grid;gap:var(--spacing-sm);align-content:start">
+                <div class="row card-head">
+                  <span class="label muted">Instance</span>
+                  <span class="badge badge--status badge--active"><span class="sq" aria-hidden="true"></span>Active</span>
+                </div>
+                <h4>tenant-01</h4>
+                <p class="hint mono">4f2a91c8 · apac · runc</p>
+                <div class="row row--tight" style="margin-top:var(--spacing-sm)">
+                  <button class="btn btn--outline btn--sm" type="button">Logs</button>
+                  <button class="btn btn--ghost btn--sm" type="button">Restart</button>
+                </div>
+              </article>
+              <article class="canvas" style="flex:1 1 260px;padding:var(--spacing-lg);display:grid;gap:var(--spacing-sm);align-content:start">
+                <div class="row card-head">
+                  <span class="label muted">Storage</span>
+                  <span class="badge badge--mono">Quota</span>
+                </div>
+                <h4>Persistent volume</h4>
+                <p class="hint">XFS project quota · soft 45 MB / hard 50 MB</p>
+                <div class="row row--tight" style="margin-top:var(--spacing-sm)">
+                  <button class="btn btn--outline btn--sm" type="button">Inspect</button>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">Tabs</h3>
+            <p class="spec__note">Arrow keys move between tabs; the panel follows selection.</p>
+          </div>
+          <div class="canvas">
+            <div class="tabs">
+              <div class="tablist" role="tablist" aria-label="Instance detail">
+                <button class="tab" type="button" role="tab" id="tab-1" aria-controls="panel-1" aria-selected="true" tabindex="0">Overview</button>
+                <button class="tab" type="button" role="tab" id="tab-2" aria-controls="panel-2" aria-selected="false" tabindex="-1">Runtime</button>
+                <button class="tab" type="button" role="tab" id="tab-3" aria-controls="panel-3" aria-selected="false" tabindex="-1">Backups</button>
+              </div>
+              <div class="tabpanel" role="tabpanel" id="panel-1" aria-labelledby="tab-1" tabindex="0">
+                <span class="lead">Overview.</span> Identity, region assignment, and current lifecycle state for a single instance.
+              </div>
+              <div class="tabpanel" role="tabpanel" id="panel-2" aria-labelledby="tab-2" tabindex="0" hidden>
+                <span class="lead">Runtime.</span> Image digest, sandbox selection, capability baseline, and the authenticated health probe.
+              </div>
+              <div class="tabpanel" role="tabpanel" id="panel-3" aria-labelledby="tab-3" tabindex="0" hidden>
+                <span class="lead">Backups.</span> Snapshot history, retention policy, and the most recent restore verification.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">Table</h3>
+            <p class="spec__note">Hairline row dividers, tabular numerals, no zebra striping. Scrolls inside its own container.</p>
+          </div>
+          <div class="table-wrap" id="inst-table" tabindex="0" role="region" aria-label="Instances table, scrollable">
+            <table>
+              <caption>Instances</caption>
+              <thead>
+                <tr><th scope="col">Name</th><th scope="col">State</th><th scope="col">Runtime</th><th scope="col">Image</th><th scope="col">Updated</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>tenant-01</td><td><span class="badge badge--status badge--active"><span class="sq" aria-hidden="true"></span>Active</span></td><td class="mono">runc</td><td class="mono">v0.23.1</td><td class="mono">03:00 UTC</td></tr>
+                <tr><td>tenant-02</td><td><span class="badge badge--status badge--degraded"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17v.01"/></svg>Degraded</span></td><td class="mono">runsc</td><td class="mono">v0.23.1</td><td class="mono">02:47 UTC</td></tr>
+                <tr><td>tenant-03</td><td><span class="badge badge--status badge--stopped"><span class="sq sq--hollow" aria-hidden="true"></span>Stopped</span></td><td class="mono">runc</td><td class="mono">v0.23.1</td><td class="mono">01:12 UTC</td></tr>
+                <tr><td>tenant-04</td><td><span class="badge badge--status badge--failed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></svg>Failed</span></td><td class="mono">runsc</td><td class="mono">v0.23.1</td><td class="mono">00:58 UTC</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Dialog -->
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">Dialog</h3>
+            <p class="spec__note">Native modal dialog: focus is trapped, Escape closes, backdrop is token-derived. Destroy stays disabled until the name matches exactly.</p>
+          </div>
+          <div class="canvas">
+            <div class="row">
+              <button class="btn btn--destructive" type="button" id="open-dlg">Destroy instance…</button>
+              <span class="hint">Opens a confirmation dialog.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tooltip + popover -->
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">Tooltip &amp; popover</h3>
+            <p class="spec__note">Tooltip on hover and keyboard focus; Escape dismisses it until the trigger is left. Popover toggled by click. Both stay inside the viewport.</p>
+          </div>
+          <div class="canvas">
+            <div class="row row--xl row--top">
+              <span class="tt-wrap" id="tt-wrap-1">
+                <button class="btn btn--outline" type="button" aria-describedby="tt-1">Hover or focus</button>
+                <span class="tt" role="tooltip" id="tt-1" hidden>Container health: authenticated probe</span>
+              </span>
+              <span class="pop-wrap">
+                <button class="btn btn--outline" type="button" id="pop-btn" aria-expanded="false" aria-controls="pop-1">Show details</button>
+                <div class="pop" id="pop-1" hidden>
+                  <span class="pop__title">tenant-01</span>
+                  <span class="pop__desc">Provisioned 2 minutes ago on the default runtime.</span>
+                  <div class="pop__row"><span>Runtime</span><span>runc</span></div>
+                  <div class="pop__row"><span>Port</span><span>127.0.0.1:32781</span></div>
+                  <div class="pop__row"><span>Image</span><span>v0.23.1</span></div>
+                </div>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Alerts -->
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">Alerts &amp; status</h3>
+            <p class="spec__note">Each level carries an icon and a text label; color is never the only signal.</p>
+          </div>
+          <div class="canvas">
+            <div class="stack">
+              <div class="alert" role="status">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.5v.01"/></svg>
+                <div class="alert__body">
+                  <span class="alert__title">Maintenance window scheduled</span>
+                  <span class="alert__desc">The host will restart at 03:00 UTC. Instances restart automatically.</span>
+                </div>
+              </div>
+              <div class="alert" role="status">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17v.01"/></svg>
+                <div class="alert__body">
+                  <span class="alert__title">Quota nearly reached</span>
+                  <span class="alert__desc">tenant-02 has used 45 MB of a 50 MB hard limit.</span>
+                </div>
+              </div>
+              <div class="alert alert--danger" role="alert">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></svg>
+                <div class="alert__body">
+                  <span class="alert__title">Health probe failed</span>
+                  <span class="alert__desc">The gateway did not answer within the timeout. The instance was marked failed.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 06 ─────────────────────────────────────────────── -->
+      <section class="section" id="states" aria-labelledby="h-states">
+        <div class="section__head">
+          <span class="section__num">06</span>
+          <h2 id="h-states">Interaction states</h2>
+        </div>
+        <p class="section__desc">
+          The full state set every control must implement. Hover and active values are derived
+          from tokens with <code>color-mix()</code>, so no new hex enters the system.
+        </p>
+
+        <div class="spec">
+          <div class="spec__head">
+            <h3 class="spec__title">State matrix</h3>
+            <p class="spec__note">Buttons shown at each state; focus is identical across controls.</p>
+          </div>
+          <div class="canvas">
+            <div class="state-grid">
+              <div class="state-row state-row--head">
+                <span>State</span><span>Primary</span><span>Secondary</span><span>Outline</span>
+              </div>
+              <div class="state-row">
+                <span class="state-row__label">Default</span>
+                <button class="btn btn--primary btn--sm" type="button">Save</button>
+                <button class="btn btn--secondary btn--sm" type="button">Save</button>
+                <button class="btn btn--outline btn--sm" type="button">Save</button>
+              </div>
+              <div class="state-row">
+                <span class="state-row__label">Hover</span>
+                <button class="btn btn--primary btn--sm is-hover" type="button">Save</button>
+                <button class="btn btn--secondary btn--sm is-hover" type="button">Save</button>
+                <button class="btn btn--outline btn--sm is-hover" type="button">Save</button>
+              </div>
+              <div class="state-row">
+                <span class="state-row__label">Focus</span>
+                <button class="btn btn--primary btn--sm is-focus" type="button">Save</button>
+                <button class="btn btn--secondary btn--sm is-focus" type="button">Save</button>
+                <button class="btn btn--outline btn--sm is-focus" type="button">Save</button>
+              </div>
+              <div class="state-row">
+                <span class="state-row__label">Disabled</span>
+                <button class="btn btn--sm" type="button" disabled>Save</button>
+                <button class="btn btn--sm" type="button" disabled>Save</button>
+                <button class="btn btn--sm" type="button" disabled>Save</button>
+              </div>
+              <div class="state-row">
+                <span class="state-row__label">Loading</span>
+                <button class="btn btn--primary btn--sm" type="button" aria-busy="true"><svg class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><circle cx="12" cy="12" r="9" opacity=".3"/><path d="M21 12a9 9 0 0 0-9-9" stroke-linecap="round"/></svg>Saving</button>
+                <button class="btn btn--secondary btn--sm" type="button" aria-busy="true"><svg class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><circle cx="12" cy="12" r="9" opacity=".3"/><path d="M21 12a9 9 0 0 0-9-9" stroke-linecap="round"/></svg>Saving</button>
+                <button class="btn btn--outline btn--sm" type="button" aria-busy="true"><svg class="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><circle cx="12" cy="12" r="9" opacity=".3"/><path d="M21 12a9 9 0 0 0-9-9" stroke-linecap="round"/></svg>Saving</button>
+              </div>
+              <div class="state-row">
+                <span class="state-row__label">Error</span>
+                <input class="input is-invalid" value="invalid" aria-invalid="true" aria-label="Error state input">
+                <span class="error-text"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></svg>Required</span>
+                <button class="btn btn--destructive btn--sm" type="button" disabled>Blocked</button>
+              </div>
+            </div>
+            <p class="hint gap-top">Hover the live controls above the matrix to see the transitions in motion.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 07 ─────────────────────────────────────────────── -->
+      <section class="section" id="accessibility" aria-labelledby="h-a11y">
+        <div class="section__head">
+          <span class="section__num">07</span>
+          <h2 id="h-a11y">Accessibility</h2>
+        </div>
+        <p class="section__desc">
+          Measured results against WCAG 2.2 after the approved revision round, with the
+          remaining exceptions stated. Nothing here is asserted without a computed ratio.
+        </p>
+
+        <div class="findings">
+          <div class="finding">
+            <div class="finding__head"><span class="pass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Pass</span><h3>1.4.3 Text contrast</h3></div>
+            <p>
+              Primary foreground reaches <span class="ratio">17.69:1</span> on the page floor and
+              <span class="ratio">13.33:1</span> on the lightest surface. Muted foreground stays at or above
+              <span class="ratio">5.75:1</span> everywhere it may appear. White on terracotta is
+              <span class="ratio">4.84:1</span>; white on destructive is <span class="ratio">5.10:1</span>.
+              Terracotta is never used as a text color.
+            </p>
+          </div>
+
+          <div class="finding">
+            <div class="finding__head"><span class="pass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Pass</span><h3>1.4.11 Non-text contrast</h3></div>
+            <p>
+              Boundaries that identify a control use <code>border-strong #6B747C</code>:
+              <span class="ratio">4.09:1</span> on the page floor, <span class="ratio">3.78:1</span> on
+              <code>card-bg</code> and <span class="ratio">3.48:1</span> on <code>elevated</code> — input, textarea,
+              select, unchecked checkbox and the off-state switch track. The checked box and switch-on track
+              (<code>tertiary</code>) reach <span class="ratio">3.72:1</span> on <code>card-bg</code>; the invalid
+              border (<code>destructive</code>) reaches <span class="ratio">3.25:1</span> on <code>elevated</code>.
+              The focus ring is <span class="ratio">≥ 13.33:1</span> on every surface.
+            </p>
+          </div>
+
+          <div class="finding">
+            <div class="finding__head"><span class="pass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Pass</span><h3>1.4.13 Content on hover or focus</h3></div>
+            <p>
+              The tooltip appears on hover and keyboard focus, can be dismissed with Escape without moving
+              the pointer or focus, stays dismissed while that hover or focus remains, and the pointer can
+              move onto it without it closing. The popover closes with Escape and returns focus to its trigger.
+            </p>
+          </div>
+
+          <div class="finding">
+            <div class="finding__head"><span class="pass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Pass</span><h3>2.5.8 Target size</h3></div>
+            <p>
+              Every pointer target is at least 24×24 CSS px. The checkbox input is 24×24, the switch is 40×24,
+              and the label rows that wrap them are at least 32px tall.
+            </p>
+          </div>
+
+          <div class="finding">
+            <div class="finding__head"><span class="pass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Pass</span><h3>Keyboard &amp; semantics</h3></div>
+            <p>
+              A skip-to-content link, semantic landmarks (<code>nav</code>, <code>main</code>, <code>section</code> with
+              labelled headings), <code>role="switch"</code> with <code>aria-checked</code> kept in step, tab
+              arrow-key navigation, native <code>dialog</code> focus trapping with Escape to close, and
+              <code>prefers-reduced-motion</code> honoured for the only animation in the system.
+            </p>
+          </div>
+
+          <div class="finding">
+            <div class="finding__head"><span class="pass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Pass</span><h3>Status never color-only</h3></div>
+            <p>
+              Every badge and alert carries a text label and its own icon shape — filled square, triangle,
+              hollow square, crossed circle — so Active, Degraded, Stopped and Failed remain distinguishable
+              without color perception.
+            </p>
+          </div>
+
+          <div class="finding">
+            <div class="finding__head"><span class="pass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17v.01"/></svg>Exceptions</span><h3>Remaining exceptions</h3></div>
+            <p>
+              <code>border #2A2F34</code> measures <span class="ratio">1.44:1</span> on the page floor and
+              <span class="ratio">1.33:1</span> on <code>card-bg</code>. It is used only for structural and decorative
+              lines — cards, dividers, table rows, alerts, badges — where text or a label already identifies the
+              element, so SC 1.4.11 does not require 3:1. Disabled controls are exempt and measure
+              <span class="ratio">2.26:1</span>. Secondary, outline and ghost buttons are identified by their text
+              label rather than their boundary.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <span>Hermes Cloud design system · generated from DESIGN.md (alpha spec)</span>
+        <span>Visual reference only — no dashboard, no application code.</span>
+      </footer>
+    </div>
+  </main>
+</div>
+
+<!-- ── Dialog ─────────────────────────────────────────────── -->
+<dialog class="dlg" id="dlg-1" aria-labelledby="dlg-title" aria-describedby="dlg-desc">
+  <div class="dlg__head">
+    <h3 id="dlg-title">Destroy instance?</h3>
+    <p id="dlg-desc">The container and its persistent volume for <span class="mono" style="color:var(--color-primary)">tenant-01</span> will be removed. This cannot be undone.</p>
+  </div>
+  <div class="dlg__body">
+    <div class="field field--wide">
+      <label class="label" for="dlg-confirm">Type the instance name to confirm</label>
+      <input class="input" id="dlg-confirm" type="text" placeholder="tenant-01" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="dlg-hint">
+    </div>
+    <p class="hint" id="dlg-hint" aria-live="polite">Destroy stays disabled until the name matches exactly.</p>
+  </div>
+  <div class="dlg__foot">
+    <button class="btn btn--ghost" type="button" id="dlg-cancel">Cancel</button>
+    <button class="btn btn--destructive" type="button" id="dlg-destroy" disabled>Destroy instance</button>
+  </div>
+</dialog>
+
+<script>
+(function () {
+  "use strict";
+
+  var MARGIN = 8; /* spacing-sm: minimum distance kept from the viewport edge */
+  function vw() { return document.documentElement.clientWidth; }
+  function vh() { return window.innerHeight; }
+
+  /* Shift an absolutely positioned layer horizontally so it stays inside the viewport. */
+  function keepInViewport(el) {
+    el.style.setProperty('--shift', '0px');
+    var r = el.getBoundingClientRect(), shift = 0;
+    if (r.left < MARGIN) shift = MARGIN - r.left;
+    else if (r.right > vw() - MARGIN) shift = (vw() - MARGIN) - r.right;
+    el.style.setProperty('--shift', shift + 'px');
+  }
+
+  /* ── Scrollspy: mark the section currently in view ─────── */
+  var links = Array.prototype.slice.call(document.querySelectorAll('#nav a'));
+  var sections = links.map(function (a) {
+    return document.querySelector(a.getAttribute('href'));
+  }).filter(Boolean);
+
+  function setCurrent(id) {
+    links.forEach(function (a) {
+      var on = a.getAttribute('href') === '#' + id;
+      if (on) a.setAttribute('aria-current', 'true');
+      else a.removeAttribute('aria-current');
+    });
+  }
+
+  if ('IntersectionObserver' in window && sections.length) {
+    var visible = new Map();
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        visible.set(e.target.id, e.isIntersecting ? e.intersectionRatio : 0);
+      });
+      var best = null, bestRatio = 0;
+      visible.forEach(function (ratio, id) {
+        if (ratio > bestRatio) { bestRatio = ratio; best = id; }
+      });
+      if (best) setCurrent(best);
+    }, { rootMargin: '-96px 0px -55% 0px', threshold: [0, .25, .5, 1] });
+    sections.forEach(function (s) { io.observe(s); });
+  }
+  setCurrent('direction');
+
+  /* ── Tabs: click + arrow keys + Home/End ───────────────── */
+  Array.prototype.forEach.call(document.querySelectorAll('[role="tablist"]'), function (list) {
+    var tabs = Array.prototype.slice.call(list.querySelectorAll('[role="tab"]'));
+
+    function select(i, focus) {
+      tabs.forEach(function (t, j) {
+        var on = i === j;
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+        t.tabIndex = on ? 0 : -1;
+        var panel = document.getElementById(t.getAttribute('aria-controls'));
+        if (panel) panel.hidden = !on;
+        if (on && focus) t.focus();
+      });
+    }
+
+    tabs.forEach(function (tab, i) {
+      tab.addEventListener('click', function () { select(i, false); });
+      tab.addEventListener('keydown', function (ev) {
+        var k = ev.key, next = null;
+        if (k === 'ArrowRight' || k === 'ArrowDown') next = (i + 1) % tabs.length;
+        else if (k === 'ArrowLeft' || k === 'ArrowUp') next = (i - 1 + tabs.length) % tabs.length;
+        else if (k === 'Home') next = 0;
+        else if (k === 'End') next = tabs.length - 1;
+        if (next !== null) { ev.preventDefault(); select(next, true); }
+      });
+    });
+  });
+
+  /* ── Switches: role="switch" buttons, aria-checked kept in step ── */
+  Array.prototype.forEach.call(document.querySelectorAll('[role="switch"]'), function (sw) {
+    sw.addEventListener('click', function () {
+      if (sw.disabled) return;
+      sw.setAttribute('aria-checked', sw.getAttribute('aria-checked') === 'true' ? 'false' : 'true');
+    });
+  });
+
+  /* ── Tooltip (WCAG 1.4.13): hoverable, dismissible, persistent ──
+     Open while the trigger is hovered or focused. Escape dismisses it
+     without moving pointer or focus, and it stays dismissed until
+     neither hover nor focus remains on the trigger. */
+  Array.prototype.forEach.call(document.querySelectorAll('.tt-wrap'), function (wrap) {
+    var tip = wrap.querySelector('[role="tooltip"]');
+    var trigger = wrap.querySelector('button, a, input');
+    if (!tip || !trigger) return;
+    var hovering = false, focused = false, dismissed = false;
+
+    function place() {
+      tip.classList.remove('tt--below');
+      tip.style.setProperty('--shift', '0px');
+      var r = tip.getBoundingClientRect();
+      if (r.top < MARGIN) tip.classList.add('tt--below');
+      keepInViewport(tip);
+    }
+    function render() {
+      var open = (hovering || focused) && !dismissed;
+      if (open && tip.hidden) { tip.hidden = false; place(); }
+      else if (!open && !tip.hidden) { tip.hidden = true; }
+      if (!hovering && !focused) dismissed = false;
+    }
+    wrap.addEventListener('mouseenter', function () { hovering = true; render(); });
+    wrap.addEventListener('mouseleave', function () { hovering = false; render(); });
+    trigger.addEventListener('focus', function () { focused = true; render(); });
+    trigger.addEventListener('blur', function () { focused = false; render(); });
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape' && !tip.hidden) { dismissed = true; render(); }
+    });
+    window.addEventListener('resize', function () { if (!tip.hidden) place(); });
+  });
+
+  /* ── Popover: click toggle, outside click / Escape closes ─ */
+  var popBtn = document.getElementById('pop-btn');
+  var pop = document.getElementById('pop-1');
+  if (popBtn && pop) {
+    var placePop = function () {
+      pop.classList.remove('pop--above');
+      pop.style.setProperty('--shift', '0px');
+      var r = pop.getBoundingClientRect();
+      if (r.bottom > vh() - MARGIN) {
+        var b = popBtn.getBoundingClientRect();
+        if (b.top - r.height - MARGIN > MARGIN) pop.classList.add('pop--above');
+      }
+      keepInViewport(pop);
+    };
+    var closePop = function () {
+      pop.hidden = true;
+      popBtn.setAttribute('aria-expanded', 'false');
+    };
+    popBtn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      var open = pop.hidden;
+      pop.hidden = !open;
+      popBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) placePop();
+    });
+    document.addEventListener('click', function (ev) {
+      if (!pop.hidden && !pop.contains(ev.target)) closePop();
+    });
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape' && !pop.hidden) { closePop(); popBtn.focus(); }
+    });
+    window.addEventListener('resize', function () { if (!pop.hidden) placePop(); });
+  }
+
+  /* ── Dialog: Destroy is gated on the exact instance name ── */
+  var dlg = document.getElementById('dlg-1');
+  var openBtn = document.getElementById('open-dlg');
+  var cancelBtn = document.getElementById('dlg-cancel');
+  var destroyBtn = document.getElementById('dlg-destroy');
+  var confirmInput = document.getElementById('dlg-confirm');
+  var confirmHint = document.getElementById('dlg-hint');
+  var EXPECTED = 'tenant-01';
+
+  function syncGate() {
+    var ok = confirmInput.value === EXPECTED;
+    destroyBtn.disabled = !ok;
+    confirmHint.textContent = ok
+      ? 'Name matches. Destroy is enabled.'
+      : 'Destroy stays disabled until the name matches exactly.';
+  }
+
+  if (dlg && openBtn) {
+    openBtn.addEventListener('click', function () {
+      confirmInput.value = '';
+      syncGate();
+      if (typeof dlg.showModal === 'function') dlg.showModal();
+      else dlg.setAttribute('open', '');
+      confirmInput.focus();
+    });
+    confirmInput.addEventListener('input', syncGate);
+    if (cancelBtn) cancelBtn.addEventListener('click', function () { dlg.close(); });
+    destroyBtn.addEventListener('click', function () {
+      if (confirmInput.value === EXPECTED) dlg.close(); /* specimen only: nothing is destroyed */
+    });
+    dlg.addEventListener('close', function () { openBtn.focus(); });
+    /* keep the confirm field from submitting anything on Enter */
+    dlg.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter' && ev.target === confirmInput) ev.preventDefault();
+    });
+  }
+})();
+</script>
+</body>
+</html>
