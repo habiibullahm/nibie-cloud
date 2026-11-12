@@ -17,6 +17,12 @@ import {
 } from './types.js';
 import { isQuotaUnsupported, readVolumeQuotaMb, sizedVolumeOpts } from './volume-quota.js';
 
+interface DfVolume {
+  Name?: string;
+  Labels?: Record<string, string> | null;
+  UsageData?: { Size?: number } | null;
+}
+
 const CONNECTION_CODES = new Set(['ECONNREFUSED', 'ENOENT', 'EACCES', 'ECONNRESET', 'ETIMEDOUT', 'EPIPE']);
 
 function statusCode(e: unknown): number | undefined {
@@ -165,6 +171,27 @@ export class DockerRuntimeManager implements RuntimeManager {
       await ignore404(() => this.docker.getContainer(containerName(instanceId)).remove({ force: true }));
       await ignore404(() => this.docker.getNetwork(networkName(instanceId)).remove());
       if (opts.deleteVolume) await ignore404(() => this.docker.getVolume(volumeName(instanceId)).remove());
+    });
+  }
+
+  async volumeUsage(): Promise<Map<string, number>> {
+    return guard(async () => {
+      // `type=volume` limits the (otherwise heavy) system df to volumes. The query goes in `options`:
+      // docker-modem mangles a query string written into `path`.
+      const res = await new Promise<{ Volumes?: DfVolume[] | null }>((resolve, reject) => {
+        this.docker.modem.dial(
+          { path: '/system/df?', method: 'GET', options: { type: 'volume' }, statusCodes: { 200: true, 500: 'server error' } },
+          (err: Error | null, data: unknown) => (err ? reject(err) : resolve((data ?? {}) as { Volumes?: DfVolume[] | null })),
+        );
+      });
+      const usage = new Map<string, number>();
+      for (const v of res.Volumes ?? []) {
+        const id = v.Labels?.[LABEL_INSTANCE];
+        const size = v.UsageData?.Size;
+        if (!id || !v.Labels?.[LABEL_MANAGED] || typeof size !== 'number' || size < 0) continue;
+        usage.set(id.toLowerCase(), size);
+      }
+      return usage;
     });
   }
 

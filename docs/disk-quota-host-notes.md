@@ -12,12 +12,17 @@ observed. Nothing here has been verified on an XFS host with project quotas yet.
 - `--opt o=size=64m` is not the quota option: for the local driver it is a mount option and fails with
   `missing required option: "device"`.
 
+- `GET /system/df?type=volume` returns `Volumes[]` with `Labels` and `UsageData.Size` for local
+  volumes. A 5 MiB file written into a volume was reported as exactly 5242880 bytes, and unlabeled
+  volumes are skipped by `volumeUsage()`. With dockerode, put the query in the modem `options`
+  (`path: '/system/df?'`, `options: { type: 'volume' }`): a query string written into `path` is mangled.
+
 ## Not yet verified (needs an XFS host with `prjquota`)
 
 - That `size` produces a working limit: a 100 MB write into a 64 MB volume stops with
   `No space left on device` near 64 MB.
 - What `docker volume inspect` shows in `Options` for a sized volume (the parser assumes `size` with a
   `k`, `m` or `g` suffix, or plain bytes).
-- Whether `UsageData.Size` is populated for local volumes in `GET /system/df?type=volume`, and how long
-  the call takes with about 10 volumes.
+- How long the volume df call takes with about 10 populated volumes, and that `UsageData.Size` behaves
+  the same on an XFS quota volume.
 - Behaviour under `runsc`.

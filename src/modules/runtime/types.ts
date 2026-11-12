@@ -60,6 +60,12 @@ export interface RuntimeManager {
   /** `state: 'absent'` when no container exists. */
   inspect(instanceId: string): Promise<RuntimeInspection>;
   checkHealth(instanceId: string, apiServerKey?: string): Promise<HealthResult>;
+  /**
+   * Used bytes per tenant volume, keyed by instance id, from a single Docker call. Volumes whose size
+   * is unknown or negative are omitted (never reported as 0). Expensive (walks every volume), so
+   * callers poll it slowly.
+   */
+  volumeUsage(): Promise<Map<string, number>>;
   /** No-op if absent. Volume is kept unless `deleteVolume` is true. */
   remove(instanceId: string, opts: { deleteVolume: boolean }): Promise<void>;
 }

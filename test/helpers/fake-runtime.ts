@@ -19,6 +19,10 @@ export class FakeRuntime implements RuntimeManager {
   volumeQuotaMb: number | null = null;
   /** When true `ensure()` refuses like a manager that found an unquotaed volume while enforcing. */
   quotaMissing = false;
+  /** Used bytes per instance id, as `volumeUsage()` reports them. */
+  readonly usage = new Map<string, number>();
+  /** When set, `volumeUsage()` throws it (e.g. a RuntimeUnavailableError). */
+  usageError: Error | null = null;
   private readonly containers = new Map<string, { key: string | undefined; running: boolean }>();
 
   async ensure(spec: RuntimeSpec): Promise<{ hostPort: number | null; volumeQuotaMb: number | null }> {
@@ -67,6 +71,11 @@ export class FakeRuntime implements RuntimeManager {
       return { ok: false, latencyMs: 0, detail: AUTH_REJECTED_DETAIL };
     }
     return { ok: true, latencyMs: 0, detail: 'HTTP 200' };
+  }
+
+  async volumeUsage(): Promise<Map<string, number>> {
+    if (this.usageError) throw this.usageError;
+    return new Map(this.usage);
   }
 
   async remove(id: string): Promise<void> {
