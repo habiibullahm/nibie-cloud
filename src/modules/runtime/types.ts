@@ -2,15 +2,21 @@ export interface ResourceLimits {
   cpuMillis: number;
   memoryMb: number;
   pids: number;
+  /** Persistent volume quota in MB, enforced by the kernel when the volume is created. */
+  storageMb: number;
 }
 
 export type SupportedRuntime = 'runc' | 'runsc';
+
+/** `enforce`: tenant volumes are created with a size quota and never run without one. */
+export type DiskQuotaMode = 'enforce' | 'off';
 
 export interface RuntimeSpec {
   instanceId: string;
   tenantId: string;
   image: string;
   limits: ResourceLimits;
+  diskQuota: DiskQuotaMode;
   env: Record<string, string>;
   runtime?: SupportedRuntime;
   apiServerKey?: string;
@@ -42,8 +48,17 @@ export interface HealthResult {
  * host paths or Docker parameters.
  */
 export interface RuntimeManager {
-  /** Idempotent: ensures network, volume and an (unstarted) container exist. */
-  ensure(spec: RuntimeSpec): Promise<{ hostPort: number | null }>;
+  /**
+   * Idempotent: ensures network, volume and an (unstarted) container exist. `volumeQuotaMb` is the
+   * quota the volume actually has (null when none).
+   */
+  ensure(spec: RuntimeSpec): Promise<{ hostPort: number | null; volumeQuotaMb: number | null }>;
+  /**
+   * Fail-closed guard for the paths that start an existing container without `ensure()` (user start or
+   * restart, reconciler restart): throws `VolumeQuotaMissingError` when `mode` is `enforce` and the
+   * tenant volume is absent or has no quota. Does nothing when `mode` is `off`.
+   */
+  assertVolumeQuota(instanceId: string, mode: DiskQuotaMode): Promise<void>;
   start(instanceId: string): Promise<void>;
   /** No-op if already stopped or absent. */
   stop(instanceId: string, timeoutSec?: number): Promise<void>;
@@ -51,6 +66,12 @@ export interface RuntimeManager {
   /** `state: 'absent'` when no container exists. */
   inspect(instanceId: string): Promise<RuntimeInspection>;
   checkHealth(instanceId: string, apiServerKey?: string): Promise<HealthResult>;
+  /**
+   * Used bytes per tenant volume, keyed by instance id, from a single Docker call. Volumes whose size
+   * is unknown or negative are omitted (never reported as 0). Expensive (walks every volume), so
+   * callers poll it slowly.
+   */
+  volumeUsage(): Promise<Map<string, number>>;
   /** No-op if absent. Volume is kept unless `deleteVolume` is true. */
   remove(instanceId: string, opts: { deleteVolume: boolean }): Promise<void>;
 }

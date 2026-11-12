@@ -44,6 +44,22 @@ model backend, any run on the owner's Windows workstation (reported to have no `
 Earlier claims of "25/25 live checks on runc and runsc" and the `@google/design.md` lint/export results
 have not been reproduced.
 
+## Disk quota branch (`feat/disk-quota`)
+
+Re-run in a cloud sandbox (Docker 29.9, ext4, Postgres 16): `pnpm build` clean; `pnpm test:unit`
+135/135; integration files that need only Postgres (`disk-wiring`, `disk-monitor`, `key-wiring`,
+`schema`) pass. Docker-backed integration tests could not run there because the stub image build was
+blocked by Docker Hub rate limiting (HTTP 429), so the new `runtime-manager` integration test for the
+unquotaed-volume refusal has not run; the same behaviour was checked once with a throwaway script
+against the real daemon. Not verified: kernel enforcement on XFS, `runsc`, a live DiskMonitor run.
+
+Starting an existing container is guarded too: with `HERMES_DISK_QUOTA=enforce`, a user start or
+restart and the reconciler's restart check the volume first (`RuntimeManager.assertVolumeQuota`) and
+refuse an absent or unquotaed volume (`volume_quota_missing`; user start/restart answer 409 and the
+instance keeps its previous status). Known and deferred: a refused reconciler restart is recorded as
+`recovery_failed`, not `volume_quota_missing`, and `disk.quota_mismatch` is written on every
+`ensure()` while the mismatch lasts, not once.
+
 ## Known issues
 
 - `docs/milestone-2-runtime-security.md` is a partial reconstruction (see above). Two of the 25
@@ -70,4 +86,7 @@ have not been reproduced.
   focus ring). `apps/web/README.md` already follows them.
 - Re-run the live harness on a host with gVisor (ideally cgroup v2) and fill the "Verification run"
   section of [milestone-2-runtime-security.md](milestone-2-runtime-security.md).
-- Disk quota and network egress controls are not implemented (see Known issues).
+- Disk quota is implemented on branch `feat/disk-quota` (spec and plan under `docs/superpowers/`) and
+  awaits review. Not verified on an XFS host: the plan's Task 1 (host spike) and Task 8 (live
+  verification) are still open, see [disk-quota-host-notes.md](disk-quota-host-notes.md). Network
+  egress controls are specified (spec and plan written) but not implemented.

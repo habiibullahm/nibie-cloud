@@ -63,4 +63,13 @@ describe('schema constraints', () => {
     expect(inst.consecutiveFailures).toBe(0);
     expect(inst.recoveryAttempts).toBe(0);
   });
+
+  it('has disk usage columns: diskUsedBytes nullable, diskLevel defaulting to ok', async () => {
+    const s = await seed();
+    const i = await prisma.instance.create({ data: instanceData(s, 'disk') });
+    expect(i.diskUsedBytes).toBeNull();
+    expect(i.diskLevel).toBe('ok');
+    const big = await prisma.instance.update({ where: { id: i.id }, data: { diskUsedBytes: 5_000_000_000n } });
+    expect(big.diskUsedBytes).toBe(5_000_000_000n);
+  });
 });

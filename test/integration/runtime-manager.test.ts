@@ -3,7 +3,7 @@ import Docker from 'dockerode';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { DockerRuntimeManager } from '../../src/modules/runtime/docker-runtime-manager.js';
 import type { RuntimeSpec } from '../../src/modules/runtime/types.js';
-import { RuntimeUnavailableError } from '../../src/shared/errors.js';
+import { RuntimeUnavailableError, VolumeQuotaMissingError } from '../../src/shared/errors.js';
 import { createLogger } from '../../src/shared/logger.js';
 import { ensureStubImage } from '../helpers/stub-image.js';
 
@@ -20,7 +20,8 @@ const newSpec = (): RuntimeSpec => {
     instanceId,
     tenantId: randomUUID(),
     image,
-    limits: { cpuMillis: 500, memoryMb: 256, pids: 128 },
+    limits: { cpuMillis: 500, memoryMb: 256, pids: 128, storageMb: 1024 },
+    diskQuota: 'off',
     env: {},
     apiServerKey: randomUUID().replace(/-/g, '') + randomUUID().replace(/-/g, ''),
   };
@@ -45,6 +46,13 @@ describe('DockerRuntimeManager', () => {
     const i = await manager.inspect(s.instanceId);
     expect(i.state).toBe('created');
     expect(i.volumePresent).toBe(true);
+  });
+
+  it('refuses an existing unquotaed volume in enforce mode and never creates a container', async () => {
+    const s = { ...newSpec(), diskQuota: 'enforce' as const };
+    await docker.createVolume({ Name: `hermes-data-${s.instanceId}` }); // as if created before quotas existed
+    await expect(manager.ensure(s)).rejects.toBeInstanceOf(VolumeQuotaMissingError);
+    expect((await manager.inspect(s.instanceId)).state).toBe('absent');
   });
 
   it('ensure is idempotent: one container, one volume, one network', async () => {

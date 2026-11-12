@@ -66,6 +66,17 @@ export async function recordEvent(prisma: PrismaClient, instanceId: string, type
   await prisma.instanceEvent.create({ data: { instanceId, type, message } });
 }
 
+/**
+ * A volume's quota differs from its plan (a plan change shows up this way, since quotas are set at
+ * creation only). Informational: never changes state and never blocks recovery. Pre-sanitized text.
+ */
+export async function noteQuotaMismatch(
+  prisma: PrismaClient, instanceId: string, volumeQuotaMb: number | null, planStorageMb: number,
+): Promise<void> {
+  if (volumeQuotaMb === null || volumeQuotaMb === planStorageMb) return;
+  await recordEvent(prisma, instanceId, 'disk.quota_mismatch', 'Volume quota differs from plan');
+}
+
 /** Tenant-scoped lookup. A foreign or malformed id is indistinguishable from a missing one. */
 export async function findOwned(prisma: PrismaClient, tenantId: string, instanceId: string): Promise<Instance> {
   if (!isUuid(tenantId) || !isUuid(instanceId)) throw new NotFoundError('Instance not found');

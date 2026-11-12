@@ -37,6 +37,8 @@ export function wrapRuntime(inner: RuntimeManager, overrides: Partial<RuntimeMan
     inspect: (i) => inner.inspect(i),
     checkHealth: (i, k) => inner.checkHealth(i, k),
     remove: (i, o) => inner.remove(i, o),
+    volumeUsage: () => inner.volumeUsage(),
+    assertVolumeQuota: (i, m) => inner.assertVolumeQuota(i, m),
     ...overrides,
   };
 }

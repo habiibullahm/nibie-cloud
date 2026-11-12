@@ -2,8 +2,8 @@ import type { Instance, Prisma, PrismaClient } from '@prisma/client';
 import { ConflictError, RuntimeUnavailableError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import { deriveApiKey } from '../runtime/api-key.js';
-import { AUTH_REJECTED_DETAIL, type RuntimeInspection, type RuntimeManager, type SupportedRuntime } from '../runtime/types.js';
-import { TRANSITIONAL_STATUSES, recordEvent, revert, transition } from './instance-repo.js';
+import { AUTH_REJECTED_DETAIL, type RuntimeInspection, type DiskQuotaMode, type RuntimeManager, type SupportedRuntime } from '../runtime/types.js';
+import { TRANSITIONAL_STATUSES, noteQuotaMismatch, recordEvent, revert, transition } from './instance-repo.js';
 import { newLease, startHeartbeat } from './lease.js';
 
 export type ReconcileResult = 'ok' | 'recovered' | 'waiting' | 'degraded' | 'exhausted' | 'skipped';
@@ -21,6 +21,8 @@ export interface ReconcilerDeps {
   masterKey: string;
   /** OCI runtime for recreated containers (`runc` or `runsc`); the daemon default when omitted. */
   containerRuntime?: SupportedRuntime;
+  /** `enforce` creates tenant volumes with the plan's size quota and refuses to run without one. */
+  diskQuota: DiskQuotaMode;
   now?: () => Date;
   maxRecoveryAttempts?: number;
   unhealthyThreshold?: number;
@@ -53,8 +55,8 @@ function describeState(i: RuntimeInspection): string {
  * (ACTIVE|DEGRADED -> STARTING) so user operations answer 409 instead of racing it.
  */
 export class Reconciler {
-  private readonly d: Required<Omit<ReconcilerDeps, 'prisma' | 'runtime' | 'logger' | 'masterKey' | 'containerRuntime'>> &
-    Pick<ReconcilerDeps, 'prisma' | 'runtime' | 'logger' | 'masterKey' | 'containerRuntime'>;
+  private readonly d: Required<Omit<ReconcilerDeps, 'prisma' | 'runtime' | 'logger' | 'masterKey' | 'containerRuntime' | 'diskQuota'>> &
+    Pick<ReconcilerDeps, 'prisma' | 'runtime' | 'logger' | 'masterKey' | 'containerRuntime' | 'diskQuota'>;
 
   constructor(deps: ReconcilerDeps) {
     this.d = {
@@ -272,18 +274,21 @@ export class Reconciler {
     let healthy = false;
     try {
       if (mode === 'restart') {
+        await runtime.assertVolumeQuota(inst.id, this.d.diskQuota);
         await runtime.restart(inst.id);
       } else {
         const plan = await prisma.plan.findUniqueOrThrow({ where: { id: inst.planId } });
-        await runtime.ensure({
+        const ensured = await runtime.ensure({
           instanceId: inst.id,
           tenantId: inst.tenantId,
           image: inst.image,
-          limits: { cpuMillis: plan.cpuMillis, memoryMb: plan.memoryMb, pids: plan.pids },
+          limits: { cpuMillis: plan.cpuMillis, memoryMb: plan.memoryMb, pids: plan.pids, storageMb: plan.storageMb },
+          diskQuota: this.d.diskQuota,
           env: { HERMES_INSTANCE_ID: inst.id },
           apiServerKey: this.apiKey(inst.id),
           runtime: this.d.containerRuntime,
         });
+        await noteQuotaMismatch(prisma, inst.id, ensured.volumeQuotaMb, plan.storageMb);
         await runtime.start(inst.id);
       }
       healthy = await this.waitHealthy(inst.id);

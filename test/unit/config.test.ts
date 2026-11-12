@@ -60,4 +60,34 @@ describe('loadConfig', () => {
   it('rejects an unknown HERMES_RUNTIME', () => {
     expect(() => loadConfig({ ...base, HERMES_RUNTIME: 'kata' })).toThrow('HERMES_RUNTIME');
   });
+
+  it('defaults HERMES_DISK_QUOTA to enforce', () => {
+    expect(loadConfig(base).diskQuota).toBe('enforce');
+  });
+
+  it('rejects HERMES_DISK_QUOTA=off when NODE_ENV=production without echoing the value', () => {
+    let message = '';
+    try {
+      loadConfig({ ...base, NODE_ENV: 'production', HERMES_DISK_QUOTA: 'off' });
+    } catch (e) {
+      message = (e as Error).message;
+    }
+    expect(message).toContain('HERMES_DISK_QUOTA');
+    expect(message).not.toContain('off');
+  });
+
+  it('accepts HERMES_DISK_QUOTA=off outside production', () => {
+    expect(loadConfig({ ...base, HERMES_DISK_QUOTA: 'off' }).diskQuota).toBe('off');
+    expect(loadConfig({ ...base, NODE_ENV: 'test', HERMES_DISK_QUOTA: 'off' }).diskQuota).toBe('off');
+  });
+
+  it('rejects an unknown HERMES_DISK_QUOTA', () => {
+    expect(() => loadConfig({ ...base, HERMES_DISK_QUOTA: 'soft' })).toThrow('HERMES_DISK_QUOTA');
+  });
+
+  it('defaults HERMES_DISK_CHECK_INTERVAL_MS to 300000 and rejects a non-integer', () => {
+    expect(loadConfig(base).diskCheckIntervalMs).toBe(300000);
+    expect(loadConfig({ ...base, HERMES_DISK_CHECK_INTERVAL_MS: '60000' }).diskCheckIntervalMs).toBe(60000);
+    expect(() => loadConfig({ ...base, HERMES_DISK_CHECK_INTERVAL_MS: '1.5' })).toThrow('HERMES_DISK_CHECK_INTERVAL_MS');
+  });
 });

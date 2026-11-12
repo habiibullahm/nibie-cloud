@@ -17,7 +17,8 @@ const spec = (over: Partial<RuntimeSpec> = {}): RuntimeSpec => ({
   instanceId: randomUUID(),
   tenantId: randomUUID(),
   image: `nousresearch/hermes-agent@sha256:${'a'.repeat(64)}`,
-  limits: { cpuMillis: 500, memoryMb: 256, pids: 128 },
+  limits: { cpuMillis: 500, memoryMb: 256, pids: 128, storageMb: 1024 },
+  diskQuota: 'enforce',
   env: { FOO: 'bar' },
   ...over,
 });
@@ -147,8 +148,20 @@ describe('buildContainerConfig', () => {
   });
 
   it('refuses invalid limits', () => {
-    expect(() => buildContainerConfig(spec({ limits: { cpuMillis: 0, memoryMb: 256, pids: 128 } }))).toThrow(ValidationError);
-    expect(() => buildContainerConfig(spec({ limits: { cpuMillis: 500, memoryMb: 4, pids: 128 } }))).toThrow(ValidationError);
-    expect(() => buildContainerConfig(spec({ limits: { cpuMillis: 500, memoryMb: 256, pids: 0 } }))).toThrow(ValidationError);
+    expect(() => buildContainerConfig(spec({ limits: { cpuMillis: 0, memoryMb: 256, pids: 128, storageMb: 1024 } }))).toThrow(ValidationError);
+    expect(() => buildContainerConfig(spec({ limits: { cpuMillis: 500, memoryMb: 4, pids: 128, storageMb: 1024 } }))).toThrow(ValidationError);
+    expect(() => buildContainerConfig(spec({ limits: { cpuMillis: 500, memoryMb: 256, pids: 0, storageMb: 1024 } }))).toThrow(ValidationError);
+  });
+
+  it('rejects storageMb below 64 and non-integers', () => {
+    const limits = (storageMb: number) => ({ cpuMillis: 500, memoryMb: 256, pids: 128, storageMb });
+    expect(() => buildContainerConfig(spec({ limits: limits(63) }))).toThrow(ValidationError);
+    expect(() => buildContainerConfig(spec({ limits: limits(64.5) }))).toThrow(ValidationError);
+    expect(() => buildContainerConfig(spec({ limits: limits(64) }))).not.toThrow();
+  });
+
+  it('sets json-file log rotation of 10m x 3', () => {
+    const c = buildContainerConfig(spec());
+    expect(c.HostConfig!.LogConfig).toEqual({ Type: 'json-file', Config: { 'max-size': '10m', 'max-file': '3' } });
   });
 });

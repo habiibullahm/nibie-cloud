@@ -41,6 +41,15 @@ export const S6_TMPFS: Record<string, string> = {
   '/var/run': 'rw,exec,nosuid,size=16m',
 };
 
+/**
+ * Bounds container log files on the host (outside the volume quota): worst case about 30 MB per
+ * tenant. Without this the json-file driver grows without limit.
+ */
+export const LOG_CONFIG = {
+  Type: 'json-file',
+  Config: { 'max-size': '10m', 'max-file': '3' },
+} as const;
+
 function uuid(id: string): string {
   if (!UUID.test(id)) throw new ValidationError('Invalid instance id');
   return id.toLowerCase();
@@ -54,10 +63,11 @@ export const networkName = (id: string): string => `hermes-net-${uuid(id)}`;
 export function buildContainerConfig(spec: RuntimeSpec): Docker.ContainerCreateOptions {
   const id = uuid(spec.instanceId);
   uuid(spec.tenantId);
-  const { cpuMillis, memoryMb, pids } = spec.limits;
+  const { cpuMillis, memoryMb, pids, storageMb } = spec.limits;
   if (!Number.isInteger(cpuMillis) || cpuMillis < 50) throw new ValidationError('cpuMillis must be an integer >= 50');
   if (!Number.isInteger(memoryMb) || memoryMb < 32) throw new ValidationError('memoryMb must be an integer >= 32');
   if (!Number.isInteger(pids) || pids < 8) throw new ValidationError('pids must be an integer >= 8');
+  if (!Number.isInteger(storageMb) || storageMb < 64) throw new ValidationError('storageMb must be an integer >= 64');
 
   for (const key of Object.keys(spec.env)) {
     if (/^DOCKER_/i.test(key)) throw new ValidationError('Environment key not allowed');
@@ -92,6 +102,7 @@ export function buildContainerConfig(spec: RuntimeSpec): Docker.ContainerCreateO
       // Never `true`: the image is PID 1 with its own s6-overlay dispatcher.
       Init: false,
       RestartPolicy: { Name: 'no' },
+      LogConfig: { Type: LOG_CONFIG.Type, Config: { ...LOG_CONFIG.Config } },
       Binds: [`${volumeName(id)}:${DATA_MOUNT}`],
       NetworkMode: networkName(id),
       PortBindings: { [`${CONTAINER_PORT}/tcp`]: [{ HostIp: '127.0.0.1', HostPort: '0' }] },

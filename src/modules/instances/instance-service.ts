@@ -1,11 +1,11 @@
 import type { Instance, InstanceStatus, Plan, PrismaClient } from '@prisma/client';
-import { ConflictError, NotFoundError, RuntimeUnavailableError, ValidationError } from '../../shared/errors.js';
+import { ConflictError, NotFoundError, RuntimeUnavailableError, ValidationError, VolumeQuotaMissingError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import { isUuid } from '../../shared/uuid.js';
 import { deriveApiKey } from '../runtime/api-key.js';
 import { assertPinnedImage } from '../runtime/image-policy.js';
-import type { RuntimeManager, SupportedRuntime } from '../runtime/types.js';
-import { findOwned, revert, transition } from './instance-repo.js';
+import type { DiskQuotaMode, RuntimeManager, SupportedRuntime } from '../runtime/types.js';
+import { findOwned, noteQuotaMismatch, revert, transition } from './instance-repo.js';
 import { newLease, startHeartbeat, type Lease } from './lease.js';
 
 export interface InstanceView {
@@ -28,6 +28,8 @@ export interface InstanceServiceDeps {
   masterKey: string;
   /** OCI runtime for new containers (`runc` or `runsc`); the daemon default when omitted. */
   containerRuntime?: SupportedRuntime;
+  /** `enforce` creates tenant volumes with the plan's size quota and refuses to run without one. */
+  diskQuota: DiskQuotaMode;
   pollIntervalMs?: number;
   healthTimeoutMs?: number;
   /** Operation lease TTL; a heartbeat renews it every TTL/3 while the operation runs. */
@@ -66,6 +68,7 @@ export class InstanceService {
   private readonly image: string;
   private readonly masterKey: string;
   private readonly containerRuntime: SupportedRuntime | undefined;
+  private readonly diskQuota: DiskQuotaMode;
   private readonly logger: Logger;
   private readonly pollIntervalMs: number;
   private readonly healthTimeoutMs: number;
@@ -80,6 +83,7 @@ export class InstanceService {
     this.image = deps.image;
     this.masterKey = deps.masterKey;
     this.containerRuntime = deps.containerRuntime;
+    this.diskQuota = deps.diskQuota;
     this.logger = deps.logger;
     this.pollIntervalMs = deps.pollIntervalMs ?? 500;
     this.healthTimeoutMs = deps.healthTimeoutMs ?? 30_000;
@@ -238,15 +242,17 @@ export class InstanceService {
     const tenantId = inst.tenantId;
     let current: InstanceStatus = 'PROVISIONING';
     try {
-      await this.runtime.ensure({
+      const ensured = await this.runtime.ensure({
         instanceId: inst.id,
         tenantId,
         image: inst.image,
-        limits: { cpuMillis: plan.cpuMillis, memoryMb: plan.memoryMb, pids: plan.pids },
+        limits: { cpuMillis: plan.cpuMillis, memoryMb: plan.memoryMb, pids: plan.pids, storageMb: plan.storageMb },
+        diskQuota: this.diskQuota,
         env: { HERMES_INSTANCE_ID: inst.id },
         apiServerKey: this.apiKey(inst.id),
         runtime: this.containerRuntime,
       });
+      await noteQuotaMismatch(this.prisma, inst.id, ensured.volumeQuotaMb, plan.storageMb);
       await transition(this.prisma, { id: inst.id, from: 'PROVISIONING', to: 'CONFIGURING', owner, eventType: 'runtime.created', message: 'Runtime created' });
       current = 'CONFIGURING';
       await transition(this.prisma, { id: inst.id, from: 'CONFIGURING', to: 'STARTING', owner, eventType: 'runtime.starting', message: 'Runtime starting' });
@@ -261,6 +267,7 @@ export class InstanceService {
     } catch (e) {
       const reason =
         e instanceof RuntimeUnavailableError ? 'runtime_unavailable'
+          : e instanceof VolumeQuotaMissingError ? 'volume_quota_missing'
           : e instanceof HealthTimeout ? 'health_check_timeout'
             : 'runtime_create_failed';
       this.logger.error({ instanceId: inst.id, reason }, 'provisioning failed');
@@ -292,8 +299,13 @@ export class InstanceService {
 
   private async startSteps(i: Instance, op: 'start' | 'restart', from: InstanceStatus, owner: string): Promise<InstanceView> {
     try {
+      await this.runtime.assertVolumeQuota(i.id, this.diskQuota);
       await this.runtime[op](i.id);
     } catch (e) {
+      if (e instanceof VolumeQuotaMissingError) {
+        await revert(this.prisma, { id: i.id, from: 'STARTING', to: from, owner, eventType: 'runtime.start_refused', message: 'Start refused: volume has no disk quota' });
+        throw e;
+      }
       if (e instanceof RuntimeUnavailableError) {
         await revert(this.prisma, { id: i.id, from: 'STARTING', to: from, owner, eventType: 'runtime.unavailable', message: 'Operation could not be completed' });
         throw e;

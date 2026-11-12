@@ -1,5 +1,5 @@
 import Docker from 'dockerode';
-import { RuntimeUnavailableError } from '../../shared/errors.js';
+import { AppError, RuntimeUnavailableError, VolumeQuotaMissingError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import {
   CONTAINER_PORT,
@@ -13,8 +13,15 @@ import {
 } from './hardening.js';
 import {
   AUTH_REJECTED_DETAIL,
-  type HealthResult, type RuntimeInspection, type RuntimeManager, type RuntimeSpec, type RuntimeState,
+  type DiskQuotaMode, type HealthResult, type RuntimeInspection, type RuntimeManager, type RuntimeSpec, type RuntimeState,
 } from './types.js';
+import { isQuotaUnsupported, readVolumeQuotaMb, sizedVolumeOpts } from './volume-quota.js';
+
+interface DfVolume {
+  Name?: string;
+  Labels?: Record<string, string> | null;
+  UsageData?: { Size?: number } | null;
+}
 
 const CONNECTION_CODES = new Set(['ECONNREFUSED', 'ENOENT', 'EACCES', 'ECONNRESET', 'ETIMEDOUT', 'EPIPE']);
 
@@ -24,6 +31,7 @@ function statusCode(e: unknown): number | undefined {
 
 /** Docker is the data plane. Daemon connectivity problems become RuntimeUnavailableError. */
 function translate(e: unknown): never {
+  if (e instanceof AppError) throw e; // already a typed, sanitized error
   const code = (e as { code?: string }).code;
   if (code && CONNECTION_CODES.has(code)) throw new RuntimeUnavailableError();
   // Never forward raw Docker messages: they can embed env values or host paths.
@@ -50,14 +58,11 @@ export class DockerRuntimeManager implements RuntimeManager {
     this.healthTimeoutMs = opts.healthTimeoutMs ?? 2000;
   }
 
-  async ensure(spec: RuntimeSpec): Promise<{ hostPort: number | null }> {
+  async ensure(spec: RuntimeSpec): Promise<{ hostPort: number | null; volumeQuotaMb: number | null }> {
     const config = buildContainerConfig(spec); // validates before touching Docker
     return guard(async () => {
       await this.ensureNetwork(spec);
-      await this.docker.createVolume({
-        Name: volumeName(spec.instanceId),
-        Labels: { [LABEL_MANAGED]: 'true', [LABEL_INSTANCE]: spec.instanceId, [LABEL_TENANT]: spec.tenantId },
-      });
+      const volumeQuotaMb = await this.ensureVolume(spec);
       const existing = await this.findContainer(spec.instanceId);
       if (!existing) {
         await this.ensureImage(spec.image);
@@ -68,7 +73,21 @@ export class DockerRuntimeManager implements RuntimeManager {
         }
       }
       this.logger.info({ instanceId: spec.instanceId }, 'runtime ensured');
-      return { hostPort: null };
+      return { hostPort: null, volumeQuotaMb };
+    });
+  }
+
+  async assertVolumeQuota(instanceId: string, mode: DiskQuotaMode): Promise<void> {
+    if (mode !== 'enforce') return;
+    await guard(async () => {
+      let volume: Docker.VolumeInspectInfo;
+      try {
+        volume = await this.docker.getVolume(volumeName(instanceId)).inspect();
+      } catch (e) {
+        if (statusCode(e) === 404) throw new VolumeQuotaMissingError();
+        throw e;
+      }
+      if (readVolumeQuotaMb(volume) === null) throw new VolumeQuotaMissingError();
     });
   }
 
@@ -169,6 +188,27 @@ export class DockerRuntimeManager implements RuntimeManager {
     });
   }
 
+  async volumeUsage(): Promise<Map<string, number>> {
+    return guard(async () => {
+      // `type=volume` limits the (otherwise heavy) system df to volumes. The query goes in `options`:
+      // docker-modem mangles a query string written into `path`.
+      const res = await new Promise<{ Volumes?: DfVolume[] | null }>((resolve, reject) => {
+        this.docker.modem.dial(
+          { path: '/system/df?', method: 'GET', options: { type: 'volume' }, statusCodes: { 200: true, 500: 'server error' } },
+          (err: Error | null, data: unknown) => (err ? reject(err) : resolve((data ?? {}) as { Volumes?: DfVolume[] | null })),
+        );
+      });
+      const usage = new Map<string, number>();
+      for (const v of res.Volumes ?? []) {
+        const id = v.Labels?.[LABEL_INSTANCE];
+        const size = v.UsageData?.Size;
+        if (!id || !v.Labels?.[LABEL_MANAGED] || typeof size !== 'number' || size < 0) continue;
+        usage.set(id.toLowerCase(), size);
+      }
+      return usage;
+    });
+  }
+
   private async findContainer(instanceId: string): Promise<boolean> {
     try {
       await this.docker.getContainer(containerName(instanceId)).inspect();
@@ -187,6 +227,37 @@ export class DockerRuntimeManager implements RuntimeManager {
       if (statusCode(e) === 404) return false;
       throw e;
     }
+  }
+
+  /**
+   * Creates the tenant volume with its size quota. Returns the quota in MB (null when there is none).
+   * An existing volume without a quota is refused while quotas are enforced: it must never run unbounded.
+   */
+  private async ensureVolume(spec: RuntimeSpec): Promise<number | null> {
+    const name = volumeName(spec.instanceId);
+    const enforce = spec.diskQuota === 'enforce';
+    let existing: Docker.VolumeInspectInfo | null = null;
+    try {
+      existing = await this.docker.getVolume(name).inspect();
+    } catch (e) {
+      if (statusCode(e) !== 404) throw e;
+    }
+    if (existing) {
+      const quota = readVolumeQuotaMb(existing);
+      if (enforce && quota === null) throw new VolumeQuotaMissingError();
+      return quota;
+    }
+    try {
+      await this.docker.createVolume({
+        Name: name,
+        Labels: { [LABEL_MANAGED]: 'true', [LABEL_INSTANCE]: spec.instanceId, [LABEL_TENANT]: spec.tenantId },
+        ...(enforce ? { Driver: 'local', DriverOpts: sizedVolumeOpts(spec.limits.storageMb) } : {}),
+      });
+    } catch (e) {
+      if (enforce && isQuotaUnsupported(e)) throw new VolumeQuotaMissingError();
+      throw e;
+    }
+    return enforce ? spec.limits.storageMb : null;
   }
 
   private async ensureNetwork(spec: RuntimeSpec): Promise<void> {

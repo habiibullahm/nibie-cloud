@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { SupportedRuntime } from '../modules/runtime/types.js';
+import type { DiskQuotaMode, SupportedRuntime } from '../modules/runtime/types.js';
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -10,6 +10,13 @@ const schema = z.object({
   DOCKER_SOCKET_PATH: z.string().default('/var/run/docker.sock'),
   HERMES_MASTER_KEY: z.string().min(32),
   HERMES_RUNTIME: z.enum(['runc', 'runsc']).default('runc'),
+  HERMES_DISK_QUOTA: z.enum(['enforce', 'off']).default('enforce'),
+  HERMES_DISK_CHECK_INTERVAL_MS: z.coerce.number().int().min(1000).default(300_000),
+}).superRefine((e, ctx) => {
+  // Without enforcement a tenant can fill the node's disk, so it is never allowed in production.
+  if (e.NODE_ENV === 'production' && e.HERMES_DISK_QUOTA === 'off') {
+    ctx.addIssue({ code: 'custom', path: ['HERMES_DISK_QUOTA'], message: 'must be enforce in production' });
+  }
 });
 
 export interface Config {
@@ -21,6 +28,8 @@ export interface Config {
   dockerSocketPath: string;
   masterKey: string;
   runtime: SupportedRuntime;
+  diskQuota: DiskQuotaMode;
+  diskCheckIntervalMs: number;
 }
 
 /** Parse environment. Errors name the failing keys only, never the values. */
@@ -40,5 +49,7 @@ export function loadConfig(env: NodeJS.ProcessEnv | Record<string, string | unde
     dockerSocketPath: e.DOCKER_SOCKET_PATH,
     masterKey: e.HERMES_MASTER_KEY,
     runtime: e.HERMES_RUNTIME,
+    diskQuota: e.HERMES_DISK_QUOTA,
+    diskCheckIntervalMs: e.HERMES_DISK_CHECK_INTERVAL_MS,
   };
 }

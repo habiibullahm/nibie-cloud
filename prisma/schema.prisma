@@ -66,6 +66,9 @@ model Instance {
   /// heartbeat; the stale reaper only touches rows whose lease has expired.
   operationOwner      String?        @db.Uuid
   leaseExpiresAt      DateTime?      @db.Timestamptz(3)
+  /// Written only by the DiskMonitor: last measured volume usage and its level (ok | warning | full).
+  diskUsedBytes       BigInt?
+  diskLevel           String         @default("ok")
   createdAt           DateTime       @default(now()) @db.Timestamptz(3)
   updatedAt           DateTime       @updatedAt @db.Timestamptz(3)
   deletedAt           DateTime?      @db.Timestamptz(3)
