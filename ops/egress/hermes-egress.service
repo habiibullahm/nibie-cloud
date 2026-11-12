@@ -1,0 +1,17 @@
+[Unit]
+Description=Hermes tenant egress ruleset
+Documentation=file:///opt/hermes-cloud/docs/runbook-egress.md
+# DOCKER-USER only exists once Docker is up, and Docker may rebuild its chains when it restarts.
+After=docker.service network-online.target
+Requires=docker.service
+# Re-run when docker.service restarts so the jumps are put back.
+PartOf=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/hermes-cloud/ops/egress/hermes-egress.sh apply --config /etc/hermes-egress/egress.conf
+ExecStop=/opt/hermes-cloud/ops/egress/hermes-egress.sh remove --config /etc/hermes-egress/egress.conf
+
+[Install]
+WantedBy=multi-user.target
