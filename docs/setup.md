@@ -12,13 +12,14 @@
 pnpm install                          # also runs `prisma generate`
 docker compose up -d postgres         # 127.0.0.1:5433, dev credentials only
 cp .env.example .env                  # git-ignored; set ADMIN_TOKEN (>= 24 chars): openssl rand -hex 24
+                                      # and HERMES_MASTER_KEY (>= 32 chars): openssl rand -hex 32
 pnpm db:migrate                       # applies prisma/migrations to DATABASE_URL
 ```
 
 Tests use a separate database:
 
 ```bash
-docker exec hermes-cloud-postgres-1 psql -U hermes -d hermes -c "CREATE DATABASE hermes_test"
+docker compose exec postgres psql -U hermes -d hermes -c "CREATE DATABASE hermes_test"
 DATABASE_URL=postgresql://hermes:hermes_dev_only@127.0.0.1:5433/hermes_test pnpm db:migrate
 ```
 
