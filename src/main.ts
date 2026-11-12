@@ -5,6 +5,7 @@ import { buildServer } from './http/server.js';
 import { InstanceService } from './modules/instances/instance-service.js';
 import { Reconciler } from './modules/instances/reconciler.js';
 import { DockerRuntimeManager } from './modules/runtime/docker-runtime-manager.js';
+import { assertDiskQuotaSupported } from './modules/runtime/disk-quota-check.js';
 import { assertRuntimeAvailable } from './modules/runtime/runtime-availability.js';
 import { createLogger } from './shared/logger.js';
 
@@ -13,6 +14,7 @@ const logger = createLogger();
 const prisma = createPrisma(config.databaseUrl);
 const docker = new Docker({ socketPath: config.dockerSocketPath });
 await assertRuntimeAvailable(docker, config.runtime);
+await assertDiskQuotaSupported(docker, config.diskQuota);
 const runtime = new DockerRuntimeManager({ docker, logger });
 const service = new InstanceService({
   prisma, runtime, image: config.hermesImage, production: config.nodeEnv === 'production', logger,
