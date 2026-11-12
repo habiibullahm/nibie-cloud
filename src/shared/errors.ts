@@ -32,3 +32,10 @@ export class RuntimeUnavailableError extends AppError {
     super(message, 503, 'runtime_unavailable');
   }
 }
+
+/** An existing tenant volume has no disk quota while quotas are enforced; it must never run unbounded. */
+export class VolumeQuotaMissingError extends AppError {
+  constructor(message = 'Tenant volume has no disk quota') {
+    super(message, 409, 'volume_quota_missing');
+  }
+}

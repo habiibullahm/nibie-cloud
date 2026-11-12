@@ -80,9 +80,9 @@ describe('InstanceService', () => {
     let calls = 0;
     const flaky = wrapRuntime(real, {
       ensure: async (spec) => {
-        await real.ensure(spec);
+        const ensured = await real.ensure(spec);
         if (calls++ === 0) throw new Error('boom with secret=hunter2');
-        return { hostPort: null };
+        return ensured;
       },
     });
     const service = svc(flaky);

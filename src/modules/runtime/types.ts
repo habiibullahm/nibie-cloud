@@ -48,8 +48,11 @@ export interface HealthResult {
  * host paths or Docker parameters.
  */
 export interface RuntimeManager {
-  /** Idempotent: ensures network, volume and an (unstarted) container exist. */
-  ensure(spec: RuntimeSpec): Promise<{ hostPort: number | null }>;
+  /**
+   * Idempotent: ensures network, volume and an (unstarted) container exist. `volumeQuotaMb` is the
+   * quota the volume actually has (null when none).
+   */
+  ensure(spec: RuntimeSpec): Promise<{ hostPort: number | null; volumeQuotaMb: number | null }>;
   start(instanceId: string): Promise<void>;
   /** No-op if already stopped or absent. */
   stop(instanceId: string, timeoutSec?: number): Promise<void>;

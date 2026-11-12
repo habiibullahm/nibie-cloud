@@ -1,3 +1,4 @@
+import { VolumeQuotaMissingError } from '../../src/shared/errors.js';
 import {
   AUTH_REJECTED_DETAIL,
   type HealthResult, type RuntimeInspection, type RuntimeManager, type RuntimeSpec,
@@ -14,14 +15,19 @@ export class FakeRuntime implements RuntimeManager {
   /** When true, every authenticated probe is answered like a gateway that rejects the key. */
   rejectKey = false;
   restarts = 0;
+  /** The quota `ensure()` reports for the volume (what a real manager read from Docker). */
+  volumeQuotaMb: number | null = null;
+  /** When true `ensure()` refuses like a manager that found an unquotaed volume while enforcing. */
+  quotaMissing = false;
   private readonly containers = new Map<string, { key: string | undefined; running: boolean }>();
 
-  async ensure(spec: RuntimeSpec): Promise<{ hostPort: number | null }> {
+  async ensure(spec: RuntimeSpec): Promise<{ hostPort: number | null; volumeQuotaMb: number | null }> {
     this.ensured.push(spec);
+    if (this.quotaMissing) throw new VolumeQuotaMissingError();
     if (!this.containers.has(spec.instanceId)) {
       this.containers.set(spec.instanceId, { key: spec.apiServerKey, running: false });
     }
-    return { hostPort: null };
+    return { hostPort: null, volumeQuotaMb: this.volumeQuotaMb };
   }
 
   async start(id: string): Promise<void> {
