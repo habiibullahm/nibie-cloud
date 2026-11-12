@@ -84,9 +84,9 @@ Written down so each choice has a reason (antislop R-31, R-37). The full review 
   - Lucide icons: AGENTS.md says "Prefer Lucide icons".
   - Uppercase tracked labels: DESIGN.md `label-caps`.
   - Dark-only: DESIGN.md defines one dark-neutral theme.
-  - Outline and secondary button edges use the decorative `border` token, below 3:1 against the
-    page; their labels carry the meaning. DESIGN.md reserves `border-strong` for inputs. Changing
-    this is a DESIGN.md decision.
+- **Button edges:** outline and secondary buttons use `border-strong` (4.09:1 on the page), so their
+  boundary meets the 3:1 non-text contrast bar. Approved by Nash on 2026-11-12 and recorded in
+  DESIGN.md.
 - **Touch targets:** on coarse pointers every control gets at least a 44x44px hit area through the
   `hit-area` utility in `globals.css` (an invisible `::after`, so nothing moves on desktop). Text
   inputs grow to 44px on touch.

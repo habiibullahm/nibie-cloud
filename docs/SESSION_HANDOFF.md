@@ -17,8 +17,8 @@ Frontend only (`apps/web`); no backend, Prisma or runtime files changed.
   final click-through followed; they also fixed a crash when leaving the Console page and a false
   "URL copied" toast.
 - Checks: typecheck, lint, 45 Vitest tests, `next build`, 44-step Playwright click-through.
-- Open for Nash: outline and secondary button edges are below 3:1 against the page because
-  DESIGN.md keeps `border-strong` for inputs. Changing that is a DESIGN.md decision.
+- Nash approved giving outline and secondary buttons `border-strong` edges (3:1 non-text
+  contrast); DESIGN.md and `design-preview.html` record it.
 
 ## Update — hardening wiring run (2026-11-12, later still)
 

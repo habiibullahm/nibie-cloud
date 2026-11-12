@@ -231,7 +231,7 @@ Corner radius scale:
 - Do respect prefers-reduced-motion and keep every control reachable by keyboard.
 - Don't introduce another component library (Ant Design, MUI, Chakra, Mantine, DaisyUI) or a parallel design system.
 - Don't use pill-shaped buttons, glassmorphism, gradient fills, or heavy shadows.
-- Do use {colors.border-strong} only for the boundary of input, textarea, select, the unchecked checkbox and the off-state switch track (3:1 or better on neutral, card-bg and elevated); keep {colors.border} for decorative and structural lines.
+- Do use {colors.border-strong} only for the boundary of input, textarea, select, the unchecked checkbox, the off-state switch track, and the outline and secondary buttons (3:1 or better on neutral, card-bg and elevated, as WCAG 1.4.11 asks of component boundaries); keep {colors.border} for decorative and structural lines.
 - Don't use the terracotta or destructive colors for body text, links or backgrounds of large surfaces.
 - Don't invent hex values outside the semantic token set; extend tokens instead of hard-coding.
 - Don't use color alone to convey instance state; pair badges with text (active, degraded, stopped, failed).
