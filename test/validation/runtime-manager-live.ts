@@ -10,11 +10,15 @@
  *     node:22-alpine sh -c "npm ci --ignore-scripts && npx tsx test/validation/runtime-manager-live.ts"
  *
  * Every resource it creates is disposable and removed in `finally`.
+ *
+ * With HERMES_EGRESS_POLICY=enforce it also runs the egress checks in egress-checks.ts (see its header
+ * for the environment). Skipped checks are listed and never counted as passes.
  */
 import { randomUUID } from 'node:crypto';
 import { DockerRuntimeManager } from '../../src/modules/runtime/docker-runtime-manager.js';
 import { containerName, networkName, volumeName } from '../../src/modules/runtime/hardening.js';
 import type { RuntimeSpec } from '../../src/modules/runtime/types.js';
+import { runEgressChecks } from './egress-checks.js';
 
 const IMAGE =
   process.env.HERMES_IMAGE ??
@@ -23,9 +27,15 @@ const IMAGE =
 const silentLogger = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as never;
 
 let failures = 0;
+let skipped = 0;
 function check(name: string, ok: boolean, detail: unknown = ''): void {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  ${JSON.stringify(detail)}` : ''}`);
   if (!ok) failures += 1;
+}
+
+function skip(name: string, reason: string): void {
+  console.log(`SKIP  ${name}  ${JSON.stringify(reason)}`);
+  skipped += 1;
 }
 
 async function waitHealthy(
@@ -155,12 +165,20 @@ async function main(): Promise<void> {
       const gone = await rm.inspect(id);
       check(`remove() leaves no container/volume for ${id.slice(0, 8)}`, gone.state === 'absent' && !gone.volumePresent, gone);
     }
+
+    // ---- 8. Egress controls (needs the ops/egress ruleset applied on this host; see egress-checks.ts) ----
+    if (process.env.HERMES_EGRESS_POLICY === 'enforce') {
+      await runEgressChecks(check, skip);
+    } else {
+      skip('egress checks', 'HERMES_EGRESS_POLICY is not enforce');
+    }
   } finally {
     for (const id of created) {
       await rm.remove(id, { deleteVolume: true }).catch(() => {});
     }
   }
 
+  if (skipped > 0) console.log(`\n${skipped} check(s) SKIPPED: a skipped check is not a pass`);
   console.log(`\nRESULT: ${failures === 0 ? 'ALL CHECKS PASSED' : `${failures} CHECK(S) FAILED`}`);
   process.exit(failures === 0 ? 0 : 1);
 }
