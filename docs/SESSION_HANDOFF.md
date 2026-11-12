@@ -1,5 +1,9 @@
 # Session Handoff — 2026-11-12 (design foundation + runtime commit)
 
+> **Historical record.** Entries below describe the repository as of each run, not today. Current status:
+> [CURRENT_STATE.md](CURRENT_STATE.md). Entries that say work is "uncommitted" are out of date: it was
+> committed in `aa9e2c8` and `ceba9cd`.
+
 > **Superseded in part.** The current authoritative handoff is `docs/HANDOFF_TO_CLAUDE.md`
 > (written 2026-11-12, handoff-to-Claude run). It contains the verified Git state, the reconciled
 > decision set, and the next steps. The notes below are the historical record of the

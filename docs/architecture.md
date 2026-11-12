@@ -16,6 +16,10 @@ and, importantly, what is **not** built yet.
                                                           └─ one container + one volume + one network per instance
 ```
 
+The customer dashboard (`apps/web`, a separate Next.js package) is documented in
+[../apps/web/README.md](../apps/web/README.md). In `live` mode it reaches only the instance
+endpoints of this API, through a server-side dev bridge; it is not a customer API.
+
 One Node/TypeScript modular monolith (ADR 0001). Only `src/modules/runtime` talks to Docker
 (PRD 6.3). The Docker socket is used by the control plane only; it is never mounted into, or
 reachable from, a tenant container.
