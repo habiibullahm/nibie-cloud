@@ -22,21 +22,50 @@ enum InstanceStatus {
 }
 
 model Tenant {
-  id        String     @id @default(uuid()) @db.Uuid
+  id        String         @id @default(uuid()) @db.Uuid
   name      String
-  createdAt DateTime   @default(now()) @db.Timestamptz(3)
+  createdAt DateTime       @default(now()) @db.Timestamptz(3)
   instances Instance[]
+  members   TenantMember[]
+}
+
+/// Customer identity. `id` is the Supabase Auth user id (the token's `sub`); it is not generated here.
+model User {
+  id        String         @id @db.Uuid
+  email     String
+  createdAt DateTime       @default(now()) @db.Timestamptz(3)
+  members   TenantMember[]
+}
+
+/// PRD 14 has roles; only OWNER exists for the beta.
+enum TenantRole {
+  OWNER
+}
+
+model TenantMember {
+  tenantId String     @db.Uuid
+  userId   String     @db.Uuid
+  role     TenantRole @default(OWNER)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@id([tenantId, userId])
+  /// Beta: one user = one tenant. Drop this constraint when team membership arrives.
+  @@unique([userId])
 }
 
 /// Resource limits only. Pricing is intentionally absent (PRD 5.2: not approved).
 model Plan {
-  id         String     @id @default(uuid()) @db.Uuid
-  slug       String     @unique
-  cpuMillis  Int
-  memoryMb   Int
-  pids       Int
-  storageMb  Int
-  instances  Instance[]
+  id        String     @id @default(uuid()) @db.Uuid
+  slug      String     @unique
+  name      String
+  active    Boolean    @default(true)
+  cpuMillis Int
+  memoryMb  Int
+  pids      Int
+  storageMb Int
+  instances Instance[]
 }
 
 model RuntimeNode {

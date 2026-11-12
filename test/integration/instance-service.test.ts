@@ -265,7 +265,7 @@ describe('InstanceService', () => {
 
     it('rejects reuse of a key with a different plan (409) without touching the instance', async () => {
       const service = svc();
-      const other = await prisma.plan.create({ data: { slug: 'other', cpuMillis: 250, memoryMb: 128, pids: 64, storageMb: 512 } });
+      const other = await prisma.plan.create({ data: { slug: 'other', name: 'Other', cpuMillis: 250, memoryMb: 128, pids: 64, storageMb: 512 } });
       const k = key();
       const first = await provision(service, k);
       await expect(

@@ -17,8 +17,31 @@ and, importantly, what is **not** built yet.
 ```
 
 The customer dashboard (`apps/web`, a separate Next.js package) is documented in
-[../apps/web/README.md](../apps/web/README.md). In `live` mode it reaches only the instance
-endpoints of this API, through a server-side dev bridge; it is not a customer API.
+[../apps/web/README.md](../apps/web/README.md). In `live` mode it still reaches the operator instance
+endpoints through a server-side dev bridge; moving it to the customer API below is frontend work
+that has not been done.
+
+### API surfaces (`src/http`)
+
+Two surfaces under `/api/v1`, registered as separate Fastify plugins so neither's auth hook applies
+to the other (`customer-auth.test.ts` checks both directions):
+
+| Surface | Auth | Paths | File |
+| --- | --- | --- | --- |
+| Operator | bearer `ADMIN_TOKEN` | `/tenants/:tenantId/instances...` | `operator-routes.ts` |
+| Customer | Supabase access token (JWT) | `/me`, `/plans`, `/instances...` | `customer-routes.ts`, `customer-auth.ts` |
+
+The customer surface exists only when `SUPABASE_URL` is set. `src/modules/auth/token-verifier.ts`
+verifies the token locally against the project's JWKS (asymmetric algorithms only, pinned issuer and
+audience, UUID `sub`); every failure is the same opaque `401`. `identity-service.ts` maps the `sub`
+to a `User`, a personal `Tenant` and an `OWNER` membership, created on the first request and safe
+under concurrent first requests. The tenant always comes from that membership, never from the
+request, so another tenant's instance id is a `404` on every verb (`customer-api.test.ts`).
+
+Until payments exist, `POST /instances` is allowed only for emails in `BETA_ALLOWED_EMAILS` (empty:
+nobody) and capped at `MAX_INSTANCES_PER_TENANT` non-deleted instances; the count and insert run
+under a per-tenant advisory lock. Details and the milestones that follow:
+[superpowers/specs/2026-11-12-backend-design.md](superpowers/specs/2026-11-12-backend-design.md).
 
 One Node/TypeScript modular monolith (ADR 0001). Only `src/modules/runtime` talks to Docker
 (PRD 6.3). The Docker socket is used by the control plane only; it is never mounted into, or
@@ -29,7 +52,9 @@ reachable from, a tenant container.
 `Tenant`, `Plan` (resource limits only; pricing is unapproved), `RuntimeNode` (single `local` row
 for now), `Instance`, `InstanceEvent` (append-only, pre-sanitized). UUID ids, UTC `timestamptz`.
 `Instance` is unique on `(tenantId, idempotencyKey)`; foreign keys are `RESTRICT`, so history is
-never cascaded away. Users, memberships, subscriptions, payments, secrets, backups: later milestones.
+never cascaded away. `User` (id = Supabase user id) and `TenantMember` (role `OWNER`; unique on
+`userId`, so one user has one tenant for the beta) back the customer API. `Plan` has a display `name`
+and an `active` flag. Subscriptions, payments, secrets, backups: later milestones.
 
 ## Instance lifecycle
 
@@ -148,7 +173,7 @@ This system is **not production-ready**. Open items, none of which are mitigated
 2. **Egress controls implemented, not verified on a Docker host (PRD 7.3).** Tenants cannot reach the host, cloud metadata, private ranges or each other once the ruleset in `ops/egress/` is applied, TCP 25 is rejected and new connections are rate-capped, and the control plane exits in production if the canary shows the rules are missing. Not verified: that real tenant traffic hits the rules (runc and runsc), that the rules survive a Docker restart and a reboot, DNS on the real host, and the rate cap, which is an unmeasured placeholder (see [egress-host-notes.md](egress-host-notes.md); plan Task 8 is open). Still open by design: a domain allowlist or egress proxy, traffic metering, URL validation for custom provider and webhook URLs (it belongs to the BYOK work, PRD 8.2; this layer backs it up), IPv6 for tenants (disabled), per-plan policy, egress logging, and the abuse policy (PRD 21 item 11, undecided). A tenant can still scan or attack public hosts within the rate cap.
 3. **Runtime isolation not fully validated (PRD 7.2).** `runc` is the default. gVisor (`runsc`) is selectable and was reported compatible, but it is not the default and has had no escape or kernel-exposure testing; no microVM evaluation; seccomp/AppArmor not verified on target hosts (the dev sandbox uses cgroup v1).
 4. **Real Hermes image only partly validated.** The pinned official image boots under the hardened baseline and answers authenticated requests in the live harness (see [milestone-2-runtime-security.md](milestone-2-runtime-security.md)). Not validated: production hosts and kernels, behaviour under a real model backend, the telegram transport, and what the image does with no `API_SERVER_KEY`.
-5. **Operator API only.** Single shared bearer token; no users, tenant membership, rate limits, CSRF or audit log. Never expose it publicly; it binds to loopback.
+5. **Customer API is new and unproven against real infrastructure.** Tokens in tests are signed with local keys; no real Supabase project, no Supabase Postgres and no public deployment have been exercised. Both API surfaces share one loopback port, so a public reverse proxy must forward only the customer paths and never `/api/v1/tenants/*`; as a second line only, the operator API answers 404 to any request that carries a proxy header (`x-forwarded-*`, `forwarded`, `x-real-ip`, `cf-*`). The beta provisioning gate trusts the `email` claim, which is only safe while Supabase requires email confirmation (and secure email change) and every enabled OAuth provider returns verified emails; nothing in the backend enforces that. The operator API is still a single shared bearer token. The app's rate limit counts authenticated users only. There is no audit log, no account deletion, and a signed-out user's access token works until it expires. `accessUrl` is still a loopback URL, not something a customer can open.
 6. **Provisioning is synchronous and in-process;** no job queue, dead-letter queue or outbox. A control-plane crash mid-operation is cleaned up by the lease-based reaper after the lease expires (≤ TTL, 60 s by default): it fails or finishes the operation but does not resume it. Several control-plane replicas are unsupported: the lease protects individual operations, but there is no leader election for the reconciler loop, and clock skew between replicas/DB is not handled. A Docker call that hangs without erroring holds its lease until `maxOperationMs`.
 7. **Single node, no scheduler or capacity reservation;** the host port is a random loopback port, with no ingress or TLS.
 8. **No secrets management** (envelope encryption, rotation). Per-instance API keys are derived from one master secret in the environment and are never stored, but there is no rotation and no vault; log redaction is by key path only, so free-text secrets in messages would not be caught.

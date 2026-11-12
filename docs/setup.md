@@ -50,6 +50,10 @@ DATABASE_URL=postgresql://hermes:hermes_dev_only@127.0.0.1:5433/hermes_test pnpm
 | `HERMES_EGRESS_POLICY` | `enforce` (default) or `off`. `enforce` names every tenant bridge `hn<12 hex>`, refuses a network without that name (`network_policy_missing`) and runs the startup canary. `off` is rejected when `NODE_ENV=production` |
 | `HERMES_CANARY_IMAGE` | Required when `HERMES_EGRESS_POLICY=enforce`: an image with `sh` and `nc`, pinned as `name@sha256:<64 hex>` (a tag is rejected). It is not pulled for you: `docker pull` it first |
 | `HERMES_CANARY_PRIVATE_IP` | Optional IPv4 address of this host. If set, the canary also checks that a tenant cannot reach it |
+| `SUPABASE_URL` | Optional. `https://<project-ref>.supabase.co` (https, no path). Enables the customer API; unset means the customer routes do not exist |
+| `DASHBOARD_ORIGIN` | Optional. Exact browser origin of the dashboard, no path (`https://cloud.nibie.app`, even though the dashboard is served under `/dashboard`). The only origin granted CORS; unset sends no CORS headers |
+| `BETA_ALLOWED_EMAILS` | Comma-separated emails allowed to create instances until payments exist. Empty or unset: nobody can (fail closed). Set it in the host environment only, never in the repository |
+| `MAX_INSTANCES_PER_TENANT` | Default `1`. Non-deleted instances a tenant may hold through the customer API (the operator API has no cap) |
 | `HERMES_RUNTIME` | `runc` (default) or `runsc` (gVisor). With `runsc`, startup fails if the Docker daemon does not list that runtime. Applies only to containers created from now on |
 
 ## Disk quota host setup (XFS)
@@ -117,6 +121,45 @@ curl -H "$H" -H "Idempotency-Key: $(uuidgen)" -H 'content-type: application/json
 ```
 
 There is no endpoint to create tenants/plans/nodes yet; seed rows directly (see `scripts/demo.ts`).
+
+## Customer API (Supabase auth)
+
+Enabled when `SUPABASE_URL` is set. Customers send `Authorization: Bearer <Supabase access token>`;
+the backend verifies it locally against `<SUPABASE_URL>/auth/v1/.well-known/jwks.json` (asymmetric
+algorithms only) and derives the tenant from the user's membership. Routes, all under `/api/v1`:
+`GET /me`, `GET /plans`, `POST /instances` (needs `Idempotency-Key`), `GET /instances[/:id[/status|/events]]`,
+`POST /instances/:id/{start,stop,restart}`, `DELETE /instances/:id`. Limits: 120 requests per minute
+per user, 5 provisioning requests per 10 minutes per user.
+
+Supabase project checklist (settings live in the Supabase dashboard, not in this repository; none of
+this has been run against a real project yet):
+
+- JWT signing keys must be asymmetric. `GET <SUPABASE_URL>/auth/v1/.well-known/jwks.json` must list
+  keys; an empty list means legacy HS256, which this backend rejects.
+- Keep "Confirm email" enabled. `email_confirmed_at` is not a token claim, so the backend cannot check it.
+- Restrict signups to invited users for the beta. `BETA_ALLOWED_EMAILS` gates instance creation, not signup.
+- Add the dashboard's redirect URLs under `https://cloud.nibie.app/dashboard/`.
+- Note the access-token lifetime: a signed-out or deleted user's token stays valid until it expires.
+- The dashboard only ever holds the publishable key. A secret (`sb_secret_...`) key is not needed by
+  this backend today and must never be committed.
+
+### Supabase Postgres (production database)
+
+- `DATABASE_URL` points at the Supabase database with `?schema=hermes`, so the tables and
+  `_prisma_migrations` live in schema `hermes`, not in `public` (Supabase's Data API exposes `public`
+  by default; confirm `hermes` is not in the exposed schemas). No code or model change is involved.
+- Run `pnpm db:migrate` over a direct or session-mode connection, not the transaction pooler.
+- Use a dedicated database role for the backend rather than the `postgres` superuser, and enable RLS
+  on the `hermes` tables as defense in depth. Role names and passwords stay out of the repository.
+- Not verified yet: no migration has been run against Supabase. Local development and tests use the
+  compose Postgres on schema `public`.
+
+### Public exposure
+
+The process still binds `127.0.0.1` and serves both API surfaces on one port. A reverse proxy that
+publishes `api.cloud.nibie.app` must forward only the customer paths (`/api/v1/me`, `/api/v1/plans`,
+`/api/v1/instances*`) and must **not** forward `/api/v1/tenants/*` (the operator API). The proxy must
+also apply its own request limits: the application's rate limit only counts authenticated users.
 
 ## Sandboxes and CI without a Docker service
 

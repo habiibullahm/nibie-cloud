@@ -29,5 +29,5 @@ DESIGN.md), [../apps/web/README.md](../apps/web/README.md) (dashboard).
 | [HANDOFF_TO_CLAUDE.md](HANDOFF_TO_CLAUDE.md) | State-transfer snapshot taken at commit `b7bd10e`. Several statements in it are no longer true; see its banner. |
 | [implementation-checklist.md](implementation-checklist.md) | Milestone 1 plan tasks and review rounds. |
 | [review-fixes.md](review-fixes.md) | Milestone 1 review round 2 fixes. |
-| [superpowers/plans/](superpowers/plans) | Implementation plans: runtime foundation (2026-11-11), hardening wiring, frontend dashboard, disk quota and egress controls (2026-11-12). |
-| [superpowers/specs/](superpowers/specs) | Design specs: hardening wiring, disk quota and egress controls (2026-11-12). |
+| [superpowers/plans/](superpowers/plans) | Implementation plans: runtime foundation (2026-11-11), hardening wiring, frontend dashboard, disk quota, egress controls and backend milestone A (2026-11-12). |
+| [superpowers/specs/](superpowers/specs) | Design specs: hardening wiring, disk quota and egress controls, and the backend design (customer API, jobs, secrets, billing; 2026-11-12, milestones B to D not built). |

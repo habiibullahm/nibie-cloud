@@ -58,9 +58,9 @@ pnpm typecheck && pnpm lint && pnpm test    # also: pnpm build
 pnpm vitest run test/status.test.ts         # single file
 ```
 
-Last verified in a cloud sandbox on 2026-11-12: backend `tsc` clean and 209/209 unit tests, Postgres-only
-integration files passing; dashboard `typecheck`, `lint` and 44/44 tests (earlier run). Docker-backed
-integration tests were not re-run (Docker Hub rate limiting blocked the stub image build).
+Last verified in a cloud sandbox on 2026-11-12 (milestone A branch on top of `a8d86fd`): backend `tsc` clean and
+`pnpm test` 409 passed, 2 skipped (unit and Docker/Postgres integration, stub image); dashboard `typecheck`,
+`lint` and 44/44 tests (earlier run).
 
 ## Architecture (the parts that span files)
 
@@ -99,9 +99,13 @@ integration tests were not re-run (Docker Hub rate limiting blocked the stub ima
 - **Images must be pinned:** no `latest` in any environment, `name@sha256:<digest>` when
   `NODE_ENV=production` (`runtime/image-policy.ts`). `test/fixtures/hermes-stub` is a stand-in that
   mimics the official contract; `test/fixtures/hermes-stub/*` must stay LF (`.gitattributes`).
-- **Operator API** (`src/http/server.ts`, `/api/v1`): one shared bearer `ADMIN_TOKEN`, binds
-  `127.0.0.1` only, no customer auth. No endpoint creates tenants or plans; seed rows directly
-  (see `scripts/demo.ts`).
+- **Two API surfaces** under `/api/v1`, in separate Fastify plugins (`src/http`): the operator API
+  (`operator-routes.ts`, one shared bearer `ADMIN_TOKEN`, `/tenants/:tenantId/instances...`) and the
+  customer API (`customer-routes.ts`, Supabase access token verified locally against the project's
+  JWKS, tenant derived from the user's membership, only when `SUPABASE_URL` is set). The process binds
+  `127.0.0.1`; a public proxy must never forward `/api/v1/tenants/*`. Customer provisioning is gated by
+  `BETA_ALLOWED_EMAILS` and `MAX_INSTANCES_PER_TENANT`. No endpoint creates plans or nodes; seed rows
+  directly (see `scripts/demo.ts`).
 - **Dashboard data layer** (`apps/web/src/lib/api`): a typed `HermesApi` with an in-browser mock
   (default, `NEXT_PUBLIC_HERMES_API_MODE=mock`) and a live client. Live mode goes through the dev
   bridge `apps/web/src/app/api/hermes/[...path]/route.ts`, which keeps `HERMES_ADMIN_TOKEN` server-side

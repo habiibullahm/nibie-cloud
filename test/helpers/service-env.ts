@@ -17,7 +17,7 @@ export const authFor = (instanceId: string): { Authorization: string } => ({
   Authorization: `Bearer ${deriveApiKey(TEST_MASTER_KEY, instanceId)}`,
 });
 
-export const TEST_PLAN = { slug: 'test-small', cpuMillis: 500, memoryMb: 256, pids: 128, storageMb: 1024 };
+export const TEST_PLAN = { slug: 'test-small', name: 'Test small', cpuMillis: 500, memoryMb: 256, pids: 128, storageMb: 1024 };
 
 export async function seed(prisma: PrismaClient) {
   const tenant = await prisma.tenant.create({ data: { name: 'tenant-a' } });
