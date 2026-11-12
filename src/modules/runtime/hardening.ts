@@ -10,6 +10,37 @@ export const LABEL_MANAGED = 'hermes.cloud/managed';
 export const LABEL_INSTANCE = 'hermes.cloud/instance-id';
 export const LABEL_TENANT = 'hermes.cloud/tenant-id';
 
+/**
+ * Capabilities the official `nousresearch/hermes-agent` image needs from its s6-overlay init.
+ * Empirically determined on nibie-cloud (Milestone 2.2 canary matrix): with `CapDrop: ['ALL']`
+ * and nothing re-added, cont-init dies with
+ *   s6-applyuidgid: fatal: unable to set supplementary group list: Operation not permitted
+ *   chown: changing ownership of '/run/hermes-service': Operation not permitted
+ * and the container exit-loops. Adding exactly these eight makes the gateway reach ACTIVE with
+ * authenticated HTTP 200. Removing any of SETUID/SETGID/CHOWN/DAC_OVERRIDE/FOWNER breaks boot.
+ */
+export const S6_REQUIRED_CAPS = [
+  'SETUID',
+  'SETGID',
+  'CHOWN',
+  'DAC_OVERRIDE',
+  'FOWNER',
+  'KILL',
+  'AUDIT_WRITE',
+  'SETFCAP',
+] as const;
+
+/**
+ * tmpfs mounts required for a read-only root filesystem. s6-overlay writes its supervision tree
+ * to /run and its service definitions under /var/run; without these a `--read-only` container
+ * dies with `s6-rmrf: fatal: unable to remove /run/s6: Read-only file system` (verified).
+ */
+export const S6_TMPFS: Record<string, string> = {
+  '/run': 'rw,exec,nosuid,size=64m',
+  '/tmp': 'rw,noexec,nosuid,size=64m',
+  '/var/run': 'rw,exec,nosuid,size=16m',
+};
+
 function uuid(id: string): string {
   if (!UUID.test(id)) throw new ValidationError('Invalid instance id');
   return id.toLowerCase();
@@ -44,19 +75,27 @@ export function buildContainerConfig(spec: RuntimeSpec): Docker.ContainerCreateO
   }
 
   const hostConfig: Docker.HostConfig = {
-    Privileged: false,
-    CapDrop: ['ALL'],
-    SecurityOpt: ['no-new-privileges:true'],
-    Memory: memoryMb * 1048576,
-    MemorySwap: memoryMb * 1048576,
-    NanoCpus: cpuMillis * 1_000_000,
-    PidsLimit: pids,
-    Init: false, // Official image uses internal s6-overlay /init dispatcher
-    RestartPolicy: { Name: 'no' },
-    Binds: [`${volumeName(id)}:${DATA_MOUNT}`],
-    NetworkMode: networkName(id),
-    PortBindings: { [`${CONTAINER_PORT}/tcp`]: [{ HostIp: '127.0.0.1', HostPort: '0' }] },
-  };
+      Privileged: false,
+      // The official image's s6-overlay init must create /run/hermes-service, drop privileges to
+      // hermes (10000:10000) and chown the data volume. Those are exactly these capabilities,
+      // verified by canary matrix on nibie-cloud (drop-all alone exit-loops with
+      // "s6-applyuidgid: unable to set supplementary group list").
+      CapDrop: ['ALL'],
+      CapAdd: [...S6_REQUIRED_CAPS],
+      SecurityOpt: ['no-new-privileges:true'],
+      ReadonlyRootfs: true,
+      Tmpfs: { ...S6_TMPFS },
+      Memory: memoryMb * 1048576,
+      MemorySwap: memoryMb * 1048576,
+      NanoCpus: cpuMillis * 1_000_000,
+      PidsLimit: pids,
+      // Never `true`: the image is PID 1 with its own s6-overlay dispatcher.
+      Init: false,
+      RestartPolicy: { Name: 'no' },
+      Binds: [`${volumeName(id)}:${DATA_MOUNT}`],
+      NetworkMode: networkName(id),
+      PortBindings: { [`${CONTAINER_PORT}/tcp`]: [{ HostIp: '127.0.0.1', HostPort: '0' }] },
+    };
 
   if (spec.runtime) {
     hostConfig.Runtime = spec.runtime;
