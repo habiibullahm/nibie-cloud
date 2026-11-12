@@ -1,7 +1,14 @@
 # Handoff to Claude Code
 
+> **Historical snapshot, taken at commit `b7bd10e` on 2026-11-12. Not current.** Since then the hardening
+> wiring, the revised `DESIGN.md`, `design-preview.html` and the `apps/web` dashboard were committed
+> (HEAD `6e5d644`), `milestone-2-runtime-security.md` was written, and `architecture.md` "Image
+> contract" was corrected. Statements below that the repo is backend-only, that the working tree is
+> clean except `design-preview.html`, that `origin` is a local bundle, or that those documents are
+> missing or stale, no longer hold. Current status: [CURRENT_STATE.md](CURRENT_STATE.md).
+
 **Prepared:** 2026-11-12
-**Repository:** `C:\Users\muhammad.habiibullah\hermes-cloud-repo`
+**Repository:** nibie-cloud (local path omitted)
 **Purpose:** State transfer only. Nothing in this document authorizes new implementation work.
 
 Everything below was verified against the working tree with real commands on 2026-11-12.
