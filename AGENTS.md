@@ -58,7 +58,7 @@ pnpm typecheck && pnpm lint && pnpm test    # also: pnpm build
 pnpm vitest run test/status.test.ts         # single file
 ```
 
-Last verified in a cloud sandbox on 2026-11-12: backend `tsc` clean and 196/196 unit tests, Postgres-only
+Last verified in a cloud sandbox on 2026-11-12: backend `tsc` clean and 209/209 unit tests, Postgres-only
 integration files passing; dashboard `typecheck`, `lint` and 44/44 tests (earlier run). Docker-backed
 integration tests were not re-run (Docker Hub rate limiting blocked the stub image build).
 

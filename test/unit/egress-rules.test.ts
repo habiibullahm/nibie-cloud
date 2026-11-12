@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -22,7 +22,7 @@ function run(args: string[], config?: string) {
   const file = join(dir, `conf-${n += 1}`);
   writeFileSync(file, config ?? '');
   const r = spawnSync('bash', [SCRIPT, ...args, '--config', file], { encoding: 'utf8' });
-  const lines = r.stdout.split('\n').filter(Boolean).map((l) => l.replace(/^iptables -w /, ''));
+  const lines = r.stdout.split('\n').filter(Boolean).filter((l) => !l.startsWith('ip6tables ')).map((l) => l.replace(/^iptables -w /, ''));
   return { status: r.status, lines, stdout: r.stdout, stderr: r.stderr };
 }
 const apply = (config?: string) => run(['apply', '--dry-run'], config);
@@ -174,17 +174,48 @@ describe.skipIf(!hasBash)('hermes-egress.sh remove and status --dry-run', () => 
     ]);
   });
 
-  it('status --dry-run lists the checks it would run', () => {
+  it('status --dry-run lists the checks it would run, including the rules that end the chain', () => {
     const { status, lines } = run(['status', '--dry-run']);
     expect(status).toBe(0);
     expect(lines).toContain('-S HERMES-EGRESS');
     expect(lines).toContain('-C DOCKER-USER -i hn+ -j HERMES-EGRESS');
     expect(lines).toContain('-C INPUT -i hn+ -j HERMES-EGRESS');
+    // A half-loaded chain still has the chain and the jumps; these two prove it was filled to the end.
+    expect(lines).toContain('-C HERMES-EGRESS -m addrtype --dst-type LOCAL -j REJECT');
+    expect(lines).toContain('-C HERMES-EGRESS -j RETURN');
+  });
+
+  it('closes IPv6 for tenant bridges on apply and reopens nothing on remove', () => {
+    const raw = (args: string[]) => spawnSync('bash', [SCRIPT, ...args, '--dry-run', '--config', join(dir, 'conf-v6')], { encoding: 'utf8' }).stdout.split('\n').filter(Boolean);
+    writeFileSync(join(dir, 'conf-v6'), '');
+    const applied = raw(['apply']);
+    expect(applied).toContain('ip6tables -w -I INPUT 1 -i hn+ -j DROP');
+    expect(applied).toContain('ip6tables -w -I FORWARD 1 -i hn+ -j DROP');
+    const removed = raw(['remove']);
+    expect(removed).toContain('ip6tables -w -D INPUT -i hn+ -j DROP');
+    expect(removed).toContain('ip6tables -w -D FORWARD -i hn+ -j DROP');
   });
 
   it('refuses an unknown subcommand', () => {
     const r = spawnSync('bash', [SCRIPT, 'frobnicate'], { encoding: 'utf8' });
     expect(r.status).not.toBe(0);
     expect(r.stderr).toMatch(/usage/i);
+  });
+});
+
+describe('hermes-egress.service', () => {
+  const unit = readFileSync('ops/egress/hermes-egress.service', 'utf8').split('\n').filter((l) => !l.startsWith('#')).join('\n');
+
+  it('applies on start and reload and never removes the rules on stop or restart', () => {
+    expect(unit).toMatch(/^ExecStart=.* apply /m);
+    expect(unit).toMatch(/^ExecReload=.* apply /m);
+    expect(unit).not.toMatch(/^ExecStop/m);
+    expect(unit).not.toMatch(/\bremove\b/);
+  });
+
+  it('starts after Docker and follows its restarts', () => {
+    expect(unit).toMatch(/^After=.*docker\.service/m);
+    expect(unit).toMatch(/^Requires=docker\.service/m);
+    expect(unit).toMatch(/^PartOf=docker\.service/m);
   });
 });

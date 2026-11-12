@@ -277,6 +277,7 @@ export class Reconciler {
     try {
       if (mode === 'restart') {
         await runtime.assertVolumeQuota(inst.id, this.d.diskQuota);
+        await runtime.assertNetworkPolicy(inst.id, this.d.egressPolicy);
         await runtime.restart(inst.id);
       } else {
         const plan = await prisma.plan.findUniqueOrThrow({ where: { id: inst.planId } });

@@ -20,7 +20,7 @@ await assertDiskQuotaSupported(docker, config.diskQuota);
 if (config.egressPolicy === 'enforce') {
   // Refuse to serve tenants when the host ruleset is missing: the error names the failed check only.
   try {
-    await runEgressCanary({ docker, image: config.canaryImage!, privateIp: config.canaryPrivateIp, logger });
+    await runEgressCanary({ docker, image: config.canaryImage!, privateIp: config.canaryPrivateIp, runtime: config.runtime, logger });
   } catch (e) {
     if (e instanceof EgressPolicyError || e instanceof EgressCanaryError) logger.error(e.message);
     else logger.error('Egress canary failed unexpectedly');

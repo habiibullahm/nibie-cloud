@@ -1,7 +1,12 @@
+import { spawnSync } from 'node:child_process';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import net from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Writable } from 'node:stream';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import {
-  EgressCanaryError, EgressPolicyError, evaluateCanary, runEgressCanary,
+  CANARY_SCRIPT, EgressCanaryError, EgressPolicyError, evaluateCanary, runEgressCanary,
 } from '../../src/modules/runtime/egress-canary.js';
 import { BRIDGE_NAME_OPTION } from '../../src/modules/runtime/hardening.js';
 import { createLogger } from '../../src/shared/logger.js';
@@ -20,6 +25,7 @@ function setup(opts: {
   noGateway?: boolean;
   waitError?: Error;
   statusCode?: number;
+  removeError?: Error;
 } = {}) {
   const calls: string[] = [];
   const networks: NetCreate[] = [];
@@ -50,7 +56,7 @@ function setup(opts: {
           return { StatusCode: opts.statusCode ?? 0 };
         },
         logs: async () => Buffer.from(opts.output ?? 'gateway=blocked\nprivate=blocked\nmetadata=blocked\n'),
-        remove: async () => { calls.push('container.remove'); },
+        remove: async () => { calls.push('container.remove'); if (opts.removeError) throw opts.removeError; },
       };
     },
   };
@@ -65,8 +71,8 @@ function setup(opts: {
   return { docker, calls, networks, containers, listens, listen, logger, logs: () => logs };
 }
 
-const run = (s: ReturnType<typeof setup>, privateIp?: string) =>
-  runEgressCanary({ docker: s.docker as never, image: IMAGE, privateIp, listen: s.listen, logger: s.logger });
+const run = (s: ReturnType<typeof setup>, privateIp?: string, runtime?: 'runc' | 'runsc') =>
+  runEgressCanary({ docker: s.docker as never, image: IMAGE, privateIp, runtime, listen: s.listen, logger: s.logger });
 
 /** The probes the canary container was told to run: [check, host, port] triples after the script. */
 const probes = (s: ReturnType<typeof setup>) => {
@@ -220,6 +226,26 @@ describe('runEgressCanary', () => {
     expect(hc.NetworkMode).toBe(s.networks[0]!.Name);
   });
 
+  it('runs the canary under the configured OCI runtime so it tests the tenants path', async () => {
+    const gv = setup();
+    await run(gv, undefined, 'runsc');
+    expect((gv.containers[0]!.HostConfig as Record<string, unknown>).Runtime).toBe('runsc');
+    const rc = setup();
+    await run(rc, undefined, 'runc');
+    expect((rc.containers[0]!.HostConfig as Record<string, unknown>).Runtime).toBe('runc');
+    const none = setup();
+    await run(none);
+    expect((none.containers[0]!.HostConfig as Record<string, unknown>).Runtime).toBeUndefined();
+  });
+
+  it('logs a cleanup failure by reason only (a leaked network must not be silent) and still tries the network', async () => {
+    const s = setup({ removeError: new Error(`cannot remove ${GATEWAY}`) });
+    await run(s);
+    expect(s.logs()).toContain('container_remove_failed');
+    expect(s.logs()).not.toContain(GATEWAY);
+    expect(s.calls).toContain('network.remove');
+  });
+
   it('error messages and logs never contain the probe addresses', async () => {
     const failing = setup({ output: 'gateway=connected\n' });
     const e1 = (await run(failing, PRIVATE_IP).catch((e: unknown) => e)) as Error;
@@ -229,5 +255,53 @@ describe('runEgressCanary', () => {
     await run(passing, PRIVATE_IP);
     const all = [e1.message, e2.message, failing.logs(), broken.logs(), passing.logs()].join('\n');
     for (const secret of [GATEWAY, PRIVATE_IP, '169.254.169.254']) expect(all).not.toContain(secret);
+  });
+});
+
+// The canary script itself, run under a real sh with real, stubbed or missing `nc`.
+describe('canary script', () => {
+  const hasNc = spawnSync('sh', ['-c', 'command -v nc']).status === 0;
+  const work = mkdtempSync(join(tmpdir(), 'canary-'));
+  afterAll(() => rmSync(work, { recursive: true, force: true }));
+  const sh = (args: string[], path: string) =>
+    spawnSync('/bin/sh', ['-c', CANARY_SCRIPT, 'canary', ...args], { encoding: 'utf8', env: { PATH: path }, timeout: 20_000 });
+
+  it('reports "blocked" for a closed port and "connected" for an open one, with a working nc', async () => {
+    if (!hasNc) return;
+    const server = net.createServer((s) => s.destroy());
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    const open = (server.address() as net.AddressInfo).port;
+    const closed = net.createServer();
+    await new Promise<void>((r) => closed.listen(0, '127.0.0.1', r));
+    const closedPort = (closed.address() as net.AddressInfo).port;
+    await new Promise<void>((r) => closed.close(() => r()));
+    try {
+      const r = sh(['gateway', '127.0.0.1', String(open), 'private', '127.0.0.1', String(closedPort)], process.env.PATH ?? '/usr/bin:/bin');
+      expect(r.stdout).toContain('gateway=connected');
+      expect(r.stdout).toContain('private=blocked');
+      expect(r.status).toBe(0);
+    } finally {
+      await new Promise<void>((r) => server.close(() => r()));
+    }
+  });
+
+  it('fails with error=nc_missing and no probe lines when nc is absent', () => {
+    const empty = join(work, 'empty');
+    mkdirSync(empty);
+    const r = sh(['gateway', '127.0.0.1', '1'], empty);
+    expect(r.stdout).toContain('error=nc_missing');
+    expect(r.stdout).not.toMatch(/=(blocked|connected)/);
+    expect(r.status).toBe(127);
+  });
+
+  it('fails with error=nc_unusable and never prints "blocked" when nc cannot do a loopback connect (positive control)', () => {
+    const bin = join(work, 'bin');
+    mkdirSync(bin);
+    writeFileSync(join(bin, 'nc'), '#!/bin/sh\nexit 1\n');
+    chmodSync(join(bin, 'nc'), 0o755);
+    const r = sh(['gateway', '127.0.0.1', '1', 'metadata', '169.254.169.254', '80'], `${bin}:/usr/bin:/bin`);
+    expect(r.stdout).toContain('error=nc_unusable');
+    expect(r.stdout).not.toMatch(/=(blocked|connected)/);
+    expect(r.status).not.toBe(0);
   });
 });

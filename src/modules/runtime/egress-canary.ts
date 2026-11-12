@@ -3,6 +3,7 @@ import net from 'node:net';
 import type Docker from 'dockerode';
 import type { Logger } from '../../shared/logger.js';
 import { buildNetworkConfig, networkName } from './hardening.js';
+import type { SupportedRuntime } from './types.js';
 
 export type CanaryCheck = 'gateway' | 'private' | 'metadata';
 export type CanaryProbe = { check: CanaryCheck; host: string; port: number };
@@ -49,8 +50,14 @@ const CHECKS: CanaryCheck[] = ['gateway', 'private', 'metadata'];
  * Static script: nothing from outside is interpolated, probes arrive as `check host port` triples.
  * A missing `nc` must fail loudly, otherwise every probe would look "blocked".
  */
-const SCRIPT = [
+export const CANARY_SCRIPT = [
   'command -v nc >/dev/null 2>&1 || { echo error=nc_missing; exit 127; }',
+  // Positive control: this nc must be able to listen and connect on loopback. A build that rejects -z or
+  // -w would otherwise fail every probe and make a missing rule look like a blocked one. Both listen
+  // syntaxes are tried (busybox: -l -p PORT, BSD/GNU: -l PORT).
+  '( nc -l -p 47321 >/dev/null 2>&1 || nc -l 47321 >/dev/null 2>&1 ) &',
+  'sleep 1',
+  'nc -z -w 1 127.0.0.1 47321 >/dev/null 2>&1 || { echo error=nc_unusable; exit 126; }',
   'while [ "$#" -ge 3 ]; do',
   '  if nc -z -w 3 "$2" "$3" >/dev/null 2>&1; then echo "$1=connected"; else echo "$1=blocked"; fi',
   '  shift 3',
@@ -108,10 +115,12 @@ export async function runEgressCanary(deps: {
   docker: DockerLike;
   image: string;
   privateIp?: string;
+  /** OCI runtime of the tenants (`HERMES_RUNTIME`): the canary runs under it so it tests their network path. */
+  runtime?: SupportedRuntime;
   listen?: ListenFn;
   logger: Logger;
 }): Promise<void> {
-  const { docker, image, privateIp, logger } = deps;
+  const { docker, image, privateIp, runtime, logger } = deps;
   const listen = deps.listen ?? listenOn;
   const id = randomUUID();
   const name = networkName(id);
@@ -164,7 +173,7 @@ export async function runEgressCanary(deps: {
     try {
       container = await docker.createContainer({
         Image: image,
-        Cmd: ['sh', '-c', SCRIPT, 'canary', ...probes.flatMap((p) => [p.check, p.host, String(p.port)])],
+        Cmd: ['sh', '-c', CANARY_SCRIPT, 'canary', ...probes.flatMap((p) => [p.check, p.host, String(p.port)])],
         Tty: true,
         NetworkDisabled: false,
         HostConfig: {
@@ -175,6 +184,7 @@ export async function runEgressCanary(deps: {
           Memory: 32 * 1024 * 1024,
           MemorySwap: 32 * 1024 * 1024,
           PidsLimit: 32,
+          ...(runtime ? { Runtime: runtime } : {}),
         },
       });
       await container.start();
@@ -196,8 +206,11 @@ export async function runEgressCanary(deps: {
     evaluateCanary(CHECKS.filter((c) => results.has(c)).map((check) => ({ check, connected: results.get(check) === true })));
     logger.info({ checks: expected }, 'egress canary passed');
   } finally {
-    for (const close of closers) await close().catch(() => undefined);
-    if (container) await container.remove({ force: true }).catch(() => undefined);
-    if (networkCreated) await docker.getNetwork(name).remove().catch(() => undefined);
+    // Cleanup never throws and never logs Docker text; a failure is recorded by reason only, because a
+    // leaked network or container would otherwise go unnoticed.
+    const cleanup = (reason: string) => () => { logger.warn({ reason }, 'egress canary cleanup failed'); };
+    for (const close of closers) await close().catch(cleanup('listener_close_failed'));
+    if (container) await container.remove({ force: true }).catch(cleanup('container_remove_failed'));
+    if (networkCreated) await docker.getNetwork(name).remove().catch(cleanup('network_remove_failed'));
   }
 }

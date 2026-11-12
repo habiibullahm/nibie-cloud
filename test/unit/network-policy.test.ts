@@ -129,3 +129,34 @@ describe('tenant network identity', () => {
     expect(err).not.toBeInstanceOf(NetworkPolicyMissingError);
   });
 });
+
+describe('assertNetworkPolicy', () => {
+  it('refuses an existing network without the bridge name when enforce', async () => {
+    const f = fakeDocker();
+    const s = spec();
+    f.networks.set(networkName(s.instanceId), { Name: 'n', Options: null });
+    await expect(manager(f).assertNetworkPolicy(s.instanceId, 'enforce')).rejects.toBeInstanceOf(NetworkPolicyMissingError);
+  });
+
+  it('refuses a network with a different bridge name when enforce', async () => {
+    const f = fakeDocker();
+    const s = spec();
+    f.networks.set(networkName(s.instanceId), { Name: 'n', Options: { [BRIDGE_NAME_OPTION]: 'hnffffffffffff' } });
+    await expect(manager(f).assertNetworkPolicy(s.instanceId, 'enforce')).rejects.toBeInstanceOf(NetworkPolicyMissingError);
+  });
+
+  it('refuses an absent network when enforce (cannot confirm the policy)', async () => {
+    await expect(manager(fakeDocker()).assertNetworkPolicy(randomUUID(), 'enforce')).rejects.toBeInstanceOf(NetworkPolicyMissingError);
+  });
+
+  it('accepts a network that has the bridge name when enforce', async () => {
+    const f = fakeDocker();
+    const s = spec();
+    f.networks.set(networkName(s.instanceId), { Name: 'n', Options: { [BRIDGE_NAME_OPTION]: bridgeName(s.instanceId) } });
+    await expect(manager(f).assertNetworkPolicy(s.instanceId, 'enforce')).resolves.toBeUndefined();
+  });
+
+  it('does nothing when off, whatever the network looks like', async () => {
+    await expect(manager(fakeDocker()).assertNetworkPolicy(randomUUID(), 'off')).resolves.toBeUndefined();
+  });
+});

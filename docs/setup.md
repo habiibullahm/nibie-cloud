@@ -81,8 +81,11 @@ Tenant networks are filtered by one iptables chain that must be loaded on every 
    (a placeholder until measured).
 3. Review without changing anything: `ops/egress/hermes-egress.sh apply --dry-run --config /etc/hermes-egress/egress.conf`
 4. `sudo cp ops/egress/hermes-egress.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now hermes-egress.service`
+   (after config changes use `systemctl reload hermes-egress.service`; the unit never removes the rules
+   on stop or restart)
 5. `sudo ops/egress/hermes-egress.sh status` must exit 0.
-6. Pull the canary image by digest, set `HERMES_CANARY_IMAGE` (and optionally `HERMES_CANARY_PRIVATE_IP`),
+6. Pull the canary image by digest (it needs `sh` and a busybox-compatible `nc`, for example busybox;
+   a build without `-z`/`-w`/`-l -p` is reported as `nc_unusable`), set `HERMES_CANARY_IMAGE` (and optionally `HERMES_CANARY_PRIVATE_IP`),
    and start the control plane.
 
 What was and was not verified, and how to operate and debug the rules:

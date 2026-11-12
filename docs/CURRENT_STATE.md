@@ -68,8 +68,8 @@ Tasks 1, 3, 4, 5, 6 and 7 are done; **Tasks 2 (host spike, from step 3 on) and 8
 open** and need a Docker host that can run containers.
 
 Run in a cloud sandbox (Docker 29.9.2, nf_tables `iptables` 1.8.10, Postgres 16): `pnpm build` clean;
-`pnpm test:unit` 196/196; the Postgres-only integration files (`network-policy`, `disk-wiring`,
-`key-wiring`, `disk-monitor`, `schema`, plus the real-daemon canary test) 40 passed, 2 skipped (they need
+`pnpm test:unit` 209/209; the Postgres-only integration files (`network-policy`, `disk-wiring`,
+`key-wiring`, `disk-monitor`, `schema`, plus the real-daemon canary test) 44 passed, 2 skipped (the two skipped need
 a canary image and the rules); `shellcheck` clean on `ops/egress/hermes-egress.sh`. Also run once by
 hand: the ruleset applied for real (idempotent, `remove` and `status` behave), `DockerRuntimeManager`
 network creation against the real daemon (bridge name honored, stale network and collision refused), and
@@ -81,6 +81,11 @@ image (neither the "rules absent" nor the "rules applied" case), runc and runsc 
 persistence across a Docker restart and a reboot, DNS on the real host, the live harness egress checks
 (`test/validation/egress-checks.ts`, never run), and the new-connection cap, which is an unmeasured
 placeholder (`NEW_CONN_RATE=200/sec`). Details: [egress-host-notes.md](egress-host-notes.md).
+
+Known and deferred (final review, Minor): the reuse check does not look at `EnableIPv6` on an existing
+network; a container that was already running on a pre-policy network keeps running unfiltered and is
+not reported at startup (there are no production tenants yet); DNS to the configured resolvers and
+`ip:port` exceptions are not covered by the new-connection cap.
 
 New files: `ops/egress/` (script, example config, systemd unit), `src/modules/runtime/egress-canary.ts`,
 [runbook-egress.md](runbook-egress.md), [egress-host-notes.md](egress-host-notes.md). New configuration:

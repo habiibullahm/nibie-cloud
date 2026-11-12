@@ -1,7 +1,7 @@
 import { NetworkPolicyMissingError, VolumeQuotaMissingError } from '../../src/shared/errors.js';
 import {
   AUTH_REJECTED_DETAIL,
-  type DiskQuotaMode, type HealthResult, type RuntimeInspection, type RuntimeManager, type RuntimeSpec,
+  type DiskQuotaMode, type EgressPolicyMode, type HealthResult, type RuntimeInspection, type RuntimeManager, type RuntimeSpec,
 } from '../../src/modules/runtime/types.js';
 
 /**
@@ -40,6 +40,11 @@ export class FakeRuntime implements RuntimeManager {
   /** Mirrors the real manager: refuses only when quotas are enforced and the volume has none. */
   async assertVolumeQuota(_id: string, mode: DiskQuotaMode): Promise<void> {
     if (mode === 'enforce' && this.quotaMissing) throw new VolumeQuotaMissingError();
+  }
+
+  /** Mirrors the real manager: refuses only when the policy is enforced and the network lacks the name. */
+  async assertNetworkPolicy(_id: string, mode: EgressPolicyMode): Promise<void> {
+    if (mode === 'enforce' && this.networkPolicyMissing) throw new NetworkPolicyMissingError();
   }
 
   async start(id: string): Promise<void> {

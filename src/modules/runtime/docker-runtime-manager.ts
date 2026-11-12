@@ -16,7 +16,7 @@ import {
 } from './hardening.js';
 import {
   AUTH_REJECTED_DETAIL,
-  type DiskQuotaMode, type HealthResult, type RuntimeInspection, type RuntimeManager, type RuntimeSpec, type RuntimeState,
+  type DiskQuotaMode, type EgressPolicyMode, type HealthResult, type RuntimeInspection, type RuntimeManager, type RuntimeSpec, type RuntimeState,
 } from './types.js';
 import { isQuotaUnsupported, readVolumeQuotaMb, sizedVolumeOpts } from './volume-quota.js';
 
@@ -91,6 +91,20 @@ export class DockerRuntimeManager implements RuntimeManager {
         throw e;
       }
       if (readVolumeQuotaMb(volume) === null) throw new VolumeQuotaMissingError();
+    });
+  }
+
+  async assertNetworkPolicy(instanceId: string, mode: EgressPolicyMode): Promise<void> {
+    if (mode !== 'enforce') return;
+    await guard(async () => {
+      let network: Docker.NetworkInspectInfo;
+      try {
+        network = await this.docker.getNetwork(networkName(instanceId)).inspect();
+      } catch (e) {
+        if (statusCode(e) === 404) throw new NetworkPolicyMissingError();
+        throw e;
+      }
+      if (network.Options?.[BRIDGE_NAME_OPTION] !== bridgeName(instanceId)) throw new NetworkPolicyMissingError();
     });
   }
 

@@ -11,6 +11,11 @@
 #
 # --dry-run prints every iptables command that would run (one per line, in order) and changes nothing,
 # so it needs neither root nor iptables. The config file is parsed, never sourced or executed.
+#
+# apply validates the whole config first, then loads the chain in ONE atomic iptables-restore
+# transaction, so a failure leaves the previous chain untouched (never a half-filled one behind live
+# jumps). Tenant IPv6 is switched off with ip6tables DROP rules on INPUT and FORWARD for -i hn+.
+# remove is a deliberate, manual operation: nothing in the systemd unit calls it.
 set -euo pipefail
 
 CHAIN="HERMES-EGRESS"
@@ -96,17 +101,38 @@ ipt() {
   fi
 }
 
+# Same for ip6tables. Without ip6tables on the host there is nothing to configure: say so and go on.
+ipt6() {
+  if (( DRY_RUN )); then
+    printf 'ip6tables -w %s\n' "$*"
+  elif command -v ip6tables >/dev/null 2>&1; then
+    ip6tables -w "$@"
+  else
+    printf 'hermes-egress: ip6tables not found, tenant IPv6 not filtered by this script\n' >&2
+  fi
+}
+has_ip6tables() { command -v ip6tables >/dev/null 2>&1; }
+
 # Quietly test a rule or chain; always succeeds in --dry-run so the commands are printed unconditionally.
 chain_exists() { iptables -w -n -L "$CHAIN" >/dev/null 2>&1; }
 jump_exists() { iptables -w -C "$1" -i "$IFACE" -j "$CHAIN" >/dev/null 2>&1; }
 
+# Real mode collects the whole chain as one iptables-restore transaction (flushed and refilled
+# atomically); --dry-run prints the equivalent iptables commands instead.
+RESTORE=""
+
 ensure_chain() {
   if (( DRY_RUN )); then
     ipt -N "$CHAIN"
+    ipt -F "$CHAIN"
   else
-    chain_exists || ipt -N "$CHAIN"
+    RESTORE=":${CHAIN} - [0:0]"$'\n'
   fi
-  ipt -F "$CHAIN"
+}
+
+load_chain() {
+  (( DRY_RUN )) && return 0
+  printf '*filter\n%sCOMMIT\n' "$RESTORE" | iptables-restore -w --noflush
 }
 
 ensure_jump() {
@@ -118,14 +144,32 @@ ensure_jump() {
   fi
 }
 
-rule() { ipt -A "$CHAIN" "$@"; }
+ensure_ip6_drop() {
+  local base="$1"
+  if (( DRY_RUN )); then
+    ipt6 -I "$base" 1 -i "$IFACE" -j DROP
+  elif has_ip6tables; then
+    ip6tables -w -C "$base" -i "$IFACE" -j DROP >/dev/null 2>&1 || ipt6 -I "$base" 1 -i "$IFACE" -j DROP
+  else
+    ipt6 -I "$base" 1 -i "$IFACE" -j DROP
+  fi
+}
+
+rule() {
+  if (( DRY_RUN )); then
+    ipt -A "$CHAIN" "$@"
+  else
+    RESTORE+="-A ${CHAIN} $*"$'\n'
+  fi
+}
 
 cmd_apply() {
   local r e ip port range num unit
   ensure_chain
   # 1. Return traffic of connections that were already allowed (also the control plane's own health checks).
   rule -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
-  # 2. DNS, only to the configured resolvers (so a private resolver keeps working).
+  # 2. DNS to the configured resolvers, so a private resolver keeps working. (Port 53 to a public address
+  #    needs no rule: it falls through to RETURN like any public traffic.) Not covered by the cap below.
   for r in $RESOLVERS; do
     rule -p udp -d "$r" --dport 53 -j ACCEPT
     rule -p tcp -d "$r" --dport 53 -j ACCEPT
@@ -153,9 +197,13 @@ cmd_apply() {
   # 7. Everything else is the public internet. RETURN, not ACCEPT: Docker's own chains (and the host
   #    firewall) must still see this traffic.
   rule -j RETURN
+  load_chain
   # Only now send traffic through the finished chain.
   ensure_jump DOCKER-USER
   ensure_jump INPUT
+  # IPv6 is off on tenant networks; drop anything that still shows up on a tenant bridge.
+  ensure_ip6_drop INPUT
+  ensure_ip6_drop FORWARD
 }
 
 cmd_remove() {
@@ -174,6 +222,13 @@ cmd_remove() {
     ipt -F "$CHAIN"
     ipt -X "$CHAIN"
   fi
+  for base in INPUT FORWARD; do
+    if (( DRY_RUN )); then
+      ipt6 -D "$base" -i "$IFACE" -j DROP
+    elif has_ip6tables; then
+      while ip6tables -w -C "$base" -i "$IFACE" -j DROP >/dev/null 2>&1; do ipt6 -D "$base" -i "$IFACE" -j DROP; done
+    fi
+  done
 }
 
 cmd_status() {
@@ -182,13 +237,27 @@ cmd_status() {
     ipt -S "$CHAIN"
     ipt -C DOCKER-USER -i "$IFACE" -j "$CHAIN"
     ipt -C INPUT -i "$IFACE" -j "$CHAIN"
+    ipt -C "$CHAIN" -m addrtype --dst-type LOCAL -j REJECT
+    ipt -C "$CHAIN" -j RETURN
+    ipt6 -C INPUT -i "$IFACE" -j DROP
+    ipt6 -C FORWARD -i "$IFACE" -j DROP
     return 0
   fi
   if chain_exists; then
     ipt -S "$CHAIN"
+    # The chain is loaded atomically, but prove it is whole: its last two rules must be there.
+    iptables -w -C "$CHAIN" -m addrtype --dst-type LOCAL -j REJECT >/dev/null 2>&1 || { printf 'MISSING: host-local reject in %s (chain incomplete)\n' "$CHAIN" >&2; missing=1; }
+    iptables -w -C "$CHAIN" -j RETURN >/dev/null 2>&1 || { printf 'MISSING: final RETURN in %s (chain incomplete)\n' "$CHAIN" >&2; missing=1; }
   else
     printf 'MISSING: chain %s\n' "$CHAIN" >&2
     missing=1
+  fi
+  if has_ip6tables; then
+    for base in INPUT FORWARD; do
+      ip6tables -w -C "$base" -i "$IFACE" -j DROP >/dev/null 2>&1 || { printf 'MISSING: IPv6 drop in %s\n' "$base" >&2; missing=1; }
+    done
+  else
+    printf 'note: ip6tables not found, tenant IPv6 not checked\n' >&2
   fi
   for base in DOCKER-USER INPUT; do
     if jump_exists "$base"; then
