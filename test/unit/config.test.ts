@@ -198,3 +198,32 @@ describe('loadConfig: customer API settings', () => {
     expect(() => loadConfig({ ...base, MAX_INSTANCES_PER_TENANT: 'abc' })).toThrow('MAX_INSTANCES_PER_TENANT');
   });
 });
+
+describe('loadConfig: Redis', () => {
+  it('leaves Redis unset by default', () => {
+    expect(loadConfig(base).redisUrl).toBeNull();
+    expect(loadConfig({ ...base, REDIS_URL: '' }).redisUrl).toBeNull();
+  });
+
+  it('accepts redis: and rediss: URLs', () => {
+    expect(loadConfig({ ...base, REDIS_URL: 'redis://:pw@127.0.0.1:6379' }).redisUrl).toBe('redis://:pw@127.0.0.1:6379');
+    expect(loadConfig({ ...base, REDIS_URL: 'rediss://:pw@cache.example:6380' }).redisUrl).toBe('rediss://:pw@cache.example:6380');
+  });
+
+  it('rejects another scheme without echoing the value', () => {
+    let message = '';
+    try {
+      loadConfig({ ...base, REDIS_URL: 'http://:topsecretpw@127.0.0.1:6379' });
+    } catch (e) {
+      message = (e as Error).message;
+    }
+    expect(message).toContain('REDIS_URL');
+    expect(message).not.toContain('topsecretpw');
+  });
+
+  it('requires REDIS_URL in production', () => {
+    const prod = { ...base, NODE_ENV: 'production', HERMES_DISK_QUOTA: 'enforce', HERMES_EGRESS_POLICY: 'enforce', HERMES_CANARY_IMAGE: 'busybox@sha256:' + 'a'.repeat(64) };
+    expect(() => loadConfig(prod)).toThrow('REDIS_URL');
+    expect(loadConfig({ ...prod, REDIS_URL: 'redis://:pw@127.0.0.1:6379' }).redisUrl).not.toBeNull();
+  });
+});

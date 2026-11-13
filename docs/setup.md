@@ -4,14 +4,14 @@
 
 - Node.js 22+, pnpm 10
 - A **Linux Docker daemon** reachable at `/var/run/docker.sock` (Docker Engine, or Docker Desktop with Linux containers)
-- PostgreSQL 16 (provided by `compose.yaml`)
+- PostgreSQL 16 and Redis 7 (both provided by `compose.yaml`; Redis is optional in development, see Job queue)
 - For production-like runs with `HERMES_DISK_QUOTA=enforce` (the default): Docker's data root on **XFS mounted with project quotas** (see below)
 
 ## First run
 
 ```bash
 pnpm install                          # also runs `prisma generate`
-docker compose up -d postgres         # 127.0.0.1:5433, dev credentials only
+docker compose up -d postgres redis   # Postgres 127.0.0.1:5433, Redis 127.0.0.1:6380, dev credentials only
 cp .env.example .env                  # git-ignored; set ADMIN_TOKEN (>= 24 chars): openssl rand -hex 24
                                       # and HERMES_MASTER_KEY (>= 32 chars): openssl rand -hex 32
 pnpm db:migrate                       # applies prisma/migrations to DATABASE_URL
@@ -30,10 +30,10 @@ DATABASE_URL=postgresql://hermes:hermes_dev_only@127.0.0.1:5433/hermes_test pnpm
 | --- | --- |
 | `pnpm build` | Type-check (no emit) |
 | `pnpm test:unit` | Pure logic tests (no Docker/DB) |
-| `pnpm test:integration` | Real Postgres + real Docker (builds the stub image on first run) |
+| `pnpm test:integration` | Real Postgres, Docker and Redis (builds the stub image on first run). Set `REDIS_URL` for the job tests; they fail loudly without it |
 | `pnpm test` | Everything. Integration tests clean up the containers/volumes/networks they create |
 | `pnpm demo [--keep]` | End-to-end proof run through the API using the stub image |
-| `pnpm dev` | Starts the operator API on `127.0.0.1:$PORT` and the reconciler (15 s loop) |
+| `pnpm dev` | Starts the operator API on `127.0.0.1:$PORT` and the reconciler (15 s loop; a scheduled job when `REDIS_URL` is set) |
 
 ## Configuration
 
@@ -55,6 +55,33 @@ DATABASE_URL=postgresql://hermes:hermes_dev_only@127.0.0.1:5433/hermes_test pnpm
 | `BETA_ALLOWED_EMAILS` | Comma-separated emails allowed to create instances until payments exist. Empty or unset: nobody can (fail closed). Set it in the host environment only, never in the repository |
 | `MAX_INSTANCES_PER_TENANT` | Default `1`. Non-deleted instances a tenant may hold through the customer API (the operator API has no cap) |
 | `HERMES_RUNTIME` | `runc` (default) or `runsc` (gVisor). With `runsc`, startup fails if the Docker daemon does not list that runtime. Applies only to containers created from now on |
+
+## Job queue (Redis and BullMQ)
+
+With `REDIS_URL` set, create/start/stop/restart/delete are BullMQ jobs: the API answers `202` with the
+instance and a `jobId`, a worker in the same process runs the operation, and the reconciler plus a
+sweeper for stranded `PENDING` instances run as a scheduled job guarded by a Redis lock (several API
+replicas are safe). Without `REDIS_URL` everything runs inline in the request as before (`jobId` is
+`null`); `REDIS_URL` is **required when `NODE_ENV=production`**.
+
+- Redis settings the queue needs: AOF (`--appendonly yes`) and `--maxmemory-policy noeviction`; bind it to
+  loopback and set a password (`redis://:<password>@127.0.0.1:6380`). `compose.yaml` does this for development.
+- Retries: up to 4 attempts with exponential backoff and jitter (2 s × 2ⁿ, cap 60 s) for transient errors
+  (runtime or database outages); wrong-state, missing-row and malformed jobs fail at once. Exhausted jobs stay
+  in the failed set for 7 days: `GET /api/v1/jobs/failed` and `POST /api/v1/jobs/failed/:jobId/retry`
+  (operator API; reasons are error class names, never messages).
+- Redis down: stop/start/restart/delete answer `503 queue_unavailable` and change nothing; creating an
+  instance still answers `202` with `jobId: null` and the sweeper enqueues it when Redis is back.
+- If Redis loses its data, the schedule is re-registered within 60 s and the sweeper re-enqueues `PENDING`
+  instances; jobs that were only in Redis (not yet started) are lost, and the user can repeat the action.
+- While Redis is unreachable the scheduled ticks cannot run, so each process reconciles on its own timer
+  (recovery and lease reaping never depend on Redis). Each tick sweeps `PENDING` rows first and the
+  reaper leaves `PENDING` rows to the sweeper when a queue is configured.
+- A job whose worker lost its lock (crash, or a Redis blip longer than 30 s) is not redelivered: it lands in
+  the failed set as `JobStalled`, because a repeated restart would restart the instance twice. The lease
+  reaper resolves what the crashed operation left behind.
+- Shutdown (SIGTERM) waits at most 10 s per component for running jobs and the process exits within 30 s
+  even if Redis is down.
 
 ## Disk quota host setup (XFS)
 
@@ -118,6 +145,7 @@ curl -H "$H" -H "Idempotency-Key: $(uuidgen)" -H 'content-type: application/json
 # Postgres unreachable -> 503 {error.code: database_unavailable}. Docker unreachable -> 503 runtime_unavailable.
 # GET  /api/v1/tenants/:t/instances[/:i[/status|/events]]
 # POST /api/v1/tenants/:t/instances/:i/{start,stop,restart}      DELETE /api/v1/tenants/:t/instances/:i
+# These answer 202 {instance, jobId}; with a job queue the instance shows its new status once the worker picks the job up.
 ```
 
 There is no endpoint to create tenants/plans/nodes yet; seed rows directly (see `scripts/demo.ts`).

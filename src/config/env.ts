@@ -26,6 +26,18 @@ const dashboardOrigin = z.preprocess(
   z.string().refine((v) => parseOrigin(v, { httpsOnly: false, allowTrailingSlash: false }) !== null).optional(),
 );
 
+const redisUrl = z.preprocess(
+  emptyToUndefined,
+  z.string().refine((v) => {
+    try {
+      const p = new URL(v).protocol;
+      return p === 'redis:' || p === 'rediss:';
+    } catch {
+      return false;
+    }
+  }).optional(),
+);
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DATABASE_URL: z.string().min(1),
@@ -46,6 +58,8 @@ const schema = z.object({
   DASHBOARD_ORIGIN: dashboardOrigin,
   /** Comma-separated emails allowed to create instances until payments exist. Empty: nobody. */
   BETA_ALLOWED_EMAILS: z.string().optional(),
+  /** `redis://[:password@]host:port`. Unset runs operations inline (no queue); required in production. */
+  REDIS_URL: redisUrl,
   MAX_INSTANCES_PER_TENANT: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(1000).default(1)),
 }).superRefine((e, ctx) => {
   // Without enforcement a tenant can fill the node's disk, so it is never allowed in production.
@@ -55,6 +69,10 @@ const schema = z.object({
   // Without the host ruleset a tenant can reach the host, cloud metadata and private networks.
   if (e.NODE_ENV === 'production' && e.HERMES_EGRESS_POLICY === 'off') {
     ctx.addIssue({ code: 'custom', path: ['HERMES_EGRESS_POLICY'], message: 'must be enforce in production' });
+  }
+  // Without the queue a request runs the whole operation inline and a crash loses it.
+  if (e.NODE_ENV === 'production' && !e.REDIS_URL) {
+    ctx.addIssue({ code: 'custom', path: ['REDIS_URL'], message: 'required in production' });
   }
   // The startup canary needs an image pinned by digest, like every other image.
   if (e.HERMES_EGRESS_POLICY === 'enforce' && (!e.HERMES_CANARY_IMAGE || !DIGEST_PINNED.test(e.HERMES_CANARY_IMAGE))) {
@@ -82,6 +100,8 @@ export interface Config {
   /** Lowercased, trimmed. Empty means nobody may provision (fail closed). */
   betaAllowedEmails: string[];
   maxInstancesPerTenant: number;
+  /** Null: no job queue, operations run inline in the request. */
+  redisUrl: string | null;
 }
 
 /** Parse environment. Errors name the failing keys only, never the values. */
@@ -113,5 +133,6 @@ export function loadConfig(env: NodeJS.ProcessEnv | Record<string, string | unde
       .map((s) => s.trim().toLowerCase())
       .filter((s) => s.length > 0),
     maxInstancesPerTenant: e.MAX_INSTANCES_PER_TENANT,
+    redisUrl: e.REDIS_URL ?? null,
   };
 }

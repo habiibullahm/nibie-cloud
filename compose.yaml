@@ -10,5 +10,14 @@ services:
       - "127.0.0.1:5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+  # Job queue (BullMQ). Loopback only, password required, AOF on, no eviction (BullMQ requirement).
+  redis:
+    image: redis:7.4
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction", "--requirepass", "hermes_dev_only"]
+    ports:
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - redisdata:/data
 volumes:
   pgdata:
+  redisdata:

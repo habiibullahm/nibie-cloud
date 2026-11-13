@@ -31,13 +31,13 @@ Backend (repo root):
 
 ```bash
 pnpm install                      # also runs `prisma generate`
-docker compose up -d postgres     # dev DB on 127.0.0.1:5433
+docker compose up -d postgres redis   # dev DB on 127.0.0.1:5433, Redis on 127.0.0.1:6380
 cp .env.example .env              # then set ADMIN_TOKEN (>= 24 chars) and HERMES_MASTER_KEY (>= 32 chars)
 pnpm db:migrate                   # apply prisma migrations
 pnpm dev                          # operator API on 127.0.0.1:$PORT (default 3000) + 15 s reconciler loop
 pnpm build                        # type-check only (tsc --noEmit); there is no emitted build
 pnpm test:unit                    # no Docker or DB needed
-pnpm test:integration             # needs a Linux Docker daemon + Postgres; builds the stub image on first run
+pnpm test:integration             # needs a Linux Docker daemon + Postgres + Redis (REDIS_URL); builds the stub image on first run
 pnpm test                         # both
 pnpm vitest run test/unit/hardening.test.ts            # single file
 pnpm vitest run test/unit/hardening.test.ts -t "name"  # single test by name
@@ -58,9 +58,9 @@ pnpm typecheck && pnpm lint && pnpm test    # also: pnpm build
 pnpm vitest run test/status.test.ts         # single file
 ```
 
-Last verified in a cloud sandbox on 2026-11-12 (milestone A branch on top of `a8d86fd`): backend `tsc` clean and
-`pnpm test` 409 passed, 2 skipped (unit and Docker/Postgres integration, stub image); dashboard `typecheck`,
-`lint` and 44/44 tests (earlier run).
+Last verified in a cloud sandbox on 2026-11-13 (milestone B branch on top of main `83db8e0`): backend `tsc` clean
+and `pnpm test` 467 passed, 2 skipped (unit and Docker/Postgres/Redis integration, stub image); dashboard
+`typecheck`, `lint` and 44/44 tests (earlier run).
 
 ## Architecture (the parts that span files)
 
@@ -89,6 +89,13 @@ Last verified in a cloud sandbox on 2026-11-12 (milestone A branch on top of `a8
   `/api/sessions`; a 401 marks the instance `DEGRADED` (`auth_rejected`) without a restart.
   `HERMES_MASTER_KEY` and `HERMES_RUNTIME` (`runc` default, `runsc` for gVisor) only apply to
   containers created afterwards.
+- **Jobs** (`src/modules/jobs`, `instance-commands.ts`): with `REDIS_URL` (required in production), HTTP
+  routes call `InstanceCommands`, which validates the transition (`decideOp`) and enqueues a BullMQ job (ids
+  only, id `<instanceId>_<op>`); a worker runs the same `InstanceService` methods, so leases and fencing
+  are unchanged. Without `REDIS_URL` the same call runs inline and `jobId` is `null`. Transient errors retry
+  4 times with backoff; exhausted jobs are listed at `GET /api/v1/jobs/failed` (operator API). The
+  reconciler and a sweeper for stranded `PENDING` rows run as a scheduled job under a Redis lock. Redis
+  down: lifecycle actions answer 503, creating still answers 202 (the row is the intent).
 - **Disk quota and egress** (`runtime/volume-quota.ts`, `runtime/egress-canary.ts`, `ops/egress/`):
   `HERMES_DISK_QUOTA` and `HERMES_EGRESS_POLICY` are `enforce|off` (`off` refused in production). Tenant
   volumes carry a size quota from `Plan.storageMb` and tenant bridges are named `hn<12 hex>` so one host

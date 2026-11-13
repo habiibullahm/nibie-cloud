@@ -76,3 +76,10 @@ export class InstanceLimitError extends AppError {
     super('Instance limit reached for this account', 409, 'instance_limit_reached');
   }
 }
+
+/** Redis cannot be reached, so the operation was not accepted and nothing changed. */
+export class QueueUnavailableError extends AppError {
+  constructor() {
+    super('Job queue is temporarily unavailable', 503, 'queue_unavailable');
+  }
+}
