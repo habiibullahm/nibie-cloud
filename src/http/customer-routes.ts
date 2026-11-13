@@ -5,6 +5,9 @@ import type { Config } from '../config/env.js';
 import type { InstanceCommands } from '../modules/instances/instance-commands.js';
 import type { InstanceService } from '../modules/instances/instance-service.js';
 import { ForbiddenError } from '../shared/errors.js';
+import type { LogService } from '../modules/integrations/log-service.js';
+import type { Integrations } from '../modules/integrations/types.js';
+import { registerCustomerIntegrationRoutes } from './integration-routes.js';
 import { createBody, idempotencyKey } from './operator-routes.js';
 import { principalOf, registerCustomerAuth, type CustomerAuthDeps } from './customer-auth.js';
 
@@ -16,7 +19,7 @@ export interface CustomerDeps extends CustomerAuthDeps {
  * Customer API: Supabase access token required, tenant taken from the verified user's membership.
  * Registered in its own plugin so the operator API's bearer hook never applies here, and vice versa.
  */
-export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: CustomerDeps; service: InstanceService; commands: InstanceCommands; config: Config }): void {
+export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: CustomerDeps; service: InstanceService; commands: InstanceCommands; config: Config; integrations: Integrations | null; logs: LogService | null }): void {
   const { service, commands, config } = deps;
   const { prisma } = deps.customer;
   const allowed = new Set(config.betaAllowedEmails);
@@ -89,5 +92,7 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
       const { instance, jobId } = await commands.delete(principalOf(req).tenantId, req.params.instanceId);
       return reply.status(202).send({ instance, jobId });
     });
+
+    registerCustomerIntegrationRoutes(api, deps.integrations, deps.logs);
   }, { prefix: '/api/v1' });
 }

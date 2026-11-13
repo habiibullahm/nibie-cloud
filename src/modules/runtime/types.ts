@@ -1,3 +1,5 @@
+import type { ModelConfig } from './hermes-config.js';
+
 export interface ResourceLimits {
   cpuMillis: number;
   memoryMb: number;
@@ -24,6 +26,12 @@ export interface RuntimeSpec {
   env: Record<string, string>;
   runtime?: SupportedRuntime;
   apiServerKey?: string;
+  /**
+   * Platform-managed `model:` block for `/opt/data/config.yaml` (ADR 0003). Applied only when the container
+   * is created (`ensure` of a new container, or `recreate`). `undefined`: leave the file alone. `null`: remove
+   * a block the platform wrote earlier. The provider key itself is never here; it travels in `env`.
+   */
+  modelConfig?: ModelConfig | null;
 }
 
 export type RuntimeState = 'absent' | 'created' | 'running' | 'exited' | 'restarting' | 'dead';
@@ -64,12 +72,22 @@ export interface RuntimeManager {
    */
   assertVolumeQuota(instanceId: string, mode: DiskQuotaMode): Promise<void>;
   /**
+   * Removes the container (network and volume stay) and creates it again from `spec`, so a changed
+   * environment or model block takes effect. Does not start it. Idempotent like `ensure`.
+   */
+  recreate(spec: RuntimeSpec): Promise<{ hostPort: number | null; volumeQuotaMb: number | null }>;
+  /**
    * Fail-closed guard for the paths that start an existing container without `ensure()`: throws
    * `NetworkPolicyMissingError` when `mode` is `enforce` and the tenant network is absent or lacks the
    * `hn` bridge name the host ruleset matches (a network created before the policy existed). Does
    * nothing when `mode` is `off`.
    */
   assertNetworkPolicy(instanceId: string, mode: EgressPolicyMode): Promise<void>;
+  /**
+   * Last `tail` lines of the container's output (stdout and stderr), oldest first. Empty when no container
+   * exists. Raw: callers must redact before showing it to anyone.
+   */
+  logs(instanceId: string, opts: { tail: number }): Promise<string[]>;
   start(instanceId: string): Promise<void>;
   /** No-op if already stopped or absent. */
   stop(instanceId: string, timeoutSec?: number): Promise<void>;

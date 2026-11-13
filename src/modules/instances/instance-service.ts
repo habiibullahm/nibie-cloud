@@ -2,11 +2,14 @@ import type { Instance, InstanceStatus, Plan, Prisma, PrismaClient } from '@pris
 import { ConflictError, InstanceLimitError, NetworkPolicyMissingError, NotFoundError, RuntimeUnavailableError, ValidationError, VolumeQuotaMissingError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import { isUuid } from '../../shared/uuid.js';
+import { noRuntimeConfig, type RuntimeConfigLoader } from '../integrations/runtime-env.js';
 import { deriveApiKey } from '../runtime/api-key.js';
+import { ConfigUnreadableError } from '../runtime/hermes-config.js';
 import { assertPinnedImage } from '../runtime/image-policy.js';
 import type { DiskQuotaMode, EgressPolicyMode, RuntimeManager, SupportedRuntime } from '../runtime/types.js';
 import { findOwned, noteQuotaMismatch, revert, transition } from './instance-repo.js';
 import { newLease, startHeartbeat, type Lease } from './lease.js';
+import { markApplied, runtimeSpec, startOrRecreate } from './runtime-apply.js';
 
 export interface InstanceView {
   id: string;
@@ -47,6 +50,10 @@ export interface InstanceServiceDeps {
   leaseTtlMs?: number;
   /** A single operation stops renewing its lease after this long (hung-operation backstop). */
   maxOperationMs?: number;
+  /** Customer configuration (Telegram, provider) containers are created with. Default: none. */
+  runtimeConfig?: RuntimeConfigLoader;
+  /** Removes the instance's provider and Telegram configuration and secrets once its runtime is gone. */
+  purgeIntegrations?: (tenantId: string, instanceId: string) => Promise<void>;
   now?: () => Date;
 }
 
@@ -110,6 +117,8 @@ export class InstanceService {
   private readonly leaseTtlMs: number;
   private readonly maxOperationMs: number;
   private readonly now: () => Date;
+  private readonly runtimeConfig: RuntimeConfigLoader;
+  private readonly purgeIntegrations: (tenantId: string, instanceId: string) => Promise<void>;
 
   constructor(deps: InstanceServiceDeps) {
     assertPinnedImage(deps.image, { production: deps.production });
@@ -126,6 +135,8 @@ export class InstanceService {
     this.leaseTtlMs = deps.leaseTtlMs ?? 60_000;
     this.maxOperationMs = deps.maxOperationMs ?? 10 * 60_000;
     this.now = deps.now ?? (() => new Date());
+    this.runtimeConfig = deps.runtimeConfig ?? noRuntimeConfig;
+    this.purgeIntegrations = deps.purgeIntegrations ?? (async () => undefined);
   }
 
   /**
@@ -256,6 +267,8 @@ export class InstanceService {
         });
         throw e;
       }
+      // Only after the runtime is really gone. If this fails the lease expires and the reaper finishes the job.
+      await this.purgeIntegrations(i.tenantId, i.id);
       await transition(this.prisma, {
         id: i.id, from: 'DELETING', to: 'DELETED', owner, eventType: 'instance.deleted', message: 'Instance and data deleted',
         data: { deletedAt: new Date(), hostPort: null },
@@ -309,17 +322,12 @@ export class InstanceService {
     const tenantId = inst.tenantId;
     let current: InstanceStatus = 'PROVISIONING';
     try {
-      const ensured = await this.runtime.ensure({
-        instanceId: inst.id,
-        tenantId,
-        image: inst.image,
-        limits: { cpuMillis: plan.cpuMillis, memoryMb: plan.memoryMb, pids: plan.pids, storageMb: plan.storageMb },
-        diskQuota: this.diskQuota,
-        egressPolicy: this.egressPolicy,
-        env: { HERMES_INSTANCE_ID: inst.id },
-        apiServerKey: this.apiKey(inst.id),
-        runtime: this.containerRuntime,
-      });
+      const cfg = await this.runtimeConfig(tenantId, inst.id);
+      const spec = runtimeSpec(this.specDeps(), inst, plan, cfg);
+      // A retry after a failed attempt can find a container created before the latest configuration; `ensure`
+      // leaves an existing container alone, so recreate it (volume kept) rather than claim it is up to date.
+      const ensured = inst.appliedRevision < cfg.revision ? await this.runtime.recreate(spec) : await this.runtime.ensure(spec);
+      await markApplied(this.prisma, inst.id, cfg.revision);
       await noteQuotaMismatch(this.prisma, inst.id, ensured.volumeQuotaMb, plan.storageMb);
       await transition(this.prisma, { id: inst.id, from: 'PROVISIONING', to: 'CONFIGURING', owner, eventType: 'runtime.created', message: 'Runtime created' });
       current = 'CONFIGURING';
@@ -370,10 +378,11 @@ export class InstanceService {
     try {
       await this.runtime.assertVolumeQuota(i.id, this.diskQuota);
       await this.runtime.assertNetworkPolicy(i.id, this.egressPolicy);
-      await this.runtime[op](i.id);
+      await startOrRecreate({ ...this.specDeps(), prisma: this.prisma, runtime: this.runtime, loader: this.runtimeConfig }, i, op);
     } catch (e) {
-      if (e instanceof VolumeQuotaMissingError || e instanceof NetworkPolicyMissingError) {
-        const why = e instanceof VolumeQuotaMissingError ? 'volume has no disk quota' : 'network does not match the egress policy';
+      if (e instanceof VolumeQuotaMissingError || e instanceof NetworkPolicyMissingError || e instanceof ConfigUnreadableError) {
+        const why = e instanceof VolumeQuotaMissingError ? 'volume has no disk quota'
+          : e instanceof ConfigUnreadableError ? 'configuration file could not be read' : 'network does not match the egress policy';
         await revert(this.prisma, { id: i.id, from: 'STARTING', to: from, owner, eventType: 'runtime.start_refused', message: `Start refused: ${why}` });
         throw e;
       }
@@ -406,6 +415,10 @@ export class InstanceService {
     await transition(this.prisma, {
       id: instanceId, from: 'STARTING', to: 'DEGRADED', reason, owner, eventType: 'instance.degraded', message: `Instance degraded: ${reason}`,
     }).catch(() => undefined);
+  }
+
+  private specDeps() {
+    return { masterKey: this.masterKey, diskQuota: this.diskQuota, egressPolicy: this.egressPolicy, containerRuntime: this.containerRuntime };
   }
 
   private apiKey(instanceId: string): string {

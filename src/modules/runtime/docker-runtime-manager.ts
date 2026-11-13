@@ -4,6 +4,7 @@ import type { Logger } from '../../shared/logger.js';
 import {
   BRIDGE_NAME_OPTION,
   CONTAINER_PORT,
+  DATA_MOUNT,
   LABEL_INSTANCE,
   LABEL_MANAGED,
   LABEL_TENANT,
@@ -14,6 +15,9 @@ import {
   networkName,
   volumeName,
 } from './hardening.js';
+import { demuxLogs } from './docker-logs.js';
+import { applyModelBlock, type ModelConfig } from './hermes-config.js';
+import { buildTar, collectCapped, MAX_CONFIG_BYTES, readFirstFile } from './tar.js';
 import {
   AUTH_REJECTED_DETAIL,
   type DiskQuotaMode, type EgressPolicyMode, type HealthResult, type RuntimeInspection, type RuntimeManager, type RuntimeSpec, type RuntimeState,
@@ -69,15 +73,38 @@ export class DockerRuntimeManager implements RuntimeManager {
       const existing = await this.findContainer(spec.instanceId);
       if (!existing) {
         await this.ensureImage(spec.image);
+        let createdHere = true;
         try {
           await this.docker.createContainer(config);
         } catch (e) {
           if (statusCode(e) !== 409) throw e; // lost a race with a concurrent ensure
+          createdHere = false;
+        }
+        if (createdHere && spec.modelConfig !== undefined) {
+          try {
+            await this.applyModel(containerName(spec.instanceId), spec.modelConfig);
+          } catch (e) {
+            // Never leave an unseeded container behind: the next ensure would skip the seed and start it.
+            await this.docker.getContainer(containerName(spec.instanceId)).remove({ force: true }).catch(() => undefined);
+            throw e;
+          }
         }
       }
       this.logger.info({ instanceId: spec.instanceId }, 'runtime ensured');
       return { hostPort: null, volumeQuotaMb };
     });
+  }
+
+  async recreate(spec: RuntimeSpec): Promise<{ hostPort: number | null; volumeQuotaMb: number | null }> {
+    buildContainerConfig(spec); // validate before removing anything
+    await guard(async () => {
+      try {
+        await this.docker.getContainer(containerName(spec.instanceId)).remove({ force: true });
+      } catch (e) {
+        if (statusCode(e) !== 404) throw e;
+      }
+    });
+    return this.ensure(spec);
   }
 
   async assertVolumeQuota(instanceId: string, mode: DiskQuotaMode): Promise<void> {
@@ -124,6 +151,21 @@ export class DockerRuntimeManager implements RuntimeManager {
         await this.docker.getContainer(containerName(instanceId)).stop({ t: timeoutSec });
       } catch (e) {
         if (statusCode(e) !== 304 && statusCode(e) !== 404) throw e;
+      }
+    });
+  }
+
+  async logs(instanceId: string, opts: { tail: number }): Promise<string[]> {
+    const tail = Math.max(1, Math.min(Math.floor(opts.tail), 500));
+    return guard(async () => {
+      try {
+        const raw = await this.docker.getContainer(containerName(instanceId)).logs({ stdout: true, stderr: true, tail, follow: false, timestamps: true });
+        const buf = Buffer.isBuffer(raw) ? raw : Buffer.from(String(raw));
+        // Bounded in bytes as well: a few very long lines must not become a huge response.
+        return demuxLogs(buf.length > 256 * 1024 ? buf.subarray(buf.length - 256 * 1024) : buf).slice(-tail);
+      } catch (e) {
+        if (statusCode(e) === 404) return [];
+        throw e;
       }
     });
   }
@@ -224,6 +266,22 @@ export class DockerRuntimeManager implements RuntimeManager {
       }
       return usage;
     });
+  }
+
+  /** Writes the managed `model:` block into the (stopped) container's data volume, keeping the rest of the file. */
+  private async applyModel(name: string, model: ModelConfig | null): Promise<void> {
+    const c = this.docker.getContainer(name);
+    let existing: string | null = null;
+    try {
+      const stream = await c.getArchive({ path: `${DATA_MOUNT}/config.yaml` });
+      existing = readFirstFile(await collectCapped(stream as AsyncIterable<Buffer>, MAX_CONFIG_BYTES));
+    } catch (e) {
+      if (statusCode(e) !== 404) throw e;
+    }
+    const next = applyModelBlock(existing, model);
+    if (next === null) return;
+    // uid/gid 10000 is the `hermes` user the image drops to (ADR 0002).
+    await c.putArchive(buildTar('config.yaml', next, { uid: 10000, gid: 10000, mode: 0o644 }), { path: DATA_MOUNT });
   }
 
   private async findContainer(instanceId: string): Promise<boolean> {

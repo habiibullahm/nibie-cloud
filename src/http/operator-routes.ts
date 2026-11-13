@@ -5,6 +5,8 @@ import type { Config } from '../config/env.js';
 import type { InstanceCommands } from '../modules/instances/instance-commands.js';
 import type { JobQueue } from '../modules/jobs/types.js';
 import type { InstanceService } from '../modules/instances/instance-service.js';
+import type { Integrations } from '../modules/integrations/types.js';
+import { registerOperatorIntegrationRoutes } from './integration-routes.js';
 import { NotFoundError, QueueUnavailableError } from '../shared/errors.js';
 
 export const createBody = z.object({ name: z.string(), planId: z.string().uuid() }).strict();
@@ -25,7 +27,7 @@ const PROXY_HEADERS = ['forwarded', 'x-forwarded-for', 'x-forwarded-host', 'x-fo
  * Operator-only API (bearer ADMIN_TOKEN). It is NOT the customer API: customers use the Supabase-token
  * surface in customer-routes.ts. Bind it to loopback; never route it from the public proxy.
  */
-export function registerOperatorRoutes(app: FastifyInstance, deps: { service: InstanceService; commands: InstanceCommands; queue: JobQueue | null; config: Config }): void {
+export function registerOperatorRoutes(app: FastifyInstance, deps: { service: InstanceService; commands: InstanceCommands; queue: JobQueue | null; config: Config; integrations: Integrations | null }): void {
   const { service, commands, queue, config } = deps;
   app.register(async (api) => {
     api.addHook('onRequest', async (req, reply) => {
@@ -47,6 +49,8 @@ export function registerOperatorRoutes(app: FastifyInstance, deps: { service: In
       await queue.retryFailed(req.params.jobId);
       return reply.status(202).send({ jobId: req.params.jobId });
     });
+
+    registerOperatorIntegrationRoutes(api, deps.integrations);
 
     const base = '/tenants/:tenantId/instances';
     type Params = { tenantId: string; instanceId: string };

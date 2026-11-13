@@ -31,6 +31,8 @@ export async function seed(prisma: PrismaClient) {
 export function wrapRuntime(inner: RuntimeManager, overrides: Partial<RuntimeManager>): RuntimeManager {
   return {
     ensure: (s) => inner.ensure(s),
+    recreate: (s) => inner.recreate(s),
+    logs: (i, o) => inner.logs(i, o),
     start: (i) => inner.start(i),
     stop: (i, t) => inner.stop(i, t),
     restart: (i) => inner.restart(i),
