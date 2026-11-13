@@ -150,3 +150,51 @@ describe('loadConfig', () => {
     }
   });
 });
+
+describe('loadConfig: customer API settings', () => {
+  it('leaves the customer API disabled when SUPABASE_URL and DASHBOARD_ORIGIN are unset', () => {
+    const cfg = loadConfig(base);
+    expect(cfg.supabaseUrl).toBeNull();
+    expect(cfg.dashboardOrigin).toBeNull();
+  });
+
+  it('strips a trailing slash from SUPABASE_URL', () => {
+    expect(loadConfig({ ...base, SUPABASE_URL: 'https://abcd.supabase.co/' }).supabaseUrl).toBe('https://abcd.supabase.co');
+  });
+
+  it.each(['http://abcd.supabase.co', 'not a url', 'https://abcd.supabase.co/auth/v1'])(
+    'rejects SUPABASE_URL %s',
+    (v) => {
+      expect(() => loadConfig({ ...base, SUPABASE_URL: v })).toThrow('SUPABASE_URL');
+    },
+  );
+
+  it('does not echo SUPABASE_URL in errors', () => {
+    let message = '';
+    try {
+      loadConfig({ ...base, SUPABASE_URL: 'http://secret-project-ref.example' });
+    } catch (e) {
+      message = (e as Error).message;
+    }
+    expect(message).toContain('SUPABASE_URL');
+    expect(message).not.toContain('secret-project-ref');
+  });
+
+  it('accepts a bare origin for DASHBOARD_ORIGIN and rejects a path', () => {
+    expect(loadConfig({ ...base, DASHBOARD_ORIGIN: 'https://cloud.nibie.app' }).dashboardOrigin).toBe('https://cloud.nibie.app');
+    expect(() => loadConfig({ ...base, DASHBOARD_ORIGIN: 'https://cloud.nibie.app/dashboard' })).toThrow('DASHBOARD_ORIGIN');
+  });
+
+  it('parses BETA_ALLOWED_EMAILS lowercased and trimmed, empty means nobody', () => {
+    expect(loadConfig({ ...base, BETA_ALLOWED_EMAILS: ' A@x.com, b@x.com ,' }).betaAllowedEmails).toEqual(['a@x.com', 'b@x.com']);
+    expect(loadConfig(base).betaAllowedEmails).toEqual([]);
+    expect(loadConfig({ ...base, BETA_ALLOWED_EMAILS: '' }).betaAllowedEmails).toEqual([]);
+  });
+
+  it('defaults MAX_INSTANCES_PER_TENANT to 1 and rejects 0 and non-numbers', () => {
+    expect(loadConfig(base).maxInstancesPerTenant).toBe(1);
+    expect(loadConfig({ ...base, MAX_INSTANCES_PER_TENANT: '3' }).maxInstancesPerTenant).toBe(3);
+    expect(() => loadConfig({ ...base, MAX_INSTANCES_PER_TENANT: '0' })).toThrow('MAX_INSTANCES_PER_TENANT');
+    expect(() => loadConfig({ ...base, MAX_INSTANCES_PER_TENANT: 'abc' })).toThrow('MAX_INSTANCES_PER_TENANT');
+  });
+});

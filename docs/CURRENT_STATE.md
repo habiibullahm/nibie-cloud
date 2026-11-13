@@ -1,6 +1,6 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-12 (egress controls branch). Index of all docs: [README.md](README.md).
+Last updated: 2026-11-12 (backend milestone A branch). Index of all docs: [README.md](README.md).
 
 ## Where things stand
 
@@ -26,7 +26,28 @@ Last updated: 2026-11-12 (egress controls branch). Index of all docs: [README.md
   `apps/web/anti-slop/`, 45 dashboard tests. It also gives outline and secondary buttons
   `border-strong` edges (approved by Nash, recorded in `DESIGN.md`).
 
+- **Backend milestone A (customer API).** On branch `claude/project-thread-b5f2bk`, rebased onto the egress controls merge
+  (`a8d86fd`): Supabase token verification (`src/modules/auth`), `User` and `TenantMember`
+  models with a new migration, a customer API next to the operator API (`src/http/customer-*.ts`),
+  CORS, rate limits, a beta provisioning gate and a per-tenant instance cap. Spec:
+  [superpowers/specs/2026-11-12-backend-design.md](superpowers/specs/2026-11-12-backend-design.md);
+  plan: [superpowers/plans/2026-11-12-backend-milestone-a-auth-customer-api.md](superpowers/plans/2026-11-12-backend-milestone-a-auth-customer-api.md).
+  Milestones B (Redis + BullMQ jobs), C (secrets, providers, Telegram) and D (Duitku POP billing) are
+  designed in the spec only; nothing of them is built.
+- **Owner decisions recorded on 2026-11-12:** Supabase Auth and Supabase managed Postgres (schema
+  `hermes`), Duitku POP, Resend (sender on a verified domain), Cloudflare for DNS and the dashboard,
+  R2 for backups, dashboard at `cloud.nibie.app/dashboard`, API at `api.cloud.nibie.app`, NibieRouter
+  is a SumoRouter instance at `https://router.nibie.app/v1`. Open items are in section 9 of the spec.
+
 ## Verified tests
+
+Milestone A run, 2026-11-12, cloud sandbox (Node 22, pnpm 10.28.0, local Postgres 16, Docker 29.9.2,
+stub image), after rebasing onto `a8d86fd`: `pnpm build` clean; `pnpm test` 409 passed, 2 skipped
+(34 files, unit and integration). Tokens in these tests are signed with locally generated keys. **Not verified:**
+a real Supabase project or its JWKS, Supabase Postgres (no migration run there), CORS from a real
+browser, any deployment on the VPS, the dashboard against the customer API.
+
+Earlier baseline:
 
 Re-run on 2026-11-12 in a cloud sandbox at `6e5d644` (Node 22, pnpm 10.28.0):
 

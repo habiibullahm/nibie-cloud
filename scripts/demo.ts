@@ -29,7 +29,7 @@ const service = new InstanceService({ prisma, runtime, image, production: false,
 const reconciler = new Reconciler({ prisma, runtime, logger, masterKey, diskQuota: 'off', egressPolicy: 'off', pollIntervalMs: 250 });
 const app = buildServer({
   service, logger,
-  config: { nodeEnv: 'development', databaseUrl, hermesImage: image, port: 0, adminToken, dockerSocketPath: '', masterKey, runtime: 'runc', diskQuota: 'off', diskCheckIntervalMs: 300_000, egressPolicy: 'off', canaryImage: undefined, canaryPrivateIp: undefined },
+  config: { nodeEnv: 'development', databaseUrl, hermesImage: image, port: 0, adminToken, dockerSocketPath: '', masterKey, runtime: 'runc', diskQuota: 'off', diskCheckIntervalMs: 300_000, egressPolicy: 'off', canaryImage: undefined, canaryPrivateIp: undefined, supabaseUrl: null, dashboardOrigin: null, betaAllowedEmails: [], maxInstancesPerTenant: 1 },
 });
 
 const step = (m: string) => console.log(`\n== ${m}`);
@@ -51,7 +51,7 @@ try {
   const tenant = await prisma.tenant.create({ data: { name: `demo-${Date.now()}` } });
   const plan = await prisma.plan.upsert({
     where: { slug: 'demo-small' }, update: {},
-    create: { slug: 'demo-small', cpuMillis: 500, memoryMb: 256, pids: 128, storageMb: 1024 },
+    create: { slug: 'demo-small', name: 'Demo small', cpuMillis: 500, memoryMb: 256, pids: 128, storageMb: 1024 },
   });
   await prisma.runtimeNode.upsert({ where: { name: 'local' }, update: {}, create: { name: 'local', region: 'local' } });
 

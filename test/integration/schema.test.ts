@@ -8,7 +8,7 @@ const prisma = createPrisma(process.env.DATABASE_URL!);
 async function seed() {
   const tenant = await prisma.tenant.create({ data: { name: 't' } });
   const plan = await prisma.plan.create({
-    data: { slug: `p-${randomUUID()}`, cpuMillis: 500, memoryMb: 256, pids: 128, storageMb: 1024 },
+    data: { slug: `p-${randomUUID()}`, name: 'Test', cpuMillis: 500, memoryMb: 256, pids: 128, storageMb: 1024 },
   });
   const node = await prisma.runtimeNode.create({ data: { name: `n-${randomUUID()}`, region: 'local' } });
   return { tenant, plan, node };
@@ -71,5 +71,49 @@ describe('schema constraints', () => {
     expect(i.diskLevel).toBe('ok');
     const big = await prisma.instance.update({ where: { id: i.id }, data: { diskUsedBytes: 5_000_000_000n } });
     expect(big.diskUsedBytes).toBe(5_000_000_000n);
+  });
+
+  describe('users and membership', () => {
+    it('rejects a second tenant membership for the same user (one user = one tenant)', async () => {
+      const user = await prisma.user.create({ data: { id: randomUUID(), email: 'a@example.test' } });
+      const t1 = await prisma.tenant.create({ data: { name: 'personal' } });
+      const t2 = await prisma.tenant.create({ data: { name: 'personal' } });
+      await prisma.tenantMember.create({ data: { tenantId: t1.id, userId: user.id } });
+      await expect(prisma.tenantMember.create({ data: { tenantId: t2.id, userId: user.id } })).rejects.toMatchObject({ code: 'P2002' });
+    });
+
+    it('defaults the role to OWNER', async () => {
+      const user = await prisma.user.create({ data: { id: randomUUID(), email: 'a@example.test' } });
+      const t = await prisma.tenant.create({ data: { name: 'personal' } });
+      const m = await prisma.tenantMember.create({ data: { tenantId: t.id, userId: user.id } });
+      expect(m.role).toBe('OWNER');
+    });
+
+    it('refuses to delete a user or a tenant that has a membership', async () => {
+      const user = await prisma.user.create({ data: { id: randomUUID(), email: 'a@example.test' } });
+      const t = await prisma.tenant.create({ data: { name: 'personal' } });
+      await prisma.tenantMember.create({ data: { tenantId: t.id, userId: user.id } });
+      await expect(prisma.user.delete({ where: { id: user.id } })).rejects.toMatchObject({ code: 'P2003' });
+      await expect(prisma.tenant.delete({ where: { id: t.id } })).rejects.toMatchObject({ code: 'P2003' });
+    });
+
+    it('resetDb leaves no users or memberships', async () => {
+      const user = await prisma.user.create({ data: { id: randomUUID(), email: 'a@example.test' } });
+      const t = await prisma.tenant.create({ data: { name: 'personal' } });
+      await prisma.tenantMember.create({ data: { tenantId: t.id, userId: user.id } });
+      await resetDb(prisma);
+      expect(await prisma.user.count()).toBe(0);
+      expect(await prisma.tenantMember.count()).toBe(0);
+    });
+  });
+
+  describe('plans', () => {
+    it('stores a display name and defaults to active', async () => {
+      const plan = await prisma.plan.create({
+        data: { slug: `p-${randomUUID()}`, name: 'Small', cpuMillis: 500, memoryMb: 256, pids: 128, storageMb: 1024 },
+      });
+      expect(plan.name).toBe('Small');
+      expect(plan.active).toBe(true);
+    });
   });
 });

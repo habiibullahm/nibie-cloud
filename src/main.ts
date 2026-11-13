@@ -2,6 +2,8 @@ import Docker from 'dockerode';
 import { loadConfig } from './config/env.js';
 import { createPrisma } from './db/client.js';
 import { buildServer } from './http/server.js';
+import { IdentityService } from './modules/auth/identity-service.js';
+import { createTokenVerifier } from './modules/auth/token-verifier.js';
 import { InstanceService } from './modules/instances/instance-service.js';
 import { DiskMonitor } from './modules/instances/disk-monitor.js';
 import { Reconciler } from './modules/instances/reconciler.js';
@@ -33,7 +35,12 @@ const service = new InstanceService({
   masterKey: config.masterKey, containerRuntime: config.runtime, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy,
 });
 const reconciler = new Reconciler({ prisma, runtime, logger, masterKey: config.masterKey, containerRuntime: config.runtime, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy });
-const app = buildServer({ service, config, logger });
+// The customer API exists only when a Supabase project is configured.
+const customer = config.supabaseUrl
+  ? { verify: createTokenVerifier({ supabaseUrl: config.supabaseUrl }), identity: new IdentityService({ prisma }), prisma }
+  : undefined;
+logger.info({ customerApi: customer !== undefined }, 'customer API');
+const app = buildServer({ service, config, logger, ...(customer ? { customer } : {}) });
 
 const stopReconciler = reconciler.start(15_000);
 const stopDiskMonitor = new DiskMonitor({ prisma, runtime, logger }).start(config.diskCheckIntervalMs);

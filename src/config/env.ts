@@ -1,8 +1,30 @@
 import { z } from 'zod';
 import type { DiskQuotaMode, EgressPolicyMode, SupportedRuntime } from '../modules/runtime/types.js';
 
-const emptyToUndefined = (v: unknown) => (v === '' ? undefined : v);
 const DIGEST_PINNED = /^[^\s@]+@sha256:[0-9a-f]{64}$/;
+
+/** An unset variable and an empty one (`VAR=` in a .env file) both mean "not configured". */
+const emptyToUndefined = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? undefined : v);
+
+function parseOrigin(v: string, opts: { httpsOnly: boolean; allowTrailingSlash: boolean }): string | null {
+  const raw = opts.allowTrailingSlash ? v.replace(/\/$/, '') : v;
+  try {
+    const u = new URL(raw);
+    if (opts.httpsOnly && u.protocol !== 'https:') return null;
+    return u.origin === raw ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+const supabaseUrl = z.preprocess(
+  emptyToUndefined,
+  z.string().refine((v) => parseOrigin(v, { httpsOnly: true, allowTrailingSlash: true }) !== null).optional(),
+);
+const dashboardOrigin = z.preprocess(
+  emptyToUndefined,
+  z.string().refine((v) => parseOrigin(v, { httpsOnly: false, allowTrailingSlash: false }) !== null).optional(),
+);
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -18,6 +40,13 @@ const schema = z.object({
   HERMES_EGRESS_POLICY: z.enum(['enforce', 'off']).default('enforce'),
   HERMES_CANARY_IMAGE: z.preprocess(emptyToUndefined, z.string().optional()),
   HERMES_CANARY_PRIVATE_IP: z.preprocess(emptyToUndefined, z.ipv4().optional()),
+  /** `https://<project-ref>.supabase.co`. Unset disables the customer API. */
+  SUPABASE_URL: supabaseUrl,
+  /** Exact browser origin of the dashboard (no path). Unset sends no CORS headers. */
+  DASHBOARD_ORIGIN: dashboardOrigin,
+  /** Comma-separated emails allowed to create instances until payments exist. Empty: nobody. */
+  BETA_ALLOWED_EMAILS: z.string().optional(),
+  MAX_INSTANCES_PER_TENANT: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(1000).default(1)),
 }).superRefine((e, ctx) => {
   // Without enforcement a tenant can fill the node's disk, so it is never allowed in production.
   if (e.NODE_ENV === 'production' && e.HERMES_DISK_QUOTA === 'off') {
@@ -47,6 +76,12 @@ export interface Config {
   egressPolicy: EgressPolicyMode;
   canaryImage: string | undefined;
   canaryPrivateIp: string | undefined;
+  /** Origin without a trailing slash, or null when the customer API is disabled. */
+  supabaseUrl: string | null;
+  dashboardOrigin: string | null;
+  /** Lowercased, trimmed. Empty means nobody may provision (fail closed). */
+  betaAllowedEmails: string[];
+  maxInstancesPerTenant: number;
 }
 
 /** Parse environment. Errors name the failing keys only, never the values. */
@@ -71,5 +106,12 @@ export function loadConfig(env: NodeJS.ProcessEnv | Record<string, string | unde
     egressPolicy: e.HERMES_EGRESS_POLICY,
     canaryImage: e.HERMES_CANARY_IMAGE,
     canaryPrivateIp: e.HERMES_CANARY_PRIVATE_IP,
+    supabaseUrl: e.SUPABASE_URL ? e.SUPABASE_URL.replace(/\/$/, '') : null,
+    dashboardOrigin: e.DASHBOARD_ORIGIN ?? null,
+    betaAllowedEmails: (e.BETA_ALLOWED_EMAILS ?? '')
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter((s) => s.length > 0),
+    maxInstancesPerTenant: e.MAX_INSTANCES_PER_TENANT,
   };
 }

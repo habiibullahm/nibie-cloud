@@ -50,3 +50,29 @@ export class NetworkPolicyMissingError extends AppError {
     super(message, 409, 'network_policy_missing');
   }
 }
+
+/** One opaque error for every authentication failure: no detail from the token or the library. */
+export class UnauthorizedError extends AppError {
+  constructor() {
+    super('Unauthorized', 401, 'unauthorized');
+  }
+}
+
+/** The identity provider's key set could not be fetched: our side or theirs, not the caller's token. */
+export class AuthUnavailableError extends AppError {
+  constructor() {
+    super('Authentication is temporarily unavailable', 503, 'auth_unavailable');
+  }
+}
+
+export class ForbiddenError extends AppError {
+  constructor(message: string, code = 'forbidden') {
+    super(message, 403, code);
+  }
+}
+
+export class InstanceLimitError extends AppError {
+  constructor() {
+    super('Instance limit reached for this account', 409, 'instance_limit_reached');
+  }
+}

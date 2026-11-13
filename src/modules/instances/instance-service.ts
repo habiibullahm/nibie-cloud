@@ -1,5 +1,5 @@
-import type { Instance, InstanceStatus, Plan, PrismaClient } from '@prisma/client';
-import { ConflictError, NetworkPolicyMissingError, NotFoundError, RuntimeUnavailableError, ValidationError, VolumeQuotaMissingError } from '../../shared/errors.js';
+import type { Instance, InstanceStatus, Plan, Prisma, PrismaClient } from '@prisma/client';
+import { ConflictError, InstanceLimitError, NetworkPolicyMissingError, NotFoundError, RuntimeUnavailableError, ValidationError, VolumeQuotaMissingError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import { isUuid } from '../../shared/uuid.js';
 import { deriveApiKey } from '../runtime/api-key.js';
@@ -96,7 +96,12 @@ export class InstanceService {
     this.now = deps.now ?? (() => new Date());
   }
 
-  async provision(input: { tenantId: string; name: string; planId: string; idempotencyKey: string }): Promise<InstanceView> {
+  /**
+   * `maxInstances` caps the tenant's non-deleted instances (customer API). Replaying an existing
+   * idempotency key is never blocked by the cap. The operator API passes no cap. `activePlanOnly`
+   * hides retired plans (customer API); the operator may still use them.
+   */
+  async provision(input: { tenantId: string; name: string; planId: string; idempotencyKey: string; maxInstances?: number; activePlanOnly?: boolean }): Promise<InstanceView> {
     validateName(input.name);
     if (!input.idempotencyKey || input.idempotencyKey.length > 128) throw new ValidationError('invalid idempotency key');
     // Malformed ids are "not found"; real database failures are left to surface (HTTP 503).
@@ -105,18 +110,19 @@ export class InstanceService {
     const tenant = await this.prisma.tenant.findUnique({ where: { id: input.tenantId } });
     if (!tenant) throw new NotFoundError('Tenant not found');
     const plan = await this.prisma.plan.findUnique({ where: { id: input.planId } });
-    if (!plan) throw new NotFoundError('Plan not found');
+    if (!plan || (input.activePlanOnly && !plan.active)) throw new NotFoundError('Plan not found');
     const node = await this.prisma.runtimeNode.findFirst({ where: { schedulable: true }, orderBy: { name: 'asc' } });
     if (!node) throw new RuntimeUnavailableError('No schedulable runtime node');
 
     let row: Instance;
     try {
-      row = await this.prisma.instance.create({
-        data: {
-          tenantId: tenant.id, planId: plan.id, nodeId: node.id, name: input.name,
-          idempotencyKey: input.idempotencyKey, image: this.image,
-        },
-      });
+      const data = {
+        tenantId: tenant.id, planId: plan.id, nodeId: node.id, name: input.name,
+        idempotencyKey: input.idempotencyKey, image: this.image,
+      };
+      row = input.maxInstances === undefined
+        ? await this.prisma.instance.create({ data })
+        : await this.createWithinLimit(data, input.maxInstances);
     } catch (e) {
       if ((e as { code?: string }).code !== 'P2002') throw e;
       const existing = await this.prisma.instance.findFirstOrThrow({
@@ -129,6 +135,21 @@ export class InstanceService {
       return existing.status === 'FAILED' ? this.runProvision(existing, plan) : toView(existing);
     }
     return this.runProvision(row, plan);
+  }
+
+  /** Count and insert under a per-tenant advisory lock, so concurrent requests cannot exceed the cap. */
+  private async createWithinLimit(data: Prisma.InstanceUncheckedCreateInput, max: number): Promise<Instance> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${data.tenantId}))`;
+      const replay = await tx.instance.findFirst({
+        where: { tenantId: data.tenantId, idempotencyKey: data.idempotencyKey }, select: { id: true },
+      });
+      if (!replay) {
+        const count = await tx.instance.count({ where: { tenantId: data.tenantId, status: { not: 'DELETED' } } });
+        if (count >= max) throw new InstanceLimitError();
+      }
+      return tx.instance.create({ data });
+    });
   }
 
   async get(tenantId: string, instanceId: string): Promise<InstanceView> {
