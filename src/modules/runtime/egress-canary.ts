@@ -183,7 +183,9 @@ export async function runEgressCanary(deps: {
           ReadonlyRootfs: true,
           Memory: 32 * 1024 * 1024,
           MemorySwap: 32 * 1024 * 1024,
-          PidsLimit: 32,
+          // gVisor's own sandbox threads count against this limit: 32 made the script's fork fail under runsc
+          // (seen on the VPS, 2026-11-13); 256 passed there.
+          PidsLimit: runtime === 'runsc' ? 256 : 32,
           ...(runtime ? { Runtime: runtime } : {}),
         },
       });

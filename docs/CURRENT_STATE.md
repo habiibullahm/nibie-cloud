@@ -1,6 +1,6 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-13 (first VPS deployment). Index of all docs: [README.md](README.md).
+Last updated: 2026-11-13 (milestone C deployed on the VPS, database backup, first gVisor attempt). Index of all docs: [README.md](README.md).
 
 ## Where things stand
 
@@ -73,7 +73,28 @@ Milestone C (PR #8) was merged afterwards and is **not deployed**: the VPS still
 needs `SECRETS_KEK` (required in production), the new migration and a rebuild.
 Order of work, the full verified list and pitfalls: [../deploy/README.md](../deploy/README.md).
 
-**Not verified, still open:** gVisor (`runsc`) with the official image, backups of the database and tenant
+**Update, later on 2026-11-13 (from real command output on the VPS):**
+
+- **Milestone C is deployed.** The checkout is `main` at `95228b9`, image tag `95228b9` (`edb7d62` kept for
+  rollback), `SECRETS_KEK` is set, migration `20261113162824_add_secrets_and_integrations` is applied (6 of 6),
+  startup logged the egress canary passing and `secretStore:true`, and the public boundary checks still hold
+  (`/healthz` 200, operator routes 404, `/api/v1/plans` 401). No credential route was exercised with a real
+  provider key or Telegram token on the VPS.
+- **Database backup exists.** `/usr/local/sbin/hermes-db-backup` runs `pg_dump` 17 (schemas `hermes` and `auth`,
+  custom format) into `/var/backups/hermes-cloud`, daily at 19:00 UTC by a systemd timer, newest 14 kept. The
+  first dump was read back with `pg_restore --list` (35 tables). A restore was not rehearsed, the dumps live
+  only on the VPS (no copy to R2 yet), and tenant volumes are still not backed up.
+- **gVisor failed at the first step.** `runsc` itself runs on the host, but with `HERMES_RUNTIME=runsc` the
+  backend exited at startup (`egress canary could not run`, `probe_failed`): the canary container's
+  `PidsLimit: 32` is too low under gVisor, whose sandbox threads count against it (kernel log: `fork rejected by
+  pids controller`). The same script passed by hand under `runsc` with a limit of 256. Production is back on
+  `runc`. The limit is now 256 when the runtime is `runsc` (`egress-canary.ts`; not yet deployed or re-tested). No tenant instance
+  has run under `runsc` on the VPS; plan `pids` values may need the same check.
+- **Supabase Auth email does not go through Resend yet.** The auth log of 2026-11-13 shows the confirmation
+  email sent by Supabase's built-in sender, and requests came from `http://localhost:3000`. Custom SMTP, Site
+  URL and Redirect URLs are set in the Supabase dashboard by the owner.
+
+**Not verified, still open:** gVisor (`runsc`) with the official image (see the update above), backups of tenant
 volumes (none exist), whether stale XFS project ids pile up after deletes, Redis AOF recovery after a crash,
 several replicas, customers reaching their agent from the internet, and the database password rotation
 (the first password was exposed in a chat and must be rotated). The deploy files are a snapshot of what ran;
