@@ -54,7 +54,7 @@ for now), `Instance`, `InstanceEvent` (append-only, pre-sanitized). UUID ids, UT
 `Instance` is unique on `(tenantId, idempotencyKey)`; foreign keys are `RESTRICT`, so history is
 never cascaded away. `User` (id = Supabase user id) and `TenantMember` (role `OWNER`; unique on
 `userId`, so one user has one tenant for the beta) back the customer API. `Plan` has a display `name`
-and an `active` flag. Subscriptions, payments, secrets, backups: later milestones.
+and an `active` flag. `Secret` (sealed ciphertext, wrapped data key, KEK version, last-4 hint), `ProviderConfig` and `TelegramConnection` (one each per instance; a Telegram bot id is unique across tenants) hold the integrations, and `Instance.configRevision` / `appliedRevision` track whether the running container has the latest credentials. Subscriptions, payments, backups: later milestones.
 
 ## Instance lifecycle
 
@@ -173,6 +173,33 @@ same way when the hardening is wrong: it starts as root, needs CHOWN, SETUID and
 uid 10000, serves a Bearer-protected `/api/sessions` on 8642 and keeps state in `/opt/data`. It is
 **only a stand-in**; the live harness against the pinned official image is the source of truth.
 
+## Secrets and integrations (milestone C)
+
+Decision and evidence: [ADR 0003](adr/0003-hermes-config-delivery.md).
+
+- **Storage** (`src/modules/secrets`): each value gets a random 32-byte data key and is sealed with
+  AES-256-GCM; the data key is wrapped by a versioned KEK from `SECRETS_KEK`. The AAD is
+  `tenantId:secretId:purpose`, so a copied row cannot be read under another tenant or id. Every failure
+  to open a secret is one opaque `SecretDecryptError`. The row keeps only a last-4 hint (blanked on
+  revoke). Nothing under `src/http` may import the secret store (a test enforces it); HTTP only gets
+  `rewrapAll` and `countsByVersion`.
+- **Delivery:** `RuntimeConfigLoader` (`integrations/runtime-env.ts`) decrypts at the moment a container
+  is created and returns env vars (`HERMES_PROVIDER_API_KEY`, `TELEGRAM_BOT_TOKEN`,
+  `TELEGRAM_ALLOWED_USERS`) plus a model config. `DockerRuntimeManager.ensure` seeds the managed `model:`
+  block into `/opt/data/config.yaml` while the container is created but not started, and the key itself
+  is referenced as `key_env`, never written to disk. Job payloads carry ids only.
+- **Applying changes:** every provider/Telegram change bumps `configRevision`. If `appliedRevision` is
+  behind, the next user start/restart, or the reconciler, recreates the container (`RuntimeManager.recreate`,
+  volume kept) instead of reusing it, so a revoked or replaced credential never survives a restart.
+- **Outbound calls** (`src/modules/net/safe-fetch.ts`): the Telegram `getMe`/test message and the provider
+  `/models` test run in the control plane through a guard: https only, no redirects, all resolved
+  addresses must be public, the socket is pinned to the validated address, timeout and size caps, coarse
+  errors only.
+- **Deletion:** the secrets and integration rows are purged only after the runtime is confirmed removed
+  (in the delete operation and in the reconciler's `DELETING` reaper), with a value-free `secrets.purged` event.
+- **Logs:** `GET /instances/:id/logs` reads the container log (500 lines, 256 KiB cap) and redacts the
+  instance's own secret values, the derived API key, and common token shapes before returning it.
+
 ## Known gaps and deferred security work
 
 This system is **not production-ready**. Open items, none of which are mitigated yet:
@@ -180,11 +207,11 @@ This system is **not production-ready**. Open items, none of which are mitigated
 1. **Disk quota implemented, not verified on an XFS host.** Volumes are created with a size limit and usage events exist (see the hardening table), but the kernel enforcement has only been checked against Docker's refusal on ext4 so far. Still open: resizing a quota after a plan change (quota is set at creation only, so plan changes must not be offered yet), inode limits, node-level disk pressure and "stop scheduling on a full node" (PRD 13.2), and the host log files outside the quota.
 2. **Egress controls implemented, not verified on a Docker host (PRD 7.3).** Tenants cannot reach the host, cloud metadata, private ranges or each other once the ruleset in `ops/egress/` is applied, TCP 25 is rejected and new connections are rate-capped, and the control plane exits in production if the canary shows the rules are missing. Not verified: that real tenant traffic hits the rules (runc and runsc), that the rules survive a Docker restart and a reboot, DNS on the real host, and the rate cap, which is an unmeasured placeholder (see [egress-host-notes.md](egress-host-notes.md); plan Task 8 is open). Still open by design: a domain allowlist or egress proxy, traffic metering, URL validation for custom provider and webhook URLs (it belongs to the BYOK work, PRD 8.2; this layer backs it up), IPv6 for tenants (disabled), per-plan policy, egress logging, and the abuse policy (PRD 21 item 11, undecided). A tenant can still scan or attack public hosts within the rate cap.
 3. **Runtime isolation not fully validated (PRD 7.2).** `runc` is the default. gVisor (`runsc`) is selectable and was reported compatible, but it is not the default and has had no escape or kernel-exposure testing; no microVM evaluation; seccomp/AppArmor not verified on target hosts (the dev sandbox uses cgroup v1).
-4. **Real Hermes image only partly validated.** The pinned official image boots under the hardened baseline and answers authenticated requests in the live harness (see [milestone-2-runtime-security.md](milestone-2-runtime-security.md)). Not validated: production hosts and kernels, behaviour under a real model backend, the telegram transport, and what the image does with no `API_SERVER_KEY`.
+4. **Real Hermes image only partly validated.** The pinned official image boots under the hardened baseline and answers authenticated requests in the live harness (see [milestone-2-runtime-security.md](milestone-2-runtime-security.md)). The config delivery (env vars plus a seeded `model:` block) was checked against the real image in a sandbox ([ADR 0003](adr/0003-hermes-config-delivery.md)). Not validated: production hosts and kernels, a real model reply through a real provider, a real Telegram bot (polling through the egress rules, including the adapter's fixed Telegram IPs and DNS-over-HTTPS fallback), and what the image does with no `API_SERVER_KEY`.
 5. **Customer API is new and unproven against real infrastructure.** Tokens in tests are signed with local keys; no real Supabase project, no Supabase Postgres and no public deployment have been exercised. Both API surfaces share one loopback port, so a public reverse proxy must forward only the customer paths and never `/api/v1/tenants/*`; as a second line only, the operator API answers 404 to any request that carries a proxy header (`x-forwarded-*`, `forwarded`, `x-real-ip`, `cf-*`). The beta provisioning gate trusts the `email` claim, which is only safe while Supabase requires email confirmation (and secure email change) and every enabled OAuth provider returns verified emails; nothing in the backend enforces that. The operator API is still a single shared bearer token. The app's rate limit counts authenticated users only. There is no audit log, no account deletion, and a signed-out user's access token works until it expires. `accessUrl` is still a loopback URL, not something a customer can open.
 6. **Jobs are new and unproven against real infrastructure.** Redis, the worker and the scheduler were exercised only in a single sandbox (local Redis 7, one process, Docker stub image). Not verified: Redis with AOF under restart, several API replicas on one Redis, a real Hermes image under the worker, load. Redis loss drops queued-but-unstarted jobs (the user repeats the action; `PENDING` instances are recovered by the sweeper). A control-plane crash mid-operation is cleaned up by the lease-based reaper after the lease expires (≤ TTL, 60 s by default): it fails or finishes the operation but does not resume it, and the redelivered job then finds a transitional state and stops without retrying. Clock skew between replicas/DB is not handled. A Docker call that hangs without erroring holds its lease until `maxOperationMs`. There is still no outbox table.
 7. **Single node, no scheduler or capacity reservation;** the host port is a random loopback port, with no ingress or TLS.
-8. **No secrets management** (envelope encryption, rotation). Per-instance API keys are derived from one master secret in the environment and are never stored, but there is no rotation and no vault; log redaction is by key path only, so free-text secrets in messages would not be caught.
+8. **Secrets management is built (milestone C) but young.** Customer credentials are envelope-encrypted with a versioned KEK from the environment and rotated by rewrap. Open: the KEK lives in the process environment (a secrets manager is deferred until there are paying customers), values are visible to `docker inspect` on the host and to anyone who can read the container environment, the log redactor cannot match a secret split across two lines, the 5-per-minute limit on provider test and Telegram verify is per API replica, a customer's unparsable `config.yaml` makes a restart answer 409 `config_unreadable` until it is fixed, per-tenant NibieRouter key minting is not built (the operator attaches a key), and AI usage metering is not included. Per-instance API keys are still derived from `HERMES_MASTER_KEY` and have no rotation.
 9. **No backups/restore, customer shell/file broker, metrics, or suspend/grace/retention lifecycle.**
 10. `STOPPED`/`STOPPING` are not in PRD 10.2 (ADR 0001); `Plan` has no pricing by design.
 11. The PID/OOM behaviour was verified on the dev sandbox kernel (cgroup v1); re-verify on the production host kernel/cgroup v2.

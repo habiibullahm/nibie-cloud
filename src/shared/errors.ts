@@ -83,3 +83,24 @@ export class QueueUnavailableError extends AppError {
     super('Job queue is temporarily unavailable', 503, 'queue_unavailable');
   }
 }
+
+/** A customer-supplied URL resolved to, or redirected to, an address the control plane must never reach. */
+export class OutboundBlockedError extends AppError {
+  constructor() {
+    super('The address is not allowed', 400, 'outbound_blocked');
+  }
+}
+
+/** An outbound call failed. `reason` is coarse on purpose: no URL, address, header or body detail. */
+export class OutboundFailedError extends AppError {
+  constructor(readonly reason: 'timeout' | 'too_large' | 'unreachable' | 'redirect') {
+    super('The remote service could not be reached', 502, 'outbound_failed');
+  }
+}
+
+/** No key-encryption key is configured, so credentials can be neither stored nor read. */
+export class SecretsUnavailableError extends AppError {
+  constructor() {
+    super('Secret storage is not configured', 503, 'secrets_unavailable');
+  }
+}

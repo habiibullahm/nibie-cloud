@@ -7,6 +7,13 @@ import { createTokenVerifier } from './modules/auth/token-verifier.js';
 import { InstanceService } from './modules/instances/instance-service.js';
 import { DiskMonitor } from './modules/instances/disk-monitor.js';
 import { InstanceCommands } from './modules/instances/instance-commands.js';
+import { LogService } from './modules/integrations/log-service.js';
+import { ProviderService } from './modules/integrations/provider-service.js';
+import { purgeIntegrations } from './modules/integrations/purge.js';
+import { createRuntimeConfigLoader, noRuntimeConfig } from './modules/integrations/runtime-env.js';
+import { TelegramService } from './modules/integrations/telegram-service.js';
+import type { Integrations } from './modules/integrations/types.js';
+import { PrismaSecretStore } from './modules/secrets/secret-store.js';
 import { createBullQueue } from './modules/jobs/bullmq-queue.js';
 import { startScheduler } from './modules/jobs/scheduler.js';
 import { sweepPending } from './modules/jobs/sweeper.js';
@@ -35,12 +42,29 @@ if (config.egressPolicy === 'enforce') {
   }
 }
 const runtime = new DockerRuntimeManager({ docker, logger });
+// Credential storage exists only when a key-encryption key is configured; otherwise the provider and
+// Telegram routes answer 503 and containers are created without customer configuration.
+const secretStore = config.secrets
+  ? new PrismaSecretStore({ prisma, current: config.secrets.current, previous: config.secrets.previous })
+  : null;
+const runtimeConfig = secretStore ? createRuntimeConfigLoader({ prisma, secrets: secretStore }) : noRuntimeConfig;
+const integrations: Integrations | null = secretStore && config.secrets
+  ? {
+      secrets: secretStore,
+      kekVersion: config.secrets.current.version,
+      telegram: new TelegramService({ prisma, secrets: secretStore, logger }),
+      providers: new ProviderService({ prisma, secrets: secretStore, logger }),
+    }
+  : null;
+logger.info({ secretStore: secretStore !== null }, 'secret storage');
+const purge = secretStore ? (tenantId: string, instanceId: string) => purgeIntegrations({ prisma, secrets: secretStore }, tenantId, instanceId) : undefined;
+const logService = new LogService({ prisma, runtime, loader: runtimeConfig, masterKey: config.masterKey });
 const service = new InstanceService({
   prisma, runtime, image: config.hermesImage, production: config.nodeEnv === 'production', logger,
-  masterKey: config.masterKey, containerRuntime: config.runtime, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy,
+  masterKey: config.masterKey, containerRuntime: config.runtime, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy, runtimeConfig, ...(purge ? { purgeIntegrations: purge } : {}),
 });
 // With a job queue the sweeper owns PENDING rows; the reaper must not fail them first.
-const reconciler = new Reconciler({ prisma, runtime, logger, masterKey: config.masterKey, containerRuntime: config.runtime, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy, reapPending: config.redisUrl === null });
+const reconciler = new Reconciler({ prisma, runtime, logger, masterKey: config.masterKey, containerRuntime: config.runtime, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy, reapPending: config.redisUrl === null, runtimeConfig, ...(purge ? { purgeIntegrations: purge } : {}) });
 // The customer API exists only when a Supabase project is configured.
 const customer = config.supabaseUrl
   ? { verify: createTokenVerifier({ supabaseUrl: config.supabaseUrl }), identity: new IdentityService({ prisma }), prisma }
@@ -50,7 +74,7 @@ logger.info({ customerApi: customer !== undefined }, 'customer API');
 const queue = config.redisUrl ? createBullQueue({ redisUrl: config.redisUrl, logger }) : null;
 const commands = new InstanceCommands({ service, queue, logger });
 logger.info({ jobQueue: queue !== null }, 'job queue');
-const app = buildServer({ service, commands, queue, config, logger, ...(customer ? { customer } : {}) });
+const app = buildServer({ service, commands, queue, config, logger, integrations, logs: logService, ...(customer ? { customer } : {}) });
 
 let stopReconciler: () => void | Promise<void> = () => undefined;
 let stopWorker: (() => Promise<void>) | undefined;

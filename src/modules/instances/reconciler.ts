@@ -1,10 +1,12 @@
 import type { Instance, Prisma, PrismaClient } from '@prisma/client';
 import { ConflictError, RuntimeUnavailableError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
+import { noRuntimeConfig, type RuntimeConfigLoader } from '../integrations/runtime-env.js';
 import { deriveApiKey } from '../runtime/api-key.js';
 import { AUTH_REJECTED_DETAIL, type RuntimeInspection, type DiskQuotaMode, type EgressPolicyMode, type RuntimeManager, type SupportedRuntime } from '../runtime/types.js';
 import { TRANSITIONAL_STATUSES, noteQuotaMismatch, recordEvent, revert, transition } from './instance-repo.js';
 import { newLease, startHeartbeat } from './lease.js';
+import { markApplied, runtimeSpec, startOrRecreate } from './runtime-apply.js';
 
 export type ReconcileResult = 'ok' | 'recovered' | 'waiting' | 'degraded' | 'exhausted' | 'skipped';
 
@@ -45,6 +47,10 @@ export interface ReconcilerDeps {
    * With a job queue the sweeper owns PENDING rows, so this is false.
    */
   reapPending?: boolean;
+  /** Customer configuration (Telegram, provider) a recreated container must carry. Default: none. */
+  runtimeConfig?: RuntimeConfigLoader;
+  /** Removes the instance's provider and Telegram configuration and secrets once its runtime is gone. */
+  purgeIntegrations?: (tenantId: string, instanceId: string) => Promise<void>;
 }
 
 const WATCHED = ['ACTIVE', 'DEGRADED'] as const;
@@ -77,6 +83,8 @@ export class Reconciler {
       leaseTtlMs: 60_000,
       maxOperationMs: 10 * 60_000,
       reapPending: true,
+      runtimeConfig: noRuntimeConfig,
+      purgeIntegrations: async () => undefined,
       ...deps,
     };
   }
@@ -187,6 +195,7 @@ export class Reconciler {
             await transition(prisma, { id: i.id, from: 'STOPPING', to: 'STOPPED', owner: lease.owner, eventType: 'instance.stopped', message: 'Instance stopped' });
           } else {
             await runtime.remove(i.id, { deleteVolume: true });
+            await this.d.purgeIntegrations(i.tenantId, i.id);
             await transition(prisma, {
               id: i.id, from: 'DELETING', to: 'DELETED', owner: lease.owner, eventType: 'instance.deleted', message: 'Instance and data deleted',
               data: { deletedAt: new Date(), hostPort: null },
@@ -282,24 +291,21 @@ export class Reconciler {
     const { prisma, runtime, now, maxRecoveryAttempts } = this.d;
     let healthy = false;
     try {
-      if (mode === 'restart') {
+      const specDeps = { masterKey: this.d.masterKey, diskQuota: this.d.diskQuota, egressPolicy: this.d.egressPolicy, containerRuntime: this.d.containerRuntime };
+      if (inst.appliedRevision < inst.configRevision) {
+        // A configuration change that never reached the container: recreate it (volume kept) with the new
+        // environment. Recreating creates the volume and network checks itself.
+        await startOrRecreate({ ...specDeps, prisma, runtime, loader: this.d.runtimeConfig }, inst, mode);
+      } else if (mode === 'restart') {
         await runtime.assertVolumeQuota(inst.id, this.d.diskQuota);
         await runtime.assertNetworkPolicy(inst.id, this.d.egressPolicy);
         await runtime.restart(inst.id);
       } else {
         const plan = await prisma.plan.findUniqueOrThrow({ where: { id: inst.planId } });
-        const ensured = await runtime.ensure({
-          instanceId: inst.id,
-          tenantId: inst.tenantId,
-          image: inst.image,
-          limits: { cpuMillis: plan.cpuMillis, memoryMb: plan.memoryMb, pids: plan.pids, storageMb: plan.storageMb },
-          diskQuota: this.d.diskQuota,
-          egressPolicy: this.d.egressPolicy,
-          env: { HERMES_INSTANCE_ID: inst.id },
-          apiServerKey: this.apiKey(inst.id),
-          runtime: this.d.containerRuntime,
-        });
+        const cfg = await this.d.runtimeConfig(inst.tenantId, inst.id);
+        const ensured = await runtime.ensure(runtimeSpec(specDeps, inst, plan, cfg));
         await noteQuotaMismatch(prisma, inst.id, ensured.volumeQuotaMb, plan.storageMb);
+        await markApplied(prisma, inst.id, cfg.revision);
         await runtime.start(inst.id);
       }
       healthy = await this.waitHealthy(inst.id);

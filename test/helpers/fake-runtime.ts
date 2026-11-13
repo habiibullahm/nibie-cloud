@@ -37,6 +37,24 @@ export class FakeRuntime implements RuntimeManager {
     return { hostPort: null, volumeQuotaMb: this.volumeQuotaMb };
   }
 
+  /** Lines `logs()` returns (the tail is applied like the real manager does). */
+  logLines: string[] = [];
+  lastLogTail = 0;
+
+  async logs(id: string, opts: { tail: number }): Promise<string[]> {
+    this.lastLogTail = opts.tail;
+    return this.containers.has(id) ? this.logLines.slice(-opts.tail) : [];
+  }
+
+  /** Every spec `recreate()` was called with, so tests can see which environment a container would get. */
+  readonly recreated: RuntimeSpec[] = [];
+
+  async recreate(spec: RuntimeSpec): Promise<{ hostPort: number | null; volumeQuotaMb: number | null }> {
+    this.recreated.push(spec);
+    this.containers.delete(spec.instanceId);
+    return this.ensure(spec);
+  }
+
   /** Mirrors the real manager: refuses only when quotas are enforced and the volume has none. */
   async assertVolumeQuota(_id: string, mode: DiskQuotaMode): Promise<void> {
     if (mode === 'enforce' && this.quotaMissing) throw new VolumeQuotaMissingError();

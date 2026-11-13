@@ -32,8 +32,7 @@ Last updated: 2026-11-13 (first VPS deployment). Index of all docs: [README.md](
   CORS, rate limits, a beta provisioning gate and a per-tenant instance cap. Spec:
   [superpowers/specs/2026-11-12-backend-design.md](superpowers/specs/2026-11-12-backend-design.md);
   plan: [superpowers/plans/2026-11-12-backend-milestone-a-auth-customer-api.md](superpowers/plans/2026-11-12-backend-milestone-a-auth-customer-api.md).
-  Milestones C (secrets, providers, Telegram) and D (Duitku POP billing) are designed in the spec only;
-  nothing of them is built.
+  Milestone D (Duitku POP billing) is designed in the spec only; nothing of it is built.
 - **Backend milestone B (jobs), on branch `claude/milestone-b-jobs-plan`, not committed.** Redis + BullMQ:
   create/start/stop/restart/delete run as jobs when `REDIS_URL` is set (required in production), the API
   answers `202` with a `jobId`, transient errors retry 4 times with backoff, exhausted jobs are listed and
@@ -42,6 +41,18 @@ Last updated: 2026-11-13 (first VPS deployment). Index of all docs: [README.md](
   [superpowers/plans/2026-11-13-backend-milestone-b-jobs.md](superpowers/plans/2026-11-13-backend-milestone-b-jobs.md);
   how it works and its known gaps: [architecture.md](architecture.md), [setup.md](setup.md#job-queue-redis-and-bullmq).
   Redis for the beta is decided: same VPS, Docker Compose, loopback with a password.
+- **Backend milestone C (secrets, providers, Telegram), on branch `claude/project-thread-b5f2bk`, not committed.**
+  A customer attaches an AI provider (own key, or NibieRouter attached by the operator) and a Telegram bot to
+  an instance. Credentials are envelope-encrypted (`SECRETS_KEK` from the environment, versioned, rotated by
+  `POST /api/v1/secrets/rewrap`), never returned, logged or put in Redis payloads, and reach the container as
+  env vars plus a seeded `model:` block in `config.yaml`; a change recreates the container at the next
+  start/restart (volume kept). Control-plane calls to Telegram and to provider URLs go through an SSRF-safe
+  fetch. Customers read redacted logs (`GET /instances/:id/logs`). Secrets are purged after the runtime is
+  removed on delete. Plan: [superpowers/plans/2026-11-13-backend-milestone-c-secrets-providers-telegram.md](superpowers/plans/2026-11-13-backend-milestone-c-secrets-providers-telegram.md);
+  decision and evidence: [adr/0003-hermes-config-delivery.md](adr/0003-hermes-config-delivery.md); how to run it
+  and rotate the key: [setup.md](setup.md#secrets-provider-keys-and-telegram). Not built: AI usage metering,
+  per-tenant NibieRouter key minting, a secrets manager (KEK stays an env var for the beta, backup in the
+  password manager). Milestone D (Duitku POP billing) is next.
 - **Owner decisions recorded on 2026-11-12:** Supabase Auth and Supabase managed Postgres (schema
   `hermes`), Duitku POP, Resend (sender on a verified domain), Cloudflare for DNS and the dashboard,
   R2 for backups, dashboard at `cloud.nibie.app/dashboard`, API at `api.cloud.nibie.app`, NibieRouter
@@ -58,6 +69,8 @@ official Hermes image on `runc` in about 21 seconds, the XFS quota on the tenant
 rejecting private and metadata ranges from the tenant bridge, a clean delete (no container, volume, network or
 bridge left), and a reboot with everything coming back by itself. This supersedes "no run on the VPS" and
 "nothing has seen tenant traffic yet" in [egress-host-notes.md](egress-host-notes.md) for those checks only.
+Milestone C (PR #8) was merged afterwards and is **not deployed**: the VPS still runs the A and B build; updating
+needs `SECRETS_KEK` (required in production), the new migration and a rebuild.
 Order of work, the full verified list and pitfalls: [../deploy/README.md](../deploy/README.md).
 
 **Not verified, still open:** gVisor (`runsc`) with the official image, backups of the database and tenant
@@ -67,6 +80,12 @@ several replicas, customers reaching their agent from the internet, and the data
 they have no automated test.
 
 ## Verified tests
+
+Milestone C run, 2026-11-13, cloud sandbox (Node 22, Postgres 16, Redis 7 with `noeviction`, Docker 29.9.2, stub image):
+`pnpm build` clean; `pnpm test` 676 passed, 2 skipped (56 files), after the review fixes. Real Docker was used for the config seeding, recreate and
+log tests; the config delivery was also checked once against the official image (ADR 0003). **Not verified:** a real model
+reply through a real provider, a real Telegram bot, the egress rules letting Telegram traffic through on a real host,
+several API replicas, real Supabase, any VPS run.
 
 Milestone B run, 2026-11-13, cloud sandbox (Node 22, local Redis 7.0 without AOF, Postgres 16, Docker
 29.9.2, stub image): `pnpm build` clean; `pnpm test` 467 passed, 2 skipped (43 files). A manual run of the

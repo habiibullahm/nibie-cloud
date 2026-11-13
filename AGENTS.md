@@ -58,8 +58,8 @@ pnpm typecheck && pnpm lint && pnpm test    # also: pnpm build
 pnpm vitest run test/status.test.ts         # single file
 ```
 
-Last verified in a cloud sandbox on 2026-11-13 (milestone B branch on top of main `83db8e0`): backend `tsc` clean
-and `pnpm test` 467 passed, 2 skipped (unit and Docker/Postgres/Redis integration, stub image); dashboard
+Last verified in a cloud sandbox on 2026-11-13 (milestone C branch on top of main `edb7d62`, uncommitted): backend `tsc` clean
+and `pnpm test` 676 passed, 2 skipped (56 files; unit and Docker/Postgres/Redis integration, stub image); dashboard
 `typecheck`, `lint` and 44/44 tests (earlier run).
 
 ## Architecture (the parts that span files)
@@ -96,6 +96,14 @@ and `pnpm test` 467 passed, 2 skipped (unit and Docker/Postgres/Redis integratio
   4 times with backoff; exhausted jobs are listed at `GET /api/v1/jobs/failed` (operator API). The
   reconciler and a sweeper for stranded `PENDING` rows run as a scheduled job under a Redis lock. Redis
   down: lifecycle actions answer 503, creating still answers 202 (the row is the intent).
+- **Secrets and integrations** (`src/modules/secrets`, `src/modules/integrations`, `src/modules/net`): provider
+  keys and Telegram tokens are envelope-encrypted (AES-256-GCM data key per secret, wrapped by the versioned
+  `SECRETS_KEK` from env; AAD binds tenant, id and purpose) and never returned, logged or put in job payloads.
+  `RuntimeConfigLoader` decrypts only when a container is created; env vars plus a seeded `model:` block
+  (`key_env`, no key on disk) carry them in (ADR 0003). `Instance.configRevision` vs `appliedRevision` makes the
+  next start/restart (user or reconciler) recreate the container. Nothing under `src/http` may import
+  `secrets/secret-store` (test-enforced). Control-plane calls to Telegram and provider URLs use `safeFetch`
+  (https, no redirects, public pinned address). Secrets are purged only after `runtime.remove` succeeds.
 - **Disk quota and egress** (`runtime/volume-quota.ts`, `runtime/egress-canary.ts`, `ops/egress/`):
   `HERMES_DISK_QUOTA` and `HERMES_EGRESS_POLICY` are `enforce|off` (`off` refused in production). Tenant
   volumes carry a size quota from `Plan.storageMb` and tenant bridges are named `hn<12 hex>` so one host

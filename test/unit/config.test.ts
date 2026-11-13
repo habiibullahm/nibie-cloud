@@ -222,8 +222,53 @@ describe('loadConfig: Redis', () => {
   });
 
   it('requires REDIS_URL in production', () => {
-    const prod = { ...base, NODE_ENV: 'production', HERMES_DISK_QUOTA: 'enforce', HERMES_EGRESS_POLICY: 'enforce', HERMES_CANARY_IMAGE: 'busybox@sha256:' + 'a'.repeat(64) };
+    const prod = { ...base, NODE_ENV: 'production', HERMES_DISK_QUOTA: 'enforce', HERMES_EGRESS_POLICY: 'enforce', HERMES_CANARY_IMAGE: 'busybox@sha256:' + 'a'.repeat(64), SECRETS_KEK: Buffer.alloc(32, 7).toString('base64') };
     expect(() => loadConfig(prod)).toThrow('REDIS_URL');
     expect(loadConfig({ ...prod, REDIS_URL: 'redis://:pw@127.0.0.1:6379' }).redisUrl).not.toBeNull();
+  });
+});
+
+describe('loadConfig secrets key', () => {
+  const key = Buffer.alloc(32, 7).toString('base64');
+  const key2 = Buffer.alloc(32, 9).toString('base64');
+
+  it('is null when SECRETS_KEK is unset outside production', () => {
+    expect(loadConfig(base).secrets).toBeNull();
+  });
+
+  it('parses the current key with version 1 by default', () => {
+    const cfg = loadConfig({ ...base, SECRETS_KEK: key });
+    expect(cfg.secrets?.current.version).toBe(1);
+    expect(cfg.secrets?.current.key.length).toBe(32);
+    expect(cfg.secrets?.previous).toBeNull();
+  });
+
+  it('parses a previous key for rotation', () => {
+    const cfg = loadConfig({ ...base, SECRETS_KEK: key2, SECRETS_KEK_VERSION: '2', SECRETS_KEK_PREVIOUS: key, SECRETS_KEK_PREVIOUS_VERSION: '1' });
+    expect(cfg.secrets?.current.version).toBe(2);
+    expect(cfg.secrets?.previous?.version).toBe(1);
+  });
+
+  it('rejects a key that is not 32 bytes of base64, naming SECRETS_KEK without echoing it', () => {
+    const bad = Buffer.alloc(16, 1).toString('base64');
+    let message = '';
+    try {
+      loadConfig({ ...base, SECRETS_KEK: bad });
+    } catch (e) {
+      message = (e as Error).message;
+    }
+    expect(message).toContain('SECRETS_KEK');
+    expect(message).not.toContain(bad);
+  });
+
+  it('rejects the same version number for two different keys and a previous key without a current one', () => {
+    expect(() => loadConfig({ ...base, SECRETS_KEK: key2, SECRETS_KEK_PREVIOUS: key })).toThrow('SECRETS_KEK_PREVIOUS_VERSION');
+    expect(() => loadConfig({ ...base, SECRETS_KEK_PREVIOUS: key })).toThrow('SECRETS_KEK_PREVIOUS');
+  });
+
+  it('is required in production', () => {
+    expect(() =>
+      loadConfig({ ...base, NODE_ENV: 'production', REDIS_URL: 'redis://127.0.0.1:6379', HERMES_IMAGE: `h@sha256:${'a'.repeat(64)}` }),
+    ).toThrow('SECRETS_KEK');
   });
 });

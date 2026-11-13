@@ -55,6 +55,9 @@ DATABASE_URL=postgresql://hermes:hermes_dev_only@127.0.0.1:5433/hermes_test pnpm
 | `BETA_ALLOWED_EMAILS` | Comma-separated emails allowed to create instances until payments exist. Empty or unset: nobody can (fail closed). Set it in the host environment only, never in the repository |
 | `MAX_INSTANCES_PER_TENANT` | Default `1`. Non-deleted instances a tenant may hold through the customer API (the operator API has no cap) |
 | `HERMES_RUNTIME` | `runc` (default) or `runsc` (gVisor). With `runsc`, startup fails if the Docker daemon does not list that runtime. Applies only to containers created from now on |
+| `SECRETS_KEK` | Base64 of exactly 32 random bytes (`openssl rand -base64 32`). The key-encryption key for customer credentials (provider API keys, Telegram bot tokens). Required when `NODE_ENV=production`; without it the credential routes answer `503 secrets_unavailable` and no instance gets a credential. Host environment only, never the repository. See [Secrets](#secrets-provider-keys-and-telegram) |
+| `SECRETS_KEK_VERSION` | Positive integer, default `1`. The version number stored beside every secret sealed with `SECRETS_KEK` |
+| `SECRETS_KEK_PREVIOUS`, `SECRETS_KEK_PREVIOUS_VERSION` | Only during a KEK rotation: the old key and its version (both required together, and the version must differ from the current one) |
 
 ## Job queue (Redis and BullMQ)
 
@@ -82,6 +85,32 @@ replicas are safe). Without `REDIS_URL` everything runs inline in the request as
   reaper resolves what the crashed operation left behind.
 - Shutdown (SIGTERM) waits at most 10 s per component for running jobs and the process exits within 30 s
   even if Redis is down.
+
+## Secrets (provider keys and Telegram)
+
+Customers attach an AI provider (their own key, or NibieRouter attached by the operator) and a Telegram
+bot to an instance. The credentials are encrypted at rest (envelope encryption: a random data key per
+secret, wrapped by `SECRETS_KEK`), are never returned by any endpoint after they are submitted, never
+appear in logs or in Redis job payloads, and reach the container only as environment variables at
+container creation (plus a managed `model:` block in the instance's `config.yaml`, which holds no key;
+see [ADR 0003](adr/0003-hermes-config-delivery.md)). A change takes effect at the next start or restart,
+which recreates the container (the volume is kept).
+
+- **Generate the key once:** `openssl rand -base64 32`. Put it in the host environment and keep a copy in
+  the password manager (Bitwarden). **If the key is lost, every stored secret is unrecoverable** and
+  customers must submit their credentials again. Never commit it.
+- **Rotate the key:** generate a new key; set `SECRETS_KEK` to the new key with `SECRETS_KEK_VERSION` one
+  higher, and move the old key to `SECRETS_KEK_PREVIOUS` with its old `SECRETS_KEK_PREVIOUS_VERSION`;
+  restart the API; call `POST /api/v1/secrets/rewrap` (operator API) until `GET /api/v1/secrets/health`
+  shows no secret on the old version; then remove the `PREVIOUS` variables and restart again. Keep the old
+  key in the password manager until then.
+- **Egress:** the Hermes Telegram adapter polls `api.telegram.org` and also uses fixed Telegram IP
+  addresses and DNS-over-HTTPS as fallbacks. With the egress ruleset applied, the tenant bridge must be
+  allowed to reach those, or the bot stays silent. This is not verified on a real host (see
+  [egress-host-notes.md](egress-host-notes.md)).
+- **Outbound calls from the control plane** (Telegram `getMe`/test message, provider `/models` test) go
+  through `safeFetch`: https only, no redirects, every resolved address must be public, the connection is
+  pinned to the validated address, with a timeout and a size cap.
 
 ## Disk quota host setup (XFS)
 
@@ -156,7 +185,11 @@ Enabled when `SUPABASE_URL` is set. Customers send `Authorization: Bearer <Supab
 the backend verifies it locally against `<SUPABASE_URL>/auth/v1/.well-known/jwks.json` (asymmetric
 algorithms only) and derives the tenant from the user's membership. Routes, all under `/api/v1`:
 `GET /me`, `GET /plans`, `POST /instances` (needs `Idempotency-Key`), `GET /instances[/:id[/status|/events]]`,
-`POST /instances/:id/{start,stop,restart}`, `DELETE /instances/:id`. Limits: 120 requests per minute
+`POST /instances/:id/{start,stop,restart}`, `DELETE /instances/:id`, and per instance (when `SECRETS_KEK` is set):
+`GET|PUT /instances/:id/providers`, `POST .../providers/test`, `DELETE .../providers/:providerConfigId`,
+`GET|PUT|DELETE .../telegram`, `POST .../telegram/verify`, `GET .../logs?tail=` (redacted, at most 500 lines).
+The test and verify routes are limited to 5 per minute. Operator-only: `PUT /api/v1/tenants/:t/instances/:i/providers/nibierouter`,
+`GET /api/v1/secrets/health`, `POST /api/v1/secrets/rewrap`. Limits: 120 requests per minute
 per user, 5 provisioning requests per 10 minutes per user.
 
 Supabase project checklist (settings live in the Supabase dashboard, not in this repository; none of

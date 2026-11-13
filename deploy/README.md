@@ -1,8 +1,8 @@
 # Production deployment on a single VPS
 
-Files for running the backend (milestones A and B) on one Linux VPS with Docker Compose, without an
-orchestrator: Redis, the backend and Caddy. First deployed and checked on 2026-11-13 (see "Verified" and
-"Not verified" below). The operator API stays on loopback and is never forwarded publicly.
+Files for running the backend on one Linux VPS with Docker Compose, without an
+orchestrator: Redis, the backend and Caddy. First deployed and checked on 2026-11-13 with the build of
+milestones A and B (`edb7d62`); see "Verified" and "Not verified" below. The operator API stays on loopback and is never forwarded publicly.
 
 | File | What it is |
 | --- | --- |
@@ -64,7 +64,9 @@ Note that the Docker network is named `hermes-net-<uuid>`; `hn<12 hex>` is the *
 - Backups: nothing backs up the database or tenant volumes yet.
 - Redis AOF recovery after a crash, several backend replicas, a customer reaching their agent from the internet
   (`accessUrl` is still a loopback address), the dashboard against the customer API.
-- Milestones C (secrets, providers, Telegram) and D (Duitku POP billing) are not built.
+- Milestone C (secrets, providers, Telegram) is on `main` but was **not deployed**: the VPS runs the A and B build.
+  Updating needs `SECRETS_KEK` (required in production), a new migration (`prisma migrate deploy`) and a rebuild.
+  Milestone D (Duitku POP billing) is not built.
 
 ## Pitfalls seen during the first deploy
 
