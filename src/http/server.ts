@@ -2,6 +2,8 @@ import cors from '@fastify/cors';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import { ZodError } from 'zod';
 import type { Config } from '../config/env.js';
+import { InstanceCommands } from '../modules/instances/instance-commands.js';
+import type { JobQueue } from '../modules/jobs/types.js';
 import type { InstanceService } from '../modules/instances/instance-service.js';
 import { isDatabaseUnavailable } from '../db/errors.js';
 import { registerCustomerRoutes, type CustomerDeps } from './customer-routes.js';
@@ -15,11 +17,16 @@ import type { Logger } from '../shared/logger.js';
  */
 export function buildServer(deps: {
   service: InstanceService;
+  /** Defaults to running every operation inline (no queue). */
+  commands?: InstanceCommands;
+  /** The job queue behind `commands`, for the operator's failed-job routes. Null or absent: inline mode. */
+  queue?: JobQueue | null;
   config: Config;
   logger: Logger;
   customer?: CustomerDeps;
 }): FastifyInstance {
   const { service, config, logger, customer } = deps;
+  const commands = deps.commands ?? new InstanceCommands({ service, queue: null, logger });
   const app = Fastify({ loggerInstance: logger as unknown as FastifyBaseLogger });
 
   // Bearer tokens only (no cookies), so the allowlist is the dashboard's exact origin and nothing else.
@@ -58,8 +65,8 @@ export function buildServer(deps: {
 
   app.get('/healthz', async () => ({ status: 'ok' }));
 
-  registerOperatorRoutes(app, { service, config });
-  if (customer) registerCustomerRoutes(app, { customer, service, config });
+  registerOperatorRoutes(app, { service, commands, queue: deps.queue ?? null, config });
+  if (customer) registerCustomerRoutes(app, { customer, service, commands, config });
 
   app.setNotFoundHandler(async () => {
     throw new NotFoundError('Route not found');

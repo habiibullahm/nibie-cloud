@@ -2,6 +2,7 @@ import rateLimit from '@fastify/rate-limit';
 import type { FastifyInstance } from 'fastify';
 import type { PrismaClient } from '@prisma/client';
 import type { Config } from '../config/env.js';
+import type { InstanceCommands } from '../modules/instances/instance-commands.js';
 import type { InstanceService } from '../modules/instances/instance-service.js';
 import { ForbiddenError } from '../shared/errors.js';
 import { createBody, idempotencyKey } from './operator-routes.js';
@@ -15,8 +16,8 @@ export interface CustomerDeps extends CustomerAuthDeps {
  * Customer API: Supabase access token required, tenant taken from the verified user's membership.
  * Registered in its own plugin so the operator API's bearer hook never applies here, and vice versa.
  */
-export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: CustomerDeps; service: InstanceService; config: Config }): void {
-  const { service, config } = deps;
+export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: CustomerDeps; service: InstanceService; commands: InstanceCommands; config: Config }): void {
+  const { service, commands, config } = deps;
   const { prisma } = deps.customer;
   const allowed = new Set(config.betaAllowedEmails);
   app.register(async (api) => {
@@ -60,11 +61,11 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
       }
       const key = idempotencyKey.parse(req.headers['idempotency-key']);
       const body = createBody.parse(req.body);
-      const instance = await service.provision({
+      const { instance, jobId } = await commands.provision({
         tenantId: p.tenantId, name: body.name, planId: body.planId, idempotencyKey: key,
         maxInstances: config.maxInstancesPerTenant, activePlanOnly: true,
       });
-      return reply.status(202).send({ instance });
+      return reply.status(202).send({ instance, jobId });
     });
 
     api.get('/instances', async (req) => ({ instances: await service.list(principalOf(req).tenantId) }));
@@ -80,13 +81,13 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
     }));
     for (const action of ['start', 'stop', 'restart'] as const) {
       api.post<{ Params: Params }>(`/instances/:instanceId/${action}`, async (req, reply) => {
-        const instance = await service[action](principalOf(req).tenantId, req.params.instanceId);
-        return reply.status(202).send({ instance });
+        const { instance, jobId } = await commands[action](principalOf(req).tenantId, req.params.instanceId);
+        return reply.status(202).send({ instance, jobId });
       });
     }
     api.delete<{ Params: Params }>('/instances/:instanceId', async (req, reply) => {
-      const instance = await service.delete(principalOf(req).tenantId, req.params.instanceId);
-      return reply.status(202).send({ instance });
+      const { instance, jobId } = await commands.delete(principalOf(req).tenantId, req.params.instanceId);
+      return reply.status(202).send({ instance, jobId });
     });
   }, { prefix: '/api/v1' });
 }

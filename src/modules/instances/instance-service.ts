@@ -18,6 +18,15 @@ export interface InstanceView {
   createdAt: Date;
 }
 
+export interface ProvisionInput {
+  tenantId: string;
+  name: string;
+  planId: string;
+  idempotencyKey: string;
+  maxInstances?: number;
+  activePlanOnly?: boolean;
+}
+
 export interface InstanceServiceDeps {
   prisma: PrismaClient;
   runtime: RuntimeManager;
@@ -44,6 +53,29 @@ export interface InstanceServiceDeps {
 class HealthTimeout extends Error {}
 
 const RESET_RECOVERY = { consecutiveFailures: 0, recoveryAttempts: 0, nextRecoveryAt: null };
+
+/** Whether an operation on an instance in `status` still has work to do. Throws 409 when it cannot run. */
+export function decideOp(op: 'start' | 'restart' | 'stop' | 'delete', status: InstanceStatus): 'noop' | 'run' {
+  const running = status === 'ACTIVE' || status === 'DEGRADED';
+  switch (op) {
+    case 'start':
+      if (running) return 'noop';
+      if (status === 'STOPPED') return 'run';
+      break;
+    case 'restart':
+      if (running || status === 'STOPPED') return 'run';
+      break;
+    case 'stop':
+      if (status === 'STOPPED') return 'noop';
+      if (running) return 'run';
+      break;
+    case 'delete':
+      if (status === 'DELETED') return 'noop';
+      if (running || status === 'STOPPED' || status === 'FAILED') return 'run';
+      break;
+  }
+  throw new ConflictError(`Cannot ${op} an instance in state ${status}`);
+}
 
 export function toView(i: Instance): InstanceView {
   const reachable = i.hostPort !== null && (i.status === 'ACTIVE' || i.status === 'DEGRADED');
@@ -101,7 +133,16 @@ export class InstanceService {
    * idempotency key is never blocked by the cap. The operator API passes no cap. `activePlanOnly`
    * hides retired plans (customer API); the operator may still use them.
    */
-  async provision(input: { tenantId: string; name: string; planId: string; idempotencyKey: string; maxInstances?: number; activePlanOnly?: boolean }): Promise<InstanceView> {
+  async provision(input: ProvisionInput): Promise<InstanceView> {
+    const { instance, plan, needsRun } = await this.createProvisioning(input);
+    return needsRun ? this.runProvision(instance, plan) : toView(instance);
+  }
+
+  /**
+   * Validates and records the request (idempotent per tenant and key) without running it.
+   * `needsRun` is true for a new row and for a FAILED one being retried with the same key.
+   */
+  async createProvisioning(input: ProvisionInput): Promise<{ instance: Instance; plan: Plan; needsRun: boolean }> {
     validateName(input.name);
     if (!input.idempotencyKey || input.idempotencyKey.length > 128) throw new ValidationError('invalid idempotency key');
     // Malformed ids are "not found"; real database failures are left to surface (HTTP 503).
@@ -132,9 +173,9 @@ export class InstanceService {
       if (existing.name !== input.name || existing.planId !== plan.id) {
         throw new ConflictError('Idempotency-Key was already used with a different request');
       }
-      return existing.status === 'FAILED' ? this.runProvision(existing, plan) : toView(existing);
+      return { instance: existing, plan, needsRun: existing.status === 'FAILED' };
     }
-    return this.runProvision(row, plan);
+    return { instance: row, plan, needsRun: true };
   }
 
   /** Count and insert under a per-tenant advisory lock, so concurrent requests cannot exceed the cap. */
@@ -170,26 +211,19 @@ export class InstanceService {
 
   async start(tenantId: string, instanceId: string): Promise<InstanceView> {
     const i = await findOwned(this.prisma, tenantId, instanceId);
-    if (i.status === 'ACTIVE' || i.status === 'DEGRADED') return toView(i);
-    if (i.status !== 'STOPPED') throw new ConflictError(`Cannot start an instance in state ${i.status}`);
+    if (decideOp('start', i.status) === 'noop') return toView(i);
     return this.startFlow(i, 'start');
   }
 
   async restart(tenantId: string, instanceId: string): Promise<InstanceView> {
     const i = await findOwned(this.prisma, tenantId, instanceId);
-    if (i.status === 'STOPPED') return this.startFlow(i, 'start');
-    if (i.status !== 'ACTIVE' && i.status !== 'DEGRADED') {
-      throw new ConflictError(`Cannot restart an instance in state ${i.status}`);
-    }
-    return this.startFlow(i, 'restart');
+    decideOp('restart', i.status);
+    return this.startFlow(i, i.status === 'STOPPED' ? 'start' : 'restart');
   }
 
   async stop(tenantId: string, instanceId: string): Promise<InstanceView> {
     const i = await findOwned(this.prisma, tenantId, instanceId);
-    if (i.status === 'STOPPED') return toView(i);
-    if (i.status !== 'ACTIVE' && i.status !== 'DEGRADED') {
-      throw new ConflictError(`Cannot stop an instance in state ${i.status}`);
-    }
+    if (decideOp('stop', i.status) === 'noop') return toView(i);
     const from = i.status;
     const lease = this.newLease();
     await transition(this.prisma, { id: i.id, from, to: 'STOPPING', eventType: 'instance.stopping', message: 'Instance stopping', lease });
@@ -209,10 +243,7 @@ export class InstanceService {
 
   async delete(tenantId: string, instanceId: string): Promise<InstanceView> {
     const i = await findOwned(this.prisma, tenantId, instanceId);
-    if (i.status === 'DELETED') return toView(i);
-    if (!['ACTIVE', 'DEGRADED', 'STOPPED', 'FAILED'].includes(i.status)) {
-      throw new ConflictError(`Cannot delete an instance in state ${i.status}`);
-    }
+    if (decideOp('delete', i.status) === 'noop') return toView(i);
     const from = i.status;
     const lease = this.newLease();
     await transition(this.prisma, { id: i.id, from, to: 'DELETING', eventType: 'deletion.started', message: 'Deletion started', lease });
@@ -248,6 +279,17 @@ export class InstanceService {
     } finally {
       stop();
     }
+  }
+
+  /**
+   * Job entry point: runs provisioning for a row created earlier. A row that is no longer PENDING or
+   * FAILED (done, or another operation owns it) is returned as is, so redelivered jobs are harmless.
+   */
+  async runProvisionById(tenantId: string, instanceId: string): Promise<InstanceView> {
+    const inst = await findOwned(this.prisma, tenantId, instanceId);
+    if (inst.status !== 'PENDING' && inst.status !== 'FAILED') return toView(inst);
+    const plan = await this.prisma.plan.findUniqueOrThrow({ where: { id: inst.planId } });
+    return this.runProvision(inst, plan);
   }
 
   private async runProvision(inst: Instance, plan: Plan): Promise<InstanceView> {

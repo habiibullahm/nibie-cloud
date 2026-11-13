@@ -40,6 +40,11 @@ export interface ReconcilerDeps {
   /** Lease TTL for recovery operations; renewed every TTL/3 by a heartbeat. */
   leaseTtlMs?: number;
   maxOperationMs?: number;
+  /**
+   * Fail PENDING rows that nothing picked up (default true: inline mode has no other recovery).
+   * With a job queue the sweeper owns PENDING rows, so this is false.
+   */
+  reapPending?: boolean;
 }
 
 const WATCHED = ['ACTIVE', 'DEGRADED'] as const;
@@ -71,6 +76,7 @@ export class Reconciler {
       staleTransitionMs: 5 * 60_000,
       leaseTtlMs: 60_000,
       maxOperationMs: 10 * 60_000,
+      reapPending: true,
       ...deps,
     };
   }
@@ -130,8 +136,9 @@ export class Reconciler {
         { leaseExpiresAt: null, updatedAt: { lt: new Date(at.getTime() - staleTransitionMs) } },
       ],
     };
+    const statuses = this.d.reapPending ? TRANSITIONAL_STATUSES : TRANSITIONAL_STATUSES.filter((st) => st !== 'PENDING');
     const rows = await prisma.instance.findMany({
-      where: { status: { in: [...TRANSITIONAL_STATUSES] }, AND: [staleWhere] },
+      where: { status: { in: [...statuses] }, AND: [staleWhere] },
     });
     let resolved = 0;
     for (const i of rows) {

@@ -69,8 +69,16 @@ ACTIVE|DEGRADED|STOPPED|FAILED → DELETING → DELETED
 Every transition is a database compare-and-set plus an event in one transaction; the loser of a
 race gets `409`. `provision` is idempotent per `(tenant, idempotency key)`: the key is **bound to
 its original request** (`name` + `planId`), so reusing it with a different payload answers
-`409 Conflict` instead of silently returning the other instance. It runs synchronously
-in-process today (the API still answers `202`).
+`409 Conflict` instead of silently returning the other instance. The API answers `202` with the
+instance and a `jobId`. With `REDIS_URL` the work is a BullMQ job (queue `instance-ops`, job id
+`<instanceId>_<op>`, payload = ids only) that a worker runs through the same `InstanceService`
+methods, so leases, fencing and compare-and-set are unchanged; without it the request runs the
+operation inline and `jobId` is `null`. `InstanceCommands` validates the transition (`decideOp`) before
+enqueueing, so impossible requests still answer `409`. The database row is the durable intent: a
+`PENDING` row is re-enqueued by the sweeper if the job was never created or was lost, and
+`GET /api/v1/jobs/failed` (operator API) lists jobs that used up their 4 attempts. Differences from the
+original design note: there is no outbox table yet (no consumer until milestone D), and the failed set
+replaces a separate dead-letter queue. Details: [setup.md](setup.md#job-queue-redis-and-bullmq).
 
 **Operation leases.** Each transitional status (`PROVISIONING`, `CONFIGURING`, `STARTING`,
 `STOPPING`, `DELETING`, and reconciler recovery) is owned by one operation: entering it writes
@@ -113,7 +121,7 @@ API answers `503`.
 
 ## Recovery (`Reconciler`)
 
-Every 15 s (and on demand) for `ACTIVE`/`DEGRADED` instances: a missing/exited container is re-`ensure`d
+Every 15 s (and on demand; with `REDIS_URL` as a scheduled job under a Redis lock, so replicas do not overlap) for `ACTIVE`/`DEGRADED` instances: a missing/exited container is re-`ensure`d
 (same volume) and started, with at most 3 attempts and exponential backoff with jitter
 (2 s × 2ⁿ, cap 60 s). Before touching Docker the reconciler *claims* the instance
 (`→ STARTING`), so a concurrent user stop/delete/restart gets `409` instead of racing it.
@@ -174,7 +182,7 @@ This system is **not production-ready**. Open items, none of which are mitigated
 3. **Runtime isolation not fully validated (PRD 7.2).** `runc` is the default. gVisor (`runsc`) is selectable and was reported compatible, but it is not the default and has had no escape or kernel-exposure testing; no microVM evaluation; seccomp/AppArmor not verified on target hosts (the dev sandbox uses cgroup v1).
 4. **Real Hermes image only partly validated.** The pinned official image boots under the hardened baseline and answers authenticated requests in the live harness (see [milestone-2-runtime-security.md](milestone-2-runtime-security.md)). Not validated: production hosts and kernels, behaviour under a real model backend, the telegram transport, and what the image does with no `API_SERVER_KEY`.
 5. **Customer API is new and unproven against real infrastructure.** Tokens in tests are signed with local keys; no real Supabase project, no Supabase Postgres and no public deployment have been exercised. Both API surfaces share one loopback port, so a public reverse proxy must forward only the customer paths and never `/api/v1/tenants/*`; as a second line only, the operator API answers 404 to any request that carries a proxy header (`x-forwarded-*`, `forwarded`, `x-real-ip`, `cf-*`). The beta provisioning gate trusts the `email` claim, which is only safe while Supabase requires email confirmation (and secure email change) and every enabled OAuth provider returns verified emails; nothing in the backend enforces that. The operator API is still a single shared bearer token. The app's rate limit counts authenticated users only. There is no audit log, no account deletion, and a signed-out user's access token works until it expires. `accessUrl` is still a loopback URL, not something a customer can open.
-6. **Provisioning is synchronous and in-process;** no job queue, dead-letter queue or outbox. A control-plane crash mid-operation is cleaned up by the lease-based reaper after the lease expires (≤ TTL, 60 s by default): it fails or finishes the operation but does not resume it. Several control-plane replicas are unsupported: the lease protects individual operations, but there is no leader election for the reconciler loop, and clock skew between replicas/DB is not handled. A Docker call that hangs without erroring holds its lease until `maxOperationMs`.
+6. **Jobs are new and unproven against real infrastructure.** Redis, the worker and the scheduler were exercised only in a single sandbox (local Redis 7, one process, Docker stub image). Not verified: Redis with AOF under restart, several API replicas on one Redis, a real Hermes image under the worker, load. Redis loss drops queued-but-unstarted jobs (the user repeats the action; `PENDING` instances are recovered by the sweeper). A control-plane crash mid-operation is cleaned up by the lease-based reaper after the lease expires (≤ TTL, 60 s by default): it fails or finishes the operation but does not resume it, and the redelivered job then finds a transitional state and stops without retrying. Clock skew between replicas/DB is not handled. A Docker call that hangs without erroring holds its lease until `maxOperationMs`. There is still no outbox table.
 7. **Single node, no scheduler or capacity reservation;** the host port is a random loopback port, with no ingress or TLS.
 8. **No secrets management** (envelope encryption, rotation). Per-instance API keys are derived from one master secret in the environment and are never stored, but there is no rotation and no vault; log redaction is by key path only, so free-text secrets in messages would not be caught.
 9. **No backups/restore, customer shell/file broker, metrics, or suspend/grace/retention lifecycle.**
