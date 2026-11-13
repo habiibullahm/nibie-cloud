@@ -1,0 +1,7 @@
+# Allowlist: only what the image needs. Never copies .env, .git, apps/, docs/ or test/.
+**
+!package.json
+!pnpm-lock.yaml
+!tsconfig.json
+!prisma
+!src

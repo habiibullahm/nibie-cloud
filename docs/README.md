@@ -15,6 +15,7 @@ real tool output win, then CURRENT_STATE, then everything else.
 | [disk-quota-host-notes.md](disk-quota-host-notes.md) | What was and was not verified about Docker volume quotas on a real host. |
 | [egress-host-notes.md](egress-host-notes.md) | What was and was not verified about the egress ruleset, bridge names and the canary. Nothing has seen tenant traffic yet. |
 | [runbook-egress.md](runbook-egress.md) | Operator runbook: check the rules, add an exception, what to do when the canary or `network_policy_missing` fails. |
+| [../deploy/README.md](../deploy/README.md) | Single-VPS production deployment (Compose, Caddy, XFS quota, egress): order of work, what was verified on a real host and what was not. |
 | [adr/](adr) | Architecture decision records: [0001](adr/0001-docker-direct-no-orchestrator.md), [0002](adr/0002-hardened-container-baseline.md), [0003](adr/0003-hermes-config-delivery.md). |
 
 Also outside `docs/`: [../AGENTS.md](../AGENTS.md) (agent instructions), [../DESIGN.md](../DESIGN.md)

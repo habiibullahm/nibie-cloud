@@ -1,0 +1,32 @@
+# Public reverse proxy for the customer API. Automatic Let's Encrypt certificate (DNS-only record, not
+# proxied by Cloudflare). Validate before use:
+#   docker run --rm -v "$PWD/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.10 caddy validate --config /etc/caddy/Caddyfile
+{
+	admin off
+}
+
+api.cloud.nibie.app {
+	encode zstd gzip
+	request_body {
+		max_size 64KB
+	}
+
+	# Allowlist: only customer API routes. /api/v1/tenants/* (operator API), /api/v1/jobs/* and everything
+	# else are NOT forwarded. Paths containing "..", "%2e", "%2f" or "//" are rejected too.
+	@public {
+		path /healthz /api/v1/me /api/v1/plans /api/v1/instances /api/v1/instances/*
+		not path_regexp (?i)(\.\.|%2e|%2f|//)
+	}
+	handle @public {
+		reverse_proxy 127.0.0.1:3000
+	}
+	handle {
+		respond "not found" 404
+	}
+
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		Strict-Transport-Security "max-age=31536000"
+	}
+}

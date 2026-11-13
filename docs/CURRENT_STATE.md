@@ -1,6 +1,6 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-12 (backend milestone A branch). Index of all docs: [README.md](README.md).
+Last updated: 2026-11-13 (first VPS deployment). Index of all docs: [README.md](README.md).
 
 ## Where things stand
 
@@ -57,6 +57,27 @@ Last updated: 2026-11-12 (backend milestone A branch). Index of all docs: [READM
   `hermes`), Duitku POP, Resend (sender on a verified domain), Cloudflare for DNS and the dashboard,
   R2 for backups, dashboard at `cloud.nibie.app/dashboard`, API at `api.cloud.nibie.app`, NibieRouter
   is a SumoRouter instance at `https://router.nibie.app/v1`. Open items are in section 9 of the spec.
+
+## First VPS deployment (2026-11-13, files in `deploy/`)
+
+Milestones A and B (`main` at `edb7d62`) run on the owner's single VPS (Ubuntu 24.04, kernel 6.8, Docker 29.9,
+cgroup v2) with Docker Compose: Redis, the backend and Caddy in `NODE_ENV=production` with
+`HERMES_DISK_QUOTA=enforce` (XFS with project quota on a loop image) and `HERMES_EGRESS_POLICY=enforce`.
+Verified there, from real command output: image build, migrations on Supabase, TLS, the public boundary
+(operator routes 404, 401 without token, CORS), a real login and an instance reaching `ACTIVE` with the
+official Hermes image on `runc` in about 21 seconds, the XFS quota on the tenant volume, egress rules
+rejecting private and metadata ranges from the tenant bridge, a clean delete (no container, volume, network or
+bridge left), and a reboot with everything coming back by itself. This supersedes "no run on the VPS" and
+"nothing has seen tenant traffic yet" in [egress-host-notes.md](egress-host-notes.md) for those checks only.
+Milestone C (PR #8) was merged afterwards and is **not deployed**: the VPS still runs the A and B build; updating
+needs `SECRETS_KEK` (required in production), the new migration and a rebuild.
+Order of work, the full verified list and pitfalls: [../deploy/README.md](../deploy/README.md).
+
+**Not verified, still open:** gVisor (`runsc`) with the official image, backups of the database and tenant
+volumes (none exist), whether stale XFS project ids pile up after deletes, Redis AOF recovery after a crash,
+several replicas, customers reaching their agent from the internet, and the database password rotation
+(the first password was exposed in a chat and must be rotated). The deploy files are a snapshot of what ran;
+they have no automated test.
 
 ## Verified tests
 
