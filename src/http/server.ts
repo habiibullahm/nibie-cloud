@@ -5,6 +5,8 @@ import type { Config } from '../config/env.js';
 import { InstanceCommands } from '../modules/instances/instance-commands.js';
 import type { JobQueue } from '../modules/jobs/types.js';
 import type { InstanceService } from '../modules/instances/instance-service.js';
+import type { LogService } from '../modules/integrations/log-service.js';
+import type { Integrations } from '../modules/integrations/types.js';
 import { isDatabaseUnavailable } from '../db/errors.js';
 import { registerCustomerRoutes, type CustomerDeps } from './customer-routes.js';
 import { registerOperatorRoutes } from './operator-routes.js';
@@ -24,8 +26,13 @@ export function buildServer(deps: {
   config: Config;
   logger: Logger;
   customer?: CustomerDeps;
+  /** Provider and Telegram services. Null or absent: those routes answer 503 `secrets_unavailable`. */
+  integrations?: Integrations | null;
+  /** Redacted container logs for the customer API. Absent: the logs route answers 404. */
+  logs?: LogService | null;
 }): FastifyInstance {
   const { service, config, logger, customer } = deps;
+  const integrations = deps.integrations ?? null;
   const commands = deps.commands ?? new InstanceCommands({ service, queue: null, logger });
   const app = Fastify({ loggerInstance: logger as unknown as FastifyBaseLogger });
 
@@ -34,7 +41,7 @@ export function buildServer(deps: {
     app.register(cors, {
       origin: [config.dashboardOrigin],
       credentials: false,
-      methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['authorization', 'content-type', 'idempotency-key'],
       maxAge: 600,
     });
@@ -65,8 +72,8 @@ export function buildServer(deps: {
 
   app.get('/healthz', async () => ({ status: 'ok' }));
 
-  registerOperatorRoutes(app, { service, commands, queue: deps.queue ?? null, config });
-  if (customer) registerCustomerRoutes(app, { customer, service, commands, config });
+  registerOperatorRoutes(app, { service, commands, queue: deps.queue ?? null, config, integrations });
+  if (customer) registerCustomerRoutes(app, { customer, service, commands, config, integrations, logs: deps.logs ?? null });
 
   app.setNotFoundHandler(async () => {
     throw new NotFoundError('Route not found');

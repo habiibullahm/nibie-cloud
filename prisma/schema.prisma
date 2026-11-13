@@ -27,6 +27,7 @@ model Tenant {
   createdAt DateTime       @default(now()) @db.Timestamptz(3)
   instances Instance[]
   members   TenantMember[]
+  secrets   Secret[]
 }
 
 /// Customer identity. `id` is the Supabase Auth user id (the token's `sub`); it is not generated here.
@@ -98,6 +99,10 @@ model Instance {
   /// Written only by the DiskMonitor: last measured volume usage and its level (ok | warning | full).
   diskUsedBytes       BigInt?
   diskLevel           String         @default("ok")
+  /// Bumped whenever provider or Telegram configuration changes; `appliedRevision` is what the running
+  /// container was created with. A gap makes the next restart recreate the container (volume kept).
+  configRevision      Int            @default(0)
+  appliedRevision     Int            @default(0)
   createdAt           DateTime       @default(now()) @db.Timestamptz(3)
   updatedAt           DateTime       @updatedAt @db.Timestamptz(3)
   deletedAt           DateTime?      @db.Timestamptz(3)
@@ -106,6 +111,8 @@ model Instance {
   plan   Plan            @relation(fields: [planId], references: [id], onDelete: Restrict)
   node   RuntimeNode     @relation(fields: [nodeId], references: [id], onDelete: Restrict)
   events InstanceEvent[]
+  provider ProviderConfig?
+  telegram TelegramConnection?
 
   @@unique([tenantId, idempotencyKey])
   @@index([status])
@@ -124,4 +131,78 @@ model InstanceEvent {
   instance Instance @relation(fields: [instanceId], references: [id], onDelete: Restrict)
 
   @@index([instanceId, createdAt])
+}
+
+/// Envelope-encrypted credential (PRD 7.4). Holds ciphertext, the wrapped data key and the KEK version;
+/// never plaintext. `keyHint` is the last four characters at most. Read back only by the worker.
+model Secret {
+  id         String    @id @default(uuid()) @db.Uuid
+  tenantId   String    @db.Uuid
+  purpose    String
+  ciphertext String
+  iv         String
+  tag        String
+  wrappedKey String
+  wrapIv     String
+  wrapTag    String
+  kekVersion Int
+  keyHint    String
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  rotatedAt  DateTime? @db.Timestamptz(3)
+  revokedAt  DateTime? @db.Timestamptz(3)
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  provider ProviderConfig?
+  telegram TelegramConnection?
+
+  @@index([tenantId])
+  @@index([kekVersion])
+}
+
+enum ProviderKind {
+  BYOK
+  NIBIEROUTER
+}
+
+enum IntegrationStatus {
+  UNTESTED
+  OK
+  FAILED
+}
+
+/// One provider per instance for the beta. The key lives in `Secret`, referenced by `secretId`.
+model ProviderConfig {
+  id            String            @id @default(uuid()) @db.Uuid
+  instanceId    String            @unique @db.Uuid
+  kind          ProviderKind
+  baseUrl       String
+  model         String
+  secretId      String            @unique @db.Uuid
+  status        IntegrationStatus @default(UNTESTED)
+  lastTestedAt  DateTime?         @db.Timestamptz(3)
+  lastErrorCode String?
+  createdAt     DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime          @updatedAt @db.Timestamptz(3)
+
+  instance Instance @relation(fields: [instanceId], references: [id], onDelete: Restrict)
+  secret   Secret   @relation(fields: [secretId], references: [id], onDelete: Restrict)
+}
+
+/// One Telegram bot per instance. `botId` is unique across tenants: one bot token, one tenant (PRD 9).
+model TelegramConnection {
+  id             String            @id @default(uuid()) @db.Uuid
+  instanceId     String            @unique @db.Uuid
+  secretId       String            @unique @db.Uuid
+  botId          String            @unique
+  botUsername    String
+  allowedUserIds String[]
+  status         IntegrationStatus @default(UNTESTED)
+  /// Set when the bot answered the verify message; `needs_start` when the user has not started the bot yet.
+  lastErrorCode  String?
+  verifiedAt     DateTime?         @db.Timestamptz(3)
+  createdAt      DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime          @updatedAt @db.Timestamptz(3)
+
+  instance Instance @relation(fields: [instanceId], references: [id], onDelete: Restrict)
+  secret   Secret   @relation(fields: [secretId], references: [id], onDelete: Restrict)
 }

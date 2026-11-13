@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { DiskQuotaMode, EgressPolicyMode, SupportedRuntime } from '../modules/runtime/types.js';
+import type { Kek } from '../modules/secrets/crypto.js';
 
 const DIGEST_PINNED = /^[^\s@]+@sha256:[0-9a-f]{64}$/;
 
@@ -38,6 +39,13 @@ const redisUrl = z.preprocess(
   }).optional(),
 );
 
+/** Base64 of exactly 32 bytes. Anything else is rejected without echoing the value. */
+const kekB64 = z.preprocess(
+  emptyToUndefined,
+  z.string().refine((v) => /^[A-Za-z0-9+/]+={0,2}$/.test(v) && Buffer.from(v, 'base64').length === 32).optional(),
+);
+const kekVersion = z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(1_000_000).optional());
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DATABASE_URL: z.string().min(1),
@@ -60,6 +68,12 @@ const schema = z.object({
   BETA_ALLOWED_EMAILS: z.string().optional(),
   /** `redis://[:password@]host:port`. Unset runs operations inline (no queue); required in production. */
   REDIS_URL: redisUrl,
+  /** Key-encryption key for stored secrets: base64 of 32 bytes. Never stored in the database. */
+  SECRETS_KEK: kekB64,
+  SECRETS_KEK_VERSION: kekVersion,
+  /** Previous key, kept only while old secrets are rewrapped after a rotation. */
+  SECRETS_KEK_PREVIOUS: kekB64,
+  SECRETS_KEK_PREVIOUS_VERSION: kekVersion,
   MAX_INSTANCES_PER_TENANT: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(1000).default(1)),
 }).superRefine((e, ctx) => {
   // Without enforcement a tenant can fill the node's disk, so it is never allowed in production.
@@ -73,6 +87,16 @@ const schema = z.object({
   // Without the queue a request runs the whole operation inline and a crash loses it.
   if (e.NODE_ENV === 'production' && !e.REDIS_URL) {
     ctx.addIssue({ code: 'custom', path: ['REDIS_URL'], message: 'required in production' });
+  }
+  // Without the key nothing can be encrypted, and a stored secret could never be opened again.
+  if (e.NODE_ENV === 'production' && !e.SECRETS_KEK) {
+    ctx.addIssue({ code: 'custom', path: ['SECRETS_KEK'], message: 'required in production' });
+  }
+  if (e.SECRETS_KEK_PREVIOUS && !e.SECRETS_KEK) {
+    ctx.addIssue({ code: 'custom', path: ['SECRETS_KEK_PREVIOUS'], message: 'needs SECRETS_KEK' });
+  }
+  if (e.SECRETS_KEK_PREVIOUS && (e.SECRETS_KEK_PREVIOUS_VERSION === undefined || e.SECRETS_KEK_PREVIOUS_VERSION === (e.SECRETS_KEK_VERSION ?? 1))) {
+    ctx.addIssue({ code: 'custom', path: ['SECRETS_KEK_PREVIOUS_VERSION'], message: 'required and must differ from SECRETS_KEK_VERSION' });
   }
   // The startup canary needs an image pinned by digest, like every other image.
   if (e.HERMES_EGRESS_POLICY === 'enforce' && (!e.HERMES_CANARY_IMAGE || !DIGEST_PINNED.test(e.HERMES_CANARY_IMAGE))) {
@@ -102,6 +126,8 @@ export interface Config {
   maxInstancesPerTenant: number;
   /** Null: no job queue, operations run inline in the request. */
   redisUrl: string | null;
+  /** Null: secret routes answer 503 `secrets_unavailable`. */
+  secrets: { current: Kek; previous: Kek | null } | null;
 }
 
 /** Parse environment. Errors name the failing keys only, never the values. */
@@ -134,5 +160,13 @@ export function loadConfig(env: NodeJS.ProcessEnv | Record<string, string | unde
       .filter((s) => s.length > 0),
     maxInstancesPerTenant: e.MAX_INSTANCES_PER_TENANT,
     redisUrl: e.REDIS_URL ?? null,
+    secrets: e.SECRETS_KEK
+      ? {
+          current: { version: e.SECRETS_KEK_VERSION ?? 1, key: Buffer.from(e.SECRETS_KEK, 'base64') },
+          previous: e.SECRETS_KEK_PREVIOUS
+            ? { version: e.SECRETS_KEK_PREVIOUS_VERSION ?? 1, key: Buffer.from(e.SECRETS_KEK_PREVIOUS, 'base64') }
+            : null,
+        }
+      : null,
   };
 }
