@@ -59,13 +59,16 @@ Note that the Docker network is named `hermes-net-<uuid>`; `hn<12 hex>` is the *
 
 ## Not verified, do not claim it
 
-- gVisor (`HERMES_RUNTIME=runsc`) with the official image. Everything above ran on `runc`.
+- gVisor (`HERMES_RUNTIME=runsc`) with the official image. Everything above ran on `runc`. A first attempt
+  failed at startup because the egress canary's pids limit (32) was too low under gVisor; see
+  [../docs/CURRENT_STATE.md](../docs/CURRENT_STATE.md).
 - Whether `xfs_quota` project ids of deleted volumes accumulate (one stale entry was still listed after the delete).
-- Backups: nothing backs up the database or tenant volumes yet.
+- Backups: a daily `pg_dump` of the database runs on the VPS (see `docs/CURRENT_STATE.md`); a restore was not
+  rehearsed, there is no off-host copy, and tenant volumes are not backed up.
 - Redis AOF recovery after a crash, several backend replicas, a customer reaching their agent from the internet
   (`accessUrl` is still a loopback address), the dashboard against the customer API.
-- Milestone C (secrets, providers, Telegram) is on `main` but was **not deployed**: the VPS runs the A and B build.
-  Updating needs `SECRETS_KEK` (required in production), a new migration (`prisma migrate deploy`) and a rebuild.
+- Milestone C (secrets, providers, Telegram) was deployed later on 2026-11-13 (`95228b9`, `SECRETS_KEK` set, the
+  new migration applied, canary and boundary checks passed), but no credential route was exercised there.
   Milestone D (Duitku POP billing) is not built.
 
 ## Pitfalls seen during the first deploy

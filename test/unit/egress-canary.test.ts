@@ -230,6 +230,8 @@ describe('runEgressCanary', () => {
     const gv = setup();
     await run(gv, undefined, 'runsc');
     expect((gv.containers[0]!.HostConfig as Record<string, unknown>).Runtime).toBe('runsc');
+    // gVisor's sandbox threads count against the pids limit; 32 failed on a real host.
+    expect((gv.containers[0]!.HostConfig as Record<string, unknown>).PidsLimit).toBe(256);
     const rc = setup();
     await run(rc, undefined, 'runc');
     expect((rc.containers[0]!.HostConfig as Record<string, unknown>).Runtime).toBe('runc');
