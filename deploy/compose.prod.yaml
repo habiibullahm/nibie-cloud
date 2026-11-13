@@ -1,0 +1,78 @@
+# Hermes Cloud, production on a single VPS: Redis, the backend and Caddy.
+# Run it through a wrapper, for example:
+#   docker compose --env-file /etc/hermes-cloud/backend.env -f /opt/hermes-cloud/deploy/compose.prod.yaml ...
+name: hermes-cloud
+
+services:
+  redis:
+    image: redis:7.4
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in /etc/hermes-cloud/backend.env}
+    # Password through the environment so it does not show in the process list. AOF and noeviction are
+    # required for BullMQ.
+    command: ["sh", "-c", "exec redis-server --appendonly yes --maxmemory-policy noeviction --requirepass \"$$REDIS_PASSWORD\""]
+    ports:
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: hermes-cloud-backend:${BACKEND_TAG:-current}
+    init: true
+    restart: unless-stopped
+    # Why network_mode: host: the API binds only 127.0.0.1, instance health checks use
+    # 127.0.0.1:<hostPort>, and the egress canary listens on the host's bridge gateway address.
+    network_mode: host
+    env_file:
+      - /etc/hermes-cloud/backend.env
+    # The backend manages tenant containers through the Docker socket. That is equivalent to root on the
+    # host, so this image must contain only our own code.
+    group_add:
+      - "${DOCKER_GID:?set DOCKER_GID in /etc/hermes-cloud/backend.env}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # /healthz only checks that the process is alive, not the database, Redis or Docker.
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+  caddy:
+    image: caddy:2.10
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+volumes:
+  redisdata:
+  caddy_data:
+  caddy_config:
