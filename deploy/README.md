@@ -57,23 +57,25 @@ milestones A and B (`edb7d62`); see "Verified" and "Not verified" below. The ope
 Note that the Docker network is named `hermes-net-<uuid>`; `hn<12 hex>` is the **bridge interface** name
 (`ip -br link | grep '^hn'`), which is what the egress rules match (`-i hn+`).
 
-## Not verified, do not claim it
+## gVisor (`HERMES_RUNTIME=runsc`) verified on 2026-11-14, including DNS
 
-- gVisor (`HERMES_RUNTIME=runsc`) with the official image. The pids-limit startup failure is fixed (PR #10) and
-  a full instance lifecycle (create, restart, stop/start, delete) passed under `runsc` on `515d061`: correct
-  `Runtime`/`PidsLimit`/memory/CPU limits, the XFS quota, `HERMES-EGRESS` rejecting the metadata address and a
-  private range while the public internet stayed reachable, and a clean delete. **Hostnames still did not
-  resolve inside a `runsc` tenant container**, even with `HERMES_DNS_RESOLVERS` deployed and `HostConfig.Dns`
-  confirmed set (`docker inspect`): the container's `/etc/resolv.conf` still pointed at Docker's embedded
-  resolver (`127.0.0.11`), which `HostConfig.Dns` does not change and which is unreachable from inside the
-  gVisor sandbox. A raw DNS query straight to `1.1.1.1` and `curl --resolve` both worked from inside the same
-  container, so the network path was fine; only resolution through `resolv.conf` failed.
-  **Second fix built, not yet deployed or retested:** `HERMES_CANARY_IMAGE` now seeds a dedicated Docker
-  volume (`hermes-dns-resolv-conf`) with a plain `resolv.conf`, and every `runsc` tenant container
-  bind-mounts that one file over its own `/etc/resolv.conf`, bypassing the embedded resolver entirely
-  instead of just pointing `Dns` at it. Do not switch production to `runsc` until this is deployed and a
-  hostname lookup from inside a real `runsc` tenant container succeeds; see
-  [../docs/CURRENT_STATE.md](../docs/CURRENT_STATE.md).
+The pids-limit startup failure is fixed (PR #10). A first DNS fix (`HERMES_DNS_RESOLVERS` as Docker
+`HostConfig.Dns`) was not enough: the tenant's own `/etc/resolv.conf` still pointed at Docker's
+embedded resolver (`127.0.0.11`), unreachable from inside gVisor, even with `Dns` confirmed set. A
+second fix (`HERMES_CANARY_IMAGE` seeds a dedicated Docker volume, `hermes-dns-resolv-conf`, with a
+plain `resolv.conf`; every `runsc` tenant container bind-mounts that file over its own
+`/etc/resolv.conf`, bypassing the embedded resolver entirely) was deployed and retested on `9d33abc`:
+`/etc/resolv.conf` inside a real `runsc` tenant container read the explicit resolvers with no
+`127.0.0.11`, `getent hosts` and Python `getaddrinfo` both resolved a public hostname, and `curl`
+reached `https://example.com` and `https://api.telegram.org`, including after a restart and a
+stop/start. The full lifecycle (create, restart, stop/start, delete) also passed: correct
+`Runtime`/`PidsLimit`/memory/CPU limits, the XFS quota, `HERMES-EGRESS` rejecting the metadata
+address and a private range while the public internet stayed reachable, and a clean delete (the
+shared `hermes-dns-resolv-conf` volume correctly survives a tenant delete). **Production switched to
+`runsc` on 2026-11-14** (owner approved): the env now has `HERMES_RUNTIME=runsc`, confirmed healthy
+after recreate. See [../docs/CURRENT_STATE.md](../docs/CURRENT_STATE.md).
+
+## Not verified, do not claim it
 - `xfs_quota` project ids of deleted volumes accumulate: two emptied entries stayed listed after their volumes
   were deleted.
 - Backups: a daily `pg_dump` of the database runs on the VPS (see `docs/CURRENT_STATE.md`); a restore was not

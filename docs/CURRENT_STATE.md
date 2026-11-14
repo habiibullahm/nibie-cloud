@@ -1,6 +1,6 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-14 (a second gVisor DNS fix, for the deeper blocker the first fix's retest found, is built; not yet deployed or retested). Index of all docs: [README.md](README.md).
+Last updated: 2026-11-14 (gVisor's DNS blocker is fixed and verified; production is now running on `runsc`, by the owner's approval). Index of all docs: [README.md](README.md).
 
 ## Where things stand
 
@@ -117,30 +117,38 @@ Order of work, the full verified list and pitfalls: [../deploy/README.md](../dep
   egress enforcement); optional and a no-op under `runc`, which keeps today's behaviour. A resolver on a
   private address still needs a matching `RESOLVERS` entry in `ops/egress/egress.conf`. See
   [setup.md](setup.md#configuration).
-  **Second fix built (2026-11-14), not yet deployed or retested:** instead of relying on
-  `HostConfig.Dns`, the resolvers now seed a dedicated Docker volume (`hermes-dns-resolv-conf`,
-  `dns-resolv-conf.ts`) with a plain `resolv.conf`, written by a short-lived container using
-  `HERMES_CANARY_IMAGE` (now required under `runsc` too, not only under egress enforcement). Every
-  `runsc` tenant container bind-mounts that one file over its own `/etc/resolv.conf`
-  (`hardening.ts`'s `HostConfig.Mounts`, `Subpath: 'resolv.conf'`), bypassing Docker's embedded
-  resolver entirely instead of trying to make it reachable. `HostConfig.Dns` is still set alongside
-  it (harmless). Unit-tested (`dns-resolv-conf.test.ts`, `hardening.test.ts`) and type-checked; not
-  yet run against a real `runsc` host. **Do not switch production to `runsc`** until this is deployed
-  and a hostname lookup from inside a real `runsc` tenant container succeeds. Production stayed on
-  `runc` throughout the first retest and is healthy there (`515d061`). One stale `ConflictError` row
-  was left in `GET /api/v1/jobs/failed` from a test script mistake during an earlier retest
-  (harmless, kept 7 days).
+  **Second fix built, deployed and retested (2026-11-14, `main` at `9d33abc`, VPS image tag
+  `9d33abc`): fixed.** Instead of relying on `HostConfig.Dns`, the resolvers now seed a dedicated
+  Docker volume (`hermes-dns-resolv-conf`, `dns-resolv-conf.ts`) with a plain `resolv.conf`, written
+  by a short-lived container using `HERMES_CANARY_IMAGE` (now required under `runsc` too, not only
+  under egress enforcement). Every `runsc` tenant container bind-mounts that one file over its own
+  `/etc/resolv.conf` (`hardening.ts`'s `HostConfig.Mounts`, `Subpath: 'resolv.conf'`), bypassing
+  Docker's embedded resolver entirely instead of trying to make it reachable. `HostConfig.Dns` is
+  still set alongside it (harmless). On the VPS, inside a real `runsc` tenant container:
+  `/etc/resolv.conf` read `nameserver 1.1.1.1` / `nameserver 9.9.9.9` (no `127.0.0.11`), `getent
+  hosts example.com` and Python `getaddrinfo` both resolved, and `curl https://example.com` and
+  `https://api.telegram.org` both got a response (200 and 302). Resolution kept working after a
+  restart and after stop/start. Everything from the earlier `runsc` checks still passed on
+  `9d33abc` too: limits, the XFS quota, `HERMES-EGRESS` rejecting the metadata address (timed out
+  this run instead of refusing at once, but the reject counter still rose) and a private range while
+  the public internet stayed reachable, restart, stop/start and a clean delete; the shared
+  `hermes-dns-resolv-conf` volume correctly survived the test instance's delete. **gVisor is now
+  verified working end-to-end, including DNS.** Nash approved the switch the same day: the VPS env
+  now has `HERMES_RUNTIME=runsc` (set 2026-11-14 13:03 UTC), backend recreated and confirmed healthy
+  (canary passed, then `"resolvers":2,"msg":"tenant dns resolv.conf ready"`), loopback and public
+  `/healthz` both 200. No instances were live at the switch; new instances are created under
+  `runsc`, existing ones would keep their runtime until recreated. One stale `ConflictError` row was left in
+  `GET /api/v1/jobs/failed` from a test script mistake during an earlier retest (harmless, kept 7
+  days). `xfs_quota` leftover project ids keep accumulating, one per deleted instance (3 now;
+  harmless so far, see below).
 - **Supabase Auth email does not go through a custom SMTP server yet.** The auth log of 2026-11-13 shows the
   confirmation email sent by Supabase's built-in sender, and requests came from `http://localhost:3000`. Custom
   SMTP (SumoPod, see the 2026-11-14 decision above), Site URL and Redirect URLs are set in the Supabase dashboard
   by the owner.
 
-**Not verified, still open:** hostname resolution inside a `runsc` tenant container (see the update above —
-`HERMES_DNS_RESOLVERS`/`HostConfig.Dns` alone did not fix it; a second fix, bind-mounting a real
-`resolv.conf`, is built but not yet deployed or retested on a real host, and is what blocks moving to
-`runsc` before public customers), backups of tenant volumes (none exist), whether stale XFS project
-ids pile up after deletes (confirmed they do: two emptied project entries stayed listed after their first
-deploy's deletes), Redis AOF recovery after a crash,
+**Not verified, still open:** backups of tenant volumes (none exist); whether stale XFS project ids
+pile up after deletes keeps being confirmed (now 3 emptied entries, harmless so far but unbounded);
+Redis AOF recovery after a crash,
 several replicas, customers reaching their agent from the internet, and the database password rotation
 (the first password was exposed in a chat and must be rotated). The deploy files are a snapshot of what ran;
 they have no automated test.

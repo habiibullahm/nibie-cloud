@@ -118,7 +118,7 @@ API answers `503`.
 | Per-instance API key | `API_SERVER_KEY` derived as HMAC-SHA256 of `HERMES_MASTER_KEY` and the instance id; never stored, logged or returned | `api-key.test.ts`; `key-wiring.test.ts`; live harness |
 | Strict readiness | with a key, only an authenticated HTTP 200 on `/api/sessions` is ready; 401 means the key was rejected | `runtime-health.test.ts`; `key-wiring.test.ts` |
 | Runtime selection | `HERMES_RUNTIME` (`runc` default, `runsc` for gVisor), checked against the daemon at startup | `runtime-availability.test.ts`; live harness (runc re-run, runsc reported) |
-| Tenant DNS under runsc | Docker's embedded resolver is not reachable from inside a gVisor sandbox, and `HostConfig.Dns` alone is not enough (verified on a real host, 2026-11-14). `HERMES_DNS_RESOLVERS` seeds a shared Docker volume (`dns-resolv-conf.ts`) with a plain `resolv.conf`, and every `runsc` tenant container bind-mounts that one file over its own `/etc/resolv.conf` (`hardening.ts`) | `dns-resolv-conf.test.ts`; `hardening.test.ts`. **Not verified on a real runsc host yet** |
+| Tenant DNS under runsc | Docker's embedded resolver is not reachable from inside a gVisor sandbox, and `HostConfig.Dns` alone is not enough (verified on a real host, 2026-11-14). `HERMES_DNS_RESOLVERS` seeds a shared Docker volume (`dns-resolv-conf.ts`) with a plain `resolv.conf`, and every `runsc` tenant container bind-mounts that one file over its own `/etc/resolv.conf` (`hardening.ts`) | `dns-resolv-conf.test.ts`; `hardening.test.ts`; verified on a real `runsc` host, 2026-11-14: resolv.conf had no `127.0.0.11`, hostname lookups and HTTPS by hostname both worked, including after restart and stop/start |
 
 ## Recovery (`Reconciler`)
 
