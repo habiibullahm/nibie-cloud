@@ -125,6 +125,13 @@ describe('loadConfig', () => {
     expect(() => loadConfig(env)).toThrow('HERMES_CANARY_IMAGE');
   });
 
+  it('requires HERMES_CANARY_IMAGE pinned by digest under runsc even when egress is off', () => {
+    const env: Record<string, string> = { ...base, HERMES_EGRESS_POLICY: 'off', HERMES_RUNTIME: 'runsc', HERMES_DNS_RESOLVERS: '1.1.1.1' };
+    delete env.HERMES_CANARY_IMAGE;
+    expect(() => loadConfig(env)).toThrow('HERMES_CANARY_IMAGE');
+    expect(loadConfig({ ...env, HERMES_CANARY_IMAGE: `alpine@sha256:${'a'.repeat(64)}` }).canaryImage).toBe(`alpine@sha256:${'a'.repeat(64)}`);
+  });
+
   it('rejects a tag-only HERMES_CANARY_IMAGE and accepts name@sha256:<64 hex>', () => {
     expect(() => loadConfig({ ...base, HERMES_CANARY_IMAGE: 'alpine:3.20' })).toThrow('HERMES_CANARY_IMAGE');
     expect(() => loadConfig({ ...base, HERMES_CANARY_IMAGE: 'alpine@sha256:abc' })).toThrow('HERMES_CANARY_IMAGE');

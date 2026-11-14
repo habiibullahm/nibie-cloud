@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
+import { DNS_RESOLV_VOLUME } from '../../src/modules/runtime/dns-resolv-conf.js';
 import {
   CONTAINER_PORT,
   DATA_MOUNT,
@@ -140,6 +141,25 @@ describe('buildContainerConfig', () => {
     const c = buildContainerConfig(spec({ runtime: 'runsc', dns: resolvers }));
     expect(c.HostConfig!.Dns).toEqual(['1.1.1.1', '9.9.9.9']);
     expect(c.HostConfig!.Dns).not.toBe(resolvers);
+  });
+
+  it('bind-mounts the shared resolv.conf volume over /etc/resolv.conf only under runsc with resolvers given', () => {
+    expect(buildContainerConfig(spec()).HostConfig!.Mounts).toBeUndefined();
+    expect(buildContainerConfig(spec({ dns: ['1.1.1.1'] })).HostConfig!.Mounts).toBeUndefined();
+    expect(buildContainerConfig(spec({ runtime: 'runsc' })).HostConfig!.Mounts).toBeUndefined();
+    expect(buildContainerConfig(spec({ runtime: 'runsc', dns: [] })).HostConfig!.Mounts).toBeUndefined();
+    const c = buildContainerConfig(spec({ runtime: 'runsc', dns: ['1.1.1.1', '9.9.9.9'] }));
+    expect(c.HostConfig!.Mounts).toEqual([
+      {
+        Target: '/etc/resolv.conf',
+        Source: DNS_RESOLV_VOLUME,
+        Type: 'volume',
+        ReadOnly: true,
+        VolumeOptions: { Subpath: 'resolv.conf', NoCopy: false, Labels: {}, DriverConfig: { Name: '', Options: {} } },
+      },
+    ]);
+    // HostConfig.Dns is still set alongside it: harmless, and useful should the bind ever be removed.
+    expect(c.HostConfig!.Dns).toEqual(['1.1.1.1', '9.9.9.9']);
   });
 
   it('never weakens seccomp/apparmor and never uses host networking', () => {

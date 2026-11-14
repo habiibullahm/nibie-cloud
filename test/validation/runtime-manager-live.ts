@@ -14,7 +14,9 @@
  * With HERMES_EGRESS_POLICY=enforce it also runs the egress checks in egress-checks.ts (see its header
  * for the environment). Skipped checks are listed and never counted as passes.
  */
+import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { ensureDnsResolvConf } from '../../src/modules/runtime/dns-resolv-conf.js';
 import { DockerRuntimeManager } from '../../src/modules/runtime/docker-runtime-manager.js';
 import { containerName, networkName, volumeName } from '../../src/modules/runtime/hardening.js';
 import type { RuntimeSpec } from '../../src/modules/runtime/types.js';
@@ -148,29 +150,50 @@ async function main(): Promise<void> {
 
     // ---- 6. runsc selection ----
     // Docker's embedded resolver is not reachable from inside a gVisor sandbox (verified on a real
-    // host, 2026-11-13), so a runsc container needs an explicit resolver. Default to public ones;
-    // override with HERMES_DNS_RESOLVERS (comma- or space-separated) to match the target's config.
+    // host, 2026-11-13); HostConfig.Dns alone is not enough either (verified 2026-11-14: it only
+    // changes what the embedded resolver forwards to, not what the container itself queries). The
+    // real fix bind-mounts a resolv.conf seeded by ensureDnsResolvConf over the container's own, so
+    // this needs the same digest-pinned, sh-having image as the egress canary (HERMES_CANARY_IMAGE).
+    // Default resolvers to public ones; override with HERMES_DNS_RESOLVERS (comma- or
+    // space-separated) to match the target's config.
     const dnsResolvers = (process.env.HERMES_DNS_RESOLVERS ?? '1.1.1.1,9.9.9.9')
       .split(/[,\s]+/).map((s) => s.trim()).filter((s) => s.length > 0);
-    const b = spec({ runtime: 'runsc', dns: dnsResolvers, limits: { cpuMillis: 1000, memoryMb: 1024, pids: 256, storageMb: 1024 } });
-    created.push(b.instanceId);
-    await rm.ensure(b);
-    await rm.start(b.instanceId);
-    const gv = await waitHealthy(rm, b.instanceId, b.apiServerKey!);
-    check('runsc instance reaches ready state', gv.ok, { tries: gv.tries, detail: gv.lastDetail });
-    const gvInspect = await rm.inspect(b.instanceId);
-    check('runsc instance is running', gvInspect.state === 'running', gvInspect.state);
-    const gvInfo = (await docker.getContainer(containerName(b.instanceId)).inspect()) as unknown as {
-      HostConfig: Record<string, unknown>;
-    };
-    check('runsc instance has the explicit DNS resolvers', JSON.stringify(gvInfo.HostConfig.Dns) === JSON.stringify(dnsResolvers), gvInfo.HostConfig.Dns);
+    let runscInstanceId: string | undefined;
+    if (!process.env.HERMES_CANARY_IMAGE) {
+      skip('runsc instance has working DNS', 'HERMES_CANARY_IMAGE not set: cannot seed the tenant resolv.conf volume');
+    } else {
+      await ensureDnsResolvConf({ docker, image: process.env.HERMES_CANARY_IMAGE, resolvers: dnsResolvers, runtime: 'runsc', logger: silentLogger });
+      const b = spec({ runtime: 'runsc', dns: dnsResolvers, limits: { cpuMillis: 1000, memoryMb: 1024, pids: 256, storageMb: 1024 } });
+      runscInstanceId = b.instanceId;
+      created.push(b.instanceId);
+      await rm.ensure(b);
+      await rm.start(b.instanceId);
+      const gv = await waitHealthy(rm, b.instanceId, b.apiServerKey!);
+      check('runsc instance reaches ready state', gv.ok, { tries: gv.tries, detail: gv.lastDetail });
+      const gvInspect = await rm.inspect(b.instanceId);
+      check('runsc instance is running', gvInspect.state === 'running', gvInspect.state);
+      const gvInfo = (await docker.getContainer(containerName(b.instanceId)).inspect()) as unknown as {
+        HostConfig: Record<string, unknown>;
+      };
+      check('runsc instance has the explicit DNS resolvers (HostConfig.Dns)', JSON.stringify(gvInfo.HostConfig.Dns) === JSON.stringify(dnsResolvers), gvInfo.HostConfig.Dns);
+      // The real proof: the container's own resolv.conf, not just HostConfig.Dns (see the blocker
+      // found 2026-11-14), and an actual hostname lookup through it.
+      const resolvConf = execFileSync('docker', ['exec', containerName(b.instanceId), 'cat', '/etc/resolv.conf'], { encoding: 'utf8' });
+      check('runsc instance /etc/resolv.conf lists the explicit resolvers, not the embedded one', dnsResolvers.every((ip) => resolvConf.includes(ip)) && !resolvConf.includes('127.0.0.11'), resolvConf.trim());
+      let lookup = '';
+      try {
+        lookup = execFileSync('docker', ['exec', containerName(b.instanceId), 'getent', 'hosts', 'example.com'], { encoding: 'utf8' }).trim();
+      } catch { /* getent may be absent in a minimal image; the resolv.conf check above still proves the fix */ }
+      if (lookup) check('runsc instance resolves a public hostname', lookup.length > 0, lookup);
+      else skip('runsc instance resolves a public hostname', 'getent not available in this image; resolv.conf content check above stands in for it');
+    }
 
     // ---- 7. Failure cleanup: no orphaned resources ----
     for (const id of created) {
       await rm.remove(id, { deleteVolume: true });
     }
     created.length = 0;
-    for (const id of [a.instanceId, b.instanceId]) {
+    for (const id of [a.instanceId, ...(runscInstanceId ? [runscInstanceId] : [])]) {
       const gone = await rm.inspect(id);
       check(`remove() leaves no container/volume for ${id.slice(0, 8)}`, gone.state === 'absent' && !gone.volumePresent, gone);
     }
