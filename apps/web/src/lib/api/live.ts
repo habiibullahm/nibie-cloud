@@ -1,7 +1,7 @@
 import { ApiError, type InstancesApi } from "./client"
 import type { Instance, InstanceEvent, InstanceStatusView } from "./types"
 
-const BASE = "/api/hermes"
+const BASE = (process.env.NEXT_PUBLIC_BASE_PATH ?? "") + "/api/hermes"
 
 async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(BASE + path, {

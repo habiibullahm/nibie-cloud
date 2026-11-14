@@ -126,7 +126,7 @@ and `pnpm test` 676 passed, 2 skipped (56 files; unit and Docker/Postgres/Redis 
   bridge `apps/web/src/app/api/hermes/[...path]/route.ts`, which keeps `HERMES_ADMIN_TOKEN` server-side
   and forwards only the allowlisted instance endpoints in `proxy-rules.ts`. Everything without a
   backend endpoint (plans, usage, logs, files, console, backups, billing, domain, account) is mock
-  data and is labelled "Preview data". Auth and billing screens are UI shells. Mapping details:
+  data and is labelled "Preview data". Billing is a UI shell; sign-in is real only when the public Supabase variables are set (`/auth/confirm` verifies email links, `AuthGate` guards `(app)`); the app uses `basePath` `/dashboard`. Mapping details:
   `apps/web/README.md`.
 
 ## UI and design system

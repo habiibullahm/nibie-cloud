@@ -5,14 +5,14 @@ Next.js (App Router) + TypeScript + Tailwind v4 + shadcn/ui (Radix, new-york sty
 TanStack Query. Dark-neutral theme only.
 
 Status: **preview**. It runs fully on mock data, or against the backend's existing instance
-endpoints in live mode. There is no customer auth and no billing; those screens are UI shells.
+endpoints in live mode. Customer sign-in uses Supabase Auth only when `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are set (publishable key only); otherwise the auth screens stay a preview. Billing is a UI shell. The app is served under `basePath` `/dashboard`.
 
 ## Run
 
 ```bash
 cd apps/web
 pnpm install            # or: npx pnpm@10.28.0 install
-pnpm dev                # http://localhost:3100
+pnpm dev                # http://localhost:3100/dashboard
 ```
 
 Checks: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`.
@@ -97,7 +97,7 @@ Written down so each choice has a reason (antislop R-31, R-37). The full review 
 ## Layout
 
 ```
-src/app/(auth)/            sign-in, register (UI shells)
+src/app/(auth)/            sign-in, register, set-password, auth/confirm (email link landing; real when Supabase is configured)
 src/app/(app)/instances/   list, and [id]/ with overview, access, monitor, logs, configuration,
                            files, console, backups, billing (Upgrade & Renew), domain
 src/app/(app)/deploy/      deployment page (PRD §4.2)

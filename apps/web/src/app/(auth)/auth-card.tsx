@@ -9,12 +9,41 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader } from "@/co
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { authConfigured, getSupabase } from "@/lib/auth/supabase"
 
-/** UI shell only: customer auth is a later milestone. Submitting continues to the preview. */
+/**
+ * Real email and password auth when the Supabase variables are set. Without them it stays a preview
+ * shell: submitting continues to the mock dashboard.
+ */
 export function AuthCard({ mode }: { mode: "sign-in" | "register" }) {
   const router = useRouter()
   const [terms, setTerms] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
   const register = mode === "register"
+  const live = authConfigured()
+
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const supabase = getSupabase()
+    if (!supabase) return router.push(register ? "/deploy" : "/instances")
+    const form = new FormData(e.currentTarget)
+    const email = String(form.get("email") ?? "").trim()
+    const password = String(form.get("password") ?? "")
+    setBusy(true)
+    setError(null)
+    if (register) {
+      const { error: e2 } = await supabase.auth.signUp({ email, password })
+      setBusy(false)
+      if (e2) return setError("Could not create the account. Check the details and try again.")
+      return setNotice("Check your inbox and open the confirmation link to finish.")
+    }
+    const { error: e2 } = await supabase.auth.signInWithPassword({ email, password })
+    setBusy(false)
+    if (e2) return setError("Email or password is not correct.")
+    router.push("/instances")
+  }
 
   return (
     <Card>
@@ -24,12 +53,7 @@ export function AuthCard({ mode }: { mode: "sign-in" | "register" }) {
           {register ? "Deploy your own Hermes agent." : "Welcome back. Manage your Hermes instances."}
         </CardDescription>
       </CardHeader>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          router.push(register ? "/deploy" : "/instances")
-        }}
-      >
+      <form onSubmit={submit}>
         <CardContent className="grid gap-4">
           {register ? (
             <div className="grid gap-2">
@@ -39,11 +63,11 @@ export function AuthCard({ mode }: { mode: "sign-in" | "register" }) {
           ) : null}
           <div className="grid gap-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" autoComplete="email" placeholder="you@example.com" />
+            <Input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" autoComplete={register ? "new-password" : "current-password"} />
+            <Input id="password" name="password" type="password" autoComplete={register ? "new-password" : "current-password"} />
           </div>
           {register ? (
             <div className="flex items-start gap-3">
@@ -55,12 +79,24 @@ export function AuthCard({ mode }: { mode: "sign-in" | "register" }) {
               </Label>
             </div>
           ) : null}
-          <Alert>
-            <AlertDescription>Sign-in is not live yet. Continuing opens the dashboard preview.</AlertDescription>
-          </Alert>
+          {!live ? (
+            <Alert>
+              <AlertDescription>Sign-in is not live yet. Continuing opens the dashboard preview.</AlertDescription>
+            </Alert>
+          ) : null}
+          {error ? (
+            <Alert variant="destructive" role="alert">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : null}
+          {notice ? (
+            <Alert role="status">
+              <AlertDescription>{notice}</AlertDescription>
+            </Alert>
+          ) : null}
         </CardContent>
         <CardFooter className="mt-4 flex-col items-stretch gap-3">
-          <Button type="submit" disabled={register && !terms}>
+          <Button type="submit" disabled={busy || (register && !terms)}>
             {register ? "Create account" : "Sign in"}
           </Button>
           <p className="text-center text-muted-foreground">
