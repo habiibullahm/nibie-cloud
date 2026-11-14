@@ -1,11 +1,12 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
 import { Boxes, LifeBuoy, LogOut, Menu, Rocket, UserRound } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { getSupabase } from "@/lib/auth/supabase"
 import { cn } from "@/lib/utils"
 import { useApiMode, useMe } from "@/hooks/use-hermes"
 import { Brand } from "./brand"
@@ -43,6 +44,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function RailFooter() {
+  const router = useRouter()
   const mode = useApiMode()
   const me = useMe()
   return (
@@ -56,10 +58,16 @@ function RailFooter() {
           <p className="truncate text-foreground">{me.data?.name ?? " "}</p>
           <p className="type-mono truncate">{me.data?.email ?? " "}</p>
         </div>
-        <Button asChild variant="ghost" size="icon-sm" aria-label="Sign out">
-          <Link href="/sign-in">
-            <LogOut aria-hidden="true" />
-          </Link>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Sign out"
+          onClick={async () => {
+            await getSupabase()?.auth.signOut()
+            router.push("/sign-in")
+          }}
+        >
+          <LogOut aria-hidden="true" />
         </Button>
       </div>
     </div>
