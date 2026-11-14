@@ -1,6 +1,6 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-14 (gVisor's DNS blocker is fixed and verified; production is now running on `runsc`, by the owner's approval). Index of all docs: [README.md](README.md).
+Last updated: 2026-11-14 (landing page `apps/landing` built, not deployed; before that: gVisor's DNS blocker is fixed and verified, production runs on `runsc`). Index of all docs: [README.md](README.md).
 
 ## Where things stand
 
@@ -26,6 +26,33 @@ Last updated: 2026-11-14 (gVisor's DNS blocker is fixed and verified; production
   `apps/web/anti-slop/`, 45 dashboard tests. It also gives outline and secondary buttons
   `border-strong` edges (approved by Nash, recorded in `DESIGN.md`).
 
+- **Landing page (`apps/landing`, branch `claude/project-thread-jdgmh9`, not committed, not deployed).** Public
+  site for `cloud.nibie.app` (root), needed for the Duitku KYC review: home, `/harga`, `/kontak`, Syarat Layanan,
+  Kebijakan Refund, Kebijakan Privasi and a 404, in Indonesian. Standalone package (own `package.json`, lockfile),
+  Next.js 16 static export, shadcn/ui and the `DESIGN.md` tokens, hairline-grid hero, light CSS-only motion.
+  Deployed as the Worker `nibie-cloud-landing` (static assets only, `wrangler.jsonc`) on route `cloud.nibie.app/*`;
+  `/dashboard*` and `/docs*` stay on their own Workers because their routes are more specific. The product name
+  stays "Hermes Cloud", published by Nibie (`nibie.app`). Owner decisions of 2026-11-14 shown on the page: one
+  template (Hermes Agent, 1 CPU, 1 GB RAM, 1 GB storage, Jakarta), two plans: Hosting Rp 50.000 (beta Rp 25.000) and
+  Hosting + Kredit AI Rp 75.000 (beta Rp 50.000, with a one-time NibieRouter credit of US$2), beta prices for the
+  first 100 beta users only; refund: full within 7 days of the first payment if the instance is unused, no refund
+  otherwise, none for NibieRouter usage. The public contact email is **not in the repository**: it is the build
+  variable `NEXT_PUBLIC_CONTACT_EMAIL` (Telegram is the fallback). `DESIGN.md` gained the marketing type tokens
+  `display`, `h2` and `lead` (landing only; `@google/design.md lint`: 0 errors, 0 warnings). Verified in a cloud
+  sandbox: `pnpm typecheck`, `pnpm lint`, 13 tests, `pnpm build`, the exported site served by `wrangler dev`
+  (all routes 200, unknown path 404), Playwright at 1440 and 390 px (no horizontal overflow, no console errors).
+  **Not verified:** the real Cloudflare deploy, the route, and any real device. The legal pages are drafts for
+  the owner to read before publishing. The docs page "Paket dan penagihan" still says prices are not set, and
+  the backend has no price data for these plans (`Plan.monthlyPriceIdr` is null); the US$2 credit needs a
+  NibieRouter and backend integration that does not exist yet. See [../apps/landing/README.md](../apps/landing/README.md).
+- **Multi-platform note (2026-11-14, owner request).** Hermes runs one gateway for many messaging platforms; the
+  official Nous docs (https://hermes-agent.nousresearch.com/docs/user-guide/messaging/) list Telegram, Discord, Slack,
+  Google Chat, WhatsApp, Signal, SMS, Email, Mattermost, Matrix, Microsoft Teams, LINE, IRC and more ("20+"), each with
+  its own credentials and a deny-by-default allowlist. Hermes is MIT-licensed (LICENSE read; no trademark or
+  hosted-service terms were found, but the README and per-platform pages were not verified). `docs/prd.md` section 9 now
+  separates upstream capability (9.1) from what Hermes Cloud builds (9.2: only Telegram is wired; other platforms need
+  credential, egress, inbound-traffic and allowlist specs first) and adds open decision 13. The docs site intro and
+  Telegram page and the landing page say "Telegram now, other platforms later" without naming dates.
 - **Backend milestone A (customer API).** On branch `claude/project-thread-b5f2bk`, rebased onto the egress controls merge
   (`a8d86fd`): Supabase token verification (`src/modules/auth`), `User` and `TenantMember`
   models with a new migration, a customer API next to the operator API (`src/http/customer-*.ts`),

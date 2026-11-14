@@ -1,0 +1,14 @@
+{
+  // Landing Worker, served at https://cloud.nibie.app (route `cloud.nibie.app/*` in the Cloudflare dashboard).
+  // Static assets only (no `main`): the Next.js static export in `out/`.
+  // `/dashboard*` (nibie-cloud-web) and `/docs*` are more specific routes and win over this one.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nibie-cloud-landing",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./out",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash"
+  },
+  "observability": { "enabled": true }
+}

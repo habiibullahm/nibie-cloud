@@ -19,6 +19,18 @@ typography:
     fontFamily: Bricolage Grotesque
     fontSize: 1.75rem
     fontWeight: 700
+  display:
+    fontFamily: Bricolage Grotesque
+    fontSize: 3.25rem
+    fontWeight: 700
+  h2:
+    fontFamily: Bricolage Grotesque
+    fontSize: 2rem
+    fontWeight: 700
+  lead:
+    fontFamily: Onest
+    fontSize: 1rem
+    fontWeight: 400
   body-md:
     fontFamily: Onest
     fontSize: 0.875rem
@@ -127,9 +139,14 @@ The palette is rooted in semantic tokens. Use the role (e.g. `{colors.primary}`)
 | Token | Font | Size | Weight |
 | --- | --- | --- | --- |
 | `h1` | Bricolage Grotesque | 1.75rem | 700 |
+| `display` | Bricolage Grotesque | 3.25rem (2rem on phones) | 700 |
+| `h2` | Bricolage Grotesque | 2rem (1.5rem on phones) | 700 |
+| `lead` | Onest | 1rem | 400 |
 | `body-md` | Onest | 0.875rem | 400 |
 | `label-caps` | Bricolage Grotesque | 0.75rem | 600 |
 | `mono` | ui-monospace, SFMono-Regular, Menlo, monospace | 0.8125rem | 400 |
+
+`display`, `h2` and `lead` are the marketing scale. Only the public landing page (`apps/landing`) uses them, for the hero headline, section headings and the hero lead paragraph. The dashboard and the docs stay on `h1`, `body-md`, `label-caps` and `mono`. Added 2026-11-14 with the approved landing preview (an explicit decision, not an invented value).
 
 ## Layout
 
