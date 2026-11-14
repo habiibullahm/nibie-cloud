@@ -60,11 +60,17 @@ Note that the Docker network is named `hermes-net-<uuid>`; `hn<12 hex>` is the *
 ## Not verified, do not claim it
 
 - gVisor (`HERMES_RUNTIME=runsc`) with the official image. The pids-limit startup failure is fixed (PR #10) and
-  a full instance lifecycle (create, restart, stop/start, delete) passed under `runsc`, but tenant containers
-  could not resolve hostnames under it (Docker's embedded DNS is not reachable from inside the gVisor sandbox).
-  A fix is built (`HERMES_DNS_RESOLVERS`, see `backend.env.example` and `../docs/setup.md#configuration`) but
-  not yet deployed or retested on a real host. Do not switch production to `runsc` until it is; see
-  [../docs/CURRENT_STATE.md](../docs/CURRENT_STATE.md).
+  a full instance lifecycle (create, restart, stop/start, delete) passed under `runsc` on `515d061`: correct
+  `Runtime`/`PidsLimit`/memory/CPU limits, the XFS quota, `HERMES-EGRESS` rejecting the metadata address and a
+  private range while the public internet stayed reachable, and a clean delete. **Hostnames still do not
+  resolve inside a `runsc` tenant container**, even with `HERMES_DNS_RESOLVERS` deployed and `HostConfig.Dns`
+  confirmed set (`docker inspect`): the container's `/etc/resolv.conf` still points at Docker's embedded
+  resolver (`127.0.0.11`), which `HostConfig.Dns` does not change and which is unreachable from inside the
+  gVisor sandbox. A raw DNS query straight to `1.1.1.1` and `curl --resolve` both worked from inside the same
+  container, so the network path is fine; only resolution through `resolv.conf` fails. The remaining fix is to
+  put the public resolvers directly into the tenant container's own `resolv.conf` (e.g. a generated file
+  bind-mounted in), not just `HostConfig.Dns`. Do not switch production to `runsc` until that is built and
+  retested; see [../docs/CURRENT_STATE.md](../docs/CURRENT_STATE.md).
 - `xfs_quota` project ids of deleted volumes accumulate: two emptied entries stayed listed after their volumes
   were deleted.
 - Backups: a daily `pg_dump` of the database runs on the VPS (see `docs/CURRENT_STATE.md`); a restore was not
