@@ -1,6 +1,6 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-13 (milestone C deployed on the VPS, database backup, first gVisor attempt). Index of all docs: [README.md](README.md).
+Last updated: 2026-11-14 (gVisor DNS fix built after the retest found the blocker). Index of all docs: [README.md](README.md).
 
 ## Where things stand
 
@@ -95,22 +95,25 @@ Order of work, the full verified list and pitfalls: [../deploy/README.md](../dep
   under `runc`), correct `Runtime`/`PidsLimit`/memory/CPU limits, the XFS quota held, the `HERMES-EGRESS` rules
   rejected the metadata address and a private range while the public internet stayed reachable, and restart,
   stop/start and delete all worked cleanly (container, volume, network and bridge all gone after delete).
-  **Blocker: DNS does not resolve inside a `runsc` tenant container.** `curl` to a public IP works, `curl` to a
-  hostname fails (`could not resolve host`). Docker gives tenant containers its embedded resolver at a loopback
-  address in `/etc/resolv.conf`; that resolver is not reachable from inside the gVisor sandbox, and
-  `ops/egress/egress.conf`'s `RESOLVERS` is empty on the VPS, so no alternate resolver is allowed through the
-  egress rules either. An agent would not be able to reach a model provider or Telegram by name under `runsc`.
-  Likely fix: give tenant containers explicit DNS servers (Docker `HostConfig.Dns`) instead of relying on the
-  embedded resolver, with matching `RESOLVERS` entries in the egress config — not yet designed or built.
-  Production stayed on `runc` after the test; `runc` is unaffected by this. One stale `ConflictError` row was
-  left in `GET /api/v1/jobs/failed` from a test script mistake (harmless, kept 7 days).
+  **Blocker found: DNS did not resolve inside a `runsc` tenant container.** `curl` to a public IP worked, `curl`
+  to a hostname failed (`could not resolve host`). Docker gives tenant containers its embedded resolver at a
+  loopback address in `/etc/resolv.conf`; that resolver is not reachable from inside the gVisor sandbox. An
+  agent would not have been able to reach a model provider or Telegram by name under `runsc`.
+  **Fix built (2026-11-14), not yet deployed or retested:** a new `HERMES_DNS_RESOLVERS` setting gives tenant
+  containers explicit DNS resolvers directly (Docker `HostConfig.Dns`), bypassing the embedded resolver.
+  Required when `HERMES_RUNTIME=runsc` (startup now fails loudly without it, like `HERMES_CANARY_IMAGE` under
+  egress enforcement); optional and a no-op under `runc`, which keeps today's behaviour. A resolver on a
+  private address still needs a matching `RESOLVERS` entry in `ops/egress/egress.conf`. See
+  [setup.md](setup.md#configuration) and PR for the change.
+  Production stayed on `runc` throughout; `runc` is unaffected. One stale `ConflictError` row was
+  left in `GET /api/v1/jobs/failed` from a test script mistake during the retest (harmless, kept 7 days).
 - **Supabase Auth email does not go through a custom SMTP server yet.** The auth log of 2026-11-13 shows the
   confirmation email sent by Supabase's built-in sender, and requests came from `http://localhost:3000`. Custom
   SMTP (SumoPod, see the 2026-11-14 decision above), Site URL and Redirect URLs are set in the Supabase dashboard
   by the owner.
 
-**Not verified, still open:** DNS inside a `runsc` tenant container (see the update above; this is what blocks
-moving to `runsc` before public customers), backups of tenant volumes (none exist), whether stale XFS project
+**Not verified, still open:** the `HERMES_DNS_RESOLVERS` fix on a real `runsc` host (see the update above; this
+is what blocks moving to `runsc` before public customers until it is deployed and retested), backups of tenant volumes (none exist), whether stale XFS project
 ids pile up after deletes (confirmed they do: two emptied project entries stayed listed after their first
 deploy's deletes), Redis AOF recovery after a crash,
 several replicas, customers reaching their agent from the internet, and the database password rotation

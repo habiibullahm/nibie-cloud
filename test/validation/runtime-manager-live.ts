@@ -147,7 +147,12 @@ async function main(): Promise<void> {
     check('live container: memory limit enforced', info.HostConfig.Memory === 1024 * 1048576, info.HostConfig.Memory);
 
     // ---- 6. runsc selection ----
-    const b = spec({ runtime: 'runsc', limits: { cpuMillis: 1000, memoryMb: 1024, pids: 256, storageMb: 1024 } });
+    // Docker's embedded resolver is not reachable from inside a gVisor sandbox (verified on a real
+    // host, 2026-11-13), so a runsc container needs an explicit resolver. Default to public ones;
+    // override with HERMES_DNS_RESOLVERS (comma- or space-separated) to match the target's config.
+    const dnsResolvers = (process.env.HERMES_DNS_RESOLVERS ?? '1.1.1.1,9.9.9.9')
+      .split(/[,\s]+/).map((s) => s.trim()).filter((s) => s.length > 0);
+    const b = spec({ runtime: 'runsc', dns: dnsResolvers, limits: { cpuMillis: 1000, memoryMb: 1024, pids: 256, storageMb: 1024 } });
     created.push(b.instanceId);
     await rm.ensure(b);
     await rm.start(b.instanceId);
@@ -155,6 +160,10 @@ async function main(): Promise<void> {
     check('runsc instance reaches ready state', gv.ok, { tries: gv.tries, detail: gv.lastDetail });
     const gvInspect = await rm.inspect(b.instanceId);
     check('runsc instance is running', gvInspect.state === 'running', gvInspect.state);
+    const gvInfo = (await docker.getContainer(containerName(b.instanceId)).inspect()) as unknown as {
+      HostConfig: Record<string, unknown>;
+    };
+    check('runsc instance has the explicit DNS resolvers', JSON.stringify(gvInfo.HostConfig.Dns) === JSON.stringify(dnsResolvers), gvInfo.HostConfig.Dns);
 
     // ---- 7. Failure cleanup: no orphaned resources ----
     for (const id of created) {
