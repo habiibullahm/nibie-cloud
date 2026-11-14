@@ -101,6 +101,20 @@ const schema = z.object({
   SUMOPOD_SMTP_PASS: optionalText,
   /** Bare sender address on the domain verified with the SMTP provider. */
   MAIL_FROM: mailAddress,
+  /** Duitku POP billing. All of merchant code, API key and callback URL, or none (billing off). */
+  DUITKU_MERCHANT_CODE: optionalText,
+  DUITKU_API_KEY: optionalText,
+  DUITKU_ENV: z.preprocess(emptyToUndefined, z.enum(['sandbox', 'production']).default('sandbox')),
+  DUITKU_CALLBACK_URL: z.preprocess(
+    emptyToUndefined,
+    z.string().max(255).refine((v) => {
+      try {
+        return new URL(v).protocol === 'https:';
+      } catch {
+        return false;
+      }
+    }).optional(),
+  ),
 }).superRefine((e, ctx) => {
   // Without enforcement a tenant can fill the node's disk, so it is never allowed in production.
   if (e.NODE_ENV === 'production' && e.HERMES_DISK_QUOTA === 'off') {
@@ -130,6 +144,21 @@ const schema = z.object({
     for (const k of mailKeys) {
       if (e[k] === undefined) ctx.addIssue({ code: 'custom', path: [k], message: 'required when any mail variable is set' });
     }
+  }
+  // A half-filled Duitku block would only fail when the first customer pays.
+  const duitkuKeys = ['DUITKU_MERCHANT_CODE', 'DUITKU_API_KEY', 'DUITKU_CALLBACK_URL'] as const;
+  if (duitkuKeys.some((k) => e[k] !== undefined)) {
+    for (const k of duitkuKeys) {
+      if (e[k] === undefined) ctx.addIssue({ code: 'custom', path: [k], message: 'required when any Duitku variable is set' });
+    }
+  }
+  // The invoice's return URL points back at the dashboard.
+  if (e.DUITKU_MERCHANT_CODE !== undefined && e.DASHBOARD_ORIGIN === undefined) {
+    ctx.addIssue({ code: 'custom', path: ['DASHBOARD_ORIGIN'], message: 'required when Duitku billing is configured' });
+  }
+  // Real money only from a production backend: a dev or test process must not talk to the live API.
+  if (e.DUITKU_ENV === 'production' && e.NODE_ENV !== 'production') {
+    ctx.addIssue({ code: 'custom', path: ['DUITKU_ENV'], message: 'production requires NODE_ENV=production' });
   }
   // The startup canary needs an image pinned by digest, like every other image. Under runsc the
   // same image also seeds the tenant resolv.conf volume (see dns-resolv-conf.ts), so it is required
@@ -179,6 +208,8 @@ export interface Config {
   secrets: { current: Kek; previous: Kek | null } | null;
   /** Null: outbound email is not configured. `pass` is a secret: never log it. */
   mail: { host: string; port: number; user: string; pass: string; from: string } | null;
+  /** Null: billing is off (checkout and the Duitku callback answer 404). `apiKey` is a secret: never log it. */
+  billing: { merchantCode: string; apiKey: string; env: 'sandbox' | 'production'; callbackUrl: string } | null;
 }
 
 /** Parse environment. Errors name the failing keys only, never the values. */
@@ -223,6 +254,10 @@ export function loadConfig(env: NodeJS.ProcessEnv | Record<string, string | unde
     mail:
       e.SUMOPOD_SMTP_HOST && e.SUMOPOD_SMTP_PORT && e.SUMOPOD_SMTP_USER && e.SUMOPOD_SMTP_PASS && e.MAIL_FROM
         ? { host: e.SUMOPOD_SMTP_HOST, port: e.SUMOPOD_SMTP_PORT, user: e.SUMOPOD_SMTP_USER, pass: e.SUMOPOD_SMTP_PASS, from: e.MAIL_FROM }
+        : null,
+    billing:
+      e.DUITKU_MERCHANT_CODE && e.DUITKU_API_KEY && e.DUITKU_CALLBACK_URL
+        ? { merchantCode: e.DUITKU_MERCHANT_CODE, apiKey: e.DUITKU_API_KEY, env: e.DUITKU_ENV, callbackUrl: e.DUITKU_CALLBACK_URL }
         : null,
   };
 }

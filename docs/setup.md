@@ -58,6 +58,9 @@ DATABASE_URL=postgresql://hermes:hermes_dev_only@127.0.0.1:5433/hermes_test pnpm
 | `HERMES_DNS_RESOLVERS` | Space- or comma-separated IPv4 DNS resolvers for every tenant container. **Required when `HERMES_RUNTIME=runsc`**: Docker's own embedded resolver is not reachable from inside a gVisor sandbox, and giving it only as Docker `Dns` is not enough either (verified on a real host, 2026-11-13 and 2026-11-14: `Dns` only changes what the embedded resolver forwards to, not what the container itself queries). At startup, `HERMES_CANARY_IMAGE` seeds a shared Docker volume (`hermes-dns-resolv-conf`) with these resolvers, and every `runsc` tenant container bind-mounts that one file over its own `/etc/resolv.conf`, bypassing the embedded resolver entirely. Under `runc` the resolvers are only given as Docker `Dns` (harmless, reachable there); unset keeps the embedded resolver. A resolver on a private address also needs a matching entry in `ops/egress/egress.conf`'s `RESOLVERS`, or the host ruleset blocks it. Applies only to containers created from now on, like `HERMES_RUNTIME` |
 | `SECRETS_KEK` | Base64 of exactly 32 random bytes (`openssl rand -base64 32`). The key-encryption key for customer credentials (provider API keys, Telegram bot tokens). Required when `NODE_ENV=production`; without it the credential routes answer `503 secrets_unavailable` and no instance gets a credential. Host environment only, never the repository. See [Secrets](#secrets-provider-keys-and-telegram) |
 | `SECRETS_KEK_VERSION` | Positive integer, default `1`. The version number stored beside every secret sealed with `SECRETS_KEK` |
+| `SUMOPOD_SMTP_HOST`, `SUMOPOD_SMTP_PORT`, `SUMOPOD_SMTP_USER`, `SUMOPOD_SMTP_PASS`, `MAIL_FROM` | All five or none. SumoPod SMTP for the billing emails (port 465 uses implicit TLS, any other port STARTTLS). Unset: the backend sends no email; billing still works and the notice is retried once mail is configured |
+| `DUITKU_MERCHANT_CODE`, `DUITKU_API_KEY`, `DUITKU_CALLBACK_URL` | All three or none (billing off: checkout, the billing routes and the callback answer 404). Needs `DASHBOARD_ORIGIN` too (the invoice's return URL). Host environment only, never the repository. See [Billing](#billing-duitku-pop) |
+| `DUITKU_ENV` | `sandbox` (default) or `production`. `production` is refused unless `NODE_ENV=production` |
 | `SECRETS_KEK_PREVIOUS`, `SECRETS_KEK_PREVIOUS_VERSION` | Only during a KEK rotation: the old key and its version (both required together, and the version must differ from the current one) |
 
 ## Job queue (Redis and BullMQ)
@@ -112,6 +115,38 @@ which recreates the container (the volume is kept).
 - **Outbound calls from the control plane** (Telegram `getMe`/test message, provider `/models` test) go
   through `safeFetch`: https only, no redirects, every resolved address must be public, the connection is
   pinned to the validated address, with a timeout and a size cap.
+
+## Billing (Duitku POP)
+
+Plan: [superpowers/plans/2026-11-14-backend-milestone-d-duitku-billing.md](superpowers/plans/2026-11-14-backend-milestone-d-duitku-billing.md).
+
+- **Customer routes** (token required, only when billing is configured): `GET /subscriptions`,
+  `GET /subscriptions/:id`, `POST /subscriptions/checkout` (`Idempotency-Key`, body `{ planId, name }`, answers `201`
+  `{ subscription, payment }` with the Duitku `paymentUrl`), `POST /subscriptions/:id/renew`,
+  `POST /subscriptions/:id/cancel`, `GET /payments/:id`. `GET /plans` shows `monthlyPriceIdr`; `null` means the plan is not
+  for sale and checkout answers `409 plan_not_for_sale`.
+- **Public callback:** `POST /api/v1/billing/duitku/callback` (form body). The HMAC signature is the authentication and
+  is checked before any database access: bad signature `400`, everything else `200`. Set the same URL as
+  `DUITKU_CALLBACK_URL`; Duitku needs it on port 443. `deploy/Caddyfile` forwards it and the customer billing paths.
+- **Test price:** prices are an operator step, never a migration. List plans with
+  `pnpm tsx scripts/seed-sandbox-plans.ts`, set a sandbox price with `pnpm tsx scripts/seed-sandbox-plans.ts <slug> 10000`
+  (minimum 10000; refused when `NODE_ENV` or `DUITKU_ENV` is production).
+- **Check the credentials against the real sandbox** (Task 0, cannot run from the cloud sandbox because Duitku is
+  not reachable there): `DUITKU_MERCHANT_CODE=... DUITKU_API_KEY=... pnpm tsx test/validation/duitku-sandbox-live.ts --email <address> [--raw]`
+  creates one Rp 10.000 sandbox invoice and prints its reference and payment URL. Pay it with the Duitku sandbox
+  simulators (VA demo page, QRIS simulator), then confirm in the backend log that a `duitku callback processed` line with
+  `outcome: activated` appears and the instance reaches `ACTIVE`.
+- **Lifecycle:** 30-day periods; at the end 3 days of grace (the instance keeps running), then suspension (instance
+  stopped, volume kept, customer start/restart answers `409 subscription_suspended`), then 30 days of retention, then
+  the instance is deleted. A verified renewal at any point before deletion reinstates the subscription and restarts the
+  instance. Cancel only sets non-renewal. Deleting the instance by hand ends the subscription without refund.
+- **Emails** (Indonesian, via SumoPod): receipt, reminders 7/3/1 days before the end, grace started, a day before
+  suspension, suspended, a week before deletion, deleted. One per kind per period; after downtime only the current
+  one is sent. A mail failure never blocks a payment or a transition; the notice is retried on the next tick.
+- **Billing tick:** runs inside the existing locked maintenance job (at most once per 5 minutes per process), or on its
+  own timer without Redis. It expires unpaid invoices, closes purchases nobody paid for after 7 days, advances the
+  lifecycle and repairs a paid subscription whose instance was never created or restarted (a crash after the
+  payment commit).
 
 ## Disk quota host setup (XFS)
 

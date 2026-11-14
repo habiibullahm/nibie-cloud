@@ -341,3 +341,57 @@ describe('loadConfig: outbound mail (SumoPod SMTP)', () => {
     expect(message).not.toContain('smtp-pass-value');
   });
 });
+
+describe('Duitku billing configuration', () => {
+  const duitku = {
+    DUITKU_MERCHANT_CODE: 'DS00000',
+    DUITKU_API_KEY: 'duitku-api-key-value',
+    DUITKU_CALLBACK_URL: 'https://api.example.test/api/v1/billing/duitku/callback',
+    DASHBOARD_ORIGIN: 'https://cloud.example.test',
+  };
+
+  it('requires DASHBOARD_ORIGIN for the return URL', () => {
+    const { DASHBOARD_ORIGIN: _omit, ...rest } = duitku;
+    expect(() => loadConfig({ ...base, ...rest })).toThrow('DASHBOARD_ORIGIN');
+  });
+
+  it('is null when nothing is set, including empty values from a .env file', () => {
+    expect(loadConfig(base).billing).toBeNull();
+    expect(loadConfig({ ...base, DUITKU_MERCHANT_CODE: '', DUITKU_API_KEY: '', DUITKU_CALLBACK_URL: '' }).billing).toBeNull();
+  });
+
+  it('parses a complete block and defaults the environment to sandbox', () => {
+    expect(loadConfig({ ...base, ...duitku }).billing).toEqual({
+      merchantCode: 'DS00000',
+      apiKey: 'duitku-api-key-value',
+      env: 'sandbox',
+      callbackUrl: 'https://api.example.test/api/v1/billing/duitku/callback',
+    });
+  });
+
+  it.each(['DUITKU_MERCHANT_CODE', 'DUITKU_API_KEY', 'DUITKU_CALLBACK_URL'])('rejects a block without %s and names the key', (key) => {
+    const env: Record<string, string> = { ...base, ...duitku };
+    delete env[key];
+    expect(() => loadConfig(env)).toThrow(key);
+  });
+
+  it('rejects an unknown DUITKU_ENV and a non-https callback URL', () => {
+    expect(() => loadConfig({ ...base, ...duitku, DUITKU_ENV: 'staging' })).toThrow('DUITKU_ENV');
+    expect(() => loadConfig({ ...base, ...duitku, DUITKU_CALLBACK_URL: 'http://api.example.test/cb' })).toThrow('DUITKU_CALLBACK_URL');
+  });
+
+  it('refuses the production Duitku environment outside NODE_ENV=production', () => {
+    expect(() => loadConfig({ ...base, ...duitku, DUITKU_ENV: 'production' })).toThrow('DUITKU_ENV');
+  });
+
+  it('never echoes the API key in an error', () => {
+    let message = '';
+    try {
+      loadConfig({ ...base, ...duitku, DUITKU_ENV: 'staging' });
+    } catch (e) {
+      message = (e as Error).message;
+    }
+    expect(message).toContain('DUITKU_ENV');
+    expect(message).not.toContain('duitku-api-key-value');
+  });
+});

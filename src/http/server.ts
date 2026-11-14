@@ -8,6 +8,8 @@ import type { InstanceService } from '../modules/instances/instance-service.js';
 import type { LogService } from '../modules/integrations/log-service.js';
 import type { Integrations } from '../modules/integrations/types.js';
 import { isDatabaseUnavailable } from '../db/errors.js';
+import type { BillingService } from '../modules/billing/billing-service.js';
+import { registerDuitkuCallback } from './duitku-callback.js';
 import { registerCustomerRoutes, type CustomerDeps } from './customer-routes.js';
 import { registerOperatorRoutes } from './operator-routes.js';
 import { AppError, NotFoundError } from '../shared/errors.js';
@@ -30,6 +32,8 @@ export function buildServer(deps: {
   integrations?: Integrations | null;
   /** Redacted container logs for the customer API. Absent: the logs route answers 404. */
   logs?: LogService | null;
+  /** Duitku billing. Null or absent: the billing routes and the callback do not exist (404). */
+  billing?: BillingService | null;
 }): FastifyInstance {
   const { service, config, logger, customer } = deps;
   const integrations = deps.integrations ?? null;
@@ -73,7 +77,9 @@ export function buildServer(deps: {
   app.get('/healthz', async () => ({ status: 'ok' }));
 
   registerOperatorRoutes(app, { service, commands, queue: deps.queue ?? null, config, integrations });
-  if (customer) registerCustomerRoutes(app, { customer, service, commands, config, integrations, logs: deps.logs ?? null });
+  const billing = deps.billing ?? null;
+  if (customer) registerCustomerRoutes(app, { customer, service, commands, config, integrations, logs: deps.logs ?? null, billing });
+  if (billing) registerDuitkuCallback(app, { billing, logger });
 
   app.setNotFoundHandler(async () => {
     throw new NotFoundError('Route not found');

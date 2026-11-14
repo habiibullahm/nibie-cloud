@@ -1,6 +1,6 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-14 (landing page `apps/landing` built, not deployed; before that: gVisor's DNS blocker is fixed and verified, production runs on `runsc`). Index of all docs: [README.md](README.md).
+Last updated: 2026-11-14 (milestone D, Duitku billing, built in a sandbox branch and not yet verified against the real Duitku; landing page `apps/landing` built, not deployed; production runs on `runsc`). Index of all docs: [README.md](README.md).
 
 ## Where things stand
 
@@ -59,7 +59,7 @@ Last updated: 2026-11-14 (landing page `apps/landing` built, not deployed; befor
   CORS, rate limits, a beta provisioning gate and a per-tenant instance cap. Spec:
   [superpowers/specs/2026-11-12-backend-design.md](superpowers/specs/2026-11-12-backend-design.md);
   plan: [superpowers/plans/2026-11-12-backend-milestone-a-auth-customer-api.md](superpowers/plans/2026-11-12-backend-milestone-a-auth-customer-api.md).
-  Milestone D (Duitku POP billing) is designed in the spec only; nothing of it is built.
+  Milestone D (Duitku POP billing) was designed in the spec first and is described further below.
 - **Backend milestone B (jobs), on branch `claude/milestone-b-jobs-plan`, not committed.** Redis + BullMQ:
   create/start/stop/restart/delete run as jobs when `REDIS_URL` is set (required in production), the API
   answers `202` with a `jobId`, transient errors retry 4 times with backoff, exhausted jobs are listed and
@@ -79,7 +79,23 @@ Last updated: 2026-11-14 (landing page `apps/landing` built, not deployed; befor
   decision and evidence: [adr/0003-hermes-config-delivery.md](adr/0003-hermes-config-delivery.md); how to run it
   and rotate the key: [setup.md](setup.md#secrets-provider-keys-and-telegram). Not built: AI usage metering,
   per-tenant NibieRouter key minting, a secrets manager (KEK stays an env var for the beta, backup in the
-  password manager). Milestone D (Duitku POP billing) is next.
+  password manager). Milestone D (Duitku POP billing) is below.
+- **Backend milestone D (Duitku POP billing and billing emails), on branch `claude/project-thread-bprg8j`, not committed.**
+  Customers buy a 30-day subscription per instance through Duitku POP (virtual account and QRIS are chosen on Duitku's
+  hosted page): `POST /subscriptions/checkout` returns a payment URL, a signature-verified, idempotent callback
+  (`POST /api/v1/billing/duitku/callback`) activates or renews, and the instance is created only after the first
+  verified payment. A billing tick walks the PRD 10 lifecycle (reminders 7/3/1 days before the end, 3 days of grace,
+  suspension with the instance stopped and its volume kept, 30 days of retention, deletion) and sends Indonesian emails
+  over SumoPod SMTP. `Plan.monthlyPriceIdr` is nullable (`null`: not for sale); `scripts/seed-sandbox-plans.ts` sets a
+  sandbox test price. The `BETA_ALLOWED_EMAILS` free path is unchanged. Plan:
+  [superpowers/plans/2026-11-14-backend-milestone-d-duitku-billing.md](superpowers/plans/2026-11-14-backend-milestone-d-duitku-billing.md);
+  how to run it: [setup.md](setup.md#billing-duitku-pop); design and gaps: [architecture.md](architecture.md) ("Billing", gap 9a).
+  **Verified:** `tsc` clean; unit tests (Duitku signature vectors, lifecycle rules, templates, mailer, config) and
+  integration tests against a real Postgres with a fake Duitku, fake mailer, fake runtime and an injected clock
+  (service, HTTP callback, tick). **Not verified:** a real sandbox invoice and callback (Task 0 of the plan: needs the
+  owner's sandbox credentials on a machine that can reach Duitku), real SumoPod delivery, the Docker-based integration
+  tests (no daemon in the sandbox that built this), and deployment. Not built: callback IP allowlist, plan upgrade or
+  proration, refunds, a billing screen in `apps/web`, production go-live (the Duitku merchant is still being verified).
 - **Owner decisions recorded on 2026-11-12:** Supabase Auth and Supabase managed Postgres (schema
   `hermes`), Duitku POP, Resend (sender on a verified domain), Cloudflare for DNS and the dashboard,
   R2 for backups, dashboard at `cloud.nibie.app/dashboard`, API at `api.cloud.nibie.app`, NibieRouter
