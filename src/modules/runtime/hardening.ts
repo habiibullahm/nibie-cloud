@@ -1,4 +1,5 @@
 import type Docker from 'dockerode';
+import { DNS_RESOLV_SUBPATH, DNS_RESOLV_VOLUME } from './dns-resolv-conf.js';
 import { ValidationError } from '../../shared/errors.js';
 import type { RuntimeSpec } from './types.js';
 
@@ -146,6 +147,24 @@ export function buildContainerConfig(spec: RuntimeSpec): Docker.ContainerCreateO
   // by address did not).
   if (spec.dns && spec.dns.length > 0) {
     hostConfig.Dns = [...spec.dns];
+  }
+
+  // HostConfig.Dns above only changes what the embedded resolver forwards to; the container still
+  // queries 127.0.0.11 first, and that embedded resolver is the part unreachable from inside a
+  // gVisor sandbox (verified on a real runsc host, 2026-11-14: Dns was set correctly, resolv.conf
+  // still said 127.0.0.11, and name lookups still failed while a raw query straight to a resolver
+  // worked). Bypass the embedded resolver entirely by bind-mounting a real resolv.conf, seeded by
+  // `ensureDnsResolvConf`, over the container's own.
+  if (spec.runtime === 'runsc' && spec.dns && spec.dns.length > 0) {
+    hostConfig.Mounts = [
+      {
+        Target: '/etc/resolv.conf',
+        Source: DNS_RESOLV_VOLUME,
+        Type: 'volume',
+        ReadOnly: true,
+        VolumeOptions: { Subpath: DNS_RESOLV_SUBPATH, NoCopy: false, Labels: {}, DriverConfig: { Name: '', Options: {} } },
+      },
+    ];
   }
 
   return {

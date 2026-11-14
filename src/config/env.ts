@@ -64,16 +64,19 @@ const schema = z.object({
   HERMES_DISK_QUOTA: z.enum(['enforce', 'off']).default('enforce'),
   HERMES_DISK_CHECK_INTERVAL_MS: z.coerce.number().int().min(1000).default(300_000),
   HERMES_EGRESS_POLICY: z.enum(['enforce', 'off']).default('enforce'),
+  /** Also seeds the tenant resolv.conf volume under runsc (see HERMES_DNS_RESOLVERS, dns-resolv-conf.ts). */
   HERMES_CANARY_IMAGE: z.preprocess(emptyToUndefined, z.string().optional()),
   HERMES_CANARY_PRIVATE_IP: z.preprocess(emptyToUndefined, z.ipv4().optional()),
   /**
-   * Space- or comma-separated IPv4 DNS resolvers given to every tenant container directly
-   * (Docker `Dns`). Docker's own embedded resolver is not reachable from inside a gVisor (`runsc`)
-   * sandbox (its NAT redirect to 127.0.0.11 is not implemented there), so a container gets no
-   * working DNS unless it is pointed at a real resolver itself. Required when `HERMES_RUNTIME` is
-   * `runsc`; optional under `runc`, which keeps today's behaviour (the embedded resolver) when unset.
-   * A resolver on a private address also needs a matching entry in `ops/egress/egress.conf`'s
-   * `RESOLVERS`, or the host ruleset blocks it.
+   * Space- or comma-separated IPv4 DNS resolvers for every tenant container. Under `runsc` they are
+   * written into a dedicated Docker volume (`dns-resolv-conf.ts`) that is bind-mounted over the
+   * container's own `/etc/resolv.conf`: Docker's embedded resolver, which otherwise owns that file on
+   * a user-defined network, is not reachable from inside a gVisor sandbox, and `Dns` alone (below)
+   * only changes what that embedded resolver forwards to, not what the container itself queries
+   * (verified on a real runsc host, 2026-11-14). Under `runc` they are only given directly as Docker
+   * `Dns`, which keeps today's behaviour (the embedded resolver) when unset. Required when
+   * `HERMES_RUNTIME` is `runsc`; optional under `runc`. A resolver on a private address also needs a
+   * matching entry in `ops/egress/egress.conf`'s `RESOLVERS`, or the host ruleset blocks it.
    */
   HERMES_DNS_RESOLVERS: dnsResolvers,
   /** `https://<project-ref>.supabase.co`. Unset disables the customer API. */
@@ -128,9 +131,14 @@ const schema = z.object({
       if (e[k] === undefined) ctx.addIssue({ code: 'custom', path: [k], message: 'required when any mail variable is set' });
     }
   }
-  // The startup canary needs an image pinned by digest, like every other image.
-  if (e.HERMES_EGRESS_POLICY === 'enforce' && (!e.HERMES_CANARY_IMAGE || !DIGEST_PINNED.test(e.HERMES_CANARY_IMAGE))) {
-    ctx.addIssue({ code: 'custom', path: ['HERMES_CANARY_IMAGE'], message: 'must be name@sha256:<digest> when egress policy is enforce' });
+  // The startup canary needs an image pinned by digest, like every other image. Under runsc the
+  // same image also seeds the tenant resolv.conf volume (see dns-resolv-conf.ts), so it is required
+  // there too, even if egress enforcement is off.
+  if (
+    (e.HERMES_EGRESS_POLICY === 'enforce' || e.HERMES_RUNTIME === 'runsc')
+    && (!e.HERMES_CANARY_IMAGE || !DIGEST_PINNED.test(e.HERMES_CANARY_IMAGE))
+  ) {
+    ctx.addIssue({ code: 'custom', path: ['HERMES_CANARY_IMAGE'], message: 'must be name@sha256:<digest> when egress policy is enforce or runtime is runsc' });
   }
   // Under runsc a tenant container cannot use Docker's embedded resolver at all, so it needs an
   // explicit one; under runc leaving it unset keeps the embedded resolver (today's behaviour).

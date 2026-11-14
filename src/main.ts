@@ -21,6 +21,7 @@ import { createInstanceWorker } from './modules/jobs/worker.js';
 import { Reconciler } from './modules/instances/reconciler.js';
 import { DockerRuntimeManager } from './modules/runtime/docker-runtime-manager.js';
 import { assertDiskQuotaSupported } from './modules/runtime/disk-quota-check.js';
+import { DnsResolvConfError, ensureDnsResolvConf } from './modules/runtime/dns-resolv-conf.js';
 import { EgressCanaryError, EgressPolicyError, runEgressCanary } from './modules/runtime/egress-canary.js';
 import { assertRuntimeAvailable } from './modules/runtime/runtime-availability.js';
 import { createLogger } from './shared/logger.js';
@@ -38,6 +39,16 @@ if (config.egressPolicy === 'enforce') {
   } catch (e) {
     if (e instanceof EgressPolicyError || e instanceof EgressCanaryError) logger.error(e.message);
     else logger.error('Egress canary failed unexpectedly');
+    process.exit(1);
+  }
+}
+if (config.runtime === 'runsc' && config.dnsResolvers.length > 0) {
+  // Without this, tenant containers under runsc get no working DNS (see dns-resolv-conf.ts).
+  try {
+    await ensureDnsResolvConf({ docker, image: config.canaryImage!, resolvers: config.dnsResolvers, runtime: config.runtime, logger });
+  } catch (e) {
+    if (e instanceof DnsResolvConfError) logger.error(e.message);
+    else logger.error('Tenant DNS resolv.conf setup failed unexpectedly');
     process.exit(1);
   }
 }
