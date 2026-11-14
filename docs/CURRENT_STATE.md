@@ -1,6 +1,6 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-14 (milestone D, Duitku billing, built in a sandbox branch and not yet verified against the real Duitku; production runs on `runsc`). Index of all docs: [README.md](README.md).
+Last updated: 2026-11-14 (milestone D, Duitku billing, built in a sandbox branch and not yet verified against the real Duitku; landing page `apps/landing` built, not deployed; production runs on `runsc`). Index of all docs: [README.md](README.md).
 
 ## Where things stand
 
@@ -21,11 +21,38 @@ Last updated: 2026-11-14 (milestone D, Duitku billing, built in a sandbox branch
 - **Dashboard.** `apps/web` exists (`6e5d644`; plan:
   [superpowers/plans/2026-11-12-frontend-dashboard.md](superpowers/plans/2026-11-12-frontend-dashboard.md)).
   It is a preview: mock data by default, instance endpoints through a dev bridge in `live` mode,
-  billing is a UI shell; sign-in, `/auth/confirm` (email links), `/set-password` and an auth gate are wired to Supabase Auth when `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are set (branch `feat/web-auth-confirm`, verified against the real project with an invalid token only; a real invite link and the customer API token are not wired yet). The dashboard now has `basePath` `/dashboard`. It builds as a Cloudflare Worker (`nibie-cloud-web`, OpenNext adapter; `pnpm cf:build`, `cf:preview`, `cf:deploy` in `apps/web`), built and served locally with `wrangler dev`; **not yet deployed** to a real Cloudflare account and no route for `cloud.nibie.app/dashboard*` exists yet. See [../apps/web/README.md](../apps/web/README.md).
+  billing is a UI shell; sign-in, `/auth/confirm` (email links), `/set-password` and an auth gate are wired to Supabase Auth when `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are set (PR #17, merged; verified with a real invite link on 2026-11-14: link, set password, login). The dashboard uses `basePath` `/dashboard` and runs as the Cloudflare Worker `nibie-cloud-web` (OpenNext adapter, Workers Builds from `main`, route `cloud.nibie.app/dashboard*`, PR #18, live since 2026-11-14). `NEXT_PUBLIC_HERMES_API_MODE=customer` (branch `feat/web-customer-api`, PR open) makes the browser call the customer API with the user's Supabase token (instances, `/me`, `/plans` real; rest preview); it is not enabled on the Worker until the backend side (`SUPABASE_URL`, `DASHBOARD_ORIGIN`, `BETA_ALLOWED_EMAILS`, plan rows) is confirmed on the VPS. See [../apps/web/README.md](../apps/web/README.md).
   Branch `fix/web-antislop-review` (PR #2) applies an antislop review: audit and report in
   `apps/web/anti-slop/`, 45 dashboard tests. It also gives outline and secondary buttons
   `border-strong` edges (approved by Nash, recorded in `DESIGN.md`).
 
+- **Landing page (`apps/landing`, branch `claude/project-thread-jdgmh9`, not committed, not deployed).** Public
+  site for `cloud.nibie.app` (root), needed for the Duitku KYC review: home, `/harga`, `/kontak`, Syarat Layanan,
+  Kebijakan Refund, Kebijakan Privasi and a 404, in Indonesian. Standalone package (own `package.json`, lockfile),
+  Next.js 16 static export, shadcn/ui and the `DESIGN.md` tokens, hairline-grid hero, light CSS-only motion.
+  Deployed as the Worker `nibie-cloud-landing` (static assets only, `wrangler.jsonc`) on route `cloud.nibie.app/*`;
+  `/dashboard*` and `/docs*` stay on their own Workers because their routes are more specific. The product name
+  stays "Hermes Cloud", published by Nibie (`nibie.app`). Owner decisions of 2026-11-14 shown on the page: one
+  template (Hermes Agent, 1 CPU, 1 GB RAM, 1 GB storage, Jakarta), two plans: Hosting Rp 50.000 (beta Rp 25.000) and
+  Hosting + Kredit AI Rp 75.000 (beta Rp 50.000, with a one-time NibieRouter credit of US$2), beta prices for the
+  first 100 beta users only; refund: full within 7 days of the first payment if the instance is unused, no refund
+  otherwise, none for NibieRouter usage. The public contact email is **not in the repository**: it is the build
+  variable `NEXT_PUBLIC_CONTACT_EMAIL` (Telegram is the fallback). `DESIGN.md` gained the marketing type tokens
+  `display`, `h2` and `lead` (landing only; `@google/design.md lint`: 0 errors, 0 warnings). Verified in a cloud
+  sandbox: `pnpm typecheck`, `pnpm lint`, 13 tests, `pnpm build`, the exported site served by `wrangler dev`
+  (all routes 200, unknown path 404), Playwright at 1440 and 390 px (no horizontal overflow, no console errors).
+  **Not verified:** the real Cloudflare deploy, the route, and any real device. The legal pages are drafts for
+  the owner to read before publishing. The docs page "Paket dan penagihan" still says prices are not set, and
+  the backend has no price data for these plans (`Plan.monthlyPriceIdr` is null); the US$2 credit needs a
+  NibieRouter and backend integration that does not exist yet. See [../apps/landing/README.md](../apps/landing/README.md).
+- **Multi-platform note (2026-11-14, owner request).** Hermes runs one gateway for many messaging platforms; the
+  official Nous docs (https://hermes-agent.nousresearch.com/docs/user-guide/messaging/) list Telegram, Discord, Slack,
+  Google Chat, WhatsApp, Signal, SMS, Email, Mattermost, Matrix, Microsoft Teams, LINE, IRC and more ("20+"), each with
+  its own credentials and a deny-by-default allowlist. Hermes is MIT-licensed (LICENSE read; no trademark or
+  hosted-service terms were found, but the README and per-platform pages were not verified). `docs/prd.md` section 9 now
+  separates upstream capability (9.1) from what Hermes Cloud builds (9.2: only Telegram is wired; other platforms need
+  credential, egress, inbound-traffic and allowlist specs first) and adds open decision 13. The docs site intro and
+  Telegram page and the landing page say "Telegram now, other platforms later" without naming dates.
 - **Backend milestone A (customer API).** On branch `claude/project-thread-b5f2bk`, rebased onto the egress controls merge
   (`a8d86fd`): Supabase token verification (`src/modules/auth`), `User` and `TenantMember`
   models with a new migration, a customer API next to the operator API (`src/http/customer-*.ts`),

@@ -68,8 +68,9 @@ export interface Plan {
   memoryMb: number
   storageMb: number
   pids: number
-  backupRetentionDays: number
-  customDomain: boolean
+  /** null when the backend does not report it yet. */
+  backupRetentionDays: number | null
+  customDomain: boolean | null
   /** null until pricing is approved. */
   monthlyPriceIdr: number | null
 }

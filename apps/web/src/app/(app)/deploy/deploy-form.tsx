@@ -133,10 +133,10 @@ export function DeployForm() {
                       <dt className="text-muted-foreground">Processes</dt>
                       <dd className="type-mono">{p.pids}</dd>
                       <dt className="text-muted-foreground">Backups</dt>
-                      <dd className="type-mono">{p.backupRetentionDays} days</dd>
+                      <dd className="type-mono">{p.backupRetentionDays === null ? "Not set yet" : `${p.backupRetentionDays} days`}</dd>
                     </dl>
                     <span className="pt-2 text-muted-foreground">
-                      {p.customDomain ? "Custom domain included" : "No custom domain"}
+                      {p.customDomain === null ? "Custom domain: not set yet" : p.customDomain ? "Custom domain included" : "No custom domain"}
                     </span>
                     <span className="border-t pt-2 text-muted-foreground">
                       Price <span className="text-foreground">{formatPriceIdr(p.monthlyPriceIdr)}</span>

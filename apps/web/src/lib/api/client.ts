@@ -72,7 +72,11 @@ export interface PreviewApi {
   createBackup(instanceId: string): Promise<Backup>
 }
 
-export type ApiMode = "mock" | "live"
+/**
+ * mock: in-browser sample data. live: operator API through the dev bridge (local development only).
+ * customer: the customer API with the signed-in user's Supabase token.
+ */
+export type ApiMode = "mock" | "live" | "customer"
 
 export interface HermesApi {
   mode: ApiMode

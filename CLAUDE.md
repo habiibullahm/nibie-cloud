@@ -17,7 +17,12 @@ Do not copy content from these files here; read them when the task touches the a
   Next.js 16, static export under `/docs`, content in Indonesian). Standalone like `apps/web`, with its
   own `package.json` and lockfile. Commands and content rules: `apps/docs/README.md`.
   `pnpm dev` there serves http://localhost:3200/docs; checks are `pnpm typecheck && pnpm lint`.
-- **Next.js 16 in `apps/web` and `apps/docs`:** its APIs and conventions differ from older versions.
+- **Fourth package, `apps/landing`** (`@hermes-cloud/landing`): the public landing page for `cloud.nibie.app`
+  (static export, Cloudflare Worker with static assets, content in Indonesian, legal pages for Duitku KYC).
+  Standalone with its own `package.json` and lockfile. Commands, the public-contact-email rule and the
+  Cloudflare setup: `apps/landing/README.md`. `pnpm dev` there serves http://localhost:3300;
+  checks are `pnpm typecheck && pnpm lint && pnpm test && pnpm build`.
+- **Next.js 16 in `apps/web`, `apps/docs` and `apps/landing`:** its APIs and conventions differ from older versions.
   Read the relevant guide under that package's `node_modules/next/dist/docs/` before writing Next.js code.
 - **Deployment** (`deploy/`: Compose, Caddy, Dockerfile for a single VPS): read `deploy/README.md` for
   the order of work and for what was and was not verified on a real host. Host addresses, contact
