@@ -126,3 +126,14 @@ Workers Builds settings, or your shell for `cf:deploy`). Set `NEXT_PUBLIC_SUPABA
 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`; the publishable key is public, never use a secret key.
 The Worker must be routed to `cloud.nibie.app/dashboard*` (Workers & Pages, the Worker, Settings,
 Domains & Routes). Verified locally with `wrangler dev`; not yet deployed to a real account.
+
+## Customer API mode
+
+`NEXT_PUBLIC_HERMES_API_MODE=customer` talks to the backend customer API (`src/http/customer-routes.ts`)
+straight from the browser, with the signed-in user's Supabase access token as a bearer header; the backend
+derives the tenant from the token. Set `NEXT_PUBLIC_HERMES_API_URL` (public origin, no path) next to the two
+Supabase variables, all at build time. Real: instance list, get, status, events, create, start, stop,
+restart, delete, plus `/me` and `/plans`. Everything else is still preview data. Without the URL or the
+Supabase variables the app falls back to labelled mock data. Backend prerequisites: `SUPABASE_URL`,
+`DASHBOARD_ORIGIN` (exact origin, for CORS), `BETA_ALLOWED_EMAILS` (creation is refused with 403
+`provisioning_not_enabled` for other accounts) and at least one active plan row.

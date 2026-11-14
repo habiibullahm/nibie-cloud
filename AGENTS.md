@@ -122,7 +122,8 @@ and `pnpm test` 676 passed, 2 skipped (56 files; unit and Docker/Postgres/Redis 
   `BETA_ALLOWED_EMAILS` and `MAX_INSTANCES_PER_TENANT`. No endpoint creates plans or nodes; seed rows
   directly (see `scripts/demo.ts`).
 - **Dashboard data layer** (`apps/web/src/lib/api`): a typed `HermesApi` with an in-browser mock
-  (default, `NEXT_PUBLIC_HERMES_API_MODE=mock`) and a live client. Live mode goes through the dev
+  (default, `NEXT_PUBLIC_HERMES_API_MODE=mock`), a customer-API client (`=customer`, Supabase token to
+  `NEXT_PUBLIC_HERMES_API_URL`; instances, `/me`, `/plans` are real) and a dev-only live client. Live mode goes through the dev
   bridge `apps/web/src/app/api/hermes/[...path]/route.ts`, which keeps `HERMES_ADMIN_TOKEN` server-side
   and forwards only the allowlisted instance endpoints in `proxy-rules.ts`. Everything without a
   backend endpoint (plans, usage, logs, files, console, backups, billing, domain, account) is mock

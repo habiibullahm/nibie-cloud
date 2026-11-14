@@ -1,4 +1,6 @@
 import { ApiError, type ApiMode, type HermesApi } from "./client"
+import { createCustomerApi } from "./customer"
+import { authConfigured, getSupabase } from "@/lib/auth/supabase"
 import { createLiveInstancesApi } from "./live"
 import { createMockApi } from "./mock"
 
@@ -8,13 +10,30 @@ export * from "./types"
 let singleton: HermesApi | null = null
 
 export function apiMode(): ApiMode {
-  return process.env.NEXT_PUBLIC_HERMES_API_MODE === "live" ? "live" : "mock"
+  const m = process.env.NEXT_PUBLIC_HERMES_API_MODE
+  if (m === "live") return "live"
+  // The customer API needs a base URL and Supabase sign-in; without them stay on labelled mock data.
+  if (m === "customer" && process.env.NEXT_PUBLIC_HERMES_API_URL && authConfigured()) return "customer"
+  return "mock"
+}
+
+async function accessToken(): Promise<string | null> {
+  const { data } = (await getSupabase()?.auth.getSession()) ?? { data: null }
+  return data?.session?.access_token ?? null
 }
 
 /** Browser-side API. Instances go live when configured; preview endpoints are always mocked. */
 export function getApi(): HermesApi {
   if (singleton) return singleton
-  if (apiMode() === "live") {
+  const mode = apiMode()
+  if (mode === "customer") {
+    const mock = createMockApi({ empty: true, synthesizeUnknown: true })
+    singleton = createCustomerApi({
+      baseUrl: process.env.NEXT_PUBLIC_HERMES_API_URL ?? "",
+      getToken: accessToken,
+      preview: mock.preview,
+    })
+  } else if (mode === "live") {
     const mock = createMockApi({ empty: true, synthesizeUnknown: true })
     singleton = { mode: "live", instances: createLiveInstancesApi(), preview: mock.preview }
   } else {
