@@ -54,7 +54,7 @@ for now), `Instance`, `InstanceEvent` (append-only, pre-sanitized). UUID ids, UT
 `Instance` is unique on `(tenantId, idempotencyKey)`; foreign keys are `RESTRICT`, so history is
 never cascaded away. `User` (id = Supabase user id) and `TenantMember` (role `OWNER`; unique on
 `userId`, so one user has one tenant for the beta) back the customer API. `Plan` has a display `name`
-and an `active` flag. `Secret` (sealed ciphertext, wrapped data key, KEK version, last-4 hint), `ProviderConfig` and `TelegramConnection` (one each per instance; a Telegram bot id is unique across tenants) hold the integrations, and `Instance.configRevision` / `appliedRevision` track whether the running container has the latest credentials. Subscriptions, payments, backups: later milestones.
+and an `active` flag. `Secret` (sealed ciphertext, wrapped data key, KEK version, last-4 hint), `ProviderConfig` and `TelegramConnection` (one each per instance; a Telegram bot id is unique across tenants) hold the integrations, and `Instance.configRevision` / `appliedRevision` track whether the running container has the latest credentials. `Subscription` (one per instance; `PENDING_PAYMENT`, `ACTIVE`, `GRACE`, `SUSPENDED`, `ENDED`), `Payment` (one Duitku invoice, integer rupiah), `PaymentEvent` (append-only, unique on order, reference and result code: the idempotency of the callback) and `BillingNotice` (one row per email kind and period) hold billing; `Plan.monthlyPriceIdr` is nullable (`null`: not for sale). Backups: a later milestone.
 
 ## Instance lifecycle
 
@@ -201,6 +201,24 @@ Decision and evidence: [ADR 0003](adr/0003-hermes-config-delivery.md).
 - **Logs:** `GET /instances/:id/logs` reads the container log (500 lines, 256 KiB cap) and redacts the
   instance's own secret values, the derived API key, and common token shapes before returning it.
 
+## Billing (milestone D)
+
+`src/modules/billing`: `duitku-client.ts` (create invoice, verify callback signature), `lifecycle.ts` (pure rules: 30-day
+period, 3-day grace, 30-day retention, which reminder is due), `billing-service.ts` (checkout, renewal, cancel, applying a
+verified payment), `billing-tick.ts` (reminders, grace, suspension, deletion, repairs), `mailer.ts` and
+`email-templates.ts` (SumoPod SMTP, Indonesian). The callback is its own Fastify plugin (`src/http/duitku-callback.ts`):
+the signature is checked before any database access; a valid callback is answered `200` before provisioning, restart and
+the receipt email run, so a slow instance never makes Duitku retry.
+
+Idempotency: `PaymentEvent` is unique on `(merchantOrderId, reference, resultCode)` and is inserted in the same transaction
+as the payment and subscription changes, so a redelivered callback fails the insert and changes nothing; the payment moves
+`PENDING` to `PAID` by compare-and-set, and a row lock on the subscription serializes two invoices paid together. Only
+`resultCode` `00` is a success (the docs list the failure code as both `01` and `02`). A wrong amount is recorded and
+ignored; an unknown order with a valid signature is accepted (`200`) so Duitku stops retrying. Money that arrives for an
+invoice already marked expired or failed is honored; money that arrives for an ended subscription is logged as an error and
+does not resurrect it. The instance is created only after the first verified payment, with idempotency key
+`pay-<merchantOrderId>`, and suspension is a normal `stop`, so the reconciler (which never restarts `STOPPED`) leaves it.
+
 ## Known gaps and deferred security work
 
 This system is **not production-ready**. Open items, none of which are mitigated yet:
@@ -213,6 +231,7 @@ This system is **not production-ready**. Open items, none of which are mitigated
 6. **Jobs are new and unproven against real infrastructure.** Redis, the worker and the scheduler were exercised only in a single sandbox (local Redis 7, one process, Docker stub image). Not verified: Redis with AOF under restart, several API replicas on one Redis, a real Hermes image under the worker, load. Redis loss drops queued-but-unstarted jobs (the user repeats the action; `PENDING` instances are recovered by the sweeper). A control-plane crash mid-operation is cleaned up by the lease-based reaper after the lease expires (≤ TTL, 60 s by default): it fails or finishes the operation but does not resume it, and the redelivered job then finds a transitional state and stops without retrying. Clock skew between replicas/DB is not handled. A Docker call that hangs without erroring holds its lease until `maxOperationMs`. There is still no outbox table.
 7. **Single node, no scheduler or capacity reservation;** the host port is a random loopback port, with no ingress or TLS.
 8. **Secrets management is built (milestone C) but young.** Customer credentials are envelope-encrypted with a versioned KEK from the environment and rotated by rewrap. Open: the KEK lives in the process environment (a secrets manager is deferred until there are paying customers), values are visible to `docker inspect` on the host and to anyone who can read the container environment, the log redactor cannot match a secret split across two lines, the 5-per-minute limit on provider test and Telegram verify is per API replica, a customer's unparsable `config.yaml` makes a restart answer 409 `config_unreadable` until it is fixed, per-tenant NibieRouter key minting is not built (the operator attaches a key), and AI usage metering is not included. Per-instance API keys are still derived from `HERMES_MASTER_KEY` and have no rotation.
-9. **No backups/restore, customer shell/file broker, metrics, or suspend/grace/retention lifecycle.**
+9. **No backups/restore, customer shell/file broker or metrics.** Suspend, grace and retention are built (milestone D) but young.
+9a. **Billing (milestone D) is new and unproven against the real Duitku.** Verified only with fakes (signature vectors computed here, a fake Duitku client, a fake mailer, an injected clock) and a real Postgres. Not verified: a real sandbox invoice and callback (the exact callback fields, the failure `resultCode`, the `x-duitku-timestamp` format), delivery of the emails through SumoPod and their spam placement, production credentials. Known gaps: no callback IP allowlist (the signature is the control; behind the proxy every caller shares one address), no plan upgrade or proration, no refunds (Duitku offers none), no invoice or tax receipt, no automatic recurring charge (each period is a new invoice), no status-check call for an invoice whose callback never arrives (expiry is decided by local time only until the sandbox shows whether POP has one), no billing screen in `apps/web` (still mock; the emails link to the dashboard instance list), the billing tick sends one email at a time per subscription, and the paid-after-end case needs a manual refund decision.
 10. `STOPPED`/`STOPPING` are not in PRD 10.2 (ADR 0001); `Plan` has no pricing by design.
 11. The PID/OOM behaviour was verified on the dev sandbox kernel (cgroup v1); re-verify on the production host kernel/cgroup v2.

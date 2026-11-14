@@ -104,6 +104,15 @@ and `pnpm test` 676 passed, 2 skipped (56 files; unit and Docker/Postgres/Redis 
   next start/restart (user or reconciler) recreate the container. Nothing under `src/http` may import
   `secrets/secret-store` (test-enforced). Control-plane calls to Telegram and provider URLs use `safeFetch`
   (https, no redirects, public pinned address). Secrets are purged only after `runtime.remove` succeeds.
+- **Billing** (`src/modules/billing`, `src/http/billing-routes.ts`, `src/http/duitku-callback.ts`): Duitku POP, only when
+  `DUITKU_MERCHANT_CODE`, `DUITKU_API_KEY` and `DUITKU_CALLBACK_URL` are set (`DUITKU_ENV` `sandbox` default; `production`
+  needs `NODE_ENV=production`). One `Subscription` per instance; the instance is created after the first verified payment.
+  The public callback (`POST /api/v1/billing/duitku/callback`) is authenticated by its HMAC signature only, checked before
+  any database access, and is idempotent through `PaymentEvent`'s unique key. A billing tick (inside the locked maintenance
+  job) handles reminders, 3-day grace, suspension (instance stopped, start answers `subscription_suspended`), 30-day
+  retention and deletion, with Indonesian emails over SumoPod SMTP. `Plan.monthlyPriceIdr` null means not for sale; prices
+  are set by `scripts/seed-sandbox-plans.ts` (sandbox) or by hand, never by a migration. Not verified against the real
+  Duitku yet: see `docs/architecture.md`, "Known gaps" 9a.
 - **Disk quota and egress** (`runtime/volume-quota.ts`, `runtime/egress-canary.ts`, `ops/egress/`):
   `HERMES_DISK_QUOTA` and `HERMES_EGRESS_POLICY` are `enforce|off` (`off` refused in production). Tenant
   volumes carry a size quota from `Plan.storageMb` and tenant bridges are named `hn<12 hex>` so one host
