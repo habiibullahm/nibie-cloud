@@ -40,6 +40,8 @@ export interface InstanceServiceDeps {
   masterKey: string;
   /** OCI runtime for new containers (`runc` or `runsc`); the daemon default when omitted. */
   containerRuntime?: SupportedRuntime;
+  /** See `RuntimeSpec.dns`. Empty or unset: the container keeps Docker's embedded resolver. */
+  dnsResolvers?: string[];
   /** `enforce` creates tenant volumes with the plan's size quota and refuses to run without one. */
   diskQuota: DiskQuotaMode;
   /** `enforce` refuses to reuse a tenant network that lacks the bridge name the host ruleset matches. */
@@ -109,6 +111,7 @@ export class InstanceService {
   private readonly image: string;
   private readonly masterKey: string;
   private readonly containerRuntime: SupportedRuntime | undefined;
+  private readonly dnsResolvers: string[] | undefined;
   private readonly diskQuota: DiskQuotaMode;
   private readonly egressPolicy: EgressPolicyMode;
   private readonly logger: Logger;
@@ -127,6 +130,7 @@ export class InstanceService {
     this.image = deps.image;
     this.masterKey = deps.masterKey;
     this.containerRuntime = deps.containerRuntime;
+    this.dnsResolvers = deps.dnsResolvers;
     this.diskQuota = deps.diskQuota;
     this.egressPolicy = deps.egressPolicy;
     this.logger = deps.logger;
@@ -418,7 +422,7 @@ export class InstanceService {
   }
 
   private specDeps() {
-    return { masterKey: this.masterKey, diskQuota: this.diskQuota, egressPolicy: this.egressPolicy, containerRuntime: this.containerRuntime };
+    return { masterKey: this.masterKey, diskQuota: this.diskQuota, egressPolicy: this.egressPolicy, containerRuntime: this.containerRuntime, dnsResolvers: this.dnsResolvers };
   }
 
   private apiKey(instanceId: string): string {

@@ -61,8 +61,9 @@ Note that the Docker network is named `hermes-net-<uuid>`; `hn<12 hex>` is the *
 
 - gVisor (`HERMES_RUNTIME=runsc`) with the official image. The pids-limit startup failure is fixed (PR #10) and
   a full instance lifecycle (create, restart, stop/start, delete) passed under `runsc`, but tenant containers
-  cannot resolve hostnames under it (Docker's embedded DNS is not reachable from inside the gVisor sandbox, and
-  no alternate resolver is configured). Do not switch production to `runsc` until that is fixed; see
+  could not resolve hostnames under it (Docker's embedded DNS is not reachable from inside the gVisor sandbox).
+  A fix is built (`HERMES_DNS_RESOLVERS`, see `backend.env.example` and `../docs/setup.md#configuration`) but
+  not yet deployed or retested on a real host. Do not switch production to `runsc` until it is; see
   [../docs/CURRENT_STATE.md](../docs/CURRENT_STATE.md).
 - `xfs_quota` project ids of deleted volumes accumulate: two emptied entries stayed listed after their volumes
   were deleted.
