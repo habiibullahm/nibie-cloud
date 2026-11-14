@@ -46,9 +46,6 @@ const kekB64 = z.preprocess(
 );
 const kekVersion = z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(1_000_000).optional());
 
-const ipv4 = z.ipv4();
-const dnsResolvers = z.preprocess(emptyToUndefined, z.string().optional());
-
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DATABASE_URL: z.string().min(1),
@@ -63,16 +60,6 @@ const schema = z.object({
   HERMES_EGRESS_POLICY: z.enum(['enforce', 'off']).default('enforce'),
   HERMES_CANARY_IMAGE: z.preprocess(emptyToUndefined, z.string().optional()),
   HERMES_CANARY_PRIVATE_IP: z.preprocess(emptyToUndefined, z.ipv4().optional()),
-  /**
-   * Space- or comma-separated IPv4 DNS resolvers given to every tenant container directly
-   * (Docker `Dns`). Docker's own embedded resolver is not reachable from inside a gVisor (`runsc`)
-   * sandbox (its NAT redirect to 127.0.0.11 is not implemented there), so a container gets no
-   * working DNS unless it is pointed at a real resolver itself. Required when `HERMES_RUNTIME` is
-   * `runsc`; optional under `runc`, which keeps today's behaviour (the embedded resolver) when unset.
-   * A resolver on a private address also needs a matching entry in `ops/egress/egress.conf`'s
-   * `RESOLVERS`, or the host ruleset blocks it.
-   */
-  HERMES_DNS_RESOLVERS: dnsResolvers,
   /** `https://<project-ref>.supabase.co`. Unset disables the customer API. */
   SUPABASE_URL: supabaseUrl,
   /** Exact browser origin of the dashboard (no path). Unset sends no CORS headers. */
@@ -115,15 +102,6 @@ const schema = z.object({
   if (e.HERMES_EGRESS_POLICY === 'enforce' && (!e.HERMES_CANARY_IMAGE || !DIGEST_PINNED.test(e.HERMES_CANARY_IMAGE))) {
     ctx.addIssue({ code: 'custom', path: ['HERMES_CANARY_IMAGE'], message: 'must be name@sha256:<digest> when egress policy is enforce' });
   }
-  // Under runsc a tenant container cannot use Docker's embedded resolver at all, so it needs an
-  // explicit one; under runc leaving it unset keeps the embedded resolver (today's behaviour).
-  const dnsList = (e.HERMES_DNS_RESOLVERS ?? '').split(/[,\s]+/).map((s) => s.trim()).filter((s) => s.length > 0);
-  if (e.HERMES_RUNTIME === 'runsc' && dnsList.length === 0) {
-    ctx.addIssue({ code: 'custom', path: ['HERMES_DNS_RESOLVERS'], message: 'required (space or comma separated IPv4 addresses) when HERMES_RUNTIME is runsc' });
-  }
-  if (dnsList.some((ip) => !ipv4.safeParse(ip).success)) {
-    ctx.addIssue({ code: 'custom', path: ['HERMES_DNS_RESOLVERS'], message: 'must be space or comma separated IPv4 addresses' });
-  }
 });
 
 export interface Config {
@@ -140,8 +118,6 @@ export interface Config {
   egressPolicy: EgressPolicyMode;
   canaryImage: string | undefined;
   canaryPrivateIp: string | undefined;
-  /** Empty when unset: tenant containers keep Docker's embedded resolver (see `HERMES_DNS_RESOLVERS`). */
-  dnsResolvers: string[];
   /** Origin without a trailing slash, or null when the customer API is disabled. */
   supabaseUrl: string | null;
   dashboardOrigin: string | null;
@@ -176,7 +152,6 @@ export function loadConfig(env: NodeJS.ProcessEnv | Record<string, string | unde
     egressPolicy: e.HERMES_EGRESS_POLICY,
     canaryImage: e.HERMES_CANARY_IMAGE,
     canaryPrivateIp: e.HERMES_CANARY_PRIVATE_IP,
-    dnsResolvers: (e.HERMES_DNS_RESOLVERS ?? '').split(/[,\s]+/).map((s) => s.trim()).filter((s) => s.length > 0),
     supabaseUrl: e.SUPABASE_URL ? e.SUPABASE_URL.replace(/\/$/, '') : null,
     dashboardOrigin: e.DASHBOARD_ORIGIN ?? null,
     betaAllowedEmails: (e.BETA_ALLOWED_EMAILS ?? '')

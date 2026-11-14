@@ -30,7 +30,7 @@ export function testConfig(image: string, masterKey: string, o: Partial<Config> 
   return {
     nodeEnv: 'test', databaseUrl: 'x', hermesImage: image, port: 0, adminToken: TEST_ADMIN_TOKEN,
     dockerSocketPath: '', masterKey, runtime: 'runc',
-    diskQuota: 'off', diskCheckIntervalMs: 300_000, egressPolicy: 'off', canaryImage: undefined, canaryPrivateIp: undefined, dnsResolvers: [],
+    diskQuota: 'off', diskCheckIntervalMs: 300_000, egressPolicy: 'off', canaryImage: undefined, canaryPrivateIp: undefined,
     supabaseUrl: TEST_SUPABASE_URL, dashboardOrigin: DASHBOARD_ORIGIN, betaAllowedEmails: [], maxInstancesPerTenant: 1, redisUrl: null, secrets: null,
     ...o,
   };

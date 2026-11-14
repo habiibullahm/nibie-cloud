@@ -140,14 +140,6 @@ export function buildContainerConfig(spec: RuntimeSpec): Docker.ContainerCreateO
     hostConfig.Runtime = spec.runtime;
   }
 
-  // Docker's embedded resolver (the loopback address it writes into /etc/resolv.conf) is not
-  // reachable from inside a gVisor sandbox, so a runsc tenant gets no DNS unless it is pointed at a
-  // real resolver directly (verified on a real runsc host, 2026-11-13: name lookups failed, lookups
-  // by address did not).
-  if (spec.dns && spec.dns.length > 0) {
-    hostConfig.Dns = [...spec.dns];
-  }
-
   return {
     name: containerName(id),
     Image: spec.image,

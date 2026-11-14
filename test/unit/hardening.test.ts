@@ -130,18 +130,6 @@ describe('buildContainerConfig', () => {
     expect(buildContainerConfig(spec({ runtime: 'runc' })).HostConfig!.Runtime).toBe('runc');
   });
 
-  it('leaves Docker Dns unset (the embedded resolver) when no dns is given, even an empty list', () => {
-    expect(buildContainerConfig(spec()).HostConfig!.Dns).toBeUndefined();
-    expect(buildContainerConfig(spec({ dns: [] })).HostConfig!.Dns).toBeUndefined();
-  });
-
-  it('sets Docker Dns to the given resolvers, a copy and not the original array', () => {
-    const resolvers = ['1.1.1.1', '9.9.9.9'];
-    const c = buildContainerConfig(spec({ runtime: 'runsc', dns: resolvers }));
-    expect(c.HostConfig!.Dns).toEqual(['1.1.1.1', '9.9.9.9']);
-    expect(c.HostConfig!.Dns).not.toBe(resolvers);
-  });
-
   it('never weakens seccomp/apparmor and never uses host networking', () => {
     const h = buildContainerConfig(spec()).HostConfig!;
     expect(h.SecurityOpt!.join(' ')).not.toContain('unconfined');

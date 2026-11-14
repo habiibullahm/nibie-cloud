@@ -61,10 +61,10 @@ const purge = secretStore ? (tenantId: string, instanceId: string) => purgeInteg
 const logService = new LogService({ prisma, runtime, loader: runtimeConfig, masterKey: config.masterKey });
 const service = new InstanceService({
   prisma, runtime, image: config.hermesImage, production: config.nodeEnv === 'production', logger,
-  masterKey: config.masterKey, containerRuntime: config.runtime, dnsResolvers: config.dnsResolvers, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy, runtimeConfig, ...(purge ? { purgeIntegrations: purge } : {}),
+  masterKey: config.masterKey, containerRuntime: config.runtime, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy, runtimeConfig, ...(purge ? { purgeIntegrations: purge } : {}),
 });
 // With a job queue the sweeper owns PENDING rows; the reaper must not fail them first.
-const reconciler = new Reconciler({ prisma, runtime, logger, masterKey: config.masterKey, containerRuntime: config.runtime, dnsResolvers: config.dnsResolvers, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy, reapPending: config.redisUrl === null, runtimeConfig, ...(purge ? { purgeIntegrations: purge } : {}) });
+const reconciler = new Reconciler({ prisma, runtime, logger, masterKey: config.masterKey, containerRuntime: config.runtime, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy, reapPending: config.redisUrl === null, runtimeConfig, ...(purge ? { purgeIntegrations: purge } : {}) });
 // The customer API exists only when a Supabase project is configured.
 const customer = config.supabaseUrl
   ? { verify: createTokenVerifier({ supabaseUrl: config.supabaseUrl }), identity: new IdentityService({ prisma }), prisma }

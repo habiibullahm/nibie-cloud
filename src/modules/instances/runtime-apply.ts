@@ -8,8 +8,6 @@ export interface SpecDeps {
   diskQuota: DiskQuotaMode;
   egressPolicy: EgressPolicyMode;
   containerRuntime?: SupportedRuntime | undefined;
-  /** See `RuntimeSpec.dns`. Empty or unset: the container keeps Docker's embedded resolver. */
-  dnsResolvers?: string[] | undefined;
 }
 
 /** The one place a container's spec is assembled: platform defaults first, then the customer configuration. */
@@ -24,7 +22,6 @@ export function runtimeSpec(d: SpecDeps, inst: Pick<Instance, 'id' | 'tenantId' 
     env: { ...cfg.env, HERMES_INSTANCE_ID: inst.id },
     apiServerKey: deriveApiKey(d.masterKey, inst.id),
     ...(d.containerRuntime ? { runtime: d.containerRuntime } : {}),
-    ...(d.dnsResolvers && d.dnsResolvers.length > 0 ? { dns: d.dnsResolvers } : {}),
     ...(cfg.model !== undefined ? { modelConfig: cfg.model } : {}),
   };
 }

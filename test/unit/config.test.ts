@@ -53,9 +53,9 @@ describe('loadConfig', () => {
     expect(message).not.toContain('short-master-secret');
   });
 
-  it('defaults HERMES_RUNTIME to runc and accepts runsc (with HERMES_DNS_RESOLVERS set)', () => {
+  it('defaults HERMES_RUNTIME to runc and accepts runsc', () => {
     expect(loadConfig(base).runtime).toBe('runc');
-    expect(loadConfig({ ...base, HERMES_RUNTIME: 'runsc', HERMES_DNS_RESOLVERS: '1.1.1.1' }).runtime).toBe('runsc');
+    expect(loadConfig({ ...base, HERMES_RUNTIME: 'runsc' }).runtime).toBe('runsc');
   });
 
   it('rejects an unknown HERMES_RUNTIME', () => {
@@ -148,25 +148,6 @@ describe('loadConfig', () => {
     for (const bad of ['not-an-ip', '2001:db8::1', '300.1.1.1', '10.0.0']) {
       expect(() => loadConfig({ ...base, HERMES_CANARY_PRIVATE_IP: bad })).toThrow('HERMES_CANARY_PRIVATE_IP');
     }
-  });
-
-  it('leaves HERMES_DNS_RESOLVERS empty by default under runc', () => {
-    expect(loadConfig(base).dnsResolvers).toEqual([]);
-  });
-
-  it('parses space- or comma-separated IPv4 HERMES_DNS_RESOLVERS', () => {
-    expect(loadConfig({ ...base, HERMES_DNS_RESOLVERS: '1.1.1.1 9.9.9.9' }).dnsResolvers).toEqual(['1.1.1.1', '9.9.9.9']);
-    expect(loadConfig({ ...base, HERMES_DNS_RESOLVERS: '1.1.1.1, 9.9.9.9' }).dnsResolvers).toEqual(['1.1.1.1', '9.9.9.9']);
-  });
-
-  it('rejects a non-IPv4 entry in HERMES_DNS_RESOLVERS', () => {
-    expect(() => loadConfig({ ...base, HERMES_DNS_RESOLVERS: '1.1.1.1 not-an-ip' })).toThrow('HERMES_DNS_RESOLVERS');
-    expect(() => loadConfig({ ...base, HERMES_DNS_RESOLVERS: '2001:db8::1' })).toThrow('HERMES_DNS_RESOLVERS');
-  });
-
-  it('requires HERMES_DNS_RESOLVERS when HERMES_RUNTIME is runsc, and accepts it when set', () => {
-    expect(() => loadConfig({ ...base, HERMES_RUNTIME: 'runsc' })).toThrow('HERMES_DNS_RESOLVERS');
-    expect(loadConfig({ ...base, HERMES_RUNTIME: 'runsc', HERMES_DNS_RESOLVERS: '1.1.1.1' }).dnsResolvers).toEqual(['1.1.1.1']);
   });
 });
 

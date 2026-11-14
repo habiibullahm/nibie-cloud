@@ -55,7 +55,6 @@ DATABASE_URL=postgresql://hermes:hermes_dev_only@127.0.0.1:5433/hermes_test pnpm
 | `BETA_ALLOWED_EMAILS` | Comma-separated emails allowed to create instances until payments exist. Empty or unset: nobody can (fail closed). Set it in the host environment only, never in the repository |
 | `MAX_INSTANCES_PER_TENANT` | Default `1`. Non-deleted instances a tenant may hold through the customer API (the operator API has no cap) |
 | `HERMES_RUNTIME` | `runc` (default) or `runsc` (gVisor). With `runsc`, startup fails if the Docker daemon does not list that runtime. Applies only to containers created from now on |
-| `HERMES_DNS_RESOLVERS` | Space- or comma-separated IPv4 DNS resolvers given directly to every tenant container (Docker `Dns`). **Required when `HERMES_RUNTIME=runsc`**: Docker's own embedded resolver is not reachable from inside a gVisor sandbox (verified on a real host, 2026-11-13: name lookups failed, lookups by address did not), so a `runsc` container has no working DNS without this. Optional under `runc`, which keeps the embedded resolver when unset. A resolver on a private address also needs a matching entry in `ops/egress/egress.conf`'s `RESOLVERS`, or the host ruleset blocks it. Applies only to containers created from now on, like `HERMES_RUNTIME` |
 | `SECRETS_KEK` | Base64 of exactly 32 random bytes (`openssl rand -base64 32`). The key-encryption key for customer credentials (provider API keys, Telegram bot tokens). Required when `NODE_ENV=production`; without it the credential routes answer `503 secrets_unavailable` and no instance gets a credential. Host environment only, never the repository. See [Secrets](#secrets-provider-keys-and-telegram) |
 | `SECRETS_KEK_VERSION` | Positive integer, default `1`. The version number stored beside every secret sealed with `SECRETS_KEK` |
 | `SECRETS_KEK_PREVIOUS`, `SECRETS_KEK_PREVIOUS_VERSION` | Only during a KEK rotation: the old key and its version (both required together, and the version must differ from the current one) |
@@ -155,11 +154,11 @@ networks created before this policy have no `hn` name and must be deleted and re
 
 ## Recreating an existing instance's container
 
-A new `HERMES_MASTER_KEY`, `HERMES_RUNTIME` or `HERMES_DNS_RESOLVERS` applies only to containers created
-after the change; existing tenants keep their old key, runtime and DNS setting, including after a
-restart or crash recovery of the same container. To move an instance, remove its container and keep the
-volume: `docker rm -f hermes-<instance-id>`. The Reconciler then recreates it (same volume) with the
-current key, runtime and resolvers. There is no API for this yet.
+A new `HERMES_MASTER_KEY` or `HERMES_RUNTIME` applies only to containers created after the change;
+existing tenants keep their old key and runtime, including after a restart or crash recovery of the
+same container. To move an instance, remove its container and keep the volume:
+`docker rm -f hermes-<instance-id>`. The Reconciler then recreates it (same volume) with the current
+key and runtime. There is no API for this yet.
 
 ## Operator API (development only)
 
