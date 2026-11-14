@@ -18,6 +18,10 @@ import { createBullQueue } from './modules/jobs/bullmq-queue.js';
 import { startScheduler } from './modules/jobs/scheduler.js';
 import { sweepPending } from './modules/jobs/sweeper.js';
 import { createInstanceWorker } from './modules/jobs/worker.js';
+import { BillingService } from './modules/billing/billing-service.js';
+import { BillingTick } from './modules/billing/billing-tick.js';
+import { createDuitkuClient } from './modules/billing/duitku-client.js';
+import { createMailer } from './modules/billing/mailer.js';
 import { Reconciler } from './modules/instances/reconciler.js';
 import { DockerRuntimeManager } from './modules/runtime/docker-runtime-manager.js';
 import { assertDiskQuotaSupported } from './modules/runtime/disk-quota-check.js';
@@ -85,7 +89,17 @@ logger.info({ customerApi: customer !== undefined }, 'customer API');
 const queue = config.redisUrl ? createBullQueue({ redisUrl: config.redisUrl, logger }) : null;
 const commands = new InstanceCommands({ service, queue, logger });
 logger.info({ jobQueue: queue !== null }, 'job queue');
-const app = buildServer({ service, commands, queue, config, logger, integrations, logs: logService, ...(customer ? { customer } : {}) });
+// Duitku billing exists only when its credentials are configured; otherwise checkout and the callback are 404.
+const mailer = createMailer(config.mail, logger);
+const billing = config.billing && config.dashboardOrigin
+  ? new BillingService({
+      prisma, duitku: createDuitkuClient(config.billing), billing: config.billing, commands, mailer,
+      dashboardOrigin: config.dashboardOrigin, maxInstancesPerTenant: config.maxInstancesPerTenant, logger,
+    })
+  : null;
+const billingTick = billing ? new BillingTick({ prisma, billing, commands, mailer, logger }) : null;
+logger.info({ billing: billing !== null, billingEnv: config.billing?.env ?? null, mail: mailer.enabled }, 'billing');
+const app = buildServer({ service, commands, queue, config, logger, integrations, logs: logService, billing, ...(customer ? { customer } : {}) });
 
 let stopReconciler: () => void | Promise<void> = () => undefined;
 let stopWorker: (() => Promise<void>) | undefined;
@@ -94,13 +108,26 @@ if (config.redisUrl && queue) {
   stopWorker = createInstanceWorker({ redisUrl, service, logger }).close;
   // Returns at once: if Redis is down at boot the API still starts, the schedule registers when Redis
   // returns, and until then this process reconciles on its own timer.
+  // The billing tick rides on the same locked maintenance run (it throttles itself to once per 5 minutes).
+  const maintenance = {
+    reconcileAll: async () => {
+      await reconciler.reconcileAll();
+      await billingTick?.run();
+    },
+  };
   const scheduler = startScheduler({
-    redisUrl, reconciler, intervalMs: 15_000, logger,
+    redisUrl, reconciler: maintenance, intervalMs: 15_000, logger,
     sweep: () => sweepPending({ prisma, queue, olderThanMs: 30_000 }),
   });
   stopReconciler = () => scheduler.stop();
 } else {
-  stopReconciler = reconciler.start(15_000);
+  const stopRec = reconciler.start(15_000);
+  const billingTimer = billingTick ? setInterval(() => void billingTick.run(), 60_000) : null;
+  billingTimer?.unref();
+  stopReconciler = () => {
+    if (billingTimer) clearInterval(billingTimer);
+    return stopRec();
+  };
 }
 const stopDiskMonitor = new DiskMonitor({ prisma, runtime, logger }).start(config.diskCheckIntervalMs);
 // Loopback only: this operator API must not be reachable from the network.

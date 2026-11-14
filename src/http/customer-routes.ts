@@ -9,6 +9,9 @@ import type { LogService } from '../modules/integrations/log-service.js';
 import type { Integrations } from '../modules/integrations/types.js';
 import { registerCustomerIntegrationRoutes } from './integration-routes.js';
 import { createBody, idempotencyKey } from './operator-routes.js';
+import { registerBillingRoutes } from './billing-routes.js';
+import type { BillingService } from '../modules/billing/billing-service.js';
+import { AppError } from '../shared/errors.js';
 import { principalOf, registerCustomerAuth, type CustomerAuthDeps } from './customer-auth.js';
 
 export interface CustomerDeps extends CustomerAuthDeps {
@@ -19,7 +22,7 @@ export interface CustomerDeps extends CustomerAuthDeps {
  * Customer API: Supabase access token required, tenant taken from the verified user's membership.
  * Registered in its own plugin so the operator API's bearer hook never applies here, and vice versa.
  */
-export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: CustomerDeps; service: InstanceService; commands: InstanceCommands; config: Config; integrations: Integrations | null; logs: LogService | null }): void {
+export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: CustomerDeps; service: InstanceService; commands: InstanceCommands; config: Config; integrations: Integrations | null; logs: LogService | null; billing: BillingService | null }): void {
   const { service, commands, config } = deps;
   const { prisma } = deps.customer;
   const allowed = new Set(config.betaAllowedEmails);
@@ -43,13 +46,13 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
       return { id: p.userId, email: p.email, tenantId: p.tenantId };
     });
 
-    // Resource limits only. Pricing is not approved (PRD 5.2), so the price is always null.
+    // Resource limits, plus the monthly price once the operator has set one (null: not for sale, PRD 5.2).
     api.get('/plans', async () => {
       const rows = await prisma.plan.findMany({ where: { active: true }, orderBy: [{ cpuMillis: 'asc' }, { slug: 'asc' }] });
       return {
         plans: rows.map((p) => ({
           id: p.id, slug: p.slug, name: p.name, cpuMillis: p.cpuMillis, memoryMb: p.memoryMb,
-          storageMb: p.storageMb, pids: p.pids, monthlyPriceIdr: null,
+          storageMb: p.storageMb, pids: p.pids, monthlyPriceIdr: p.monthlyPriceIdr,
         })),
       };
     });
@@ -84,15 +87,28 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
     }));
     for (const action of ['start', 'stop', 'restart'] as const) {
       api.post<{ Params: Params }>(`/instances/:instanceId/${action}`, async (req, reply) => {
-        const { instance, jobId } = await commands[action](principalOf(req).tenantId, req.params.instanceId);
+        const tenantId = principalOf(req).tenantId;
+        if (deps.billing && action !== 'stop') {
+          // Ownership first (404 for another tenant's id), then the suspension guard: a suspended instance
+          // comes back only through a verified renewal, never through this button.
+          await service.get(tenantId, req.params.instanceId);
+          if ((await deps.billing.subscriptionOfInstance(req.params.instanceId))?.status === 'SUSPENDED') {
+            throw new AppError('This instance is suspended until the subscription is renewed', 409, 'subscription_suspended');
+          }
+        }
+        const { instance, jobId } = await commands[action](tenantId, req.params.instanceId);
         return reply.status(202).send({ instance, jobId });
       });
     }
     api.delete<{ Params: Params }>('/instances/:instanceId', async (req, reply) => {
-      const { instance, jobId } = await commands.delete(principalOf(req).tenantId, req.params.instanceId);
+      const tenantId = principalOf(req).tenantId;
+      const { instance, jobId } = await commands.delete(tenantId, req.params.instanceId);
+      // Deleting by hand ends the paid subscription with it, so no reminder or suspension follows.
+      await deps.billing?.endForInstance(tenantId, req.params.instanceId);
       return reply.status(202).send({ instance, jobId });
     });
 
+    if (deps.billing) registerBillingRoutes(api, deps.billing);
     registerCustomerIntegrationRoutes(api, deps.integrations, deps.logs);
   }, { prefix: '/api/v1' });
 }

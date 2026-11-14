@@ -99,7 +99,7 @@ export function toView(i: Instance): InstanceView {
   };
 }
 
-function validateName(name: string): void {
+export function validateName(name: string): void {
   if (typeof name !== 'string' || name.length < 1 || name.length > 63 || /\p{Cc}/u.test(name)) {
     throw new ValidationError('name must be 1-63 characters without control characters');
   }
