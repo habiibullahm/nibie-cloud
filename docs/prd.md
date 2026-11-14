@@ -132,7 +132,10 @@ to become, in the MVP:
   Launch                              Private beta with 5--10 invited
                                       users
 
-  Initial support                     Telegram
+  Initial support                     Telegram, set up through the
+                                      dashboard. Hermes itself supports
+                                      many messaging platforms from one
+                                      gateway (section 9)
 
   Community                           Telegram channel/community later
 
@@ -155,7 +158,8 @@ to become, in the MVP:
 7.  Provisioning is queued and the customer sees deployment progress.
 8.  Hermes Cloud creates the tenant runtime, persistent volume, and
     configuration.
-9.  Customer configures Telegram and selects NibieRouter or BYOK.
+9.  Customer connects a messaging platform (Telegram at launch) and
+    selects NibieRouter or BYOK.
 10. Health checks pass and the instance becomes Active.
 11. Customer manages the instance through the dashboard.
 
@@ -522,7 +526,42 @@ process limits, and network restrictions.
 -   Show actionable provider connection status and sanitized error
     details.
 
-## 9. Telegram Integration
+## 9. Messaging Platforms (Telegram first)
+
+### 9.1 What Hermes supports upstream
+
+Hermes Agent, as documented by Nous Research, runs a single gateway process
+that connects to all configured messaging platforms at the same time. The
+official messaging documentation
+(https://hermes-agent.nousresearch.com/docs/user-guide/messaging/, read on
+2026-11-14) lists, among others: Telegram, Discord, Slack, Google Chat,
+WhatsApp, WhatsApp Cloud API, Signal, SMS, Email, Mattermost, Matrix,
+Microsoft Teams, LINE and IRC, and describes the gateway as serving "20+
+platforms". Each platform has its own credentials and setup, and an
+allowlist (for example `TELEGRAM_ALLOWED_USERS`, `DISCORD_ALLOWED_USERS`)
+that denies unlisted users by default. Hermes is MIT-licensed. The list
+changes between Hermes releases: treat the official documentation, not this
+section, as the source of truth for the exact platform list and variable
+names. Not verified when this section was written: the per-platform setup
+pages, the repository README, and any trademark or hosted-service terms.
+
+### 9.2 What Hermes Cloud offers
+
+Hermes Cloud is platform-agnostic by design, but only Telegram is built:
+the dashboard, the API and the encrypted secret storage handle a Telegram
+bot token today. Other platforms are not configurable from the dashboard
+yet. Marketing and documentation must say "Telegram now, other platforms
+later" and must not promise a specific platform or date until it is
+specified and built.
+
+Before a platform is added to the dashboard, specify for it: how its
+credentials are collected and stored (encrypted, redacted, never returned),
+the outbound destinations it needs through the egress policy (section 7.3),
+whether it needs inbound traffic (webhooks) that the single-node ingress
+does not offer, its allowlist or pairing defaults (deny by default; never
+set a global allow-all), and its verification step.
+
+### 9.3 Telegram
 
 Telegram is the first supported messaging channel.
 
@@ -1095,6 +1134,9 @@ These are intentionally not treated as approved decisions:
     limits, and incident response.
 12. **Data policy:** privacy notice, backup deletion timing, and
     permanent deletion confirmation.
+13. **Additional messaging platforms:** which platforms after Telegram,
+    in what order, and how their credentials, egress rules, inbound
+    traffic and allowlists are handled (section 9.2).
 
 ## 22. Key Risks and Mitigations
 
