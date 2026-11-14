@@ -57,6 +57,11 @@ Last updated: 2026-11-13 (milestone C deployed on the VPS, database backup, firs
   `hermes`), Duitku POP, Resend (sender on a verified domain), Cloudflare for DNS and the dashboard,
   R2 for backups, dashboard at `cloud.nibie.app/dashboard`, API at `api.cloud.nibie.app`, NibieRouter
   is a SumoRouter instance at `https://router.nibie.app/v1`. Open items are in section 9 of the spec.
+- **Owner decision on 2026-11-14: email goes through SumoPod SMTP (`smtp.sumopod.com`), not Resend,** for both
+  Supabase Auth email and the backend. The backend does not send any email yet (the first sender is milestone D,
+  billing reminders); it only parses the optional `SUMOPOD_SMTP_HOST`, `SUMOPOD_SMTP_PORT`, `SUMOPOD_SMTP_USER`,
+  `SUMOPOD_SMTP_PASS` and `MAIL_FROM` (all five or none, `config.mail`, uncommitted). No SMTP client library is
+  installed and nothing has been sent through SumoPod from this repository.
 
 ## First VPS deployment (2026-11-13, files in `deploy/`)
 
@@ -99,9 +104,10 @@ Order of work, the full verified list and pitfalls: [../deploy/README.md](../dep
   embedded resolver, with matching `RESOLVERS` entries in the egress config — not yet designed or built.
   Production stayed on `runc` after the test; `runc` is unaffected by this. One stale `ConflictError` row was
   left in `GET /api/v1/jobs/failed` from a test script mistake (harmless, kept 7 days).
-- **Supabase Auth email does not go through Resend yet.** The auth log of 2026-11-13 shows the confirmation
-  email sent by Supabase's built-in sender, and requests came from `http://localhost:3000`. Custom SMTP, Site
-  URL and Redirect URLs are set in the Supabase dashboard by the owner.
+- **Supabase Auth email does not go through a custom SMTP server yet.** The auth log of 2026-11-13 shows the
+  confirmation email sent by Supabase's built-in sender, and requests came from `http://localhost:3000`. Custom
+  SMTP (SumoPod, see the 2026-11-14 decision above), Site URL and Redirect URLs are set in the Supabase dashboard
+  by the owner.
 
 **Not verified, still open:** DNS inside a `runsc` tenant container (see the update above; this is what blocks
 moving to `runsc` before public customers), backups of tenant volumes (none exist), whether stale XFS project

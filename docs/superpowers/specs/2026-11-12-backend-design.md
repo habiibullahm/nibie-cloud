@@ -27,7 +27,7 @@ Confirmed by Nash on 2026-11-12:
 | --- | --- |
 | Auth | Supabase Auth. |
 | Payments | Duitku (https://www.duitku.com/), product **Duitku POP** (hosted payment page, `createInvoice`). |
-| Email | Resend. Sender must be on a domain verified in Resend (proposed `no-reply@nibie.app`, to confirm); Nash's business Gmail address is a Reply-To or support contact only and is not written in the repository. |
+| Email | SumoPod SMTP (`smtp.sumopod.com`; replaced Resend on 2026-11-14). Sender must be on a domain verified in SumoPod (proposed `no-reply@nibie.app`, to confirm); Nash's business Gmail address is a Reply-To or support contact only and is not written in the repository. |
 | Domain | `nibie.app`; the product lives under `cloud.nibie.app`; DNS and the dashboard run on Cloudflare. `cloud.nibie.app` is reserved for a future landing page; the customer dashboard is served at `cloud.nibie.app/dashboard`. |
 | Queue | Redis + BullMQ (PRD 6.2). |
 | Ingress | Reverse proxy with a subdomain per instance (PRD 6.2). |
@@ -262,7 +262,7 @@ verified against the sandbox before relying on it):
   minutes. Duitku publishes IP addresses for callbacks; allowlisting them is an option, not a substitute
   for signature verification.
 - **No recurring billing is documented** (subscription fields were added and then removed in the V2
-  changelog). Design: each renewal is a new invoice created ahead of expiry, with reminders by Resend
+  changelog). Design: each renewal is a new invoice created ahead of expiry, with reminders sent over SumoPod SMTP
   email; the grace period (3 days) and retention (30 days) are PRD 10.1.
 - Money is stored as integer rupiah (PRD 14.1). Pricing stays `null` until Nash approves it (PRD 5.2);
   the sandbox uses a clearly marked test price and production checkout stays disabled.
@@ -277,7 +277,7 @@ verified against the sandbox before relying on it):
 | `MAX_INSTANCES_PER_TENANT` | A | Default `1`. |
 | `REDIS_URL` | B | |
 | `SECRETS_KEK` (+ version) | C | >= 32 bytes, outside the database. |
-| `RESEND_API_KEY`, `MAIL_FROM` | D | Secrets live in the host environment, never the repo. |
+| `SUMOPOD_SMTP_HOST`, `SUMOPOD_SMTP_PORT`, `SUMOPOD_SMTP_USER`, `SUMOPOD_SMTP_PASS`, `MAIL_FROM` | D | SumoPod SMTP replaced Resend on 2026-11-14. All five or none; parsed already, first used in D. Secrets live in the host environment, never the repo. |
 | `DUITKU_MERCHANT_CODE`, `DUITKU_API_KEY`, `DUITKU_ENV` | D | `sandbox` or `production`. |
 
 `.env.example` gets placeholders only. The repository is public: no real value is ever committed.

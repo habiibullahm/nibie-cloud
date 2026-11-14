@@ -46,6 +46,9 @@ const kekB64 = z.preprocess(
 );
 const kekVersion = z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(1_000_000).optional());
 
+const optionalText = z.preprocess(emptyToUndefined, z.string().optional());
+const mailAddress = z.preprocess(emptyToUndefined, z.string().regex(/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/).optional());
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   DATABASE_URL: z.string().min(1),
@@ -75,6 +78,13 @@ const schema = z.object({
   SECRETS_KEK_PREVIOUS: kekB64,
   SECRETS_KEK_PREVIOUS_VERSION: kekVersion,
   MAX_INSTANCES_PER_TENANT: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(1000).default(1)),
+  /** Outbound email over SumoPod SMTP. All unset: the backend sends no email. Set together or not at all. */
+  SUMOPOD_SMTP_HOST: optionalText,
+  SUMOPOD_SMTP_PORT: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(65535).optional()),
+  SUMOPOD_SMTP_USER: optionalText,
+  SUMOPOD_SMTP_PASS: optionalText,
+  /** Bare sender address on the domain verified with the SMTP provider. */
+  MAIL_FROM: mailAddress,
 }).superRefine((e, ctx) => {
   // Without enforcement a tenant can fill the node's disk, so it is never allowed in production.
   if (e.NODE_ENV === 'production' && e.HERMES_DISK_QUOTA === 'off') {
@@ -97,6 +107,13 @@ const schema = z.object({
   }
   if (e.SECRETS_KEK_PREVIOUS && (e.SECRETS_KEK_PREVIOUS_VERSION === undefined || e.SECRETS_KEK_PREVIOUS_VERSION === (e.SECRETS_KEK_VERSION ?? 1))) {
     ctx.addIssue({ code: 'custom', path: ['SECRETS_KEK_PREVIOUS_VERSION'], message: 'required and must differ from SECRETS_KEK_VERSION' });
+  }
+  // A half-filled mail block would only fail later, when the first email is sent.
+  const mailKeys = ['SUMOPOD_SMTP_HOST', 'SUMOPOD_SMTP_PORT', 'SUMOPOD_SMTP_USER', 'SUMOPOD_SMTP_PASS', 'MAIL_FROM'] as const;
+  if (mailKeys.some((k) => e[k] !== undefined)) {
+    for (const k of mailKeys) {
+      if (e[k] === undefined) ctx.addIssue({ code: 'custom', path: [k], message: 'required when any mail variable is set' });
+    }
   }
   // The startup canary needs an image pinned by digest, like every other image.
   if (e.HERMES_EGRESS_POLICY === 'enforce' && (!e.HERMES_CANARY_IMAGE || !DIGEST_PINNED.test(e.HERMES_CANARY_IMAGE))) {
@@ -128,6 +145,8 @@ export interface Config {
   redisUrl: string | null;
   /** Null: secret routes answer 503 `secrets_unavailable`. */
   secrets: { current: Kek; previous: Kek | null } | null;
+  /** Null: outbound email is not configured. `pass` is a secret: never log it. */
+  mail: { host: string; port: number; user: string; pass: string; from: string } | null;
 }
 
 /** Parse environment. Errors name the failing keys only, never the values. */
@@ -168,5 +187,9 @@ export function loadConfig(env: NodeJS.ProcessEnv | Record<string, string | unde
             : null,
         }
       : null,
+    mail:
+      e.SUMOPOD_SMTP_HOST && e.SUMOPOD_SMTP_PORT && e.SUMOPOD_SMTP_USER && e.SUMOPOD_SMTP_PASS && e.MAIL_FROM
+        ? { host: e.SUMOPOD_SMTP_HOST, port: e.SUMOPOD_SMTP_PORT, user: e.SUMOPOD_SMTP_USER, pass: e.SUMOPOD_SMTP_PASS, from: e.MAIL_FROM }
+        : null,
   };
 }
