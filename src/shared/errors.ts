@@ -104,3 +104,17 @@ export class SecretsUnavailableError extends AppError {
     super('Secret storage is not configured', 503, 'secrets_unavailable');
   }
 }
+
+/** Duitku could not be reached or timed out. Nothing was charged; the caller may retry. */
+export class PaymentProviderUnavailableError extends AppError {
+  constructor() {
+    super('The payment provider is temporarily unavailable', 503, 'payment_provider_unavailable');
+  }
+}
+
+/** Duitku answered but refused the request. The message is fixed on purpose: no provider text is passed on. */
+export class PaymentProviderRejectedError extends AppError {
+  constructor() {
+    super('The payment provider rejected the request', 502, 'payment_provider_rejected');
+  }
+}
