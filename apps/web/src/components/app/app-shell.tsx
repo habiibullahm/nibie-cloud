@@ -51,7 +51,7 @@ function RailFooter() {
     <div className="mt-auto flex flex-col gap-3 border-t pt-4 text-muted-foreground">
       <div className="flex items-center gap-2">
         <span className="type-label">Data</span>
-        <span className="type-mono rounded-sm border px-2 py-1">{mode === "live" ? "live api" : "mock"}</span>
+        <span className="type-mono rounded-sm border px-2 py-1">{mode === "mock" ? "mock" : "live api"}</span>
       </div>
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
