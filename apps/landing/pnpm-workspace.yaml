@@ -1,0 +1,7 @@
+# Standalone package: keeps pnpm from treating the backend root as this app's workspace.
+packages: []
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+  - unrs-resolver
+  - "@tailwindcss/oxide"
