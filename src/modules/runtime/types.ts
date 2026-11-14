@@ -25,6 +25,11 @@ export interface RuntimeSpec {
   egressPolicy: EgressPolicyMode;
   env: Record<string, string>;
   runtime?: SupportedRuntime;
+  /**
+   * Explicit IPv4 DNS resolvers for the container (Docker `Dns`). Unset: Docker's own embedded
+   * resolver, which does not work inside a `runsc` sandbox (see `HERMES_DNS_RESOLVERS`).
+   */
+  dns?: string[];
   apiServerKey?: string;
   /**
    * Platform-managed `model:` block for `/opt/data/config.yaml` (ADR 0003). Applied only when the container

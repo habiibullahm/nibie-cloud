@@ -23,6 +23,8 @@ export interface ReconcilerDeps {
   masterKey: string;
   /** OCI runtime for recreated containers (`runc` or `runsc`); the daemon default when omitted. */
   containerRuntime?: SupportedRuntime;
+  /** See `RuntimeSpec.dns`. Empty or unset: the container keeps Docker's embedded resolver. */
+  dnsResolvers?: string[];
   /** `enforce` creates tenant volumes with the plan's size quota and refuses to run without one. */
   diskQuota: DiskQuotaMode;
   /** `enforce` refuses to reuse a tenant network that lacks the bridge name the host ruleset matches. */
@@ -68,8 +70,8 @@ function describeState(i: RuntimeInspection): string {
  * (ACTIVE|DEGRADED -> STARTING) so user operations answer 409 instead of racing it.
  */
 export class Reconciler {
-  private readonly d: Required<Omit<ReconcilerDeps, 'prisma' | 'runtime' | 'logger' | 'masterKey' | 'containerRuntime' | 'diskQuota' | 'egressPolicy'>> &
-    Pick<ReconcilerDeps, 'prisma' | 'runtime' | 'logger' | 'masterKey' | 'containerRuntime' | 'diskQuota' | 'egressPolicy'>;
+  private readonly d: Required<Omit<ReconcilerDeps, 'prisma' | 'runtime' | 'logger' | 'masterKey' | 'containerRuntime' | 'dnsResolvers' | 'diskQuota' | 'egressPolicy'>> &
+    Pick<ReconcilerDeps, 'prisma' | 'runtime' | 'logger' | 'masterKey' | 'containerRuntime' | 'dnsResolvers' | 'diskQuota' | 'egressPolicy'>;
 
   constructor(deps: ReconcilerDeps) {
     this.d = {
@@ -291,7 +293,7 @@ export class Reconciler {
     const { prisma, runtime, now, maxRecoveryAttempts } = this.d;
     let healthy = false;
     try {
-      const specDeps = { masterKey: this.d.masterKey, diskQuota: this.d.diskQuota, egressPolicy: this.d.egressPolicy, containerRuntime: this.d.containerRuntime };
+      const specDeps = { masterKey: this.d.masterKey, diskQuota: this.d.diskQuota, egressPolicy: this.d.egressPolicy, containerRuntime: this.d.containerRuntime, dnsResolvers: this.d.dnsResolvers };
       if (inst.appliedRevision < inst.configRevision) {
         // A configuration change that never reached the container: recreate it (volume kept) with the new
         // environment. Recreating creates the volume and network checks itself.
