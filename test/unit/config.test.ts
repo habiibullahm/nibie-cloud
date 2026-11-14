@@ -272,3 +272,46 @@ describe('loadConfig secrets key', () => {
     ).toThrow('SECRETS_KEK');
   });
 });
+
+describe('loadConfig: outbound mail (SumoPod SMTP)', () => {
+  const mail = {
+    SUMOPOD_SMTP_HOST: 'smtp.sumopod.com',
+    SUMOPOD_SMTP_PORT: '465',
+    SUMOPOD_SMTP_USER: 'user',
+    SUMOPOD_SMTP_PASS: 'smtp-pass-value',
+    MAIL_FROM: 'no-reply@example.com',
+  };
+
+  it('is null when nothing is set, including empty values from a .env file', () => {
+    expect(loadConfig(base).mail).toBeNull();
+    expect(loadConfig({ ...base, SUMOPOD_SMTP_HOST: '', SUMOPOD_SMTP_PASS: '', MAIL_FROM: '' }).mail).toBeNull();
+  });
+
+  it('parses a complete block', () => {
+    expect(loadConfig({ ...base, ...mail }).mail).toEqual({
+      host: 'smtp.sumopod.com',
+      port: 465,
+      user: 'user',
+      pass: 'smtp-pass-value',
+      from: 'no-reply@example.com',
+    });
+  });
+
+  it.each(Object.keys(mail))('rejects a block without %s and names the key', (key) => {
+    const env: Record<string, string> = { ...base, ...mail };
+    delete env[key];
+    expect(() => loadConfig(env)).toThrow(key);
+  });
+
+  it('rejects a bad port or sender without echoing the password', () => {
+    expect(() => loadConfig({ ...base, ...mail, SUMOPOD_SMTP_PORT: '70000' })).toThrow('SUMOPOD_SMTP_PORT');
+    let message = '';
+    try {
+      loadConfig({ ...base, ...mail, MAIL_FROM: 'not-an-address' });
+    } catch (e) {
+      message = (e as Error).message;
+    }
+    expect(message).toContain('MAIL_FROM');
+    expect(message).not.toContain('smtp-pass-value');
+  });
+});

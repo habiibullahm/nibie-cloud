@@ -25,7 +25,7 @@ function app(runtime: RuntimeManager = realRuntime(), tweak?: (s: InstanceServic
   tweak?.(service);
   return buildServer({
     service, logger,
-    config: { nodeEnv: 'test', databaseUrl: 'x', hermesImage: image, port: 0, adminToken: TOKEN, dockerSocketPath: '', masterKey: TEST_MASTER_KEY, runtime: 'runc', diskQuota: 'off', diskCheckIntervalMs: 300_000, egressPolicy: 'off', canaryImage: undefined, canaryPrivateIp: undefined, supabaseUrl: null, dashboardOrigin: null, betaAllowedEmails: [], maxInstancesPerTenant: 1, redisUrl: null, secrets: null },
+    config: { nodeEnv: 'test', databaseUrl: 'x', hermesImage: image, port: 0, adminToken: TOKEN, dockerSocketPath: '', masterKey: TEST_MASTER_KEY, runtime: 'runc', diskQuota: 'off', diskCheckIntervalMs: 300_000, egressPolicy: 'off', canaryImage: undefined, canaryPrivateIp: undefined, supabaseUrl: null, dashboardOrigin: null, betaAllowedEmails: [], maxInstancesPerTenant: 1, redisUrl: null, secrets: null, mail: null },
   });
 }
 const auth = { authorization: `Bearer ${TOKEN}` };
@@ -111,7 +111,7 @@ describe('REST API', () => {
     const service = new InstanceService({ masterKey: TEST_MASTER_KEY, diskQuota: 'off', egressPolicy: 'off', prisma: dead, runtime: realRuntime(), image, production: false, logger });
     const down = buildServer({
       service, logger,
-      config: { nodeEnv: 'test', databaseUrl: 'x', hermesImage: image, port: 0, adminToken: TOKEN, dockerSocketPath: '', masterKey: TEST_MASTER_KEY, runtime: 'runc', diskQuota: 'off', diskCheckIntervalMs: 300_000, egressPolicy: 'off', canaryImage: undefined, canaryPrivateIp: undefined, supabaseUrl: null, dashboardOrigin: null, betaAllowedEmails: [], maxInstancesPerTenant: 1, redisUrl: null, secrets: null },
+      config: { nodeEnv: 'test', databaseUrl: 'x', hermesImage: image, port: 0, adminToken: TOKEN, dockerSocketPath: '', masterKey: TEST_MASTER_KEY, runtime: 'runc', diskQuota: 'off', diskCheckIntervalMs: 300_000, egressPolicy: 'off', canaryImage: undefined, canaryPrivateIp: undefined, supabaseUrl: null, dashboardOrigin: null, betaAllowedEmails: [], maxInstancesPerTenant: 1, redisUrl: null, secrets: null, mail: null },
     });
     const res = await down.inject({ method: 'POST', url: base(), headers: h, payload: { name: 'x', planId: s.plan.id } });
     expect(res.statusCode).toBe(503);
