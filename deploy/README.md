@@ -71,9 +71,9 @@ reached `https://example.com` and `https://api.telegram.org`, including after a 
 stop/start. The full lifecycle (create, restart, stop/start, delete) also passed: correct
 `Runtime`/`PidsLimit`/memory/CPU limits, the XFS quota, `HERMES-EGRESS` rejecting the metadata
 address and a private range while the public internet stayed reachable, and a clean delete (the
-shared `hermes-dns-resolv-conf` volume correctly survives a tenant delete). Switching production to
-`runsc` is now the owner's decision, not blocked by DNS; see
-[../docs/CURRENT_STATE.md](../docs/CURRENT_STATE.md).
+shared `hermes-dns-resolv-conf` volume correctly survives a tenant delete). **Production switched to
+`runsc` on 2026-11-14** (owner approved): the env now has `HERMES_RUNTIME=runsc`, confirmed healthy
+after recreate. See [../docs/CURRENT_STATE.md](../docs/CURRENT_STATE.md).
 
 ## Not verified, do not claim it
 - `xfs_quota` project ids of deleted volumes accumulate: two emptied entries stayed listed after their volumes

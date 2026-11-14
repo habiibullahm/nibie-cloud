@@ -1,6 +1,6 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-14 (gVisor's DNS blocker is fixed and verified on the VPS; switching production to `runsc` is now the owner's call). Index of all docs: [README.md](README.md).
+Last updated: 2026-11-14 (gVisor's DNS blocker is fixed and verified; production is now running on `runsc`, by the owner's approval). Index of all docs: [README.md](README.md).
 
 ## Where things stand
 
@@ -133,8 +133,11 @@ Order of work, the full verified list and pitfalls: [../deploy/README.md](../dep
   this run instead of refusing at once, but the reject counter still rose) and a private range while
   the public internet stayed reachable, restart, stop/start and a clean delete; the shared
   `hermes-dns-resolv-conf` volume correctly survived the test instance's delete. **gVisor is now
-  verified working end-to-end, including DNS; production is on the owner to switch** (still on
-  `runc` by default — nothing switches it automatically). One stale `ConflictError` row was left in
+  verified working end-to-end, including DNS.** Nash approved the switch the same day: the VPS env
+  now has `HERMES_RUNTIME=runsc` (set 2026-11-14 13:03 UTC), backend recreated and confirmed healthy
+  (canary passed, then `"resolvers":2,"msg":"tenant dns resolv.conf ready"`), loopback and public
+  `/healthz` both 200. No instances were live at the switch; new instances are created under
+  `runsc`, existing ones would keep their runtime until recreated. One stale `ConflictError` row was left in
   `GET /api/v1/jobs/failed` from a test script mistake during an earlier retest (harmless, kept 7
   days). `xfs_quota` leftover project ids keep accumulating, one per deleted instance (3 now;
   harmless so far, see below).
