@@ -59,10 +59,13 @@ Note that the Docker network is named `hermes-net-<uuid>`; `hn<12 hex>` is the *
 
 ## Not verified, do not claim it
 
-- gVisor (`HERMES_RUNTIME=runsc`) with the official image. Everything above ran on `runc`. A first attempt
-  failed at startup because the egress canary's pids limit (32) was too low under gVisor; see
+- gVisor (`HERMES_RUNTIME=runsc`) with the official image. The pids-limit startup failure is fixed (PR #10) and
+  a full instance lifecycle (create, restart, stop/start, delete) passed under `runsc`, but tenant containers
+  cannot resolve hostnames under it (Docker's embedded DNS is not reachable from inside the gVisor sandbox, and
+  no alternate resolver is configured). Do not switch production to `runsc` until that is fixed; see
   [../docs/CURRENT_STATE.md](../docs/CURRENT_STATE.md).
-- Whether `xfs_quota` project ids of deleted volumes accumulate (one stale entry was still listed after the delete).
+- `xfs_quota` project ids of deleted volumes accumulate: two emptied entries stayed listed after their volumes
+  were deleted.
 - Backups: a daily `pg_dump` of the database runs on the VPS (see `docs/CURRENT_STATE.md`); a restore was not
   rehearsed, there is no off-host copy, and tenant volumes are not backed up.
 - Redis AOF recovery after a crash, several backend replicas, a customer reaching their agent from the internet
