@@ -109,3 +109,20 @@ src/lib/api/               types, status mapping, mock, live client, proxy rules
 src/hooks/use-hermes.ts    TanStack Query hooks
 test/                      Vitest unit tests
 ```
+
+## Deploy to Cloudflare (Worker)
+
+The dashboard runs as a Cloudflare Worker (`nibie-cloud-web`) through the OpenNext adapter, at
+`https://cloud.nibie.app/dashboard`. `wrangler.jsonc` and `open-next.config.ts` hold the setup.
+
+```bash
+pnpm cf:build      # Next build + Worker bundle in .open-next/
+pnpm cf:preview    # same, then serves it locally with wrangler dev (workerd)
+pnpm cf:deploy     # build + deploy (needs a logged-in wrangler or CLOUDFLARE_API_TOKEN)
+```
+
+`NEXT_PUBLIC_*` values are inlined at build time, so they must be set where the build runs (the
+Workers Builds settings, or your shell for `cf:deploy`). Set `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`; the publishable key is public, never use a secret key.
+The Worker must be routed to `cloud.nibie.app/dashboard*` (Workers & Pages, the Worker, Settings,
+Domains & Routes). Verified locally with `wrangler dev`; not yet deployed to a real account.
