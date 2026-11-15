@@ -46,7 +46,7 @@ Last updated: 2026-11-15 (dashboard billing/checkout and the NibieRouter key and
   plan stays off sale until a paid flow works. Setup and operator steps: `docs/setup.md`, "NibieRouter key and credit";
   gaps: `docs/architecture.md` 9b.
 
-- **Admin dashboard, phase A (read-only), branch `claude/project-thread-tirdms`, NOT pushed.** Plan:
+- **Admin dashboard, phase A (read-only), branch `claude/project-thread-tirdms`, PR [#31](https://github.com/habiibullahm/nibie-cloud/pull/31), CI green (backend, docs, landing, t0, web).** Plan:
   `hermes-cloud/plans/2026-11-15-admin-dashboard-nibie-cloud.md` (owner decisions of 2026-11-15: panel at
   `/dashboard/admin` inside `apps/web`, MFA TOTP for every data-changing action, Indonesian UI, start with
   phase A). Backend: `src/http/admin-routes.ts` + `src/modules/admin/audit-service.ts`, a third Fastify
