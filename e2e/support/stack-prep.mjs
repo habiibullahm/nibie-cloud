@@ -16,7 +16,7 @@ const adminUrl = process.env.E2E_ADMIN_DATABASE_URL ?? "postgresql://hermes:herm
 const dbUrl = process.env.E2E_DATABASE_URL ?? "postgresql://hermes:hermes_dev_only@127.0.0.1:5433/hermes_e2e"
 const supabaseUrl = need("E2E_SUPABASE_URL")
 const publishableKey = need("E2E_SUPABASE_PUBLISHABLE_KEY")
-need("E2E_SUPABASE_SECRET_KEY")
+// E2E_SUPABASE_SECRET_KEY is optional: without it the test users must already exist (see README).
 need("E2E_USER_PASSWORD")
 
 // 1. Postgres and Redis. In CI they are workflow services; locally they come from the root compose.yaml.

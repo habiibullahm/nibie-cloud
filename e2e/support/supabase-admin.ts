@@ -26,7 +26,10 @@ async function findUserId(email: string): Promise<string | null> {
   return null
 }
 
-/** Recreates the user with the given password, already confirmed (no email is sent). */
+/** True when the secret key is set, so test users can be created. Without it they must exist already (see README). */
+export const canManageUsers = (): boolean => Boolean(process.env.E2E_SUPABASE_SECRET_KEY)
+
+/** Recreates the user with the given password, already confirmed (no email is sent). Needs the secret key. */
 export async function recreateUser(email: string, password: string): Promise<void> {
   const existing = await findUserId(email)
   if (existing) await deleteUserById(existing)

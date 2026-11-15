@@ -83,9 +83,10 @@ Last updated: 2026-11-15 (dashboard billing/checkout and the NibieRouter key and
 - **Browser end-to-end tests (`e2e/`, 2026-11-15, Nash approved the plan and its recommendations; branch `claude/project-thread-r1cipl`).**
   Plan: [superpowers/plans/2026-11-15-browser-automation-testing.md](superpowers/plans/2026-11-15-browser-automation-testing.md).
   Standalone Playwright package with three tiers: T0 (landing export and dashboard on mock data, no secrets), T1 (customer-mode
-  dashboard + real backend + stub containers + a dedicated Supabase test project) and T2 (read-only production smoke test).
+  dashboard + real backend + stub containers + Supabase Auth; 2026-11-15 owner decision: use the existing project `nibie-cloud-sgp` with three
+  hand-made confirmed accounts and no service-role key anywhere, instead of a new test project) and T2 (read-only production smoke test).
   Workflows: `.github/workflows/e2e.yml` (T0 on pull requests that touch `apps/web`, `apps/landing` or `e2e`; T1 on push to `main`,
-  nightly and manual, skipped with a notice until the `E2E_SUPABASE_*` secrets exist; T2 nightly and manual) and `ci.yml`
+  nightly and manual, skipped with a notice until the secrets `E2E_SUPABASE_URL`, `E2E_SUPABASE_PUBLISHABLE_KEY` and `E2E_USER_PASSWORD` exist; T2 nightly and manual) and `ci.yml`
   (type-check, lint and unit tests of all four packages; the repository had no CI before). **Verified in a cloud sandbox:** T0
   all green in Chromium, `e2e` type-check, the database and seed steps of `stack:prep` against a local Postgres 16, backend
   `tsc` and 462 unit tests, dashboard 83 tests, landing 13 tests. **Not verified:** all of T1 (needs the Supabase test project
