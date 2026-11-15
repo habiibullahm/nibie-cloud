@@ -1,0 +1,15 @@
+{
+  // Docs Worker, served at https://cloud.nibie.app/docs (route `cloud.nibie.app/docs*` in the Cloudflare dashboard).
+  // Static assets only (no `main`): the Next.js static export, copied by `pnpm cf:build` to `dist/docs/` because the
+  // Worker looks files up by the full request path and `basePath` is `/docs`.
+  // The landing Worker (`cloud.nibie.app/*`) and the dashboard Worker (`/dashboard*`) keep their own routes.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "nibie-cloud-docs",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash"
+  },
+  "observability": { "enabled": true }
+}
