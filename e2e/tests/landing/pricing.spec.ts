@@ -12,10 +12,15 @@ test("the pricing page shows both plans with normal and beta prices", async ({ p
   await expect(page.getByText("tidak termasuk", { exact: true })).toBeVisible()
 })
 
-test("the request-access buttons open the mail client for the right plan", async ({ page }) => {
+// Sign-up is open by default (NEXT_PUBLIC_SIGNUP_OPEN unset): every main button goes to the dashboard registration.
+test("the plan buttons and the main call-to-actions go to the dashboard registration", async ({ page }) => {
   await page.goto("/harga")
-  const hrefs = await page.getByRole("link", { name: /^Pilih / }).evaluateAll((els) => els.map((e) => e.getAttribute("href") ?? ""))
-  expect(hrefs).toHaveLength(2)
-  expect(decodeURIComponent(hrefs[0]!)).toContain("paket Hosting")
-  expect(decodeURIComponent(hrefs[1]!)).toContain("paket Hosting + Kredit AI")
+  const plans = await page.getByRole("link", { name: /^Pilih / }).evaluateAll((els) => els.map((e) => e.getAttribute("href") ?? ""))
+  expect(plans).toEqual(["/dashboard/register", "/dashboard/register"])
+
+  await page.goto("/")
+  const ctas = await page.getByRole("link", { name: "Daftar dan pilih paket" }).evaluateAll((els) => els.map((e) => e.getAttribute("href") ?? ""))
+  expect(ctas.length).toBeGreaterThan(0)
+  expect(new Set(ctas)).toEqual(new Set(["/dashboard/register"]))
+  await expect(page.locator('a[href*="subject="]')).toHaveCount(0)
 })
