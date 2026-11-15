@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { BETA_USERS, PLANS, PLAN_SPECS, discountPercent, formatIdr, type Plan } from "@/lib/plans"
-import { betaAccessHref } from "@/lib/site"
+import { ctaHref } from "@/lib/site"
 import { Section } from "./section"
 
 export function Pricing({ headingLevel = "section" }: { headingLevel?: "section" | "page" }) {
@@ -67,7 +67,7 @@ function PlanCard({ plan }: { plan: Plan }) {
         ))}
       </dl>
       <Button asChild variant="outline">
-        <a href={betaAccessHref(`Minta akses beta Nibie Cloud: paket ${plan.name}`)}>Pilih {plan.name}</a>
+        <a href={ctaHref(`Minta akses beta Nibie Cloud: paket ${plan.name}`)}>Pilih {plan.name}</a>
       </Button>
     </article>
   )

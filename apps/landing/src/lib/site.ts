@@ -7,6 +7,7 @@ export const SITE = {
   url: "https://cloud.nibie.app",
   dashboardUrl: "/dashboard",
   signInUrl: "/dashboard/sign-in",
+  registerUrl: "/dashboard/register",
   docsUrl: "/docs",
   telegramHandle: "@abib_mohd",
   telegramUrl: "https://t.me/abib_mohd",
@@ -24,10 +25,31 @@ export function contactEmail(raw: string | undefined = process.env.NEXT_PUBLIC_C
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? value : null
 }
 
+/**
+ * Self-service sign-up switch. Open by default (owner decision 2026-11-15): the "Daftar" and "Pilih" buttons
+ * link to the dashboard registration. The build variable NEXT_PUBLIC_SIGNUP_OPEN=false closes it again and
+ * brings back the invite request (email or Telegram). Changing it needs a rebuild.
+ */
+export function signupOpen(raw: string | undefined = process.env.NEXT_PUBLIC_SIGNUP_OPEN): boolean {
+  return raw?.trim().toLowerCase() !== "false"
+}
+
 /** Where "Minta akses beta" goes: a pre-filled email when configured, otherwise Telegram. */
 export function betaAccessHref(subject: string, email: string | null = contactEmail()): string {
   if (!email) return SITE.telegramUrl
   return `mailto:${email}?subject=${encodeURIComponent(subject)}`
+}
+
+/**
+ * Target of the main call-to-action buttons: the dashboard registration when sign-up is open, the invite
+ * request (email or Telegram) otherwise.
+ */
+export function ctaHref(
+  subject: string,
+  open: boolean = signupOpen(),
+  email: string | null = contactEmail()
+): string {
+  return open ? SITE.registerUrl : betaAccessHref(subject, email)
 }
 
 export const NAV_LINKS = [

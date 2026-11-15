@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { betaAccessHref, SITE } from "@/lib/site"
+import { ctaHref, signupOpen, SITE } from "@/lib/site"
 
 export function Hero() {
+  const open = signupOpen()
   return (
     <section className="relative overflow-hidden">
       <div aria-hidden className="hero-grid-bg pointer-events-none absolute inset-x-0 top-0 h-[760px]" />
@@ -10,7 +11,7 @@ export function Hero() {
         <div className="min-w-0">
           <Badge className="hc-rise">
             <span aria-hidden className="size-1.5 rounded-full bg-foreground" />
-            Beta undangan
+            {open ? "Beta terbuka" : "Beta undangan"}
           </Badge>
           <h1 className="type-display hc-rise hc-rise-1 mt-4">Agent <span className="whitespace-nowrap">Hermes-mu</span> aktif 24 jam, tanpa kamu mengurus server.</h1>
           <p className="type-lead hc-rise hc-rise-2 mt-6 max-w-[52ch] text-muted-foreground">
@@ -19,7 +20,7 @@ export function Hero() {
           </p>
           <div className="hc-rise hc-rise-3 mt-8 flex flex-wrap gap-3">
             <Button asChild>
-              <a href={betaAccessHref("Minta akses beta Nibie Cloud")}>Minta akses beta</a>
+              <a href={ctaHref("Minta akses beta Nibie Cloud", open)}>{open ? "Daftar dan pilih paket" : "Minta akses beta"}</a>
             </Button>
             <Button asChild variant="outline">
               <a href={SITE.docsUrl}>Baca dokumentasi</a>

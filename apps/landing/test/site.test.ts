@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { BETA_USERS, PLANS, discountPercent, formatIdr } from "@/lib/plans"
-import { betaAccessHref, contactEmail, SITE } from "@/lib/site"
+import { betaAccessHref, contactEmail, ctaHref, signupOpen, SITE } from "@/lib/site"
 
 describe("formatIdr", () => {
   it("groups thousands with dots", () => {
@@ -47,5 +47,25 @@ describe("contact", () => {
     expect(betaAccessHref("Minta akses: Hosting + Kredit", "hello@example.com")).toBe(
       "mailto:hello@example.com?subject=Minta%20akses%3A%20Hosting%20%2B%20Kredit"
     )
+  })
+})
+
+describe("sign-up switch", () => {
+  it.each([undefined, "", "true", "1", "yes"])("is open by default and for %j", (raw) => {
+    expect(signupOpen(raw)).toBe(true)
+  })
+
+  it.each(["false", " FALSE ", "False"])("closes only for %j", (raw) => {
+    expect(signupOpen(raw)).toBe(false)
+  })
+
+  it("sends the buttons to the dashboard registration when open", () => {
+    expect(ctaHref("Halo", true, "hello@example.com")).toBe("/dashboard/register")
+    expect(SITE.registerUrl).toBe("/dashboard/register")
+  })
+
+  it("keeps the invite request when closed", () => {
+    expect(ctaHref("Halo", false, "hello@example.com")).toBe("mailto:hello@example.com?subject=Halo")
+    expect(ctaHref("Halo", false, null)).toBe(SITE.telegramUrl)
   })
 })

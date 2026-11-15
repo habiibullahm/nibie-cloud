@@ -68,11 +68,19 @@ Last updated: 2026-11-15 (dashboard billing/checkout and the NibieRouter key and
   Checked in a real browser against https://cloud.nibie.app: `/`, `/harga`, `/kontak`, `/syarat-layanan`,
   `/kebijakan-refund`, `/kebijakan-privasi`, `/robots.txt`, `/sitemap.xml` answer 200, an unknown path answers 404,
   `/dashboard/sign-in` still answers 200 from the dashboard Worker, and the contact page links the public email.
-  **Still open:** `/docs` answers 404 (no Worker serves it yet, so the "Dokumentasi" link in the header and footer
-  is dead until the docs site is routed); no real phone was used. The legal pages are drafts for
+  The docs site is live since 2026-11-15 (Worker `nibie-cloud-docs`, route `cloud.nibie.app/docs*`, so the
+  "Dokumentasi" links work; `/docs/`, `/docs/quickstart`, assets and `/docs/api/search` answer 200, an unknown docs path
+  answers 404). **Still open:** no real phone was used. The legal pages are drafts for
   the owner to read before publishing. The docs page "Paket dan penagihan" still says prices are not set, and
   the backend has no price data for these plans (`Plan.monthlyPriceIdr` is null); the US$2 credit needs a
   NibieRouter and backend integration that does not exist yet. See [../apps/landing/README.md](../apps/landing/README.md).
+- **Self-service sign-up open on the landing page (2026-11-15, owner decision "asumsikan bisa bayar, KYC diproses, langsung rilis").**
+  The main buttons ("Daftar dan pilih paket", "Pilih ...") now link to `/dashboard/register` by default; the build variable
+  `NEXT_PUBLIC_SIGNUP_OPEN=false` brings back the email/Telegram invite (`apps/landing/README.md`). The dashboard register page links
+  the real Terms, Privacy and Refund pages; the docs intro no longer says "private beta" or "price not set". Verified in a cloud
+  sandbox: landing typecheck, lint, 23 tests and build (4 register links on `/`, no mailto), dashboard typecheck, docs typecheck and
+  lint. **Not verified, owner steps:** billing is still OFF on the VPS (Duitku env, plan prices by SQL, dashboard `customer` mode;
+  runbook: project file `billing/panduan-pilih-hosting-production.md`), so a visitor can register but cannot pay until those are done.
 - **Rename to Nibie Cloud (2026-11-15, owner decision; uncommitted).** The product name is now "Nibie Cloud" (it was "Hermes
   Cloud"; the owner reversed the 2026-11-14 decision). Changed: landing (`SITE.name`, copy, legal pages), dashboard strings and
   metadata, billing emails (`Nibie Cloud` instead of `NibieCloud`), the Telegram test message, `DESIGN.md` (lint: 0 errors, 0 warnings),
@@ -374,6 +382,8 @@ failure reason: `network_policy_missing`.
   unfinished features and the whole API reference carry `Draft` callouts. No prices are stated.
 - Verified in a cloud sandbox: `pnpm typecheck`, `pnpm lint`, `pnpm build` (20 pages + static search
   index), Playwright at 1440 and 390 px (no console errors, no horizontal overflow, search works).
-- Not done: uncommitted until the owner approves; no Cloudflare route or deployment for `/docs*`;
+- Deployed 2026-11-15 as Cloudflare Worker `nibie-cloud-docs` (Workers Builds from `main`, root `apps/docs`, route
+  `cloud.nibie.app/docs*`); see `apps/docs/README.md`.
+- Not done:
   `@google/design.md` lint not run; fumadocs callout icon colours (blue, amber, red) are library
   defaults, not `DESIGN.md` tokens, and need an owner decision.

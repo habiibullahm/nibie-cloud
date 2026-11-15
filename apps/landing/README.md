@@ -39,6 +39,13 @@ The repository is public. The contact address is read from the build variable `N
 (`.env.example` has the name only). Next.js inlines it at build time, so changing it needs a rebuild. When it
 is empty or malformed the site hides the address and the "Minta akses beta" buttons open Telegram instead.
 
+## Sign-up switch: `NEXT_PUBLIC_SIGNUP_OPEN`
+
+Sign-up is open by default (owner decision, 2026-11-15): the main buttons ("Daftar dan pilih paket", "Pilih ...")
+go to `/dashboard/register`. The build variable `NEXT_PUBLIC_SIGNUP_OPEN=false` closes it: the buttons then open an
+email or Telegram invite request again (`ctaHref` in `src/lib/site.ts`; the hero badge and the closing text change
+with it). It is inlined at build time, so a rebuild is needed in both directions. Close it if billing breaks.
+
 ## Deploy: Cloudflare Worker `nibie-cloud-landing`
 
 Static assets only (`wrangler.jsonc`, no `main`). The Worker name in the dashboard must equal `name` there.

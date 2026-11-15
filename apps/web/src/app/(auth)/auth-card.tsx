@@ -72,10 +72,20 @@ export function AuthCard({ mode }: { mode: "sign-in" | "register" }) {
           {register ? (
             <div className="flex items-start gap-3">
               <Checkbox id="terms" checked={terms} onCheckedChange={(v) => setTerms(v === true)} className="mt-1" />
-              {/* TODO(legal): link the terms of service and data retention policy once they are published. */}
               <Label htmlFor="terms" className="block text-muted-foreground">
-                I agree to the terms of service and the data retention policy.
-                <span className="mt-1 block">Neither is published yet.</span>
+                I agree to the{" "}
+                <a href="https://cloud.nibie.app/syarat-layanan" target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-4">
+                  Terms of Service
+                </a>
+                ,{" "}
+                <a href="https://cloud.nibie.app/kebijakan-privasi" target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-4">
+                  Privacy Policy
+                </a>{" "}
+                and{" "}
+                <a href="https://cloud.nibie.app/kebijakan-refund" target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-4">
+                  Refund Policy
+                </a>
+                . They are written in Indonesian.
               </Label>
             </div>
           ) : null}
