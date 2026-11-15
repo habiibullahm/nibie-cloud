@@ -6,7 +6,7 @@ Plan and reasoning (Indonesian): [`docs/superpowers/plans/2026-11-15-browser-aut
 | Tier | What runs | Secrets | Command |
 | --- | --- | --- | --- |
 | **T0** | Landing export + dashboard on mock data | none | `pnpm test:t0` |
-| **T1** | Dashboard (customer mode) + real backend + Postgres + Redis + stub containers + a dedicated Supabase **test** project | yes | `pnpm stack:prep && pnpm test:t1` |
+| **T1** | Dashboard (customer mode) + real backend + Postgres + Redis + stub containers + a Supabase project (shared with production by default, see T1) | yes | `pnpm stack:prep && pnpm test:t1` |
 | **T2** | Read-only smoke test of production | smoke account only | `pnpm test:t2` |
 
 ## T0 (no secrets)
@@ -30,20 +30,34 @@ and critical WCAG A/AA violations fail). Findings that were reported and are not
 files (`KNOWN`, `test.fixme`) and show up as `known-a11y-issue` annotations in the report. When one is fixed the
 test fails until its entry is removed.
 
-## T1 (needs the Supabase test project)
+## T1 (needs a Supabase project)
 
-1. Create a separate Supabase project for tests (never the customer project) and put its values in `e2e/.env.e2e`
-   (copy `.env.e2e.example`). Use a long random `E2E_USER_PASSWORD`. In CI the same names are repository secrets
-   (`E2E_SUPABASE_URL`, `E2E_SUPABASE_PUBLISHABLE_KEY`, `E2E_SUPABASE_SECRET_KEY`); the password is generated per run.
-2. Docker must be running (Docker Desktop is fine), and `pnpm install` must have been run in the repository root and in `apps/web`.
-3. `pnpm stack:prep` brings up Postgres and Redis (`compose.yaml`), creates and migrates the `hermes_e2e` database,
-   seeds the `demo-small` plan and the `local` node, builds `hermes-stub:0.2.0` if missing and builds the dashboard
-   in customer mode against `http://127.0.0.1:3000` and the test project.
-4. `pnpm test:t1` starts the backend (`pnpm --dir .. dev`, development mode, no disk quota, no egress rules, no
-   billing, no router) and the dashboard, then runs: sign-in setup, login/logout, the beta gate, and the real
-   deploy -> Stop -> Start -> Restart -> Delete lifecycle with Docker checks (`hermes-<id>` container and
-   `hermes-data-<id>` volume). The test users `e2e-lifecycle`, `e2e-outsider` and `e2e-login` are created by the
-   setup project through the Supabase Admin API, already confirmed, so no email is sent.
+T1 signs in to real Supabase Auth, so it needs a project. Two ways:
+
+- **Shared project, no secret key anywhere (current choice).** The tests use the existing customer project
+  (`nibie-cloud-sgp`) and touch it as little as possible: three confirmed accounts and a few password sign-ins per run.
+  The service-role key is never given to the tests or to GitHub. The backend under test runs on the runner against its own
+  throw-away database and only reads the project's public signing keys. The three accounts are not in the production
+  `BETA_ALLOWED_EMAILS`, so they cannot create a production instance.
+- **Dedicated test project.** Also set `E2E_SUPABASE_SECRET_KEY`; the setup project then creates and recreates the users itself.
+
+One-time setup for the shared project (Supabase dashboard, project `nibie-cloud-sgp`):
+1. **Authentication** → **Users** → **Add user** → **Create new user**.
+2. Create three users, with **Auto Confirm User** ticked and the **same** long random password (kept in the password manager):
+   the addresses are the pattern `E2E_EMAIL_TEMPLATE` with `{key}` replaced by `e2e-lifecycle`, `e2e-outsider` and `e2e-login`
+   (for example `yourname+e2e-lifecycle@gmail.com`).
+3. Put these in `e2e/.env.e2e` locally, or as GitHub repository secrets (**Settings** → **Secrets and variables** → **Actions**):
+   `E2E_SUPABASE_URL`, `E2E_SUPABASE_PUBLISHABLE_KEY`, `E2E_USER_PASSWORD`, `E2E_EMAIL_TEMPLATE`.
+   Until the first three exist the T1 job skips itself with a notice.
+
+Then: Docker must be running (Docker Desktop is fine), and `pnpm install` must have been run in the repository root and in `apps/web`.
+- `pnpm stack:prep` brings up Postgres and Redis (`compose.yaml`), creates and migrates the `hermes_e2e` database,
+  seeds the `demo-small` plan and the `local` node, builds `hermes-stub:0.2.0` if missing and builds the dashboard
+  in customer mode against `http://127.0.0.1:3000` and the Supabase project.
+- `pnpm test:t1` starts the backend (`pnpm --dir .. dev`, development mode, no disk quota, no egress rules, no
+  billing, no router) and the dashboard, then runs: sign-in setup, login/logout, the beta gate, and the real
+  deploy -> Stop -> Start -> Restart -> Delete lifecycle with Docker checks (`hermes-<id>` container and
+  `hermes-data-<id>` volume).
 
 Not covered yet: the Duitku checkout and callback (needs a billing-enabled backend and `https` return URL, see the
 plan, section 7), provider and Telegram configuration, subscription grace and suspension.

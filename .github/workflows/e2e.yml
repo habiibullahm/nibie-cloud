@@ -77,7 +77,10 @@ jobs:
       CI: "1"
       E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
       E2E_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.E2E_SUPABASE_PUBLISHABLE_KEY }}
+      # Optional: only for a dedicated test project. On a shared project leave this secret unset and create the three users by hand.
       E2E_SUPABASE_SECRET_KEY: ${{ secrets.E2E_SUPABASE_SECRET_KEY }}
+      E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+      E2E_EMAIL_TEMPLATE: ${{ secrets.E2E_EMAIL_TEMPLATE }}
       E2E_REDIS_URL: redis://:hermes_dev_only@127.0.0.1:6380
       NEXT_PUBLIC_CONTACT_EMAIL: contact@example.invalid
     services:
@@ -98,8 +101,8 @@ jobs:
       - name: Skip when the Supabase test project is not configured yet
         id: gate
         run: |
-          if [ -z "$E2E_SUPABASE_URL" ] || [ -z "$E2E_SUPABASE_PUBLISHABLE_KEY" ] || [ -z "$E2E_SUPABASE_SECRET_KEY" ]; then
-            echo "::notice::T1 skipped: the E2E_SUPABASE_* secrets are not set (see e2e/README.md)."
+          if [ -z "$E2E_SUPABASE_URL" ] || [ -z "$E2E_SUPABASE_PUBLISHABLE_KEY" ] || [ -z "$E2E_USER_PASSWORD" ]; then
+            echo "::notice::T1 skipped: E2E_SUPABASE_URL, E2E_SUPABASE_PUBLISHABLE_KEY and E2E_USER_PASSWORD are not set (see e2e/README.md)."
             echo "run=false" >> "$GITHUB_OUTPUT"
           else
             echo "run=true" >> "$GITHUB_OUTPUT"
@@ -119,12 +122,11 @@ jobs:
             pnpm-lock.yaml
             apps/web/pnpm-lock.yaml
             e2e/pnpm-lock.yaml
-      - name: Random password for the test users (masked, never stored)
+      - name: Mask the test account details in the log
         if: steps.gate.outputs.run == 'true'
         run: |
-          pw="$(openssl rand -hex 24)"
-          echo "::add-mask::$pw"
-          echo "E2E_USER_PASSWORD=$pw" >> "$GITHUB_ENV"
+          echo "::add-mask::$E2E_USER_PASSWORD"
+          [ -z "$E2E_EMAIL_TEMPLATE" ] || echo "::add-mask::$E2E_EMAIL_TEMPLATE"
       - name: Redis for the job queue (password, AOF, no eviction)
         if: steps.gate.outputs.run == 'true'
         run: >

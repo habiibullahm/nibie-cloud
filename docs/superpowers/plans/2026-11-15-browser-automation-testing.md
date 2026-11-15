@@ -278,3 +278,11 @@ Temuan dari tes (produk, belum diperbaiki, tercatat sebagai `known-a11y-issue` /
 1. Landing `/`: `<dl>` hero berisi anak `role="img"` (aksesibilitas `definition-list`, serius).
 2. Dashboard `/sign-in`: tautan "Create an account" hanya dibedakan dari teks oleh warna (kontras 2,31:1, perlu 3:1) atau garis bawah (`link-in-text-block`, serius).
 3. Dashboard: setelah dialog Stop/Restart ditutup dengan Escape, fokus tidak kembali ke tombol pemicu.
+
+### Perubahan keputusan 2 (2026-11-15, Nash: "run on current projects, limit supabase")
+
+Login T1 memakai proyek Supabase yang sudah ada (`nibie-cloud-sgp`), bukan proyek baru. Supaya jejaknya kecil: tiga akun yang dibuat
+Nash dengan tangan (Auto Confirm), **tanpa** kunci service-role di GitHub maupun di tes (`E2E_SUPABASE_SECRET_KEY` menjadi opsional),
+satu password dari secret `E2E_USER_PASSWORD`, alamat dari pola `E2E_EMAIL_TEMPLATE` (alamat asli tetap di secret, bukan di repo).
+Backend yang dites jalan di runner dengan database sementara sendiri dan hanya membaca kunci publik proyek untuk memverifikasi token;
+ketiga akun tidak ada di `BETA_ALLOWED_EMAILS` produksi. Langkah klik ada di `e2e/README.md`, bagian T1.

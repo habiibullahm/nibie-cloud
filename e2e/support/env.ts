@@ -23,10 +23,13 @@ export const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`
 
 /** Test users for T1. All share one password from the environment; the Supabase test project holds nothing else. */
 export const USER_PASSWORD_VAR = "E2E_USER_PASSWORD"
-export const EMAIL_DOMAIN = process.env.E2E_EMAIL_DOMAIN ?? "example.com"
 
 export type UserKey = "lifecycle" | "outsider" | "login"
-export const emailOf = (key: UserKey): string => `e2e-${key}@${EMAIL_DOMAIN}`
+/**
+ * Address of a test user. `E2E_EMAIL_TEMPLATE` holds `{key}` (for example `name+{key}@gmail.com`, so any mail that
+ * were ever sent reaches a real inbox); the real address stays in the environment, never in the repository.
+ */
+export const emailOf = (key: UserKey): string => (process.env.E2E_EMAIL_TEMPLATE ?? "e2e-{key}@example.com").replace("{key}", `e2e-${key}`)
 /** Only these may create instances in the beta gate (BETA_ALLOWED_EMAILS). `outsider` and `login` must not. */
 export const BETA_USERS: UserKey[] = ["lifecycle"]
 export const authFile = (key: UserKey): string => `.auth/${key}.json`

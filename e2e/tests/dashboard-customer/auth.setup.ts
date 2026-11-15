@@ -1,15 +1,16 @@
 import { expect, test } from "@playwright/test"
 import { authFile, emailOf, required, USER_PASSWORD_VAR, type UserKey } from "../../support/env"
-import { recreateUser } from "../../support/supabase-admin"
+import { canManageUsers, recreateUser } from "../../support/supabase-admin"
 
-// Creates the test users in the dedicated Supabase test project, signs each in through the real login form once
-// and saves the session. This project runs with trace, video and screenshots off because it types a password.
+// Creates the test users through the Supabase Admin API when the secret key is set (a dedicated test project), or
+// uses users that already exist (the shared project, no secret key anywhere), signs each in through the real login
+// form once and saves the session. This project runs with trace, video and screenshots off because it types a password.
 const USERS: UserKey[] = ["lifecycle", "outsider"]
 
 for (const key of USERS) {
   test(`create and sign in ${key}`, async ({ browser }) => {
     const password = required(USER_PASSWORD_VAR)
-    await recreateUser(emailOf(key), password)
+    if (canManageUsers()) await recreateUser(emailOf(key), password)
     const context = await browser.newContext()
     const page = await context.newPage()
     await page.goto("/dashboard/sign-in")
@@ -24,5 +25,5 @@ for (const key of USERS) {
 
 // The `login` user has no saved session: its spec signs in itself.
 test("create the login user", async () => {
-  await recreateUser(emailOf("login"), required(USER_PASSWORD_VAR))
+  if (canManageUsers()) await recreateUser(emailOf("login"), required(USER_PASSWORD_VAR))
 })
