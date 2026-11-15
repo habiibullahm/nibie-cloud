@@ -39,6 +39,10 @@ export function createSumoPodClient(cfg: SumoPodConfig, deps: { fetcher?: typeof
         amount: input.amountIdr,
         currency: 'IDR',
         payment_method_type_code: 'QRIS',
+        // Without these SumoPod falls back to the project's dashboard Redirect URLs, which point at
+        // production — the payer would land on the live site after paying a sandbox invoice.
+        success_return_url: input.returnUrl,
+        cancel_return_url: input.returnUrl,
       });
 
       let res: SafeFetchResult;
