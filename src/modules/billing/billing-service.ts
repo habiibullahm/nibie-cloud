@@ -87,6 +87,9 @@ export type CallbackResult =
   | { accepted: false }
   | { accepted: true; outcome: CallbackOutcome; postActions: () => Promise<void> };
 
+/** SumoPod `status` values that mean the money arrived. */
+const SUMOPOD_PAID_STATUSES = new Set(['paid', 'completed', 'success', 'succeeded', 'settled']);
+
 const none = async (): Promise<void> => undefined;
 
 const newOrderId = (): string => `nc-${randomUUID().replaceAll('-', '')}`;
@@ -260,16 +263,22 @@ export class BillingService {
 
   /**
    * Authenticates a SumoPod webhook by the `X-Webhook-Token` header, then applies it.
-   * Payload fields: `order_id` (our merchantOrderId), `payment_id`, `amount`, `status`.
+   * SumoPod wraps the event in a svix-style envelope: `{ event_type, data: { order_id, payment_id,
+   * amount, status } }`. Flat payloads are still accepted (older/manual calls).
    */
   async handleSumoPodWebhook(webhookToken: string, body: Record<string, unknown>): Promise<CallbackResult> {
     if (!this.d.sumopodAuth || webhookToken !== this.d.sumopodAuth.webhookToken) return { accepted: false };
-    const { order_id, payment_id, amount: rawAmount, status } = body;
+    const envelope = (body.data && typeof body.data === 'object' ? body.data : body) as Record<string, unknown>;
+    // SumoPod's "Save & Test" sends event_type payment.test with no order: acknowledge, never apply.
+    if (body.event_type === 'payment.test') return { accepted: true, outcome: 'ignored_failure', postActions: none };
+    const { order_id, payment_id, amount: rawAmount, status } = envelope;
     if (typeof order_id !== 'string' || typeof status !== 'string') return { accepted: false };
     const amountIdr = typeof rawAmount === 'number' ? rawAmount : (typeof rawAmount === 'string' ? parseAmount(rawAmount) : null);
     if (amountIdr === null || order_id.length > 128) return { accepted: false };
     const reference = (typeof payment_id === 'string' ? payment_id : '').slice(0, 100);
-    const resultCode = status;
+    // SumoPod reports a word (`paid`/`completed`/`failed`), Duitku a code (`00` = paid). Normalize so the
+    // shared apply path keeps its single '00 means paid' rule instead of failing every real SumoPod payment.
+    const resultCode = SUMOPOD_PAID_STATUSES.has(status.toLowerCase()) ? '00' : status.slice(0, 10);
 
     let result: { outcome: CallbackOutcome; activation?: Activation };
     try {

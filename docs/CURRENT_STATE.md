@@ -181,6 +181,20 @@ Last updated: 2026-11-15 (dashboard billing/checkout and the NibieRouter key and
   owner's sandbox credentials on a machine that can reach Duitku), real SumoPod delivery, the Docker-based integration
   tests (no daemon in the sandbox that built this), and deployment. Not built: callback IP allowlist, plan upgrade or
   proration, refunds, a billing screen in `apps/web`, production go-live (the Duitku merchant is still being verified).
+- **SumoPod Managed Payment fixes, verified 2026-11-16 against the real sandbox.** Three defects found while testing an
+  actual check-out, all fixed in `src/modules/billing`: (1) `sumopod-client.ts` never sent a return URL, so SumoPod fell
+  back to the project's dashboard Redirect URLs and the payer landed on the production site after paying a sandbox
+  invoice — it now sends `success_return_url`/`cancel_return_url` from `InvoiceRequest.returnUrl`; (2)
+  `handleSumoPodWebhook` read `order_id`/`status` from the top level, but SumoPod sends a svix-style envelope
+  `{ event_type, data: { … } }` — every real `payment.completed` answered 400. It now reads `data`, still accepts a flat
+  body, and acknowledges `payment.test` with 200; (3) the handler passed SumoPod's word `status` straight through as
+  Duitku's `resultCode`, and `applyInTransaction` treats only `'00'` as paid — a genuine SumoPod payment would have been
+  written `FAILED`. Paid word statuses are now normalized to `'00'`. **Verified:** `tsc` clean; 479 unit tests pass,
+  including new `test/unit/sumopod-webhook.test.ts` (5 tests); SumoPod's own "Save & Test" delivers to a real local
+  backend and gets 200 (`outcome: ignored_failure`). **Not verified:** a real invoice reaching `PAID` through SumoPod —
+  its sandbox has no simulate-payment control, so activation, `ensureInstance`, the receipt email and the redirect all
+  remain untested end to end. The webhook URL is configured in the SumoPod dashboard only;
+  `SUMOPOD_CALLBACK_URL` in `.env` is dead code that `sumopod-client.ts` never reads.
 - **Owner decisions recorded on 2026-11-12:** Supabase Auth and Supabase managed Postgres (schema
   `hermes`), Duitku POP, Resend (sender on a verified domain), Cloudflare for DNS and the dashboard,
   R2 for backups, dashboard at `cloud.nibie.app/dashboard`, API at `api.cloud.nibie.app`, NibieRouter
