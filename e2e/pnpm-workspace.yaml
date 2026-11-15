@@ -1,0 +1,2 @@
+# Standalone package: this file keeps pnpm from treating the repository root as a workspace.
+packages: []

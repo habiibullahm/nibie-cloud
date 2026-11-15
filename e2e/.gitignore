@@ -1,0 +1,7 @@
+node_modules
+playwright-report
+test-results
+.auth
+.env.e2e
+
+!.env.e2e.example

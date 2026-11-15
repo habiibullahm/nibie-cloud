@@ -80,6 +80,19 @@ Last updated: 2026-11-15 (dashboard billing/checkout and the NibieRouter key and
   Docker and compose names, historical docs (`prd.md`, `architecture.md`, handoffs), and "Hermes" as the name of the hosted agent.
   Verified in the sandbox: backend `tsc`, email and Duitku unit tests, landing typecheck, lint, 13 tests and build (no
   "Hermes Cloud" left in the export), dashboard typecheck, lint and 62 tests. The live site changes only after a merge to `main`.
+- **Browser end-to-end tests (`e2e/`, 2026-11-15, Nash approved the plan and its recommendations; branch `claude/project-thread-r1cipl`).**
+  Plan: [superpowers/plans/2026-11-15-browser-automation-testing.md](superpowers/plans/2026-11-15-browser-automation-testing.md).
+  Standalone Playwright package with three tiers: T0 (landing export and dashboard on mock data, no secrets), T1 (customer-mode
+  dashboard + real backend + stub containers + a dedicated Supabase test project) and T2 (read-only production smoke test).
+  Workflows: `.github/workflows/e2e.yml` (T0 on pull requests that touch `apps/web`, `apps/landing` or `e2e`; T1 on push to `main`,
+  nightly and manual, skipped with a notice until the `E2E_SUPABASE_*` secrets exist; T2 nightly and manual) and `ci.yml`
+  (type-check, lint and unit tests of all four packages; the repository had no CI before). **Verified in a cloud sandbox:** T0
+  all green in Chromium, `e2e` type-check, the database and seed steps of `stack:prep` against a local Postgres 16, backend
+  `tsc` and 462 unit tests, dashboard 83 tests, landing 13 tests. **Not verified:** all of T1 (needs the Supabase test project
+  and a Docker daemon), T2, and the GitHub Actions runs themselves. Not built: Duitku callback/suspension tests (P1 #11, #12) and
+  provider/Telegram tests (#13). T0 found three product issues, recorded as known findings in the specs: landing `<dl>` with a
+  `role="img"` child, the sign-in "Create an account" link distinguished by color alone (2.31:1), and focus not returning to
+  the trigger after a Stop/Restart dialog closes. Commands and setup: [../e2e/README.md](../e2e/README.md).
 - **Planned next (not built):** dashboard billing and checkout plus NibieRouter credit and key provisioning, see
   [superpowers/plans/2026-11-15-dashboard-billing-checkout.md](superpowers/plans/2026-11-15-dashboard-billing-checkout.md).
 - **Multi-platform note (2026-11-14, owner request).** Hermes runs one gateway for many messaging platforms; the
