@@ -43,16 +43,16 @@ describe('BillingTick', () => {
   it('sends the 7, 3 and 1 day reminders once each, however often it runs', async () => {
     for (const d of [10, 22, 23, 23.1, 24, 26, 27, 27.5, 28, 29, 29.2, 29.9]) await at(d);
     expect(kinds()).toEqual([
-      'Langganan berakhir 7 hari lagi - NibieCloud',
-      'Langganan berakhir 3 hari lagi - NibieCloud',
-      'Langganan berakhir 1 hari lagi - NibieCloud',
+      'Langganan berakhir 7 hari lagi - Nibie Cloud',
+      'Langganan berakhir 3 hari lagi - Nibie Cloud',
+      'Langganan berakhir 1 hari lagi - Nibie Cloud',
     ]);
     expect(env.mailer.sent.every((m) => m.to === 'owner@example.test')).toBe(true);
   });
 
   it('after downtime sends only the current reminder, not a backlog', async () => {
     await at(29.5);
-    expect(kinds()).toEqual(['Langganan berakhir 1 hari lagi - NibieCloud']);
+    expect(kinds()).toEqual(['Langganan berakhir 1 hari lagi - Nibie Cloud']);
   });
 
   it('a renewal resets the reminders for the new period', async () => {
@@ -66,7 +66,7 @@ describe('BillingTick', () => {
     await at(40);
     expect(kinds()).toEqual([]);
     await at(53);
-    expect(kinds()).toEqual(['Langganan berakhir 7 hari lagi - NibieCloud']);
+    expect(kinds()).toEqual(['Langganan berakhir 7 hari lagi - Nibie Cloud']);
   });
 
   it('expiry: ACTIVE becomes GRACE, the instance keeps running, one email', async () => {
@@ -77,20 +77,20 @@ describe('BillingTick', () => {
     expect(row.graceEndsAt).toEqual(new Date('2027-01-03T00:00:00.000Z'));
     expect(row.instance!.status).toBe('ACTIVE');
     await at(30.2);
-    expect(kinds()).toEqual(['Masa tenggang dimulai - NibieCloud']);
+    expect(kinds()).toEqual(['Masa tenggang dimulai - Nibie Cloud']);
   });
 
   it('grace over: SUSPENDED, the instance is stopped and its volume kept, with a warning the day before', async () => {
     await at(30.1);
     await at(32.1);
-    expect(kinds()).toContain('Instance akan dihentikan besok - NibieCloud');
+    expect(kinds()).toContain('Instance akan dihentikan besok - Nibie Cloud');
     const sum = await at(33.1);
     expect(sum.suspended).toBe(1);
     const row = await sub();
     expect(row.status).toBe('SUSPENDED');
     expect(row.retentionEndsAt).toEqual(new Date(env.clock.now.getTime() + 30 * 86_400_000));
     expect(row.instance!.status).toBe('STOPPED');
-    expect(kinds().at(-1)).toBe('Instance dihentikan - NibieCloud');
+    expect(kinds().at(-1)).toBe('Instance dihentikan - Nibie Cloud');
     expect(await prisma.instanceEvent.count({ where: { type: 'billing.suspended' } })).toBe(1);
   });
 
@@ -105,15 +105,15 @@ describe('BillingTick', () => {
   it('retention over: the instance is deleted, the subscription ended, one final notice', async () => {
     await at(33.1);
     await at(56.5);
-    expect(kinds()).toContain('Data akan dihapus permanen - NibieCloud');
+    expect(kinds()).toContain('Data akan dihapus permanen - Nibie Cloud');
     const sum = await at(64);
     expect(sum.ended).toBe(1);
     const row = await sub();
     expect(row.status).toBe('ENDED');
     expect(row.instance!.status).toBe('DELETED');
-    expect(kinds().at(-1)).toBe('Instance dihapus - NibieCloud');
+    expect(kinds().at(-1)).toBe('Instance dihapus - Nibie Cloud');
     await at(65);
-    expect(kinds().filter((k) => k === 'Instance dihapus - NibieCloud')).toHaveLength(1);
+    expect(kinds().filter((k) => k === 'Instance dihapus - Nibie Cloud')).toHaveLength(1);
     expect(await prisma.instanceEvent.count({ where: { type: 'billing.retention_elapsed' } })).toBe(1);
   });
 
@@ -122,7 +122,7 @@ describe('BillingTick', () => {
     await at(29.5);
     expect(kinds()).toEqual([]);
     await at(30.1);
-    expect(kinds()).toEqual(['Masa tenggang dimulai - NibieCloud']);
+    expect(kinds()).toEqual(['Masa tenggang dimulai - Nibie Cloud']);
   });
 
   it('a payment that lands between reads wins over the tick (compare-and-set)', async () => {
@@ -152,7 +152,7 @@ describe('BillingTick', () => {
     env.clock.now = new Date('2026-12-31T01:00:00.000Z');
     const [a, b] = await Promise.all([tick.runOnce(), tick.runOnce()]);
     expect(a.graced + b.graced).toBe(1);
-    expect(kinds()).toEqual(['Masa tenggang dimulai - NibieCloud']);
+    expect(kinds()).toEqual(['Masa tenggang dimulai - Nibie Cloud']);
   });
 
   it('mail not configured: transitions still happen, nothing is recorded as sent, and the current notice goes out once mail works', async () => {
@@ -162,7 +162,7 @@ describe('BillingTick', () => {
     expect(await prisma.billingNotice.count()).toBe(0);
     env.mailer.enabled = true;
     await at(30.2);
-    expect(kinds()).toEqual(['Masa tenggang dimulai - NibieCloud']);
+    expect(kinds()).toEqual(['Masa tenggang dimulai - Nibie Cloud']);
   });
 
   it('a mail failure releases the claim and the next tick retries', async () => {
@@ -170,7 +170,7 @@ describe('BillingTick', () => {
     await at(30.1);
     expect(await prisma.billingNotice.count()).toBe(0);
     await at(30.2);
-    expect(kinds()).toEqual(['Masa tenggang dimulai - NibieCloud']);
+    expect(kinds()).toEqual(['Masa tenggang dimulai - Nibie Cloud']);
     expect(await prisma.billingNotice.count()).toBe(1);
   });
 

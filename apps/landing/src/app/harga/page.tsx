@@ -5,7 +5,7 @@ import { BETA_USERS, PLAN_SPECS } from "@/lib/plans"
 
 export const metadata: Metadata = {
   title: "Harga",
-  description: "Harga langganan bulanan Hermes Cloud dalam Rupiah: paket Hosting dan Hosting + Kredit AI, dengan harga beta untuk 100 pengguna pertama.",
+  description: "Harga langganan bulanan Nibie Cloud dalam Rupiah: paket Hosting dan Hosting + Kredit AI, dengan harga beta untuk 100 pengguna pertama.",
   alternates: { canonical: "/harga" },
 }
 

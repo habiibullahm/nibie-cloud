@@ -100,7 +100,7 @@ export function AuthCard({ mode }: { mode: "sign-in" | "register" }) {
             {register ? "Create account" : "Sign in"}
           </Button>
           <p className="text-center text-muted-foreground">
-            {register ? "Already have an account? " : "New to Hermes Cloud? "}
+            {register ? "Already have an account? " : "New to Nibie Cloud? "}
             <Link href={register ? "/sign-in" : "/register"} className="hit-area relative text-foreground">
               {register ? "Sign in" : "Create an account"}
             </Link>

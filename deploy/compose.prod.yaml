@@ -1,4 +1,4 @@
-# Hermes Cloud, production on a single VPS: Redis, the backend and Caddy.
+# Nibie Cloud, production on a single VPS: Redis, the backend and Caddy.
 # Run it through a wrapper, for example:
 #   docker compose --env-file /etc/hermes-cloud/backend.env -f /opt/hermes-cloud/deploy/compose.prod.yaml ...
 name: hermes-cloud

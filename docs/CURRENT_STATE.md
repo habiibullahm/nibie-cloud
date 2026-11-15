@@ -1,6 +1,6 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-14 (milestone D, Duitku billing, built in a sandbox branch and not yet verified against the real Duitku; landing page `apps/landing` built, not deployed; production runs on `runsc`). Index of all docs: [README.md](README.md).
+Last updated: 2026-11-15 (landing page `apps/landing` live at cloud.nibie.app; milestone D, Duitku billing, merged in PR #22 but not yet verified against the real Duitku or deployed; production runs on `runsc`). Index of all docs: [README.md](README.md).
 
 ## Where things stand
 
@@ -26,7 +26,7 @@ Last updated: 2026-11-14 (milestone D, Duitku billing, built in a sandbox branch
   `apps/web/anti-slop/`, 45 dashboard tests. It also gives outline and secondary buttons
   `border-strong` edges (approved by Nash, recorded in `DESIGN.md`).
 
-- **Landing page (`apps/landing`, branch `claude/project-thread-jdgmh9`, not committed, not deployed).** Public
+- **Landing page (`apps/landing`, merged in PR #21, live on `cloud.nibie.app` since 2026-11-14).** Public
   site for `cloud.nibie.app` (root), needed for the Duitku KYC review: home, `/harga`, `/kontak`, Syarat Layanan,
   Kebijakan Refund, Kebijakan Privasi and a 404, in Indonesian. Standalone package (own `package.json`, lockfile),
   Next.js 16 static export, shadcn/ui and the `DESIGN.md` tokens, hairline-grid hero, light CSS-only motion.
@@ -41,10 +41,27 @@ Last updated: 2026-11-14 (milestone D, Duitku billing, built in a sandbox branch
   `display`, `h2` and `lead` (landing only; `@google/design.md lint`: 0 errors, 0 warnings). Verified in a cloud
   sandbox: `pnpm typecheck`, `pnpm lint`, 13 tests, `pnpm build`, the exported site served by `wrangler dev`
   (all routes 200, unknown path 404), Playwright at 1440 and 390 px (no horizontal overflow, no console errors).
-  **Not verified:** the real Cloudflare deploy, the route, and any real device. The legal pages are drafts for
+  **Deployed 2026-11-14 (20:5x UTC):** the Worker `nibie-cloud-landing` was created in the Cloudflare dashboard
+  (Workers Builds from `habiibullahm/nibie-cloud`, branch `main`, root directory `apps/landing`, build
+  `pnpm install --frozen-lockfile && pnpm build`, deploy `npx wrangler deploy`, preview builds off, build variable
+  `NEXT_PUBLIC_CONTACT_EMAIL`), the route `cloud.nibie.app/*` (zone `nibie.app`) was added, and the build was green.
+  Checked in a real browser against https://cloud.nibie.app: `/`, `/harga`, `/kontak`, `/syarat-layanan`,
+  `/kebijakan-refund`, `/kebijakan-privasi`, `/robots.txt`, `/sitemap.xml` answer 200, an unknown path answers 404,
+  `/dashboard/sign-in` still answers 200 from the dashboard Worker, and the contact page links the public email.
+  **Still open:** `/docs` answers 404 (no Worker serves it yet, so the "Dokumentasi" link in the header and footer
+  is dead until the docs site is routed); no real phone was used. The legal pages are drafts for
   the owner to read before publishing. The docs page "Paket dan penagihan" still says prices are not set, and
   the backend has no price data for these plans (`Plan.monthlyPriceIdr` is null); the US$2 credit needs a
   NibieRouter and backend integration that does not exist yet. See [../apps/landing/README.md](../apps/landing/README.md).
+- **Rename to Nibie Cloud (2026-11-15, owner decision; uncommitted).** The product name is now "Nibie Cloud" (it was "Hermes
+  Cloud"; the owner reversed the 2026-11-14 decision). Changed: landing (`SITE.name`, copy, legal pages), dashboard strings and
+  metadata, billing emails (`Nibie Cloud` instead of `NibieCloud`), the Telegram test message, `DESIGN.md` (lint: 0 errors, 0 warnings),
+  READMEs, the deploy file headers. Not changed on purpose: package names (`@hermes-cloud/*`, `hermes-cloud`), the repository,
+  Docker and compose names, historical docs (`prd.md`, `architecture.md`, handoffs), and "Hermes" as the name of the hosted agent.
+  Verified in the sandbox: backend `tsc`, email and Duitku unit tests, landing typecheck, lint, 13 tests and build (no
+  "Hermes Cloud" left in the export), dashboard typecheck, lint and 62 tests. The live site changes only after a merge to `main`.
+- **Planned next (not built):** dashboard billing and checkout plus NibieRouter credit and key provisioning, see
+  [superpowers/plans/2026-11-15-dashboard-billing-checkout.md](superpowers/plans/2026-11-15-dashboard-billing-checkout.md).
 - **Multi-platform note (2026-11-14, owner request).** Hermes runs one gateway for many messaging platforms; the
   official Nous docs (https://hermes-agent.nousresearch.com/docs/user-guide/messaging/) list Telegram, Discord, Slack,
   Google Chat, WhatsApp, Signal, SMS, Email, Mattermost, Matrix, Microsoft Teams, LINE, IRC and more ("20+"), each with

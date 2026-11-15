@@ -4,7 +4,7 @@ import { SITE, contactEmail } from "@/lib/site"
 
 export const metadata: Metadata = {
   title: "Kontak",
-  description: "Hubungi tim Hermes Cloud untuk pertanyaan, akses beta, refund, atau bantuan teknis.",
+  description: "Hubungi tim Nibie Cloud untuk pertanyaan, akses beta, refund, atau bantuan teknis.",
   alternates: { canonical: "/kontak" },
 }
 

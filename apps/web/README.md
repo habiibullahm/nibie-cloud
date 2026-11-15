@@ -1,6 +1,6 @@
-# Hermes Cloud dashboard (`apps/web`)
+# Nibie Cloud dashboard (`apps/web`)
 
-Customer dashboard for Hermes Cloud, built from `docs/prd.md` §4 and the root `DESIGN.md`.
+Customer dashboard for Nibie Cloud, built from `docs/prd.md` §4 and the root `DESIGN.md`.
 Next.js (App Router) + TypeScript + Tailwind v4 + shadcn/ui (Radix, new-york style), Lucide icons,
 TanStack Query. Dark-neutral theme only.
 

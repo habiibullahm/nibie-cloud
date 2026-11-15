@@ -1,6 +1,6 @@
 ---
 version: alpha
-name: Hermes Cloud
+name: Nibie Cloud
 description: "Minimal, intelligent, professional SaaS. Dark-neutral first: near-black and charcoal surfaces, neutral white/gray typography, restrained terracotta primary action. Compact, deliberate information hierarchy."
 colors:
   primary: "#F3F4F6"
@@ -112,11 +112,11 @@ components:
     typography: "{typography.body-md}"
 ---
 
-# Hermes Cloud
+# Nibie Cloud
 
 ## Overview
 
-Hermes Cloud is a managed hosting control plane for Hermes AI agents: one dedicated, isolated container per customer. The interface is a quiet, dense operations console. Near-black (#0B0D0F) and charcoal (#14171A, #1B1F23) surfaces carry neutral white/gray text. Terracotta (#AD5B3C) marks the single highest-emphasis action on a screen; everything else stays neutral. Compact 4px-based spacing, hairline borders, no decorative gradients, glassmorphism or heavy shadows.
+Nibie Cloud is a managed hosting control plane for Hermes AI agents: one dedicated, isolated container per customer. The interface is a quiet, dense operations console. Near-black (#0B0D0F) and charcoal (#14171A, #1B1F23) surfaces carry neutral white/gray text. Terracotta (#AD5B3C) marks the single highest-emphasis action on a screen; everything else stays neutral. Compact 4px-based spacing, hairline borders, no decorative gradients, glassmorphism or heavy shadows.
 
 ## Colors
 

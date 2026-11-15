@@ -8,7 +8,7 @@ export function ClosingCta() {
         <h2 className="type-h2 max-w-[24ch]">Mulai jalankan agent Hermes-mu hari ini</h2>
         <p className="text-muted-foreground">{SITE.name} sedang beta undangan. Minta akses dan kami kabari saat slot tersedia.</p>
         <Button asChild>
-          <a href={betaAccessHref("Minta akses beta Hermes Cloud")}>Minta akses beta</a>
+          <a href={betaAccessHref("Minta akses beta Nibie Cloud")}>Minta akses beta</a>
         </Button>
       </div>
     </section>

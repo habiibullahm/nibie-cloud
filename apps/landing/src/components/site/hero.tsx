@@ -19,7 +19,7 @@ export function Hero() {
           </p>
           <div className="hc-rise hc-rise-3 mt-8 flex flex-wrap gap-3">
             <Button asChild>
-              <a href={betaAccessHref("Minta akses beta Hermes Cloud")}>Minta akses beta</a>
+              <a href={betaAccessHref("Minta akses beta Nibie Cloud")}>Minta akses beta</a>
             </Button>
             <Button asChild variant="outline">
               <a href={SITE.docsUrl}>Baca dokumentasi</a>

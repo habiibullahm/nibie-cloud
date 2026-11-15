@@ -31,7 +31,7 @@ if (!merchantCode || !apiKey || !email) {
 const callbackUrl = process.env.DUITKU_CALLBACK_URL ?? 'https://example.invalid/api/v1/billing/duitku/callback';
 const orderId = `nc-${randomUUID().replaceAll('-', '')}`;
 const invoice = {
-  merchantOrderId: orderId, amountIdr: DUITKU_MIN_AMOUNT_IDR, productDetails: 'NibieCloud sandbox check',
+  merchantOrderId: orderId, amountIdr: DUITKU_MIN_AMOUNT_IDR, productDetails: 'Nibie Cloud sandbox check',
   email, returnUrl: 'https://cloud.nibie.app/dashboard/instances', expiryMinutes: 60,
 };
 

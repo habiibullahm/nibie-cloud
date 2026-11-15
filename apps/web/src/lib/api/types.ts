@@ -1,5 +1,5 @@
 /**
- * Wire types for the Hermes Cloud API.
+ * Wire types for the Nibie Cloud API.
  *
  * "Backed" types mirror what the backend returns today (src/http/server.ts, InstanceView in
  * src/modules/instances/instance-service.ts). "Preview" types describe PRD §15 endpoints that do

@@ -1,6 +1,6 @@
 # @hermes-cloud/landing
 
-Public landing page for **https://cloud.nibie.app** (the root). Product name: Hermes Cloud, published by
+Public landing page for **https://cloud.nibie.app** (the root). Product name: Nibie Cloud, published by
 Nibie (`nibie.app`). Content is in Indonesian. It also carries the pages the Duitku merchant review asks
 for: prices in rupiah, contact, Terms of Service, refund policy and privacy policy.
 
