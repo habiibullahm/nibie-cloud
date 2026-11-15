@@ -48,7 +48,7 @@ describe('customer API', () => {
     const res = await app().inject({ method: 'GET', url: '/api/v1/plans', headers: await user(ALICE) });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
-      plans: [{ id: s.plan.id, slug: 'test-small', name: 'Test small', cpuMillis: 500, memoryMb: 256, storageMb: 1024, pids: 128, monthlyPriceIdr: null }],
+      plans: [{ id: s.plan.id, slug: 'test-small', name: 'Test small', cpuMillis: 500, memoryMb: 256, storageMb: 1024, pids: 128, monthlyPriceIdr: null, includedCreditUsd: null }],
     });
   });
 

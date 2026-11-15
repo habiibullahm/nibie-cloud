@@ -122,6 +122,28 @@ describe('BillingService', () => {
       expect(env.mailer.sent[0]!.to).toBe('owner@example.test');
     });
 
+    it('hands the new instance to the router provisioner once, and a router that throws never undoes the payment', async () => {
+      const begun: { tenantId: string; instanceId: string; subscriptionId: string | null }[] = [];
+      let explode = false;
+      env = makeBilling(prisma, { maxInstances: 5, router: { begin: async (i) => { begun.push(i); if (explode) throw new Error('router exploded'); return 'done'; } } });
+      const { payment } = await checkout();
+      const orderId = await orderIdOf(payment.id);
+      await pay(orderId);
+      const sub = await prisma.subscription.findFirstOrThrow();
+      expect(begun).toEqual([{ tenantId: s.tenant.id, instanceId: sub.instanceId, subscriptionId: sub.id }]);
+
+      await pay(orderId); // the same callback again: no second hand-over
+      expect(begun).toHaveLength(1);
+
+      explode = true;
+      const second = await checkout(randomUUID(), 'second');
+      env.mailer.sent.length = 0;
+      const r = await pay(await orderIdOf(second.payment.id), { reference: 'REF-2' });
+      expect(r).toMatchObject({ accepted: true });
+      expect((await prisma.payment.findUniqueOrThrow({ where: { id: second.payment.id } })).status).toBe('PAID');
+      expect(env.mailer.sent).toHaveLength(1); // the receipt still goes out
+    });
+
     it('the same callback twice changes nothing', async () => {
       const { payment } = await checkout();
       const orderId = await orderIdOf(payment.id);

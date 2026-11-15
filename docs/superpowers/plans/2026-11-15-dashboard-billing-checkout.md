@@ -125,6 +125,30 @@ the first one in the NibieRouter dashboard.
 Credit is an **account balance** on the router user, not a per-key balance. So the model is: one router user per tenant,
 the US$2 grant goes to that user, the instance gets one key (optionally with a spend cap) that spends that balance.
 
+### Two sources compared (owner asked for https://router.nibie.app/ as extra context)
+
+The public NibieRouter site (read 2026-11-15; its `/docs`, `/v1/models` and `/api/billing/config` are disallowed by its
+`robots.txt`, so they were not read) agrees with the SumoRouter docs on the core and differs or adds as follows:
+
+| Topic | SumoRouter docs | router.nibie.app | Effect on this plan |
+| --- | --- | --- | --- |
+| Money unit in the API | nano-USD, fields end in `_nano` | the site publishes no API field names | Keep nano-USD; the live check must confirm it on the real instance |
+| Rate | `idr_per_usd` is a config value | "estimate" Rp18.200 per US$, not the live rate | US$2 is about Rp36.400 at that estimate: see the cost note below |
+| Keys | customer self-service key with a credit limit and a model allow-list; admin "create key for a user" listed but undocumented | self-service only; no admin-created keys mentioned | Admin key creation stays the main unknown; fallback below |
+| Credit | top-up by QRIS, coupons, admin grant | top-up by QRIS (minimum Rp10.000), coupon redeem once per account, no cash welcome credit | The admin `credit` grant is still the way to give US$2; a coupon is not usable for this (one per account, redeemed by the user) |
+| Free models | not mentioned | six free models, shared capacity | Could be the default for Hosting-only; the default model is still the owner's choice |
+| Insufficient balance | `insufficient_credits` in logs | HTTP 402 | Surface "AI credit used up" in the dashboard later |
+| Endpoints | chat, responses, messages, embeddings, count_tokens, models, decisions | chat, responses, messages, embeddings listed | Hermes only needs chat completions |
+| Admin API | documented (`sk-admin-...`) | not public | Documented only on the SumoRouter side: must be confirmed live |
+
+**Fallback if admin key creation is not available or does not accept a spend cap:** sign in as the tenant's router user
+(`POST /api/auth/login`, 7-day token) with a password we generate and keep encrypted, then `POST /api/keys` with
+`credit_limit_nano`. That needs a stored per-tenant secret and is only built if the live check shows the admin path does not work.
+
+**Cost note for the owner:** the "Hosting + Kredit AI" beta price is Rp 50.000 against Rp 25.000 for Hosting, so the credit is
+paid for with Rp 25.000, while US$2 is about Rp 36.400 at the site's Rp 18.200 estimate (if the router sells at a markup,
+its real cost to you is lower). Worth checking before the first 100 users.
+
 ### Design
 
 1. **Data** (migration): `Plan.includedCreditNano` (nullable BigInt, `null` means none); `Tenant.routerUserId`; a ledger

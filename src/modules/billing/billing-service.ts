@@ -1,3 +1,4 @@
+import type { RouterProvisioner } from '../nibierouter/router-provisioner.js';
 import { randomUUID } from 'node:crypto';
 import type { Payment, PaymentPurpose, PaymentStatus, Plan, Prisma, PrismaClient, Subscription, SubscriptionStatus } from '@prisma/client';
 import { AppError, ConflictError, InstanceLimitError, NotFoundError, ValidationError } from '../../shared/errors.js';
@@ -56,6 +57,8 @@ export interface BillingDeps {
   dashboardOrigin: string;
   maxInstancesPerTenant: number;
   logger: Logger;
+  /** NibieRouter key and credit for a freshly created paid instance. Absent: the operator attaches a provider by hand. */
+  router?: Pick<RouterProvisioner, 'begin'>;
   now?: () => Date;
 }
 
@@ -329,6 +332,9 @@ export class BillingService {
       tenantId: sub.tenantId, name: sub.intendedName, planId: sub.planId, idempotencyKey: `pay-${first.merchantOrderId}`,
     });
     await this.d.prisma.subscription.updateMany({ where: { id: sub.id, instanceId: null }, data: { instanceId: instance.id } });
+    // The AI provider (router user, key, one-time credit) never fails the payment: `begin` swallows its own errors,
+    // and the billing tick retries whatever is left.
+    await this.d.router?.begin({ tenantId: sub.tenantId, instanceId: instance.id, subscriptionId: sub.id });
   }
 
   // ---- email ---------------------------------------------------------------------------------

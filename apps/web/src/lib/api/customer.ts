@@ -17,6 +17,7 @@ interface PlanBody {
   storageMb: number
   pids: number
   monthlyPriceIdr: number | null
+  includedCreditUsd?: number | null
 }
 
 export function toPlan(p: PlanBody): Plan {
@@ -33,6 +34,7 @@ export function toPlan(p: PlanBody): Plan {
     backupRetentionDays: null,
     customDomain: null,
     monthlyPriceIdr: p.monthlyPriceIdr,
+    includedCreditUsd: p.includedCreditUsd ?? null,
   }
 }
 

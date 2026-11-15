@@ -154,6 +154,11 @@ export function DeployForm() {
                     <span className="border-t pt-2 text-muted-foreground">
                       Price <span className="text-foreground">{formatPriceIdr(p.monthlyPriceIdr)}</span>
                     </span>
+                    {p.includedCreditUsd !== null ? (
+                      <span className="text-muted-foreground">
+                        AI credit <span className="text-foreground">US${p.includedCreditUsd} one-time</span>, in NibieRouter
+                      </span>
+                    ) : null}
                   </OptionCard>
                 ))}
               </RadioGroup>
@@ -209,6 +214,9 @@ export function DeployForm() {
               { k: "Network", v: "Dedicated container, platform egress policy" },
               { k: "Billing", v: cycle === "monthly" ? "Monthly" : cycle },
               ...(plan ? [{ k: "Price", v: formatPriceIdr(plan.monthlyPriceIdr) }] : []),
+              ...(plan && plan.includedCreditUsd !== null
+                ? [{ k: "AI credit", v: `US$${plan.includedCreditUsd}, one-time, with the first payment` }]
+                : []),
             ]}
           />
           <Alert>

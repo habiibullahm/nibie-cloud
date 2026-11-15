@@ -53,6 +53,8 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
         plans: rows.map((p) => ({
           id: p.id, slug: p.slug, name: p.name, cpuMillis: p.cpuMillis, memoryMb: p.memoryMb,
           storageMb: p.storageMb, pids: p.pids, monthlyPriceIdr: p.monthlyPriceIdr,
+          // One-time AI credit that comes with the first payment, in US$ (null: none).
+          includedCreditUsd: p.includedCreditNano ? Number(p.includedCreditNano) / 1e9 : null,
         })),
       };
     });

@@ -395,3 +395,36 @@ describe('Duitku billing configuration', () => {
     expect(message).not.toContain('duitku-api-key-value');
   });
 });
+
+describe('loadConfig: NibieRouter', () => {
+  it('is off by default', () => {
+    expect(loadConfig(base).router).toBeNull();
+  });
+
+  it('is on when the admin key and the default model are both set, with the documented defaults', () => {
+    const cfg = loadConfig({ ...base, NIBIEROUTER_ADMIN_KEY: 'sk-admin-test-0123456789', NIBIEROUTER_DEFAULT_MODEL: 'some-model' });
+    expect(cfg.router).toEqual({ apiUrl: 'https://router.nibie.app', adminKey: 'sk-admin-test-0123456789', defaultModel: 'some-model', emailDomain: 'cloud.nibie.app' });
+  });
+
+  it.each([
+    ['only the admin key', { NIBIEROUTER_ADMIN_KEY: 'sk-admin-test-0123456789' }],
+    ['only the model', { NIBIEROUTER_DEFAULT_MODEL: 'some-model' }],
+  ])('refuses %s', (_label, extra) => {
+    expect(() => loadConfig({ ...base, ...extra })).toThrow('NIBIEROUTER_ADMIN_KEY');
+  });
+
+  it.each(['http://router.example.test', 'https://router.example.test/v1', 'https://router.example.test/?a=1', 'not a url'])('refuses API URL %s', (u) => {
+    expect(() => loadConfig({ ...base, NIBIEROUTER_API_URL: u })).toThrow('NIBIEROUTER_API_URL');
+  });
+
+  it('does not echo the admin key in a validation error', () => {
+    let message = '';
+    try {
+      loadConfig({ ...base, NIBIEROUTER_ADMIN_KEY: 'sk-admin-canary-value-123' });
+    } catch (e) {
+      message = (e as Error).message;
+    }
+    expect(message).toContain('NIBIEROUTER_ADMIN_KEY');
+    expect(message).not.toContain('sk-admin-canary-value-123');
+  });
+});

@@ -64,7 +64,10 @@ export default function KebijakanPrivasiPage() {
             <li>Duitku untuk pemrosesan pembayaran.</li>
             <li>Cloudflare untuk menyajikan situs dan dashboard.</li>
             <li>Penyedia layanan email untuk mengirim email transaksional.</li>
-            <li>NibieRouter atau provider AI yang kamu pilih, untuk permintaan AI yang dijalankan agent-mu.</li>
+            <li>
+              NibieRouter atau provider AI yang kamu pilih, untuk permintaan AI yang dijalankan agent-mu. Untuk setiap akun kami
+              membuat satu pengguna NibieRouter dengan alamat email teknis (bukan emailmu) dan satu API key per instance.
+            </li>
           </ul>
           <p>Server tempat instance berjalan berada di Jakarta, Indonesia.</p>
         </section>

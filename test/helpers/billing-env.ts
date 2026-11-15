@@ -53,7 +53,7 @@ export async function seedBilling(prisma: PrismaClient, o: { price?: number | nu
   return { tenant, other, user, plan, node };
 }
 
-export function makeBilling(prisma: PrismaClient, o: { clock?: Clock; maxInstances?: number } = {}) {
+export function makeBilling(prisma: PrismaClient, o: { clock?: Clock; maxInstances?: number; router?: NonNullable<ConstructorParameters<typeof BillingService>[0]['router']> } = {}) {
   const logger = createLogger({ level: 'silent' });
   const runtime = new FakeRuntime();
   const clock = o.clock ?? makeClock();
@@ -67,6 +67,7 @@ export function makeBilling(prisma: PrismaClient, o: { clock?: Clock; maxInstanc
   const billing = new BillingService({
     prisma, duitku, billing: { merchantCode: MERCHANT, apiKey: API_KEY }, commands, mailer,
     dashboardOrigin: 'https://cloud.example.test', maxInstancesPerTenant: o.maxInstances ?? 1, logger, now: () => clock.now,
+    ...(o.router ? { router: o.router } : {}),
   });
   return { billing, duitku, mailer, runtime, service, commands, clock, logger };
 }

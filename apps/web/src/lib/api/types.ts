@@ -73,6 +73,8 @@ export interface Plan {
   customDomain: boolean | null
   /** null until pricing is approved. */
   monthlyPriceIdr: number | null
+  /** One-time AI credit (US$) that comes with the first payment; null when the plan has none. */
+  includedCreditUsd: number | null
 }
 
 export interface Region {

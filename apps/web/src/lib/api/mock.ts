@@ -40,6 +40,7 @@ export const PLANS: Plan[] = [
     backupRetentionDays: 7,
     customDomain: false,
     monthlyPriceIdr: null,
+    includedCreditUsd: null,
   },
   {
     id: "5b0c6a2e-1f1d-4c55-9a7e-0d1f3a000002",
@@ -52,6 +53,7 @@ export const PLANS: Plan[] = [
     backupRetentionDays: 14,
     customDomain: true,
     monthlyPriceIdr: null,
+    includedCreditUsd: null,
   },
   {
     id: "5b0c6a2e-1f1d-4c55-9a7e-0d1f3a000003",
@@ -64,6 +66,7 @@ export const PLANS: Plan[] = [
     backupRetentionDays: 30,
     customDomain: true,
     monthlyPriceIdr: null,
+    includedCreditUsd: null,
   },
 ]
 

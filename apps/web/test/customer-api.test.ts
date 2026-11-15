@@ -87,6 +87,8 @@ describe("customer API client", () => {
   it("pure mappers keep fields", () => {
     expect(toAccount({ id: "u", email: "a@b.c", tenantId: "t" }).name).toBe("a")
     expect(toPlan({ id: ID, slug: "s", name: "S", cpuMillis: 1, memoryMb: 2, storageMb: 3, pids: 4, monthlyPriceIdr: null }).pids).toBe(4)
+    expect(toPlan({ id: ID, slug: "s", name: "S", cpuMillis: 1, memoryMb: 2, storageMb: 3, pids: 4, monthlyPriceIdr: 50000, includedCreditUsd: 2 }).includedCreditUsd).toBe(2)
+    expect(toPlan({ id: ID, slug: "s", name: "S", cpuMillis: 1, memoryMb: 2, storageMb: 3, pids: 4, monthlyPriceIdr: null }).includedCreditUsd).toBeNull()
   })
 })
 

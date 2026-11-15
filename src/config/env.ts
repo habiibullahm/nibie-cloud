@@ -115,7 +115,28 @@ const schema = z.object({
       }
     }).optional(),
   ),
+  /** NibieRouter provisioning (a SumoRouter instance). Admin key and default model together, or none (credit and key provisioning off). */
+  NIBIEROUTER_ADMIN_KEY: optionalText,
+  NIBIEROUTER_DEFAULT_MODEL: optionalText,
+  /** Admin API origin, not the `/v1` inference URL. */
+  NIBIEROUTER_API_URL: z.preprocess(
+    emptyToUndefined,
+    z.string().max(255).refine((v) => {
+      try {
+        const u = new URL(v);
+        return u.protocol === 'https:' && u.pathname === '/' && u.search === '';
+      } catch {
+        return false;
+      }
+    }, 'must be an https origin such as https://router.nibie.app').default('https://router.nibie.app'),
+  ),
+  /** Domain of the synthetic address each tenant's NibieRouter user gets (the customer never signs in there). */
+  NIBIEROUTER_USER_EMAIL_DOMAIN: z.preprocess(emptyToUndefined, z.string().max(100).regex(/^[a-z0-9.-]+\.[a-z]{2,}$/).default('cloud.nibie.app')),
 }).superRefine((e, ctx) => {
+  // A half-filled router block would only fail when the first paid instance is created.
+  if ((e.NIBIEROUTER_ADMIN_KEY === undefined) !== (e.NIBIEROUTER_DEFAULT_MODEL === undefined)) {
+    ctx.addIssue({ code: 'custom', path: ['NIBIEROUTER_ADMIN_KEY'], message: 'NIBIEROUTER_ADMIN_KEY and NIBIEROUTER_DEFAULT_MODEL are set together or not at all' });
+  }
   // Without enforcement a tenant can fill the node's disk, so it is never allowed in production.
   if (e.NODE_ENV === 'production' && e.HERMES_DISK_QUOTA === 'off') {
     ctx.addIssue({ code: 'custom', path: ['HERMES_DISK_QUOTA'], message: 'must be enforce in production' });
@@ -210,6 +231,8 @@ export interface Config {
   mail: { host: string; port: number; user: string; pass: string; from: string } | null;
   /** Null: billing is off (checkout and the Duitku callback answer 404). `apiKey` is a secret: never log it. */
   billing: { merchantCode: string; apiKey: string; env: 'sandbox' | 'production'; callbackUrl: string } | null;
+  /** Null: NibieRouter key and credit provisioning is off. `adminKey` is a secret: never log it. */
+  router: { apiUrl: string; adminKey: string; defaultModel: string; emailDomain: string } | null;
 }
 
 /** Parse environment. Errors name the failing keys only, never the values. */
@@ -258,6 +281,10 @@ export function loadConfig(env: NodeJS.ProcessEnv | Record<string, string | unde
     billing:
       e.DUITKU_MERCHANT_CODE && e.DUITKU_API_KEY && e.DUITKU_CALLBACK_URL
         ? { merchantCode: e.DUITKU_MERCHANT_CODE, apiKey: e.DUITKU_API_KEY, env: e.DUITKU_ENV, callbackUrl: e.DUITKU_CALLBACK_URL }
+        : null,
+    router:
+      e.NIBIEROUTER_ADMIN_KEY && e.NIBIEROUTER_DEFAULT_MODEL
+        ? { apiUrl: e.NIBIEROUTER_API_URL, adminKey: e.NIBIEROUTER_ADMIN_KEY, defaultModel: e.NIBIEROUTER_DEFAULT_MODEL, emailDomain: e.NIBIEROUTER_USER_EMAIL_DOMAIN }
         : null,
   };
 }
