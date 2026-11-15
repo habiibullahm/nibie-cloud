@@ -1,7 +1,7 @@
 # Handoff: end-to-end test admin panel (Fase A) — lokal
 
 Repo: https://github.com/habiibullahm/nibie-cloud
-Branch: `claude/project-thread-tirdms` (HEAD `d36a48b`)
+Branch: `claude/project-thread-tirdms` (HEAD `7b7e6a5`)
 PR: [#31](https://github.com/habiibullahm/nibie-cloud/pull/31) — MERGEABLE, CI hijau
 (backend, docs, landing, t0, web; t1/t2 skip).
 
