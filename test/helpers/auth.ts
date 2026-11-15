@@ -7,7 +7,7 @@ export const TEST_SUPABASE_URL = 'https://test-project.supabase.co';
 export const TEST_ADMIN_TOKEN = 'test-admin-token-0123456789abcdef';
 export const DASHBOARD_ORIGIN = 'https://cloud.nibie.app';
 
-export interface TokenOverrides { sub?: string; email?: string; exp?: string | number; aud?: string }
+export interface TokenOverrides { sub?: string; email?: string; exp?: string | number; aud?: string; aal?: string | null }
 
 /** Local signing keys and a verifier that trusts them: no network, no Supabase project. */
 export async function createTestAuth() {
@@ -15,7 +15,12 @@ export async function createTestAuth() {
   const jwk = { ...(await exportJWK(publicKey)), kid: 'test-key', alg: 'ES256', use: 'sig' };
   const verify = createTokenVerifier({ supabaseUrl: TEST_SUPABASE_URL, keys: createLocalJWKSet({ keys: [jwk] }) });
   const signToken = (o: TokenOverrides = {}): Promise<string> =>
-    new SignJWT({ email: o.email ?? 'user@example.test', role: 'authenticated' })
+    new SignJWT({
+      email: o.email ?? 'user@example.test',
+      role: 'authenticated',
+      // Supabase omits `aal` until the account has an MFA factor; `null` means "leave it out".
+      ...(o.aal === null ? {} : { aal: o.aal ?? 'aal1' }),
+    })
       .setProtectedHeader({ alg: 'ES256', kid: 'test-key' })
       .setSubject(o.sub ?? randomUUID())
       .setIssuer(`${TEST_SUPABASE_URL}/auth/v1`)
@@ -31,7 +36,7 @@ export function testConfig(image: string, masterKey: string, o: Partial<Config> 
     nodeEnv: 'test', databaseUrl: 'x', hermesImage: image, port: 0, adminToken: TEST_ADMIN_TOKEN,
     dockerSocketPath: '', masterKey, runtime: 'runc',
     diskQuota: 'off', diskCheckIntervalMs: 300_000, egressPolicy: 'off', canaryImage: undefined, canaryPrivateIp: undefined, dnsResolvers: [],
-    supabaseUrl: TEST_SUPABASE_URL, dashboardOrigin: DASHBOARD_ORIGIN, betaAllowedEmails: [], maxInstancesPerTenant: 1, redisUrl: null, secrets: null, mail: null, billing: null, router: null,
+    supabaseUrl: TEST_SUPABASE_URL, dashboardOrigin: DASHBOARD_ORIGIN, betaAllowedEmails: [], adminEmails: [], maxInstancesPerTenant: 1, redisUrl: null, secrets: null, mail: null, billing: null, router: null,
     ...o,
   };
 }

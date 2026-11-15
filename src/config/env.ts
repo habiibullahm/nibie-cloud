@@ -218,17 +218,20 @@ const schema = z.object({
   if (e.SUMOPOD_ENV === 'production' && e.NODE_ENV !== 'production') {
     ctx.addIssue({ code: 'custom', path: ['SUMOPOD_ENV'], message: 'production requires NODE_ENV=production' });
   }
-  // BILLING_GATEWAY consistency: at least one gateway must be fully configured.
+  // BILLING_GATEWAY consistency: only validate when at least one gateway is partially configured.
   const duitkuFull = e.DUITKU_MERCHANT_CODE !== undefined;
   const sumopodFull = e.SUMOPOD_API_KEY !== undefined;
-  if (e.BILLING_GATEWAY === 'duitku' && !duitkuFull) {
-    ctx.addIssue({ code: 'custom', path: ['BILLING_GATEWAY'], message: 'set to duitku but Duitku variables are not configured' });
-  }
-  if (e.BILLING_GATEWAY === 'sumopod' && !sumopodFull) {
-    ctx.addIssue({ code: 'custom', path: ['BILLING_GATEWAY'], message: 'set to sumopod but SumoPod variables are not configured' });
-  }
-  if (e.BILLING_GATEWAY === 'both' && (!duitkuFull || !sumopodFull)) {
-    ctx.addIssue({ code: 'custom', path: ['BILLING_GATEWAY'], message: 'set to both but not all Duitku and SumoPod variables are configured' });
+  const anyBillingKey = duitkuFull || sumopodFull || e.SUMOPOD_WEBHOOK_TOKEN !== undefined;
+  if (anyBillingKey) {
+    if (e.BILLING_GATEWAY === 'duitku' && !duitkuFull) {
+      ctx.addIssue({ code: 'custom', path: ['BILLING_GATEWAY'], message: 'set to duitku but Duitku variables are not configured' });
+    }
+    if (e.BILLING_GATEWAY === 'sumopod' && !sumopodFull) {
+      ctx.addIssue({ code: 'custom', path: ['BILLING_GATEWAY'], message: 'set to sumopod but SumoPod variables are not configured' });
+    }
+    if (e.BILLING_GATEWAY === 'both' && (!duitkuFull || !sumopodFull)) {
+      ctx.addIssue({ code: 'custom', path: ['BILLING_GATEWAY'], message: 'set to both but not all Duitku and SumoPod variables are configured' });
+    }
   }
   // The startup canary needs an image pinned by digest, like every other image. Under runsc the
   // same image also seeds the tenant resolv.conf volume (see dns-resolv-conf.ts), so it is required

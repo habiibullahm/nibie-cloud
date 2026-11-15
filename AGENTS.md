@@ -129,21 +129,37 @@ and `pnpm test` 676 passed, 2 skipped (56 files; unit and Docker/Postgres/Redis 
 - **Images must be pinned:** no `latest` in any environment, `name@sha256:<digest>` when
   `NODE_ENV=production` (`runtime/image-policy.ts`). `test/fixtures/hermes-stub` is a stand-in that
   mimics the official contract; `test/fixtures/hermes-stub/*` must stay LF (`.gitattributes`).
-- **Two API surfaces** under `/api/v1`, in separate Fastify plugins (`src/http`): the operator API
-  (`operator-routes.ts`, one shared bearer `ADMIN_TOKEN`, `/tenants/:tenantId/instances...`) and the
+- **Three API surfaces** under `/api/v1`, in separate Fastify plugins (`src/http`): the operator API
+  (`operator-routes.ts`, one shared bearer `ADMIN_TOKEN`, `/tenants/:tenantId/instances...`), the
   customer API (`customer-routes.ts`, Supabase access token verified locally against the project's
-  JWKS, tenant derived from the user's membership, only when `SUPABASE_URL` is set). The process binds
+  JWKS, tenant derived from the user's membership, only when `SUPABASE_URL` is set), and the admin API
+  (`admin-routes.ts`, prefix `/api/v1/admin`, read-only in phase A). The process binds
   `127.0.0.1`; a public proxy must never forward `/api/v1/tenants/*`. Customer provisioning is gated by
   `BETA_ALLOWED_EMAILS` and `MAX_INSTANCES_PER_TENANT`. No endpoint creates plans or nodes; seed rows
   directly (see `scripts/demo.ts`).
+- **Admin API** (`src/http/admin-routes.ts`, `src/modules/admin`): the same Supabase tokens as the
+  customer API, but the email must be in `ADMIN_EMAILS` (empty = nobody, fail closed). Every route
+  sets `cache-control: no-store`; the whole surface is rate-limited; each request is written to
+  `AuditLog` (`AuditService`). Reads (`me`, `overview`, `customers`, `instances`, `subscriptions`,
+  `payments`, `plans`, `nodes`, `jobs/failed`, `audit`, `system`) work at `aal1`; anything that changes
+  data requires `aal2` (MFA TOTP) and a reason, and is phase B — not implemented yet. The plugin is
+  registered only when `SUPABASE_URL` is set. It must never import `secrets/secret-store` and must not
+  select ciphertext or wrapped-key columns (test-enforced, like the operator/customer plugins).
 - **Dashboard data layer** (`apps/web/src/lib/api`): a typed `HermesApi` with an in-browser mock
   (default, `NEXT_PUBLIC_HERMES_API_MODE=mock`), a customer-API client (`=customer`, Supabase token to
-  `NEXT_PUBLIC_HERMES_API_URL`; instances, `/me`, `/plans` are real) and a dev-only live client. Live mode goes through the dev
+  `NEXT_PUBLIC_HERMES_API_URL`; instances, `/me`, `/plans` are real), a dev-only live client, and an
+  admin client (`admin.ts`) for `/api/v1/admin/*`. Live mode goes through the dev
   bridge `apps/web/src/app/api/hermes/[...path]/route.ts`, which keeps `HERMES_ADMIN_TOKEN` server-side
   and forwards only the allowlisted instance endpoints in `proxy-rules.ts`. Everything without a
   backend endpoint (plans, usage, logs, files, console, backups, billing, domain, account) is mock
   data and is labelled "Preview data". Billing is a UI shell; sign-in is real only when the public Supabase variables are set (`/auth/confirm` verifies email links, `AuthGate` guards `(app)`); the app uses `basePath` `/dashboard`. Mapping details:
   `apps/web/README.md`.
+- **Admin panel** (`apps/web/src/app/(app)/admin`): Indonesian UI, no mock data — in `mock`/`live`
+  mode every page renders "Panel admin butuh backend" rather than sample customers (the decision is
+  pure and tested in `apps/web/src/lib/admin-gate-rules.ts`). `AdminGate` asks `/admin/me`; a
+  non-admin sees "Tidak berwenang" with no hint of who is an admin, and the sidebar link appears only
+  after `/admin/me` answers. Pages: Ringkasan, Pelanggan (+detail), Instance (+detail), Langganan &
+  pembayaran, Plan, Node, Job gagal, Audit. Guarding is server-side; hiding UI is convenience only.
 
 ## UI and design system
 

@@ -6,6 +6,12 @@ export interface AuthClaims {
   /** Supabase Auth user id (`sub`). */
   userId: string;
   email: string;
+  /**
+   * Authenticator assurance level, read from the token's `aal` claim. Supabase adds the claim only
+   * once MFA exists on the account, and a token without it is aal1. Any unrecognised value reads as
+   * `aal1` so a malformed claim can never satisfy an aal2 check.
+   */
+  aal: 'aal1' | 'aal2';
 }
 
 export interface VerifierOptions {
@@ -58,8 +64,8 @@ export function createTokenVerifier(o: VerifierOptions): (token: string) => Prom
     } catch (e) {
       throw keySetUnavailable(e) ? new AuthUnavailableError() : new UnauthorizedError();
     }
-    const { sub, email } = payload;
+    const { sub, email, aal } = payload;
     if (!isUuid(sub) || typeof email !== 'string' || email.length === 0) throw new UnauthorizedError();
-    return { userId: sub, email };
+    return { userId: sub, email, aal: aal === 'aal2' ? 'aal2' : 'aal1' };
   };
 }

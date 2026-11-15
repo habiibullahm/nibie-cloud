@@ -46,6 +46,32 @@ Last updated: 2026-11-15 (dashboard billing/checkout and the NibieRouter key and
   plan stays off sale until a paid flow works. Setup and operator steps: `docs/setup.md`, "NibieRouter key and credit";
   gaps: `docs/architecture.md` 9b.
 
+- **Admin dashboard, phase A (read-only), branch `claude/project-thread-tirdms`, NOT pushed.** Plan:
+  `hermes-cloud/plans/2026-11-15-admin-dashboard-nibie-cloud.md` (owner decisions of 2026-11-15: panel at
+  `/dashboard/admin` inside `apps/web`, MFA TOTP for every data-changing action, Indonesian UI, start with
+  phase A). Backend: `src/http/admin-routes.ts` + `src/modules/admin/audit-service.ts`, a third Fastify
+  plugin under `/api/v1/admin`, registered only when `SUPABASE_URL` is set. It verifies the same Supabase
+  tokens as the customer API, then requires the email to be in the new `ADMIN_EMAILS` config (empty =
+  nobody, fail closed); reads answer at `aal1`, mutations (phase B) will require `aal2`. Every route sends
+  `cache-control: no-store`, the surface is rate-limited, and each request is written to the new `AuditLog`
+  table (migration `20261115174608_add_audit_log`). Read routes: `me`, `overview`, `customers?q=`,
+  `customers/:tenantId`, `instances?status=`, `instances/:id` (+`events`), `subscriptions`, `payments`,
+  `plans`, `nodes`, `jobs/failed` (503 `queue_unavailable` without Redis), `audit`, `system`. Cursor
+  pagination; the admin module never imports `secrets/secret-store` and never selects ciphertext or
+  wrapped-key columns (test-enforced). Frontend: `apps/web/src/app/(app)/admin/*` (Ringkasan, Pelanggan
+  +detail, Instance +detail, Langganan & pembayaran, Plan, Node, Job gagal, Audit), Indonesian, behind an
+  `AdminGate` that asks `/admin/me` and shows "Tidak berwenang" for anyone else. The panel has **no mock
+  data**: in `mock`/`live` mode every page renders "Panel admin butuh backend". Verified 2026-11-16 in the
+  cloud sandbox: backend 26 integration + 32 unit admin tests pass (real Postgres on 5433, Redis on 6380);
+  `apps/web` typecheck and lint clean, 97 tests pass, `next build` green with 8 admin routes; Playwright T0
+  53 passed / 1 skipped, including 10 new admin specs (every admin route refuses to draw sample data, the
+  sidebar link is hidden for a non-admin, no serious a11y violations). **Not verified:** against a real
+  Supabase project or its JWKS, the real `ADMIN_EMAILS` on the VPS, Caddy for `/api/v1/admin/*`, any MFA
+  TOTP flow (phase B), any deployment. Waiting on the owner: **A6** (Caddy allowlist, `ADMIN_EMAILS` in
+  `/etc/hermes-cloud/backend.env`, migration, deploy) and **A7** (enable MFA TOTP in Supabase and enrol an
+  authenticator). The billing/duitku type errors and the 33 `BILLING_GATEWAY` config failures in the shared
+  working tree come from the SumoPod thread's uncommitted changes, not from this work.
+
 - **Landing page (`apps/landing`, merged in PR #21, live on `cloud.nibie.app` since 2026-11-14).** Public
   site for `cloud.nibie.app` (root), needed for the Duitku KYC review: home, `/harga`, `/kontak`, Syarat Layanan,
   Kebijakan Refund, Kebijakan Privasi and a 404, in Indonesian. Standalone package (own `package.json`, lockfile),

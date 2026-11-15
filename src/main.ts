@@ -1,4 +1,5 @@
 import Docker from 'dockerode';
+import 'dotenv/config';
 import { loadConfig } from './config/env.js';
 import { createPrisma } from './db/client.js';
 import { buildServer } from './http/server.js';
@@ -119,10 +120,10 @@ const billing = config.billing && config.dashboardOrigin
         if (config.billing.gateway === 'duitku') paymentClient = duitkuClient;
       }
       if (!allClients.length) return null;
-      if (!paymentClient) paymentClient = allClients[0];
+      if (!paymentClient) paymentClient = allClients[0]!;
       return new BillingService({
         prisma,
-        paymentClient,
+        paymentClient: paymentClient!,
         paymentClients: config.billing.gateway === 'both' && allClients.length > 1 ? allClients.filter((c) => c !== paymentClient) : undefined,
         duitkuAuth: config.billing.duitku ? { merchantCode: config.billing.duitku.merchantCode, apiKey: config.billing.duitku.apiKey } : null,
         sumopodAuth: config.billing.sumopod ? { webhookToken: config.billing.sumopod.webhookToken } : null,
