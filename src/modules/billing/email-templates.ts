@@ -34,7 +34,7 @@ function copyFor(kind: EmailKind, c: EmailContext): Copy {
   switch (kind) {
     case 'payment_received':
       return {
-        subject: 'Pembayaran diterima - NibieCloud', heading: 'Pembayaran diterima', tag: 'TAGIHAN',
+        subject: 'Pembayaran diterima - Nibie Cloud', heading: 'Pembayaran diterima', tag: 'TAGIHAN',
         paragraphs: [
           `Terima kasih. Pembayaran${c.amountIdr ? ` sebesar ${fmtIdr(c.amountIdr)}` : ''} untuk instance "${name}" sudah kami terima.`,
           `Instance Anda aktif sampai ${end}.`,
@@ -46,7 +46,7 @@ function copyFor(kind: EmailKind, c: EmailContext): Copy {
     case 'renewal_1d': {
       const days = kind === 'renewal_7d' ? 7 : kind === 'renewal_3d' ? 3 : 1;
       return {
-        subject: `Langganan berakhir ${days} hari lagi - NibieCloud`, heading: `Langganan berakhir ${days} hari lagi`, tag: 'TAGIHAN',
+        subject: `Langganan berakhir ${days} hari lagi - Nibie Cloud`, heading: `Langganan berakhir ${days} hari lagi`, tag: 'TAGIHAN',
         paragraphs: [
           `Langganan instance "${name}" berakhir pada ${end}.`,
           'Perpanjang sebelum tanggal itu supaya instance Anda tidak terganggu.',
@@ -56,7 +56,7 @@ function copyFor(kind: EmailKind, c: EmailContext): Copy {
     }
     case 'grace_started':
       return {
-        subject: 'Masa tenggang dimulai - NibieCloud', heading: 'Masa tenggang dimulai', tag: 'TAGIHAN',
+        subject: 'Masa tenggang dimulai - Nibie Cloud', heading: 'Masa tenggang dimulai', tag: 'TAGIHAN',
         paragraphs: [
           `Langganan instance "${name}" sudah berakhir. Instance tetap berjalan selama masa tenggang 3 hari, sampai ${fmtDate(c.graceEndsAt)}.`,
           'Setelah itu instance dihentikan. Perpanjang sekarang untuk menghindarinya.',
@@ -65,7 +65,7 @@ function copyFor(kind: EmailKind, c: EmailContext): Copy {
       };
     case 'suspension_warning':
       return {
-        subject: 'Instance akan dihentikan besok - NibieCloud', heading: 'Instance akan dihentikan besok', tag: 'TAGIHAN',
+        subject: 'Instance akan dihentikan besok - Nibie Cloud', heading: 'Instance akan dihentikan besok', tag: 'TAGIHAN',
         paragraphs: [
           `Masa tenggang instance "${name}" berakhir pada ${fmtDate(c.graceEndsAt)}. Setelah itu instance dihentikan.`,
           'Data Anda tetap disimpan 30 hari setelah penghentian.',
@@ -74,7 +74,7 @@ function copyFor(kind: EmailKind, c: EmailContext): Copy {
       };
     case 'suspended':
       return {
-        subject: 'Instance dihentikan - NibieCloud', heading: 'Instance dihentikan', tag: 'TAGIHAN',
+        subject: 'Instance dihentikan - Nibie Cloud', heading: 'Instance dihentikan', tag: 'TAGIHAN',
         paragraphs: [
           `Instance "${name}" dihentikan karena langganan belum diperpanjang. Data Anda tetap disimpan sampai ${fmtDate(c.retentionEndsAt)}.`,
           'Perpanjang sebelum tanggal itu untuk menjalankan instance kembali. Setelahnya instance dan datanya dihapus permanen.',
@@ -83,7 +83,7 @@ function copyFor(kind: EmailKind, c: EmailContext): Copy {
       };
     case 'deletion_warning':
       return {
-        subject: 'Data akan dihapus permanen - NibieCloud', heading: 'Data akan dihapus permanen', tag: 'TAGIHAN',
+        subject: 'Data akan dihapus permanen - Nibie Cloud', heading: 'Data akan dihapus permanen', tag: 'TAGIHAN',
         paragraphs: [
           `Instance "${name}" dan seluruh datanya akan dihapus permanen pada ${fmtDate(c.retentionEndsAt)}.`,
           'Perpanjang sebelum tanggal itu jika Anda ingin menyimpannya.',
@@ -92,14 +92,14 @@ function copyFor(kind: EmailKind, c: EmailContext): Copy {
       };
     case 'deleted':
       return {
-        subject: 'Instance dihapus - NibieCloud', heading: 'Instance dihapus', tag: 'TAGIHAN',
+        subject: 'Instance dihapus - Nibie Cloud', heading: 'Instance dihapus', tag: 'TAGIHAN',
         paragraphs: [`Masa penyimpanan data berakhir, sehingga instance "${name}" dan datanya sudah dihapus permanen.`],
         button: null,
       };
   }
 }
 
-/** Indonesian transactional email, same look as the NibieCloud auth emails. Every dynamic value is escaped. */
+/** Indonesian transactional email, same look as the Nibie Cloud auth emails. Every dynamic value is escaped. */
 export function renderEmail(kind: EmailKind, ctx: EmailContext): RenderedEmail {
   const c = copyFor(kind, ctx);
   const font = "font-family:'Segoe UI',Arial,Helvetica,sans-serif;";
@@ -113,14 +113,14 @@ export function renderEmail(kind: EmailKind, ctx: EmailContext): RenderedEmail {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;border-collapse:collapse;">
 <tr><td style="background:#0d0e12;border-radius:16px 16px 0 0;padding:20px 24px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-<td width="46" style="vertical-align:middle;"><img src="https://nibie.app/brand/nibie-mark.png" width="36" height="24" alt="" style="display:block;border:0;"></td><td style="vertical-align:middle;${font}color:#ffffff;font-size:16px;font-weight:700;">NibieCloud</td>
+<td width="46" style="vertical-align:middle;"><img src="https://nibie.app/brand/nibie-mark.png" width="36" height="24" alt="" style="display:block;border:0;"></td><td style="vertical-align:middle;${font}color:#ffffff;font-size:16px;font-weight:700;">Nibie Cloud</td>
 <td align="right" style="${font}color:#9ca3af;font-size:11px;font-weight:700;letter-spacing:1px;">${escapeHtml(c.tag)}</td>
 </tr></table></td></tr>
 <tr><td style="background:#ffffff;border-radius:0 0 16px 16px;padding:28px 24px;">
 <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;color:#111827;${font}">${escapeHtml(c.heading)}</h1>
 ${paras}
-${button}<p style="margin:0;font-size:12px;color:#6b7280;${font}">NibieCloud &middot; https://cloud.nibie.app</p>
+${button}<p style="margin:0;font-size:12px;color:#6b7280;${font}">Nibie Cloud &middot; https://cloud.nibie.app</p>
 </td></tr></table></div>`;
-  const text = [c.heading, '', ...c.paragraphs, ...(c.button ? ['', `${c.button}: ${ctx.dashboardUrl}`] : []), '', 'NibieCloud - https://cloud.nibie.app'].join('\n');
+  const text = [c.heading, '', ...c.paragraphs, ...(c.button ? ['', `${c.button}: ${ctx.dashboardUrl}`] : []), '', 'Nibie Cloud - https://cloud.nibie.app'].join('\n');
   return { subject: c.subject, text, html };
 }

@@ -5,7 +5,7 @@ import { SITE, contactEmail } from "@/lib/site"
 
 export const metadata: Metadata = {
   title: "Syarat Layanan",
-  description: "Syarat dan ketentuan penggunaan layanan hosting agent AI Hermes Cloud.",
+  description: "Syarat dan ketentuan penggunaan layanan hosting agent AI Nibie Cloud.",
   alternates: { canonical: "/syarat-layanan" },
 }
 

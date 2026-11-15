@@ -1,4 +1,4 @@
-# Hermes Cloud
+# Nibie Cloud
 
 Managed hosting for Hermes AI agents. The repository holds two packages:
 

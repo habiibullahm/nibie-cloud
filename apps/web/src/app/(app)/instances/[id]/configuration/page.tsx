@@ -122,7 +122,7 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
       <Card>
         <CardHeader>
           <CardTitle>AI provider</CardTitle>
-          <CardDescription>Hermes Cloud bills hosting only. AI usage is billed by the provider you choose.</CardDescription>
+          <CardDescription>Nibie Cloud bills hosting only. AI usage is billed by the provider you choose.</CardDescription>
           <CardAction>
             <PreviewNote what="Provider configuration" />
           </CardAction>
@@ -143,7 +143,7 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
               Works out of the box. Usage is attributed to your account and billed by NibieRouter.
             </ChoiceCard>
             <ChoiceCard id="kind-byok" value="byok" selected={kind === "byok"} title="Bring your own key">
-              Use your own provider account. Charges come from that provider, not Hermes Cloud.
+              Use your own provider account. Charges come from that provider, not Nibie Cloud.
             </ChoiceCard>
           </RadioGroup>
 
@@ -429,7 +429,7 @@ function RuntimeSection({ id }: { id: string }) {
     <Card>
       <CardHeader>
         <CardTitle>Runtime</CardTitle>
-        <CardDescription>Managed by Hermes Cloud. Limits come from your plan.</CardDescription>
+        <CardDescription>Managed by Nibie Cloud. Limits come from your plan.</CardDescription>
         <CardAction>
           <PreviewNote what="Runtime details" />
         </CardAction>

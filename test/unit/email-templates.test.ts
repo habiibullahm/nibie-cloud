@@ -18,9 +18,9 @@ describe('renderEmail', () => {
     expect(m.html).not.toContain('<script>');
     expect(m.html).toContain('&lt;script&gt;');
     expect(m.subject).not.toContain('Bot');
-    expect(m.subject).toMatch(/NibieCloud$/);
+    expect(m.subject).toMatch(/Nibie Cloud$/);
     expect(m.text.length).toBeGreaterThan(20);
-    expect(m.html).toContain('NibieCloud');
+    expect(m.html).toContain('Nibie Cloud');
   });
 
   it('formats dates in Jakarta time', () => {

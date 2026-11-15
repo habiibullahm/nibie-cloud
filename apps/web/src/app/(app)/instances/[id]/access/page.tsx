@@ -79,7 +79,7 @@ export default function AccessPage() {
         <CardContent className="flex items-start gap-3">
           <KeyRound className="mt-1 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <p className="text-muted-foreground">
-            The gateway API key is generated per instance and managed by Hermes Cloud. Provider keys and your Telegram
+            The gateway API key is generated per instance and managed by Nibie Cloud. Provider keys and your Telegram
             token are stored encrypted and redacted from logs.
           </p>
         </CardContent>

@@ -15,7 +15,7 @@ import type {
 } from "./types"
 
 /**
- * In-memory stand-in for the Hermes Cloud API. Lives in the browser for the lifetime of the
+ * In-memory stand-in for the Nibie Cloud API. Lives in the browser for the lifetime of the
  * page, simulates lifecycle transitions with timers, and enforces the same action guards as the
  * backend's InstanceService so the UI behaves the same against either.
  */
@@ -410,7 +410,7 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
         url: instance.accessUrl,
         instructions: [
           "Open the instance URL to reach the Hermes web interface.",
-          "Sign in with your Hermes Cloud account; the gateway API key is managed for you and never shown.",
+          "Sign in with your Nibie Cloud account; the gateway API key is managed for you and never shown.",
           "To chat from your phone, connect a Telegram bot under Configuration.",
         ],
       }

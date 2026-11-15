@@ -10,7 +10,7 @@ export function Brand({ href = "/instances" }: { href?: string }) {
       href={href}
       className="hit-area relative flex w-fit items-center rounded-sm text-foreground no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
-      <span className="type-label">Hermes Cloud</span>
+      <span className="type-label">Nibie Cloud</span>
     </Link>
   )
 }

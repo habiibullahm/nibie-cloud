@@ -1,6 +1,6 @@
 # @hermes-cloud/docs
 
-Customer documentation for Nibie Cloud (Hermes Cloud), served at `cloud.nibie.app/docs`.
+Customer documentation for Nibie Cloud, served at `cloud.nibie.app/docs`.
 Fumadocs (Next.js 16, Tailwind v4), content in Indonesian, themed from the root `DESIGN.md`.
 Standalone package like `apps/web`: its own `package.json` and lockfile, not a workspace member.
 

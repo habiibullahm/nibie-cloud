@@ -378,7 +378,7 @@ export class BillingService {
       const invoice = await this.d.duitku.createInvoice({
         merchantOrderId: payment.merchantOrderId,
         amountIdr: payment.amountIdr,
-        productDetails: `NibieCloud ${plan.name} (30 hari)`.slice(0, 255),
+        productDetails: `Nibie Cloud ${plan.name} (30 hari)`.slice(0, 255),
         email,
         returnUrl: `${this.d.dashboardOrigin}/dashboard/instances?payment=${payment.merchantOrderId}`,
         expiryMinutes: INVOICE_EXPIRY_MINUTES,

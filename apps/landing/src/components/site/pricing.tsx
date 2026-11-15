@@ -67,7 +67,7 @@ function PlanCard({ plan }: { plan: Plan }) {
         ))}
       </dl>
       <Button asChild variant="outline">
-        <a href={betaAccessHref(`Minta akses beta Hermes Cloud: paket ${plan.name}`)}>Pilih {plan.name}</a>
+        <a href={betaAccessHref(`Minta akses beta Nibie Cloud: paket ${plan.name}`)}>Pilih {plan.name}</a>
       </Button>
     </article>
   )

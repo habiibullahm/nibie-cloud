@@ -36,7 +36,7 @@ function sectionFor(pathname: string, base: string) {
 /** Instance pages are client-rendered, so the tab title is set here (antislop R-39: unique titles). */
 function useDocumentTitle(title: string | null) {
   useEffect(() => {
-    if (title) document.title = `${title} · Hermes Cloud`
+    if (title) document.title = `${title} · Nibie Cloud`
   }, [title])
 }
 

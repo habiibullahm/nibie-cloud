@@ -4,7 +4,7 @@ import { SITE, contactEmail } from "@/lib/site"
 
 export const metadata: Metadata = {
   title: "Kebijakan Privasi",
-  description: "Data pribadi apa yang dikumpulkan Hermes Cloud, untuk apa, dan bagaimana kami menjaganya.",
+  description: "Data pribadi apa yang dikumpulkan Nibie Cloud, untuk apa, dan bagaimana kami menjaganya.",
   alternates: { canonical: "/kebijakan-privasi" },
 }
 

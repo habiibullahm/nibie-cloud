@@ -12,7 +12,7 @@ const TOKEN_FORMAT = /^\d{5,15}:[A-Za-z0-9_-]{30,50}$/;
 const USER_ID_FORMAT = /^\d{1,15}$/;
 const MAX_ALLOWED_USERS = 20;
 const PURPOSE = 'telegram_bot_token';
-const TEST_MESSAGE = 'Hermes Cloud: Telegram connection test succeeded. You can ignore this message.';
+const TEST_MESSAGE = 'Nibie Cloud: Telegram connection test succeeded. You can ignore this message.';
 
 export type TelegramView =
   | { configured: false }

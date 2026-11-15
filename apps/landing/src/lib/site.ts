@@ -1,8 +1,8 @@
 /** Public facts about the site. Nothing secret: the repository is public. */
 
 export const SITE = {
-  /** Product name (Nash, 2026-11-14: the product stays "Hermes Cloud", published by Nibie). */
-  name: "Hermes Cloud",
+  /** Product name (Nash, 2026-11-15: renamed from "Hermes Cloud" to "Nibie Cloud"; Hermes is the agent the product hosts). */
+  name: "Nibie Cloud",
   operator: "nibie.app",
   url: "https://cloud.nibie.app",
   dashboardUrl: "/dashboard",
