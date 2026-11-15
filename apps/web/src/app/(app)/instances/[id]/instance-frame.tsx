@@ -7,13 +7,15 @@ import { ArrowLeft } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { BillingNotice } from "@/components/app/billing-notice"
 import { InstanceActions } from "@/components/app/instance-actions"
 import { PreviewNote } from "@/components/app/preview-note"
 import { StatusBadge } from "@/components/app/status-badge"
-import { useApiMode, useInstance, useInstanceMeta, usePlans } from "@/hooks/use-hermes"
+import { useApiMode, useInstance, useInstanceMeta, usePlans, useSubscriptions } from "@/hooks/use-hermes"
 import { ApiError } from "@/lib/api"
 import { cn } from "@/lib/utils"
-import { shortId } from "@/lib/format"
+import { formatPriceIdr, shortId } from "@/lib/format"
+import { subscriptionOfInstance } from "@/lib/billing"
 
 const SECTIONS = [
   { slug: "", label: "Overview" },
@@ -51,7 +53,10 @@ export function InstanceFrame({ children }: { children: React.ReactNode }) {
   const { data: instance, error, isLoading } = useInstance(id)
   const meta = useInstanceMeta(id)
   const plans = usePlans()
-  const plan = plans.data?.find((p) => p.id === meta.data?.planId)
+  const subs = useSubscriptions()
+  const subscription = subscriptionOfInstance(subs.data, id)
+  // Prefer the plan the customer is actually billed for; fall back to the preview metadata.
+  const plan = plans.data?.find((p) => p.id === (subscription?.planId ?? meta.data?.planId))
   const base = `/instances/${id}`
   const mock = useApiMode() === "mock"
   useDocumentTitle(instance ? `${sectionFor(pathname, base).label} · ${instance.name}` : null)
@@ -96,15 +101,22 @@ export function InstanceFrame({ children }: { children: React.ReactNode }) {
                 {mock ? <PreviewNote what="This instance and its events" reason="mock" /> : null}
               </div>
               <h1 className="type-h1 break-words">{instance.name}</h1>
+              {subscription && plan ? (
+                <p className="text-muted-foreground">
+                  {plan.name} · monthly{plan.monthlyPriceIdr !== null ? ` · ${formatPriceIdr(plan.monthlyPriceIdr)}` : ""}
+                </p>
+              ) : null}
             </>
           )}
         </div>
         {instance ? (
           <div className="flex flex-wrap items-center gap-2">
-            <InstanceActions instance={instance} />
+            <InstanceActions instance={instance} suspended={subscription?.status === "SUSPENDED"} />
           </div>
         ) : null}
       </header>
+
+      <BillingNotice instanceId={id} />
 
       <nav aria-label="Instance" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
         <ul className="flex min-w-max gap-1 border-b">

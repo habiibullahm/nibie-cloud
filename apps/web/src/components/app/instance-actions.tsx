@@ -31,7 +31,16 @@ import { allowedActions, runtimeReachable } from "@/lib/api/status"
 import { useInstanceAction } from "@/hooks/use-hermes"
 
 /** Restart, stop/start, open console, delete. Buttons that are not allowed are hidden, not faked. */
-export function InstanceActions({ instance, compact = false }: { instance: Instance; compact?: boolean }) {
+export function InstanceActions({
+  instance,
+  compact = false,
+  suspended = false,
+}: {
+  instance: Instance
+  compact?: boolean
+  /** Subscription suspended: the backend refuses start, so the button is hidden; renewing is the way back. */
+  suspended?: boolean
+}) {
   const allowed = allowedActions(instance.status)
   const action = useInstanceAction(instance.id)
   const [confirm, setConfirm] = useState<null | "stop" | "restart">(null)
@@ -48,7 +57,7 @@ export function InstanceActions({ instance, compact = false }: { instance: Insta
           </Link>
         </Button>
       ) : null}
-      {allowed.has("start") ? (
+      {allowed.has("start") && !suspended ? (
         <Button variant="default" disabled={busy} onClick={() => action.mutate("start")}>
           <Play aria-hidden="true" />
           Start

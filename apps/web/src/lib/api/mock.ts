@@ -1,6 +1,9 @@
-import { ApiError, type HermesApi, type InstancesApi, type PreviewApi } from "./client"
+import { ApiError, type BillingApi, type HermesApi, type InstancesApi, type PreviewApi } from "./client"
 import type {
   Backup,
+  BillingPayment,
+  BillingStatus,
+  BillingSubscription,
   FileEntry,
   Instance,
   InstanceEvent,
@@ -19,6 +22,9 @@ import type {
  * page, simulates lifecycle transitions with timers, and enforces the same action guards as the
  * backend's InstanceService so the UI behaves the same against either.
  */
+
+/** Stand-in for the Duitku invoice URL: mock mode has no payment page, the UI shows a notice instead. */
+export const MOCK_PAYMENT_URL = "mock://payment"
 
 export const MOCK_TENANT_ID = "00000000-0000-4000-8000-000000000001"
 
@@ -415,21 +421,6 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
         ],
       }
     },
-    async subscription(id) {
-      await wait()
-      const row = previewRow(id)
-      const start = new Date(row.instance.createdAt)
-      const end = new Date(start.getTime() + 30 * DAY)
-      return {
-        planId: row.meta.planId,
-        state: "active",
-        billingCycle: "monthly",
-        currentPeriodStart: start.toISOString(),
-        currentPeriodEnd: end.toISOString(),
-        graceEndsAt: null,
-        retentionEndsAt: null,
-      }
-    },
     async usage(id, range) {
       await wait()
       const row = previewRow(id)
@@ -630,7 +621,82 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
     },
   }
 
-  return { mode: "mock", instances, preview }
+  /**
+   * In-memory billing. Every sample instance gets a subscription so the Billing page has something to show:
+   * active ones are paid, the degraded sample is in grace, the stopped sample is suspended. There is no
+   * payment page in mock mode, so invoices carry MOCK_PAYMENT_URL and the UI says so.
+   */
+  const subs = new Map<string, BillingSubscription>()
+  function paymentFor(subscriptionId: string, purpose: BillingPayment["purpose"], amountIdr: number): BillingPayment {
+    return {
+      id: uuid(),
+      subscriptionId,
+      status: "PENDING",
+      purpose,
+      amountIdr,
+      paymentUrl: MOCK_PAYMENT_URL,
+      expiresAt: new Date(Date.now() + HOUR).toISOString(),
+      paidAt: null,
+    }
+  }
+  function billingFor(row: Row): BillingSubscription {
+    const existing = [...subs.values()].find((x) => x.instanceId === row.instance.id)
+    if (existing) return existing
+    const plan = PLANS.find((p) => p.id === row.meta.planId) ?? PLANS[0]!
+    const status: BillingStatus =
+      row.instance.status === "STOPPED" ? "SUSPENDED" : row.instance.status === "DEGRADED" ? "GRACE" : "ACTIVE"
+    const created = new Date(row.instance.createdAt).getTime()
+    const sub: BillingSubscription = {
+      id: uuid(),
+      planId: plan.id,
+      planName: plan.name,
+      instanceId: row.instance.id,
+      name: row.instance.name,
+      status,
+      currentPeriodEnd: new Date(status === "ACTIVE" ? created + 30 * DAY : Date.now() - 2 * DAY).toISOString(),
+      cancelAtPeriodEnd: false,
+      graceEndsAt: status === "GRACE" ? new Date(Date.now() + DAY).toISOString() : null,
+      retentionEndsAt: status === "SUSPENDED" ? new Date(Date.now() + 20 * DAY).toISOString() : null,
+      createdAt: row.instance.createdAt,
+      latestPayment: null,
+    }
+    subs.set(sub.id, sub)
+    return sub
+  }
+  const billing: BillingApi = {
+    async list() {
+      await wait()
+      for (const row of rows.values()) billingFor(row)
+      return [...subs.values()]
+    },
+    async checkout() {
+      await wait()
+      throw new ApiError(404, "plan_not_for_sale", "Plans have no price in preview mode, so there is nothing to buy.")
+    },
+    async renew(subscriptionId) {
+      await wait()
+      const sub = subs.get(subscriptionId)
+      if (!sub || sub.status === "ENDED" || sub.status === "PENDING_PAYMENT") {
+        throw new ApiError(409, "subscription_not_renewable", "This subscription cannot be renewed.")
+      }
+      const payment = paymentFor(sub.id, "RENEWAL", PLANS.find((p) => p.id === sub.planId)?.monthlyPriceIdr ?? 0)
+      const next = { ...sub, latestPayment: payment }
+      subs.set(sub.id, next)
+      return { subscription: next, payment }
+    },
+    async cancel(subscriptionId) {
+      await wait()
+      const sub = subs.get(subscriptionId)
+      if (!sub || sub.status === "ENDED" || sub.status === "PENDING_PAYMENT") {
+        throw new ApiError(409, "subscription_not_cancellable", "This subscription cannot be cancelled.")
+      }
+      const next = { ...sub, cancelAtPeriodEnd: true }
+      subs.set(sub.id, next)
+      return next
+    },
+  }
+
+  return { mode: "mock", instances, billing, preview }
 }
 
 /** A fixed tree rooted at the tenant volume. Paths are volume-relative by construction. */

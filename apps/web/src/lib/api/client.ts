@@ -2,6 +2,8 @@ import type {
   AccessInfo,
   Account,
   Backup,
+  BillingSubscription,
+  CheckoutResult,
   CreateInstanceInput,
   FileEntry,
   Instance,
@@ -14,7 +16,6 @@ import type {
   ProviderConfig,
   ProviderKind,
   Region,
-  Subscription,
   TelegramConfig,
   Usage,
 } from "./types"
@@ -43,6 +44,18 @@ export interface InstancesApi {
   remove(id: string): Promise<Instance>
 }
 
+/** Duitku billing (backend milestone D). Real in customer mode, in-memory sample data in mock mode. */
+export interface BillingApi {
+  /** Every subscription of the tenant, including purchases that are still waiting for payment. */
+  list(): Promise<BillingSubscription[]>
+  /** Starts a purchase; the instance is created by the backend only after the first verified payment. */
+  checkout(input: CreateInstanceInput, idempotencyKey: string): Promise<CheckoutResult>
+  /** A new (or still open) renewal invoice for an existing subscription. */
+  renew(subscriptionId: string): Promise<CheckoutResult>
+  /** Stops auto-renewal only; the paid period keeps running. */
+  cancel(subscriptionId: string): Promise<BillingSubscription>
+}
+
 /** PRD §15 endpoints with no backend yet. Always served by the mock. */
 export interface PreviewApi {
   me(): Promise<Account>
@@ -50,7 +63,6 @@ export interface PreviewApi {
   regions(): Promise<Region[]>
   meta(instanceId: string): Promise<InstanceMeta | null>
   access(instanceId: string): Promise<AccessInfo>
-  subscription(instanceId: string): Promise<Subscription>
   usage(instanceId: string, range: "1h" | "24h" | "7d"): Promise<Usage>
   logs(instanceId: string, filter: { level?: LogLevel | "all"; query?: string }): Promise<LogLine[]>
   provider(instanceId: string): Promise<ProviderConfig>
@@ -81,5 +93,6 @@ export type ApiMode = "mock" | "live" | "customer"
 export interface HermesApi {
   mode: ApiMode
   instances: InstancesApi
+  billing: BillingApi
   preview: PreviewApi
 }

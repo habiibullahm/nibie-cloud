@@ -1,5 +1,5 @@
 import { ApiError, type HermesApi } from "./client"
-import { buildInstancesApi, makeCall } from "./live"
+import { buildBillingApi, buildInstancesApi, makeCall } from "./live"
 import type { Account, Plan } from "./types"
 
 /** Shapes returned by the backend customer API (src/http/customer-routes.ts). */
@@ -42,8 +42,8 @@ export function toAccount(m: MeBody): Account {
 
 /**
  * Browser client for the backend customer API: every call carries the signed-in user's Supabase access
- * token, and the backend derives the tenant from it. Only the instance endpoints, /me and /plans exist
- * there, so those are real; everything else is taken from `preview` (mock data, labelled in the UI).
+ * token, and the backend derives the tenant from it. The instance endpoints, billing, /me and /plans are
+ * real; everything else is taken from `preview` (mock data, labelled in the UI).
  */
 export function createCustomerApi(opts: {
   baseUrl: string
@@ -58,7 +58,7 @@ export function createCustomerApi(opts: {
   const realPlans = async () => (await call<{ plans: PlanBody[] }>("/plans")).plans.map(toPlan)
 
   /**
-   * Preview rows (meta, subscription) are synthesized from the mock plans. Point them at the real plan
+   * Preview rows (meta) are synthesized from the mock plans. Point them at the real plan
    * with the same slug (or the first one), so the preview pages can still find their plan.
    */
   async function remapPlanId(planId: string): Promise<string> {
@@ -70,6 +70,7 @@ export function createCustomerApi(opts: {
   return {
     mode: "customer",
     instances: buildInstancesApi(call),
+    billing: buildBillingApi(call),
     preview: {
       ...opts.preview,
       me: async () => toAccount(await call<MeBody>("/me")),
@@ -77,10 +78,6 @@ export function createCustomerApi(opts: {
       meta: async (id) => {
         const m = await opts.preview.meta(id)
         return m && { ...m, planId: await remapPlanId(m.planId) }
-      },
-      subscription: async (id) => {
-        const s = await opts.preview.subscription(id)
-        return { ...s, planId: await remapPlanId(s.planId) }
       },
     },
   }

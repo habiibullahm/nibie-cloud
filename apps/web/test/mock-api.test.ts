@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError } from "@/lib/api/client"
-import { createMockApi, PLANS, STEP_MS } from "@/lib/api/mock"
+import { createMockApi, MOCK_PAYMENT_URL, PLANS, STEP_MS } from "@/lib/api/mock"
 
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => vi.useRealTimers())
@@ -105,5 +105,33 @@ describe("mock preview API", () => {
     const live = createMockApi({ empty: true, latencyMs: 0, synthesizeUnknown: true })
     const usage = await live.preview.usage("11111111-1111-4111-8111-111111111111", "1h")
     expect(usage.points).toHaveLength(60)
+  })
+})
+
+describe("mock billing", () => {
+  it("gives every sample instance a subscription: active, grace and suspended", async () => {
+    const api = createMockApi({ latencyMs: 0 })
+    const subs = await api.billing.list()
+    const instances = await api.instances.list()
+    expect(subs).toHaveLength(instances.length)
+    const statuses = new Set(subs.map((s) => s.status))
+    expect(statuses).toEqual(new Set(["ACTIVE", "GRACE", "SUSPENDED"]))
+    const suspended = subs.find((s) => s.status === "SUSPENDED")!
+    expect(suspended.retentionEndsAt).not.toBeNull()
+  })
+
+  it("renews with a mock payment URL and cancels renewal", async () => {
+    const api = createMockApi({ latencyMs: 0 })
+    const sub = (await api.billing.list()).find((s) => s.status === "ACTIVE")!
+    const renewed = await api.billing.renew(sub.id)
+    expect(renewed.payment.paymentUrl).toBe(MOCK_PAYMENT_URL)
+    const cancelled = await api.billing.cancel(sub.id)
+    expect(cancelled.cancelAtPeriodEnd).toBe(true)
+    expect((await api.billing.list()).find((s) => s.id === sub.id)!.cancelAtPeriodEnd).toBe(true)
+  })
+
+  it("refuses checkout because mock plans have no price", async () => {
+    const api = createMockApi({ latencyMs: 0 })
+    await expect(api.billing.checkout({ name: "a", planId: "x" }, "k")).rejects.toMatchObject({ code: "plan_not_for_sale" })
   })
 })

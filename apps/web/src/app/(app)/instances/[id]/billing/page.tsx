@@ -1,60 +1,98 @@
 "use client"
 
-import { CalendarClock } from "lucide-react"
+import { useState } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { ComingSoon } from "@/components/app/coming-soon"
 import { KeyValue } from "@/components/app/key-value"
 import { PreviewNote } from "@/components/app/preview-note"
 import { QueryFallback } from "@/components/app/query-fallback"
-import { usePlans, useSubscription } from "@/hooks/use-hermes"
-import type { SubscriptionState } from "@/lib/api/types"
+import { useApiMode, usePlans, useCancelRenewal, useRenew, useSubscriptions } from "@/hooks/use-hermes"
+import { billingNotice, billingStatusLabel, canCancelRenewal, canRenew, subscriptionOfInstance } from "@/lib/billing"
 import { formatCpu, formatDate, formatMb, formatPriceIdr } from "@/lib/format"
+import { startPayment } from "@/lib/pay"
 import { cn } from "@/lib/utils"
 import { useInstanceId } from "../instance-frame"
 
-const STATE: Record<SubscriptionState, string> = {
-  active: "Active",
-  cancel_scheduled: "Cancels at period end",
-  grace: "Payment overdue (grace period)",
-  suspended: "Suspended",
-  expired: "Expired",
-}
-
 export default function BillingPage() {
   const id = useInstanceId()
-  const sub = useSubscription(id)
+  const subs = useSubscriptions()
   const plans = usePlans()
-  if (!sub.data || !plans.data) return <QueryFallback what="your subscription" queries={[sub, plans]} className="h-64" />
-  const current = plans.data.find((p) => p.id === sub.data.planId)
+  const renew = useRenew()
+  const cancel = useCancelRenewal()
+  const mock = useApiMode() === "mock"
+  const [confirmCancel, setConfirmCancel] = useState(false)
+
+  if (!subs.data || !plans.data) return <QueryFallback what="your subscription" queries={[subs, plans]} className="h-64" />
+  const sub = subscriptionOfInstance(subs.data, id)
+  if (!sub) {
+    return (
+      <Alert>
+        <AlertTitle>No subscription found</AlertTitle>
+        <AlertDescription>
+          This instance has no billing record. If you deployed it before payments existed, it stays free during the beta.
+        </AlertDescription>
+      </Alert>
+    )
+  }
+  const current = plans.data.find((p) => p.id === sub.planId)
+  const late = billingNotice(sub) !== null
+  const payment = sub.latestPayment
+
+  const periodRow =
+    sub.status === "ACTIVE" && !sub.cancelAtPeriodEnd
+      ? { k: "Renews on", v: sub.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : "Not set" }
+      : sub.status === "ACTIVE"
+        ? { k: "Ends on", v: sub.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : "Not set" }
+        : { k: "Paid until", v: sub.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : "Not set" }
 
   return (
     <div className="grid gap-6">
-      <Alert>
-        <CalendarClock aria-hidden="true" />
-        <AlertTitle>Billing is not live yet</AlertTitle>
-        <AlertDescription>
-          Pricing is still being set, so renewals, upgrades and cancellation are shown but cannot be completed.
-        </AlertDescription>
-      </Alert>
-
       <Card>
         <CardHeader>
           <CardTitle>Subscription</CardTitle>
-          <CardDescription>Hosting only. AI usage is billed separately by your provider.</CardDescription>
-          <CardAction>
-            <PreviewNote what="Subscription" />
-          </CardAction>
+          <CardDescription>Hosting only. AI usage is billed separately by NibieRouter or your own provider.</CardDescription>
+          {mock ? <PreviewNote what="Subscription" /> : null}
         </CardHeader>
         <CardContent className="grid gap-6">
           <KeyValue
             items={[
-              { k: "Plan", v: current?.name ?? "Unknown plan" },
-              { k: "Status", v: STATE[sub.data.state] },
-              { k: "Billing cycle", v: "Monthly" },
-              { k: "Renews on", v: formatDate(sub.data.currentPeriodEnd) },
+              { k: "Plan", v: sub.planName },
+              { k: "Status", v: billingStatusLabel(sub.status, sub.cancelAtPeriodEnd) },
+              { k: "Billing cycle", v: "Monthly (30 days)" },
+              periodRow,
+              ...(sub.status === "GRACE" && sub.graceEndsAt ? [{ k: "Grace ends", v: formatDate(sub.graceEndsAt) }] : []),
+              ...(sub.status === "SUSPENDED" && sub.retentionEndsAt
+                ? [{ k: "Data deleted on", v: formatDate(sub.retentionEndsAt) }]
+                : []),
               { k: "Price", v: formatPriceIdr(current?.monthlyPriceIdr ?? null) },
+              ...(payment
+                ? [
+                    {
+                      k: "Latest payment",
+                      v: `${formatPriceIdr(payment.amountIdr)} · ${
+                        payment.status === "PAID" && payment.paidAt
+                          ? `paid ${formatDate(payment.paidAt)}`
+                          : payment.status === "PENDING"
+                            ? "waiting for payment"
+                            : payment.status === "FAILED"
+                              ? "failed"
+                              : "expired"
+                      }`,
+                    },
+                  ]
+                : []),
             ]}
           />
           <div className="grid gap-2 border-t pt-4 text-muted-foreground">
@@ -65,20 +103,43 @@ export default function BillingPage() {
             <p>Cancelling stops renewal; the instance stays active until the end of the paid period.</p>
           </div>
         </CardContent>
-        {/* TODO(billing): wire renew and cancel to the payment gateway (PRD §5.4). */}
         <CardFooter className="flex-wrap items-center gap-3 border-t">
-          <Button disabled>Renew now</Button>
-          <Button variant="ghost" disabled>
-            Cancel subscription
+          <Button
+            variant={late ? "outline" : "default"}
+            disabled={!canRenew(sub) || renew.isPending}
+            onClick={() => renew.mutate(sub.id, { onSuccess: (r) => startPayment(r.payment.paymentUrl) })}
+          >
+            {renew.isPending ? "Preparing payment…" : "Renew now"}
           </Button>
-          <ComingSoon />
+          <Button variant="ghost" disabled={!canCancelRenewal(sub) || cancel.isPending} onClick={() => setConfirmCancel(true)}>
+            Cancel renewal
+          </Button>
         </CardFooter>
       </Card>
 
+      <AlertDialog open={confirmCancel} onOpenChange={setConfirmCancel}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel renewal?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your instance keeps running until {sub.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : "the end of the paid period"}.
+              After that it is suspended and its data is deleted after 30 days. You can renew again at any time before then.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep renewing</AlertDialogCancel>
+            <AlertDialogAction onClick={() => cancel.mutate(sub.id)}>Cancel renewal</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <section className="grid gap-3" aria-labelledby="upgrade-title">
-        <h2 id="upgrade-title" className="type-label">
-          Change plan
-        </h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 id="upgrade-title" className="type-label">
+            Change plan
+          </h2>
+          <ComingSoon />
+        </div>
         <ul className="grid gap-4 md:grid-cols-3">
           {plans.data.map((p) => {
             const isCurrent = p.id === current?.id
@@ -92,7 +153,7 @@ export default function BillingPage() {
                   {formatCpu(p.cpuMillis)} · {formatMb(p.memoryMb)} · {formatMb(p.storageMb)}
                 </p>
                 <p className="text-muted-foreground">Price {formatPriceIdr(p.monthlyPriceIdr)}</p>
-                {/* TODO(billing): plan switching needs payment plus a capacity check (PRD §5.5). */}
+                {/* TODO(billing): plan switching needs payment plus a capacity check (PRD §5.5); the backend has no upgrade yet. */}
                 <Button variant="outline" disabled className="mt-auto">
                   {isCurrent ? "Current plan" : "Switch plan (coming soon)"}
                 </Button>

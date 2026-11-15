@@ -89,3 +89,80 @@ describe("customer API client", () => {
     expect(toPlan({ id: ID, slug: "s", name: "S", cpuMillis: 1, memoryMb: 2, storageMb: 3, pids: 4, monthlyPriceIdr: null }).pids).toBe(4)
   })
 })
+
+describe("customer billing client", () => {
+  const SUB = "7f3b1a52-0f0e-4d6a-9d5b-111111111111"
+  const subscription = {
+    id: SUB,
+    planId: ID,
+    planName: "Hosting",
+    instanceId: null,
+    name: "agent",
+    status: "PENDING_PAYMENT",
+    currentPeriodEnd: null,
+    cancelAtPeriodEnd: false,
+    graceEndsAt: null,
+    retentionEndsAt: null,
+    createdAt: "2026-11-15T00:00:00.000Z",
+    latestPayment: null,
+  }
+  const payment = {
+    id: "pay-1",
+    subscriptionId: SUB,
+    status: "PENDING",
+    purpose: "NEW",
+    amountIdr: 25000,
+    paymentUrl: "https://sandbox.duitku.test/pay/abc",
+    expiresAt: "2026-11-15T01:00:00.000Z",
+    paidAt: null,
+  }
+
+  it("lists subscriptions with the bearer token", async () => {
+    const { api, fetchMock } = setup("abc")
+    fetchMock.mockResolvedValue(json({ subscriptions: [subscription] }))
+    const out = await api.billing.list()
+    expect(out).toEqual([subscription])
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe("https://api.example.test/api/v1/subscriptions")
+    expect((init!.headers as Record<string, string>).authorization).toBe("Bearer abc")
+  })
+
+  it("starts a checkout with the idempotency key and only name and planId in the body", async () => {
+    const { api, fetchMock } = setup()
+    fetchMock.mockResolvedValue(json({ subscription, payment }, 201))
+    const out = await api.billing.checkout({ name: "agent", planId: ID }, "key-9")
+    expect(out.payment.paymentUrl).toBe("https://sandbox.duitku.test/pay/abc")
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe("https://api.example.test/api/v1/subscriptions/checkout")
+    expect(init!.method).toBe("POST")
+    expect((init!.headers as Record<string, string>)["idempotency-key"]).toBe("key-9")
+    expect(JSON.parse(init!.body as string)).toEqual({ name: "agent", planId: ID })
+  })
+
+  it("renews and cancels through the subscription paths", async () => {
+    const { api, fetchMock } = setup()
+    fetchMock.mockResolvedValueOnce(json({ subscription, payment }, 201))
+    await api.billing.renew(SUB)
+    expect(fetchMock.mock.calls[0]![0]).toBe(`https://api.example.test/api/v1/subscriptions/${SUB}/renew`)
+    expect(fetchMock.mock.calls[0]![1]!.method).toBe("POST")
+
+    fetchMock.mockResolvedValueOnce(json({ subscription: { ...subscription, cancelAtPeriodEnd: true } }))
+    const cancelled = await api.billing.cancel(SUB)
+    expect(fetchMock.mock.calls[1]![0]).toBe(`https://api.example.test/api/v1/subscriptions/${SUB}/cancel`)
+    expect(cancelled.cancelAtPeriodEnd).toBe(true)
+  })
+
+  it("surfaces billing error codes such as plan_not_for_sale", async () => {
+    const { api, fetchMock } = setup()
+    fetchMock.mockResolvedValue(json({ error: { code: "plan_not_for_sale", message: "This plan is not for sale" } }, 409))
+    const err = await api.billing.checkout({ name: "a", planId: ID }, "k").catch((e) => e)
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err).toMatchObject({ status: 409, code: "plan_not_for_sale" })
+  })
+
+  it("sends nothing when nobody is signed in", async () => {
+    const { api, fetchMock } = setup(null)
+    await expect(api.billing.list()).rejects.toMatchObject({ status: 401, code: "unauthorized" })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})

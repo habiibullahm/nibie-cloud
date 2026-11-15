@@ -1,5 +1,5 @@
-import { ApiError, type InstancesApi } from "./client"
-import type { Instance, InstanceEvent, InstanceStatusView } from "./types"
+import { ApiError, type BillingApi, type InstancesApi } from "./client"
+import type { BillingSubscription, CheckoutResult, Instance, InstanceEvent, InstanceStatusView } from "./types"
 
 const BASE = (process.env.NEXT_PUBLIC_BASE_PATH ?? "") + "/api/hermes"
 
@@ -54,4 +54,28 @@ export function buildInstancesApi(call: Call): InstancesApi {
       (await call<{ instance: Instance }>(`/instances/${id(i)}/restart`, { method: "POST" })).instance,
     remove: async (i) => (await call<{ instance: Instance }>(`/instances/${id(i)}`, { method: "DELETE" })).instance,
   }
+}
+
+/** The customer billing endpoints (backend milestone D); they exist only on the customer API. */
+export function buildBillingApi(call: Call): BillingApi {
+  const id = (s: string) => encodeURIComponent(s)
+  return {
+    list: async () => (await call<{ subscriptions: BillingSubscription[] }>("/subscriptions")).subscriptions,
+    checkout: (input, idempotencyKey) =>
+      call<CheckoutResult>("/subscriptions/checkout", {
+        method: "POST",
+        headers: { "content-type": "application/json", "idempotency-key": idempotencyKey },
+        body: JSON.stringify({ name: input.name, planId: input.planId }),
+      }),
+    renew: (subscriptionId) => call<CheckoutResult>(`/subscriptions/${id(subscriptionId)}/renew`, { method: "POST" }),
+    cancel: async (subscriptionId) =>
+      (await call<{ subscription: BillingSubscription }>(`/subscriptions/${id(subscriptionId)}/cancel`, { method: "POST" }))
+        .subscription,
+  }
+}
+
+/** Live (operator bridge) mode has no billing: no subscriptions, and purchases are refused. */
+export function createUnavailableBillingApi(): BillingApi {
+  const refuse = () => Promise.reject(new ApiError(404, "billing_unavailable", "Billing is not available in this mode."))
+  return { list: async () => [], checkout: refuse, renew: refuse, cancel: refuse }
 }

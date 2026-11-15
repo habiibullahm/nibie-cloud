@@ -1,7 +1,7 @@
 import { ApiError, type ApiMode, type HermesApi } from "./client"
 import { createCustomerApi } from "./customer"
 import { authConfigured, getSupabase } from "@/lib/auth/supabase"
-import { createLiveInstancesApi } from "./live"
+import { createLiveInstancesApi, createUnavailableBillingApi } from "./live"
 import { createMockApi } from "./mock"
 
 export * from "./client"
@@ -35,7 +35,12 @@ export function getApi(): HermesApi {
     })
   } else if (mode === "live") {
     const mock = createMockApi({ empty: true, synthesizeUnknown: true })
-    singleton = { mode: "live", instances: createLiveInstancesApi(), preview: mock.preview }
+    singleton = {
+      mode: "live",
+      instances: createLiveInstancesApi(),
+      billing: createUnavailableBillingApi(),
+      preview: mock.preview,
+    }
   } else {
     const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null
     const mock = createMockApi({ empty: params?.has("empty") ?? false })
