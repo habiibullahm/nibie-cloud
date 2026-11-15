@@ -362,3 +362,26 @@ model RouterProvisioning {
   createdAt      DateTime                 @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime                 @updatedAt @db.Timestamptz(3)
 }
+
+/// Append-only record of what an admin did (PRD 14). `detail` is a short JSON summary, never a secret:
+/// the admin API must not store tokens, keys or request bodies. Reads are the only way to answer
+/// "who changed this and why".
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  /// Supabase email of the admin who acted. Taken from the verified token, never from the request.
+  actorEmail String
+  /// Route and method, e.g. `POST /instances/:id/restart`.
+  action     String
+  /// What the action was aimed at (`instance`, `plan`, `subscription`); null for reads and system actions.
+  targetType String?
+  targetId   String?  @db.Uuid
+  /// Free-text justification, required for every mutating action.
+  reason     String?
+  /// Small JSON object with the outcome (statuses, counts). Never a credential.
+  detail     Json?
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([createdAt])
+  @@index([actorEmail, createdAt])
+  @@index([targetId, createdAt])
+}

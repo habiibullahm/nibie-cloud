@@ -225,6 +225,32 @@ describe('loadConfig: customer API settings', () => {
   });
 });
 
+describe('loadConfig: admin dashboard settings', () => {
+  it('has no admin when ADMIN_EMAILS is unset or empty (fail closed)', () => {
+    expect(loadConfig(base).adminEmails).toEqual([]);
+    expect(loadConfig({ ...base, ADMIN_EMAILS: '' }).adminEmails).toEqual([]);
+    expect(loadConfig({ ...base, ADMIN_EMAILS: ' , ' }).adminEmails).toEqual([]);
+  });
+
+  it('parses ADMIN_EMAILS lowercased and trimmed', () => {
+    expect(loadConfig({ ...base, ADMIN_EMAILS: ' Boss@Nibie.App , ops@nibie.app ' }).adminEmails).toEqual([
+      'boss@nibie.app',
+      'ops@nibie.app',
+    ]);
+  });
+
+  it('rejects a malformed ADMIN_EMAILS entry without echoing the value', () => {
+    let message = '';
+    try {
+      loadConfig({ ...base, ADMIN_EMAILS: 'not-an-email' });
+    } catch (e) {
+      message = (e as Error).message;
+    }
+    expect(message).toContain('ADMIN_EMAILS');
+    expect(message).not.toContain('not-an-email');
+  });
+});
+
 describe('loadConfig: Redis', () => {
   it('leaves Redis unset by default', () => {
     expect(loadConfig(base).redisUrl).toBeNull();
@@ -344,6 +370,7 @@ describe('loadConfig: outbound mail (SumoPod SMTP)', () => {
 
 describe('Duitku billing configuration', () => {
   const duitku = {
+    BILLING_GATEWAY: 'duitku',
     DUITKU_MERCHANT_CODE: 'DS00000',
     DUITKU_API_KEY: 'duitku-api-key-value',
     DUITKU_CALLBACK_URL: 'https://api.example.test/api/v1/billing/duitku/callback',
@@ -362,10 +389,14 @@ describe('Duitku billing configuration', () => {
 
   it('parses a complete block and defaults the environment to sandbox', () => {
     expect(loadConfig({ ...base, ...duitku }).billing).toEqual({
-      merchantCode: 'DS00000',
-      apiKey: 'duitku-api-key-value',
-      env: 'sandbox',
-      callbackUrl: 'https://api.example.test/api/v1/billing/duitku/callback',
+      gateway: 'duitku',
+      duitku: {
+        merchantCode: 'DS00000',
+        apiKey: 'duitku-api-key-value',
+        env: 'sandbox',
+        callbackUrl: 'https://api.example.test/api/v1/billing/duitku/callback',
+      },
+      sumopod: null,
     });
   });
 

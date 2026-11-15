@@ -1,9 +1,11 @@
 import Docker from 'dockerode';
+import 'dotenv/config';
 import { loadConfig } from './config/env.js';
 import { createPrisma } from './db/client.js';
 import { buildServer } from './http/server.js';
 import { IdentityService } from './modules/auth/identity-service.js';
 import { createTokenVerifier } from './modules/auth/token-verifier.js';
+import { AuditService } from './modules/admin/audit-service.js';
 import { InstanceService } from './modules/instances/instance-service.js';
 import { DiskMonitor } from './modules/instances/disk-monitor.js';
 import { InstanceCommands } from './modules/instances/instance-commands.js';
@@ -23,6 +25,8 @@ import { createInstanceWorker } from './modules/jobs/worker.js';
 import { BillingService } from './modules/billing/billing-service.js';
 import { BillingTick } from './modules/billing/billing-tick.js';
 import { createDuitkuClient } from './modules/billing/duitku-client.js';
+import { createSumoPodClient } from './modules/billing/sumopod-client.js';
+import type { PaymentClient } from './modules/billing/payment-client.js';
 import { createMailer } from './modules/billing/mailer.js';
 import { Reconciler } from './modules/instances/reconciler.js';
 import { DockerRuntimeManager } from './modules/runtime/docker-runtime-manager.js';
@@ -99,16 +103,46 @@ const router = config.router && integrations
   : null;
 if (config.router && !integrations) logger.warn('NibieRouter is configured but SECRETS_KEK is not: instance keys cannot be stored, provisioning is off');
 logger.info({ router: router !== null }, 'nibierouter');
+// Billing exists only when at least one gateway is configured; otherwise checkout and callbacks are 404.
 const billing = config.billing && config.dashboardOrigin
-  ? new BillingService({
-      prisma, duitku: createDuitkuClient(config.billing), billing: config.billing, commands, mailer,
-      dashboardOrigin: config.dashboardOrigin, maxInstancesPerTenant: config.maxInstancesPerTenant, logger,
-      ...(router ? { router } : {}),
-    })
+  ? (() => {
+      const duitkuClient = config.billing.duitku ? createDuitkuClient(config.billing.duitku) : null;
+      const sumopodClient = config.billing.sumopod ? createSumoPodClient(config.billing.sumopod) : null;
+      // Primary client: the one matching `gateway`, or SumoPod by default, or the only configured one.
+      let paymentClient: PaymentClient | null = null;
+      const allClients: PaymentClient[] = [];
+      if (sumopodClient) {
+        allClients.push(sumopodClient);
+        if (config.billing.gateway === 'sumopod' || config.billing.gateway === 'both') paymentClient = sumopodClient;
+      }
+      if (duitkuClient) {
+        allClients.push(duitkuClient);
+        if (config.billing.gateway === 'duitku') paymentClient = duitkuClient;
+      }
+      if (!allClients.length) return null;
+      if (!paymentClient) paymentClient = allClients[0]!;
+      return new BillingService({
+        prisma,
+        paymentClient: paymentClient!,
+        paymentClients: config.billing.gateway === 'both' && allClients.length > 1 ? allClients.filter((c) => c !== paymentClient) : undefined,
+        duitkuAuth: config.billing.duitku ? { merchantCode: config.billing.duitku.merchantCode, apiKey: config.billing.duitku.apiKey } : null,
+        sumopodAuth: config.billing.sumopod ? { webhookToken: config.billing.sumopod.webhookToken } : null,
+        gateway: config.billing.gateway,
+        commands, mailer,
+        dashboardOrigin: config.dashboardOrigin!, maxInstancesPerTenant: config.maxInstancesPerTenant, logger,
+        ...(router ? { router } : {}),
+      });
+    })()
   : null;
 const billingTick = billing ? new BillingTick({ prisma, billing, commands, mailer, logger, ...(router ? { router } : {}) }) : null;
-logger.info({ billing: billing !== null, billingEnv: config.billing?.env ?? null, mail: mailer.enabled }, 'billing');
-const app = buildServer({ service, commands, queue, config, logger, integrations, logs: logService, billing, ...(customer ? { customer } : {}) });
+logger.info({ billing: billing !== null, billingGateway: config.billing?.gateway ?? null, mail: mailer.enabled }, 'billing');
+// The admin API exists only when a Supabase project is configured: it authenticates the same tokens
+// the customer API does. An empty ADMIN_EMAILS opens it to nobody (fail closed).
+const admin = customer
+  ? { verify: customer.verify, prisma, audit: new AuditService({ prisma }), queue }
+  : undefined;
+logger.info({ adminApi: admin !== undefined, adminEmails: config.adminEmails.length }, 'admin API');
+const app = buildServer({ service, commands, queue, config, logger, integrations, logs: logService, billing, ...(customer ? { customer } : {}), ...(admin ? { admin } : {}) });
 
 let stopReconciler: () => void | Promise<void> = () => undefined;
 let stopWorker: (() => Promise<void>) | undefined;

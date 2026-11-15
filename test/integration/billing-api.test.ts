@@ -17,7 +17,7 @@ let auth: Awaited<ReturnType<typeof createTestAuth>>;
 let env: ReturnType<typeof makeBilling>;
 let planId: string;
 
-const billingCfg = { merchantCode: MERCHANT, apiKey: API_KEY, env: 'sandbox' as const, callbackUrl: `https://api.example.test${CALLBACK}` };
+const billingCfg = { gateway: 'duitku' as const, duitku: { merchantCode: MERCHANT, apiKey: API_KEY, env: 'sandbox' as const, callbackUrl: `https://api.example.test${CALLBACK}` }, sumopod: null };
 
 function app(opts: { billingOn?: boolean } = {}) {
   const on = opts.billingOn ?? true;

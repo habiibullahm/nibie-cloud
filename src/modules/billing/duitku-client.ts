@@ -1,10 +1,14 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
-import type { Config } from '../../config/env.js';
 import { OutboundBlockedError, OutboundFailedError, PaymentProviderRejectedError, PaymentProviderUnavailableError, ValidationError } from '../../shared/errors.js';
 import { safeFetch, type SafeFetchOptions, type SafeFetchResult } from '../net/safe-fetch.js';
 
-export type DuitkuConfig = NonNullable<Config['billing']>;
+export interface DuitkuConfig {
+  merchantCode: string;
+  apiKey: string;
+  env: 'sandbox' | 'production';
+  callbackUrl: string;
+}
 
 /** Duitku rejects anything below this (error text in the POP docs). */
 export const DUITKU_MIN_AMOUNT_IDR = 10_000;

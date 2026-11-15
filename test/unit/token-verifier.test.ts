@@ -18,11 +18,14 @@ beforeAll(async () => {
   verify = createTokenVerifier({ supabaseUrl: SUPABASE_URL, keys: createLocalJWKSet({ keys: [publicJwk] }) });
 });
 
-interface Overrides { sub?: string; email?: string | null; iss?: string; aud?: string; exp?: string | number; kid?: string }
+interface Overrides { sub?: string; email?: string | null; iss?: string; aud?: string; exp?: string | number; kid?: string; aal?: string | null; amr?: { method: string; timestamp: number }[] }
 
 async function sign(o: Overrides = {}): Promise<string> {
   const claims: Record<string, unknown> = { role: 'authenticated' };
   if (o.email !== null) claims.email = o.email ?? 'user@example.test';
+  // Supabase adds `aal`/`amr` only once MFA exists on the account; a token without `aal` is aal1.
+  if (o.aal !== null) claims.aal = o.aal ?? 'aal1';
+  if (o.amr) claims.amr = o.amr;
   return new SignJWT(claims)
     .setProtectedHeader({ alg: 'ES256', kid: o.kid ?? 'k1' })
     .setSubject(o.sub ?? randomUUID())
@@ -37,7 +40,19 @@ describe('createTokenVerifier', () => {
   it('accepts a valid token and returns the user id and email', async () => {
     const sub = randomUUID();
     const claims = await verify(await sign({ sub, email: 'a@example.test' }));
-    expect(claims).toEqual({ userId: sub, email: 'a@example.test' });
+    expect(claims).toEqual({ userId: sub, email: 'a@example.test', aal: 'aal1' });
+  });
+
+  it('reads the aal claim, and treats a token without one as aal1 (Supabase adds it only with MFA)', async () => {
+    expect((await verify(await sign({ aal: 'aal2' }))).aal).toBe('aal2');
+    expect((await verify(await sign({ aal: 'aal1' }))).aal).toBe('aal1');
+    expect((await verify(await sign({ aal: null }))).aal).toBe('aal1');
+  });
+
+  it('never trusts an aal value it does not recognise: anything but aal2 reads as aal1', async () => {
+    for (const aal of ['aal3', 'AAL2', 'aal2 ', '', 'true', '2']) {
+      expect((await verify(await sign({ aal }))).aal, aal).toBe('aal1');
+    }
   });
 
   it.each([

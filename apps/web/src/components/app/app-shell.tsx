@@ -3,12 +3,13 @@
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
-import { Boxes, LifeBuoy, LogOut, Menu, Rocket, UserRound } from "lucide-react"
+import { Boxes, LifeBuoy, LogOut, Menu, Rocket, ShieldCheck, UserRound } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { getSupabase } from "@/lib/auth/supabase"
 import { cn } from "@/lib/utils"
 import { useApiMode, useMe } from "@/hooks/use-hermes"
+import { useAdminMe } from "@/hooks/use-admin"
 import { Brand } from "./brand"
 
 const NAV = [
@@ -16,6 +17,25 @@ const NAV = [
   { href: "/deploy", label: "Deploy", icon: Rocket, match: (p: string) => p.startsWith("/deploy") },
   { href: "/account", label: "Account", icon: UserRound, match: (p: string) => p.startsWith("/account") },
 ]
+
+/**
+ * Admin link, shown only when the backend says this account is an admin. Hiding it is convenience,
+ * not protection: every `/api/v1/admin/*` call is refused server-side for anyone else.
+ */
+function AdminLink({ onNavigate }: { onNavigate?: () => void }) {
+  const admin = useAdminMe()
+  if (!admin.data?.admin) return null
+  return (
+    <Link
+      href="/admin"
+      onClick={onNavigate}
+      className="flex items-center gap-3 rounded-sm border-l-2 border-transparent px-3 py-2 text-muted-foreground pointer-coarse:py-3 no-underline transition-colors outline-none hover:bg-card hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+    >
+      <ShieldCheck className="size-4 shrink-0" aria-hidden="true" />
+      Admin
+    </Link>
+  )
+}
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
@@ -39,6 +59,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
           </Link>
         )
       })}
+      <AdminLink onNavigate={onNavigate} />
     </nav>
   )
 }

@@ -10,8 +10,10 @@ import type { Integrations } from '../modules/integrations/types.js';
 import { isDatabaseUnavailable } from '../db/errors.js';
 import type { BillingService } from '../modules/billing/billing-service.js';
 import { registerDuitkuCallback } from './duitku-callback.js';
+import { registerSumoPodWebhook } from './sumopod-callback.js';
 import { registerCustomerRoutes, type CustomerDeps } from './customer-routes.js';
 import { registerOperatorRoutes } from './operator-routes.js';
+import { registerAdminRoutes, type AdminDeps } from './admin-routes.js';
 import { AppError, NotFoundError } from '../shared/errors.js';
 import type { Logger } from '../shared/logger.js';
 
@@ -28,6 +30,8 @@ export function buildServer(deps: {
   config: Config;
   logger: Logger;
   customer?: CustomerDeps;
+  /** Admin dashboard API (Supabase token on `ADMIN_EMAILS`). Absent: the admin routes do not exist (404). */
+  admin?: AdminDeps;
   /** Provider and Telegram services. Null or absent: those routes answer 503 `secrets_unavailable`. */
   integrations?: Integrations | null;
   /** Redacted container logs for the customer API. Absent: the logs route answers 404. */
@@ -79,7 +83,11 @@ export function buildServer(deps: {
   registerOperatorRoutes(app, { service, commands, queue: deps.queue ?? null, config, integrations });
   const billing = deps.billing ?? null;
   if (customer) registerCustomerRoutes(app, { customer, service, commands, config, integrations, logs: deps.logs ?? null, billing });
-  if (billing) registerDuitkuCallback(app, { billing, logger });
+  if (deps.admin) registerAdminRoutes(app, { admin: deps.admin, config });
+  if (billing) {
+    registerDuitkuCallback(app, { billing, logger });
+    registerSumoPodWebhook(app, { billing, logger });
+  }
 
   app.setNotFoundHandler(async () => {
     throw new NotFoundError('Route not found');

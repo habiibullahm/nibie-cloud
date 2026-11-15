@@ -1,9 +1,14 @@
 import type { PrismaClient } from '@prisma/client';
-import type { AuthClaims } from './token-verifier.js';
 
 export interface Principal {
   userId: string;
   tenantId: string;
+  email: string;
+}
+
+/** Identity resolution needs only who the user is, not how strongly they authenticated. */
+export interface IdentityClaims {
+  userId: string;
   email: string;
 }
 
@@ -18,7 +23,7 @@ export class IdentityService {
     this.prisma = deps.prisma;
   }
 
-  async resolve(claims: AuthClaims): Promise<Principal> {
+  async resolve(claims: IdentityClaims): Promise<Principal> {
     const existing = await this.find(claims);
     if (existing) return existing;
     try {
@@ -37,7 +42,7 @@ export class IdentityService {
     return created;
   }
 
-  private async find(claims: AuthClaims): Promise<Principal | null> {
+  private async find(claims: IdentityClaims): Promise<Principal | null> {
     const member = await this.prisma.tenantMember.findUnique({
       where: { userId: claims.userId },
       include: { user: true },

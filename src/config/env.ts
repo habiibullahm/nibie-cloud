@@ -85,6 +85,17 @@ const schema = z.object({
   DASHBOARD_ORIGIN: dashboardOrigin,
   /** Comma-separated emails allowed to create instances until payments exist. Empty: nobody. */
   BETA_ALLOWED_EMAILS: z.string().optional(),
+  /**
+   * Comma-separated emails allowed into the admin dashboard (`/api/v1/admin/*`). Empty: nobody
+   * (fail closed). Every entry must look like an address, so a typo cannot silently widen the list.
+   */
+  ADMIN_EMAILS: z.preprocess(
+    emptyToUndefined,
+    z.string().refine(
+      (v) => v.split(',').map((s) => s.trim()).filter((s) => s.length > 0).every((s) => mailAddress.safeParse(s).success),
+      'must be comma-separated email addresses',
+    ).optional(),
+  ),
   /** `redis://[:password@]host:port`. Unset runs operations inline (no queue); required in production. */
   REDIS_URL: redisUrl,
   /** Key-encryption key for stored secrets: base64 of 32 bytes. Never stored in the database. */
@@ -115,6 +126,22 @@ const schema = z.object({
       }
     }).optional(),
   ),
+  /** SumoPod Managed Payment (QRIS). All of API key, webhook token and callback URL, or none. */
+  SUMOPOD_API_KEY: optionalText,
+  SUMOPOD_WEBHOOK_TOKEN: optionalText,
+  SUMOPOD_ENV: z.preprocess(emptyToUndefined, z.enum(['sandbox', 'production']).default('sandbox')),
+  SUMOPOD_CALLBACK_URL: z.preprocess(
+    emptyToUndefined,
+    z.string().max(255).refine((v) => {
+      try {
+        return new URL(v).protocol === 'https:';
+      } catch {
+        return false;
+      }
+    }).optional(),
+  ),
+  /** Select active billing gateway. 'sumopod', 'duitku', or 'both' (both activate concurrently). */
+  BILLING_GATEWAY: z.preprocess(emptyToUndefined, z.enum(['sumopod', 'duitku', 'both']).default('sumopod')),
   /** NibieRouter provisioning (a SumoRouter instance). Admin key and default model together, or none (credit and key provisioning off). */
   NIBIEROUTER_ADMIN_KEY: optionalText,
   NIBIEROUTER_DEFAULT_MODEL: optionalText,
@@ -181,6 +208,31 @@ const schema = z.object({
   if (e.DUITKU_ENV === 'production' && e.NODE_ENV !== 'production') {
     ctx.addIssue({ code: 'custom', path: ['DUITKU_ENV'], message: 'production requires NODE_ENV=production' });
   }
+  // A half-filled SumoPod block.
+  const sumopodKeys = ['SUMOPOD_API_KEY', 'SUMOPOD_WEBHOOK_TOKEN', 'SUMOPOD_CALLBACK_URL'] as const;
+  if (sumopodKeys.some((k) => e[k] !== undefined)) {
+    for (const k of sumopodKeys) {
+      if (e[k] === undefined) ctx.addIssue({ code: 'custom', path: [k], message: 'required when any SumoPod variable is set' });
+    }
+  }
+  if (e.SUMOPOD_ENV === 'production' && e.NODE_ENV !== 'production') {
+    ctx.addIssue({ code: 'custom', path: ['SUMOPOD_ENV'], message: 'production requires NODE_ENV=production' });
+  }
+  // BILLING_GATEWAY consistency: only validate when at least one gateway is partially configured.
+  const duitkuFull = e.DUITKU_MERCHANT_CODE !== undefined;
+  const sumopodFull = e.SUMOPOD_API_KEY !== undefined;
+  const anyBillingKey = duitkuFull || sumopodFull || e.SUMOPOD_WEBHOOK_TOKEN !== undefined;
+  if (anyBillingKey) {
+    if (e.BILLING_GATEWAY === 'duitku' && !duitkuFull) {
+      ctx.addIssue({ code: 'custom', path: ['BILLING_GATEWAY'], message: 'set to duitku but Duitku variables are not configured' });
+    }
+    if (e.BILLING_GATEWAY === 'sumopod' && !sumopodFull) {
+      ctx.addIssue({ code: 'custom', path: ['BILLING_GATEWAY'], message: 'set to sumopod but SumoPod variables are not configured' });
+    }
+    if (e.BILLING_GATEWAY === 'both' && (!duitkuFull || !sumopodFull)) {
+      ctx.addIssue({ code: 'custom', path: ['BILLING_GATEWAY'], message: 'set to both but not all Duitku and SumoPod variables are configured' });
+    }
+  }
   // The startup canary needs an image pinned by digest, like every other image. Under runsc the
   // same image also seeds the tenant resolv.conf volume (see dns-resolv-conf.ts), so it is required
   // there too, even if egress enforcement is off.
@@ -222,6 +274,8 @@ export interface Config {
   dashboardOrigin: string | null;
   /** Lowercased, trimmed. Empty means nobody may provision (fail closed). */
   betaAllowedEmails: string[];
+  /** Lowercased, trimmed. Empty means nobody may use the admin API (fail closed). */
+  adminEmails: string[];
   maxInstancesPerTenant: number;
   /** Null: no job queue, operations run inline in the request. */
   redisUrl: string | null;
@@ -229,8 +283,15 @@ export interface Config {
   secrets: { current: Kek; previous: Kek | null } | null;
   /** Null: outbound email is not configured. `pass` is a secret: never log it. */
   mail: { host: string; port: number; user: string; pass: string; from: string } | null;
-  /** Null: billing is off (checkout and the Duitku callback answer 404). `apiKey` is a secret: never log it. */
-  billing: { merchantCode: string; apiKey: string; env: 'sandbox' | 'production'; callbackUrl: string } | null;
+  /** Null: billing is off (checkout and callbacks answer 404). */
+    billing: {
+      /** Active gateway(s): 'sumopod', 'duitku', or 'both'. */
+      gateway: 'sumopod' | 'duitku' | 'both';
+      /** Duitku config, or null when not configured. `apiKey` is a secret: never log it. */
+      duitku: { merchantCode: string; apiKey: string; env: 'sandbox' | 'production'; callbackUrl: string } | null;
+      /** SumoPod config, or null when not configured. `apiKey` and `webhookToken` are secrets: never log them. */
+      sumopod: { apiKey: string; webhookToken: string; env: 'sandbox' | 'production'; callbackUrl: string } | null;
+    } | null;
   /** Null: NibieRouter key and credit provisioning is off. `adminKey` is a secret: never log it. */
   router: { apiUrl: string; adminKey: string; defaultModel: string; emailDomain: string } | null;
 }
@@ -264,6 +325,10 @@ export function loadConfig(env: NodeJS.ProcessEnv | Record<string, string | unde
       .split(',')
       .map((s) => s.trim().toLowerCase())
       .filter((s) => s.length > 0),
+    adminEmails: (e.ADMIN_EMAILS ?? '')
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter((s) => s.length > 0),
     maxInstancesPerTenant: e.MAX_INSTANCES_PER_TENANT,
     redisUrl: e.REDIS_URL ?? null,
     secrets: e.SECRETS_KEK
@@ -279,9 +344,17 @@ export function loadConfig(env: NodeJS.ProcessEnv | Record<string, string | unde
         ? { host: e.SUMOPOD_SMTP_HOST, port: e.SUMOPOD_SMTP_PORT, user: e.SUMOPOD_SMTP_USER, pass: e.SUMOPOD_SMTP_PASS, from: e.MAIL_FROM }
         : null,
     billing:
-      e.DUITKU_MERCHANT_CODE && e.DUITKU_API_KEY && e.DUITKU_CALLBACK_URL
-        ? { merchantCode: e.DUITKU_MERCHANT_CODE, apiKey: e.DUITKU_API_KEY, env: e.DUITKU_ENV, callbackUrl: e.DUITKU_CALLBACK_URL }
-        : null,
+          e.DUITKU_MERCHANT_CODE || e.SUMOPOD_API_KEY
+            ? {
+                gateway: e.BILLING_GATEWAY,
+                duitku: e.DUITKU_MERCHANT_CODE && e.DUITKU_API_KEY && e.DUITKU_CALLBACK_URL
+                  ? { merchantCode: e.DUITKU_MERCHANT_CODE, apiKey: e.DUITKU_API_KEY, env: e.DUITKU_ENV, callbackUrl: e.DUITKU_CALLBACK_URL }
+                  : null,
+                sumopod: e.SUMOPOD_API_KEY && e.SUMOPOD_WEBHOOK_TOKEN && e.SUMOPOD_CALLBACK_URL
+                  ? { apiKey: e.SUMOPOD_API_KEY, webhookToken: e.SUMOPOD_WEBHOOK_TOKEN, env: e.SUMOPOD_ENV, callbackUrl: e.SUMOPOD_CALLBACK_URL }
+                  : null,
+              }
+            : null,
     router:
       e.NIBIEROUTER_ADMIN_KEY && e.NIBIEROUTER_DEFAULT_MODEL
         ? { apiUrl: e.NIBIEROUTER_API_URL, adminKey: e.NIBIEROUTER_ADMIN_KEY, defaultModel: e.NIBIEROUTER_DEFAULT_MODEL, emailDomain: e.NIBIEROUTER_USER_EMAIL_DOMAIN }

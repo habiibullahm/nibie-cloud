@@ -10,8 +10,10 @@ import { DUITKU_MIN_AMOUNT_IDR, verifyCallbackSignature, type DuitkuClient, type
 import { renderEmail, type EmailKind } from './email-templates.js';
 import { periodAfterPayment } from './lifecycle.js';
 import type { Mailer } from './mailer.js';
+import type { PaymentClient } from './payment-client.js';
+import type { SumoPodConfig } from './sumopod-client.js';
 
-/** How long a Duitku invoice stays payable. QRIS allows 60 minutes at most. */
+/** How long an invoice stays payable. QRIS allows 60 minutes at most. */
 export const INVOICE_EXPIRY_MINUTES = 60;
 
 export class PlanNotForSaleError extends AppError {
@@ -49,9 +51,16 @@ export interface SubscriptionView {
 
 export interface BillingDeps {
   prisma: PrismaClient;
-  duitku: DuitkuClient;
-  /** Only `merchantCode` and `apiKey` are used here (signature check). */
-  billing: Pick<DuitkuConfig, 'merchantCode' | 'apiKey'>;
+  /** Default payment client for creating invoices (SumoPod, Duitku, or the first of 'both'). */
+  paymentClient: PaymentClient;
+  /** All payment clients for 'both' mode — creates invoices on all clients in parallel. */
+  paymentClients?: PaymentClient[];
+  /** Duitku config for signature verification, or null. */
+  duitkuAuth?: Pick<DuitkuConfig, 'merchantCode' | 'apiKey'> | null;
+  /** SumoPod config for webhook token verification, or null. */
+  sumopodAuth?: { webhookToken: string } | null;
+  /** Active gateway selector. */
+  gateway: 'sumopod' | 'duitku' | 'both';
   commands: InstanceCommands;
   mailer: Mailer;
   dashboardOrigin: string;
@@ -223,11 +232,12 @@ export class BillingService {
    * `postActions` (provisioning, restart, receipt email) run after the response, so a slow instance
    * start can never make Duitku retry; a crash before they finish is repaired by the billing tick.
    */
-  async handleCallback(form: CallbackForm): Promise<CallbackResult> {
+  async handleDuitkuCallback(form: CallbackForm): Promise<CallbackResult> {
+    if (!this.d.duitkuAuth) return { accepted: false };
     const { merchantCode, amount, merchantOrderId, resultCode, signature } = form;
     if (!merchantCode || !amount || !merchantOrderId || !resultCode || !signature) return { accepted: false };
-    if (merchantCode !== this.d.billing.merchantCode) return { accepted: false };
-    if (!verifyCallbackSignature(this.d.billing, { amount, merchantOrderId, signature })) return { accepted: false };
+    if (merchantCode !== this.d.duitkuAuth.merchantCode) return { accepted: false };
+    if (!verifyCallbackSignature(this.d.duitkuAuth, { amount, merchantOrderId, signature })) return { accepted: false };
     const amountIdr = parseAmount(amount);
     if (amountIdr === null || merchantOrderId.length > 50 || resultCode.length > 10) return { accepted: false };
     const reference = (form.reference ?? '').slice(0, 100);
@@ -244,6 +254,43 @@ export class BillingService {
     }
     const activation = result.activation;
     return { accepted: true, outcome: result.outcome, postActions: activation ? () => this.afterActivation(activation) : none };
+  }
+
+  // ---- SumoPod webhook ---------------------------------------------------------------------
+
+  /**
+   * Authenticates a SumoPod webhook by the `X-Webhook-Token` header, then applies it.
+   * Payload fields: `order_id` (our merchantOrderId), `payment_id`, `amount`, `status`.
+   */
+  async handleSumoPodWebhook(webhookToken: string, body: Record<string, unknown>): Promise<CallbackResult> {
+    if (!this.d.sumopodAuth || webhookToken !== this.d.sumopodAuth.webhookToken) return { accepted: false };
+    const { order_id, payment_id, amount: rawAmount, status } = body;
+    if (typeof order_id !== 'string' || typeof status !== 'string') return { accepted: false };
+    const amountIdr = typeof rawAmount === 'number' ? rawAmount : (typeof rawAmount === 'string' ? parseAmount(rawAmount) : null);
+    if (amountIdr === null || order_id.length > 128) return { accepted: false };
+    const reference = (typeof payment_id === 'string' ? payment_id : '').slice(0, 100);
+    const resultCode = status;
+
+    let result: { outcome: CallbackOutcome; activation?: Activation };
+    try {
+      result = await this.d.prisma.$transaction(async (tx) => this.applyInTransaction(tx, { merchantOrderId: order_id, reference, resultCode, amountIdr }));
+    } catch (e) {
+      if ((e as { code?: string }).code === 'P2002') return { accepted: true, outcome: 'duplicate', postActions: none };
+      throw e;
+    }
+    if (result.outcome === 'paid_after_end') {
+      this.d.logger.error({ merchantOrderId: order_id }, 'payment received for an ended subscription: operator must refund or reinstate');
+    }
+    const activation = result.activation;
+    return { accepted: true, outcome: result.outcome, postActions: activation ? () => this.afterActivation(activation) : none };
+  }
+
+  /**
+   * Legacy single-callback entry point for Duitku. Routes to handleDuitkuCallback.
+   * @deprecated Use handleDuitkuCallback or handleSumoPodWebhook directly.
+   */
+  async handleCallback(form: CallbackForm): Promise<CallbackResult> {
+    return this.handleDuitkuCallback(form);
   }
 
   private async applyInTransaction(
@@ -378,18 +425,34 @@ export class BillingService {
     return { subscriptionId, merchantOrderId: newOrderId(), amountIdr, purpose, expiresAt: new Date(now.getTime() + INVOICE_EXPIRY_MINUTES * 60_000) };
   }
 
-  /** Calls Duitku outside any transaction. A failure marks the row FAILED so a retry makes a fresh invoice. */
+  /** Calls the active payment client outside any transaction. A failure marks the row FAILED so a retry makes a fresh invoice. */
   private async issueInvoice(payment: Payment, plan: Plan, email: string): Promise<Payment> {
+    const productDetails = `Nibie Cloud ${plan.name} (30 hari)`.slice(0, 255);
+    const returnUrl = `${this.d.dashboardOrigin}/dashboard/instances?payment=${payment.merchantOrderId}`;
     try {
-      const invoice = await this.d.duitku.createInvoice({
+      const invoice = await this.d.paymentClient.createInvoice({
         merchantOrderId: payment.merchantOrderId,
         amountIdr: payment.amountIdr,
-        productDetails: `Nibie Cloud ${plan.name} (30 hari)`.slice(0, 255),
+        productDetails,
         email,
-        returnUrl: `${this.d.dashboardOrigin}/dashboard/instances?payment=${payment.merchantOrderId}`,
+        returnUrl,
         expiryMinutes: INVOICE_EXPIRY_MINUTES,
       });
-      return await this.d.prisma.payment.update({ where: { id: payment.id }, data: { reference: invoice.reference, paymentUrl: invoice.paymentUrl } });
+      await this.d.prisma.payment.update({ where: { id: payment.id }, data: { reference: invoice.reference, paymentUrl: invoice.paymentUrl } });
+      // In 'both' mode, also issue invoices from secondary gateways (best-effort, non-blocking).
+      if (this.d.gateway === 'both' && this.d.paymentClients) {
+        for (const client of this.d.paymentClients) {
+          client.createInvoice({
+            merchantOrderId: payment.merchantOrderId,
+            amountIdr: payment.amountIdr,
+            productDetails,
+            email,
+            returnUrl,
+            expiryMinutes: INVOICE_EXPIRY_MINUTES,
+          }).catch(() => { /* secondary gateway failure is non-fatal */ });
+        }
+      }
+      return payment;
     } catch (e) {
       await this.d.prisma.payment.updateMany({ where: { id: payment.id, status: 'PENDING', paymentUrl: null }, data: { status: 'FAILED' } });
       throw e;
