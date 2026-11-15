@@ -73,6 +73,8 @@ export interface Plan {
   customDomain: boolean | null
   /** null until pricing is approved. */
   monthlyPriceIdr: number | null
+  /** One-time AI credit (US$) that comes with the first payment; null when the plan has none. */
+  includedCreditUsd: number | null
 }
 
 export interface Region {
@@ -89,23 +91,6 @@ export interface InstanceMeta {
   regionId: string
   runtime: "runc" | "runsc"
   image: string
-}
-
-export type SubscriptionState =
-  | "active"
-  | "cancel_scheduled"
-  | "grace"
-  | "suspended"
-  | "expired"
-
-export interface Subscription {
-  planId: string
-  state: SubscriptionState
-  billingCycle: "monthly"
-  currentPeriodStart: string
-  currentPeriodEnd: string
-  graceEndsAt: string | null
-  retentionEndsAt: string | null
 }
 
 export interface UsagePoint {
@@ -180,4 +165,43 @@ export interface AccessInfo {
 export interface Account {
   name: string
   email: string
+}
+
+// ── Billing (backend milestone D: src/modules/billing, src/http/billing-routes.ts) ────────────────────
+
+export type BillingStatus = "PENDING_PAYMENT" | "ACTIVE" | "GRACE" | "SUSPENDED" | "ENDED"
+export type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "EXPIRED"
+export type PaymentPurpose = "NEW" | "RENEWAL"
+
+/** Mirrors PaymentView. `paymentUrl` is only set while the Duitku invoice can still be paid. */
+export interface BillingPayment {
+  id: string
+  subscriptionId: string
+  status: PaymentStatus
+  purpose: PaymentPurpose
+  amountIdr: number
+  paymentUrl: string | null
+  expiresAt: string
+  paidAt: string | null
+}
+
+/** Mirrors SubscriptionView. `instanceId` is null until the first payment is verified. */
+export interface BillingSubscription {
+  id: string
+  planId: string
+  planName: string
+  instanceId: string | null
+  name: string
+  status: BillingStatus
+  currentPeriodEnd: string | null
+  cancelAtPeriodEnd: boolean
+  graceEndsAt: string | null
+  retentionEndsAt: string | null
+  createdAt: string
+  latestPayment: BillingPayment | null
+}
+
+export interface CheckoutResult {
+  subscription: BillingSubscription
+  payment: BillingPayment
 }

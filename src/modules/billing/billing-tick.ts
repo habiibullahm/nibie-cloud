@@ -6,6 +6,7 @@ import { recordEvent } from '../instances/instance-repo.js';
 import type { BillingService } from './billing-service.js';
 import { dueNotice, nextTransition, type NoticeKind } from './lifecycle.js';
 import type { Mailer } from './mailer.js';
+import type { RouterProvisioner } from '../nibierouter/router-provisioner.js';
 
 const DAY_MS = 86_400_000;
 /** A purchase nobody paid for within this long is closed, which also frees the tenant's instance cap. */
@@ -20,6 +21,7 @@ export interface TickSummary {
   ended: number;
   repaired: number;
   emails: number;
+  routerProvisioned: number;
 }
 
 export interface BillingTickDeps {
@@ -28,6 +30,8 @@ export interface BillingTickDeps {
   commands: InstanceCommands;
   mailer: Mailer;
   logger: Logger;
+  /** Retries NibieRouter provisioning (key and credit) that has not reached DONE yet. */
+  router?: Pick<RouterProvisioner, 'runPending'>;
   now?: () => Date;
   /** `run()` does nothing when called again sooner than this (the scheduler ticks every 15 s). Default 5 minutes. */
   minIntervalMs?: number;
@@ -61,7 +65,7 @@ export class BillingTick {
   }
 
   async runOnce(): Promise<TickSummary> {
-    const sum: TickSummary = { expiredPayments: 0, abandoned: 0, graced: 0, suspended: 0, ended: 0, repaired: 0, emails: 0 };
+    const sum: TickSummary = { expiredPayments: 0, abandoned: 0, graced: 0, suspended: 0, ended: 0, repaired: 0, emails: 0, routerProvisioned: 0 };
     const now = this.now();
     const { prisma } = this.d;
 
@@ -97,6 +101,12 @@ export class BillingTick {
     for (const sub of ended) {
       if (!sub.instance) continue;
       await this.tryInstance(() => this.d.commands.delete(sub.tenantId, sub.instance!.id), sub.id, 'delete');
+    }
+    // Router provisioning that failed once (router down, key pending) keeps being retried until it is done.
+    try {
+      sum.routerProvisioned = (await this.d.router?.runPending()) ?? 0;
+    } catch (e) {
+      this.d.logger.error({ errName: (e as Error).name }, 'router provisioning retry failed');
     }
     return sum;
   }

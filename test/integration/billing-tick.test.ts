@@ -228,4 +228,18 @@ describe('BillingTick', () => {
     expect(await t.run()).not.toBeNull();
     expect(await t.run()).toBeNull();
   });
+
+  it('retries router provisioning on every tick and survives a router that throws', async () => {
+    let calls = 0;
+    let boom = false;
+    const t = new BillingTick({
+      prisma, billing: env.billing, commands: env.commands, mailer: env.mailer, logger: env.logger, now: () => env.clock.now,
+      router: { runPending: async () => { calls += 1; if (boom) throw new Error('router down'); return 2; } },
+    });
+    expect((await t.runOnce()).routerProvisioned).toBe(2);
+    boom = true;
+    const sum = await t.runOnce();
+    expect(sum.routerProvisioned).toBe(0);
+    expect(calls).toBe(2);
+  });
 });

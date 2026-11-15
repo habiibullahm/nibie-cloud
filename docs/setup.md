@@ -60,6 +60,8 @@ DATABASE_URL=postgresql://hermes:hermes_dev_only@127.0.0.1:5433/hermes_test pnpm
 | `SECRETS_KEK_VERSION` | Positive integer, default `1`. The version number stored beside every secret sealed with `SECRETS_KEK` |
 | `SUMOPOD_SMTP_HOST`, `SUMOPOD_SMTP_PORT`, `SUMOPOD_SMTP_USER`, `SUMOPOD_SMTP_PASS`, `MAIL_FROM` | All five or none. SumoPod SMTP for the billing emails (port 465 uses implicit TLS, any other port STARTTLS). Unset: the backend sends no email; billing still works and the notice is retried once mail is configured |
 | `DUITKU_MERCHANT_CODE`, `DUITKU_API_KEY`, `DUITKU_CALLBACK_URL` | All three or none (billing off: checkout, the billing routes and the callback answer 404). Needs `DASHBOARD_ORIGIN` too (the invoice's return URL). Host environment only, never the repository. See [Billing](#billing-duitku-pop) |
+| `NIBIEROUTER_ADMIN_KEY`, `NIBIEROUTER_DEFAULT_MODEL` | Both or neither. Turns on the NibieRouter user, per-instance key and one-time credit for paid instances (needs `SECRETS_KEK`). Host environment only. See [NibieRouter](#nibierouter-key-and-credit) |
+| `NIBIEROUTER_API_URL`, `NIBIEROUTER_USER_EMAIL_DOMAIN` | Optional. Router origin (https, default `https://router.nibie.app`) and the domain of the synthetic per-tenant router user address (default `cloud.nibie.app`) |
 | `DUITKU_ENV` | `sandbox` (default) or `production`. `production` is refused unless `NODE_ENV=production` |
 | `SECRETS_KEK_PREVIOUS`, `SECRETS_KEK_PREVIOUS_VERSION` | Only during a KEK rotation: the old key and its version (both required together, and the version must differ from the current one) |
 
@@ -275,3 +277,35 @@ verified. Point `HERMES_IMAGE` at `nousresearch/hermes-agent@sha256:276d44685c65
 [architecture.md](architecture.md#image-contract). To re-run the harness against the real image on
 a Docker host: `pnpm tsx test/validation/runtime-manager-live.ts` (the runsc checks need a daemon
 with gVisor installed).
+
+## NibieRouter key and credit
+
+Milestone E. After the first verified payment creates an instance, the control plane (a) creates one NibieRouter user
+per tenant (synthetic address `t-<tenantId>@<NIBIEROUTER_USER_EMAIL_DOMAIN>`, random password that is not kept, the
+customer never signs in there), (b) creates one API key per instance and attaches it as the instance's
+`NIBIEROUTER` provider (encrypted, then the instance is restarted so it picks it up), and (c) for a plan with
+`Plan.includedCreditNano` grants that credit once. Failures never touch the payment: the row in `RouterProvisioning`
+stays `PENDING` with a short code (`router_unreachable`, `router_rejected`, `router_unexpected`, `orphan_key`) and the
+billing tick retries every 5 minutes, up to 24 attempts.
+
+- **Turn it on:** put `NIBIEROUTER_ADMIN_KEY` and `NIBIEROUTER_DEFAULT_MODEL` in the backend environment on the host
+  (the admin key is created in the NibieRouter admin dashboard, restricted to the VPS address, kept in the password
+  manager). Without them nothing changes. `SECRETS_KEK` must be set too.
+- **Check the real router first** (the admin "create key for a user" call is not described in the SumoRouter docs, so
+  the client's request shape is a guess until this passes): on the VPS,
+  `NIBIEROUTER_ADMIN_KEY=... pnpm tsx test/validation/nibierouter-live.ts` creates one throwaway user and tries
+  create key, list keys, a US$0.01 credit and the balance history. It prints only OK/FAILED and field names.
+- **Plan prices and credit** are set by hand (SQL), never by a migration, for example the two beta plans:
+  `UPDATE hermes."Plan" SET "monthlyPriceIdr" = 25000 WHERE slug = '<hosting slug>';` and
+  `UPDATE hermes."Plan" SET "monthlyPriceIdr" = 50000, "includedCreditNano" = 2000000000 WHERE slug = '<hosting+credit slug>';`
+  (US$1 = 1_000_000_000 nano; `GET /plans` shows it as `includedCreditUsd`). Put the credit plan on sale only after the
+  live check above passed.
+- **Stuck row:** `SELECT * FROM hermes."RouterProvisioning" WHERE status = 'PENDING';`. `orphan_key` means a key named
+  `inst-<instanceId>` exists at the router but no secret is stored here (the router shows a secret once): revoke that key
+  in the NibieRouter dashboard and the next tick creates a new one.
+- **Credit is exactly once:** `CreditGrant` (unique per subscription) is the guard because the router has no
+  idempotency; after an ambiguous failure the retry looks for the note `nibie-cloud credit <subscriptionId>` in the
+  user's balance history before posting again. If that history cannot be read it stays `PENDING` instead of risking a
+  second grant.
+- **Not covered yet:** instances created through the beta path (no payment) get no router key; usage is not shown in the
+  dashboard; a customer who already has their own provider keeps it (the credit is still granted to their router user).

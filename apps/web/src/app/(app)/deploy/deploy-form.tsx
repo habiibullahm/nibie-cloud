@@ -13,9 +13,10 @@ import { QueryFallback } from "@/components/app/query-fallback"
 import { KeyValue } from "@/components/app/key-value"
 import { PageHeader, SectionTitle } from "@/components/app/page-header"
 import { PreviewNote } from "@/components/app/preview-note"
-import { errorMessage, useCreateInstance, usePlans, useRegions } from "@/hooks/use-hermes"
+import { errorMessage, useCheckout, useCreateInstance, usePlans, useRegions } from "@/hooks/use-hermes"
 import { cn } from "@/lib/utils"
 import { formatCpu, formatMb, formatPriceIdr } from "@/lib/format"
+import { startPayment } from "@/lib/pay"
 import { validateInstanceName } from "./validate-name"
 
 export function DeployForm() {
@@ -23,6 +24,7 @@ export function DeployForm() {
   const plans = usePlans()
   const regions = useRegions()
   const create = useCreateInstance()
+  const checkout = useCheckout()
   // One key per form session: a double submit or retry cannot provision twice (PRD §15.8).
   const [idempotencyKey] = useState(() => crypto.randomUUID())
 
@@ -38,11 +40,22 @@ export function DeployForm() {
   // Default to the smallest plan: no tier is promoted, and upgrading later is always possible.
   const plan = plans.data?.find((p) => p.id === (planId || plans.data?.[0]?.id))
   const nameError = validateInstanceName(name)
+  const priced = plan !== undefined && plan.monthlyPriceIdr !== null
+  const busy = create.isPending || checkout.isPending
+  const failure = create.error ?? checkout.error
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     setTouched(true)
     if (nameError || !plan || !region) return
+    if (priced) {
+      // A paid plan: the backend creates the instance only after Duitku confirms the first payment.
+      checkout.mutate(
+        { input: { name: name.trim(), planId: plan.id }, idempotencyKey },
+        { onSuccess: (r) => startPayment(r.payment.paymentUrl) }
+      )
+      return
+    }
     create.mutate(
       { input: { name: name.trim(), planId: plan.id }, idempotencyKey },
       { onSuccess: (instance) => router.push(`/instances/${instance.id}`) }
@@ -141,6 +154,11 @@ export function DeployForm() {
                     <span className="border-t pt-2 text-muted-foreground">
                       Price <span className="text-foreground">{formatPriceIdr(p.monthlyPriceIdr)}</span>
                     </span>
+                    {p.includedCreditUsd !== null ? (
+                      <span className="text-muted-foreground">
+                        AI credit <span className="text-foreground">US${p.includedCreditUsd} one-time</span>, in NibieRouter
+                      </span>
+                    ) : null}
                   </OptionCard>
                 ))}
               </RadioGroup>
@@ -196,24 +214,29 @@ export function DeployForm() {
               { k: "Network", v: "Dedicated container, platform egress policy" },
               { k: "Billing", v: cycle === "monthly" ? "Monthly" : cycle },
               ...(plan ? [{ k: "Price", v: formatPriceIdr(plan.monthlyPriceIdr) }] : []),
+              ...(plan && plan.includedCreditUsd !== null
+                ? [{ k: "AI credit", v: `US$${plan.includedCreditUsd}, one-time, with the first payment` }]
+                : []),
             ]}
           />
           <Alert>
             <Info aria-hidden="true" />
-            <AlertTitle>Checkout is not available yet</AlertTitle>
+            <AlertTitle>{priced ? "Pay with Duitku" : "No payment for this plan"}</AlertTitle>
             <AlertDescription>
-              Pricing is still being set. In this preview, deploying skips payment and starts provisioning directly.
+              {priced
+                ? "You pay by virtual account or QRIS on the Duitku page. Your instance is created after the payment is confirmed, usually within a minute."
+                : "This plan has no price yet, so deploying skips payment and starts provisioning directly."}
             </AlertDescription>
           </Alert>
-          {create.error ? (
+          {failure ? (
             <Alert variant="destructive" role="alert">
-              <AlertTitle>Deployment failed</AlertTitle>
-              <AlertDescription>{errorMessage(create.error)}</AlertDescription>
+              <AlertTitle>{priced ? "Could not start the payment" : "Deployment failed"}</AlertTitle>
+              <AlertDescription>{errorMessage(failure)}</AlertDescription>
             </Alert>
           ) : null}
-          <Button type="submit" disabled={create.isPending || !plan || !region} className="w-full">
+          <Button type="submit" disabled={busy || !plan || !region} className="w-full">
             <Rocket aria-hidden="true" />
-            {create.isPending ? "Deploying…" : "Deploy instance"}
+            {busy ? (priced ? "Preparing payment…" : "Deploying…") : priced ? `Pay ${formatPriceIdr(plan?.monthlyPriceIdr ?? null)} and deploy` : "Deploy instance"}
           </Button>
         </aside>
       </div>

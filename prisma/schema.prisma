@@ -29,6 +29,9 @@ model Tenant {
   members       TenantMember[]
   secrets       Secret[]
   subscriptions Subscription[]
+  /// NibieRouter user for this tenant (created lazily by the NibieRouter provisioner); the customer never signs in there.
+  routerUserId  String?
+  creditGrants  CreditGrant[]
 }
 
 /// Customer identity. `id` is the Supabase Auth user id (the token's `sub`); it is not generated here.
@@ -60,17 +63,19 @@ model TenantMember {
 /// Resource limits, plus an optional monthly price. `monthlyPriceIdr` null means the plan is not for sale
 /// (PRD 5.2: pricing is not approved); prices are set by an explicit operator step, never by a migration.
 model Plan {
-  id              String         @id @default(uuid()) @db.Uuid
-  slug            String         @unique
-  name            String
-  active          Boolean        @default(true)
-  cpuMillis       Int
-  memoryMb        Int
-  pids            Int
-  storageMb       Int
-  monthlyPriceIdr Int?
-  instances       Instance[]
-  subscriptions   Subscription[]
+  id                 String         @id @default(uuid()) @db.Uuid
+  slug               String         @unique
+  name               String
+  active             Boolean        @default(true)
+  cpuMillis          Int
+  memoryMb           Int
+  pids               Int
+  storageMb          Int
+  monthlyPriceIdr    Int?
+  /// One-time NibieRouter credit granted with the first payment, in nano-USD (US$1 = 1_000_000_000). Null: none.
+  includedCreditNano BigInt?
+  instances          Instance[]
+  subscriptions      Subscription[]
 }
 
 model RuntimeNode {
@@ -313,4 +318,47 @@ model BillingNotice {
   subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
 
   @@unique([subscriptionId, kind, periodEnd])
+}
+
+enum CreditGrantStatus {
+  PENDING
+  DONE
+}
+
+/// The one-time NibieRouter credit of a subscription. NibieRouter has no idempotency for credit grants, so this
+/// row is the exactly-once guard: `attempts` is raised before the call, and a retry after an ambiguous failure
+/// first looks for `note` in the router's balance history before posting again.
+model CreditGrant {
+  id               String            @id @default(uuid()) @db.Uuid
+  tenantId         String            @db.Uuid
+  subscriptionId   String            @unique @db.Uuid
+  amountNano       BigInt
+  note             String
+  status           CreditGrantStatus @default(PENDING)
+  attempts         Int               @default(0)
+  balanceAfterNano BigInt?
+  createdAt        DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime          @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+}
+
+enum RouterProvisioningStatus {
+  PENDING
+  DONE
+}
+
+/// Per instance: has the NibieRouter key been created and attached (and the credit granted) yet. Created when
+/// a paid instance is created, retried by the billing tick until DONE. An instance that already has a provider
+/// configuration (the customer chose their own) is marked DONE without touching it.
+model RouterProvisioning {
+  instanceId     String                   @id @db.Uuid
+  tenantId       String                   @db.Uuid
+  subscriptionId String?                  @db.Uuid
+  status         RouterProvisioningStatus @default(PENDING)
+  attempts       Int                      @default(0)
+  /// Short machine code of the last failure, never provider text.
+  lastError      String?
+  createdAt      DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime                 @updatedAt @db.Timestamptz(3)
 }

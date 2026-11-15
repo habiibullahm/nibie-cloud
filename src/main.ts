@@ -13,6 +13,8 @@ import { purgeIntegrations } from './modules/integrations/purge.js';
 import { createRuntimeConfigLoader, noRuntimeConfig } from './modules/integrations/runtime-env.js';
 import { TelegramService } from './modules/integrations/telegram-service.js';
 import type { Integrations } from './modules/integrations/types.js';
+import { createNibieRouterClient } from './modules/nibierouter/nibierouter-client.js';
+import { RouterProvisioner } from './modules/nibierouter/router-provisioner.js';
 import { PrismaSecretStore } from './modules/secrets/secret-store.js';
 import { createBullQueue } from './modules/jobs/bullmq-queue.js';
 import { startScheduler } from './modules/jobs/scheduler.js';
@@ -91,13 +93,20 @@ const commands = new InstanceCommands({ service, queue, logger });
 logger.info({ jobQueue: queue !== null }, 'job queue');
 // Duitku billing exists only when its credentials are configured; otherwise checkout and the callback are 404.
 const mailer = createMailer(config.mail, logger);
+// NibieRouter key and credit need the admin key and a place to keep the encrypted instance key (SECRETS_KEK).
+const router = config.router && integrations
+  ? new RouterProvisioner({ prisma, client: createNibieRouterClient(config.router), providers: integrations.providers, cfg: config.router, logger, applyConfig: (t, i) => commands.restart(t, i) })
+  : null;
+if (config.router && !integrations) logger.warn('NibieRouter is configured but SECRETS_KEK is not: instance keys cannot be stored, provisioning is off');
+logger.info({ router: router !== null }, 'nibierouter');
 const billing = config.billing && config.dashboardOrigin
   ? new BillingService({
       prisma, duitku: createDuitkuClient(config.billing), billing: config.billing, commands, mailer,
       dashboardOrigin: config.dashboardOrigin, maxInstancesPerTenant: config.maxInstancesPerTenant, logger,
+      ...(router ? { router } : {}),
     })
   : null;
-const billingTick = billing ? new BillingTick({ prisma, billing, commands, mailer, logger }) : null;
+const billingTick = billing ? new BillingTick({ prisma, billing, commands, mailer, logger, ...(router ? { router } : {}) }) : null;
 logger.info({ billing: billing !== null, billingEnv: config.billing?.env ?? null, mail: mailer.enabled }, 'billing');
 const app = buildServer({ service, commands, queue, config, logger, integrations, logs: logService, billing, ...(customer ? { customer } : {}) });
 

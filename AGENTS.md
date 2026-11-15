@@ -113,6 +113,12 @@ and `pnpm test` 676 passed, 2 skipped (56 files; unit and Docker/Postgres/Redis 
   retention and deletion, with Indonesian emails over SumoPod SMTP. `Plan.monthlyPriceIdr` null means not for sale; prices
   are set by `scripts/seed-sandbox-plans.ts` (sandbox) or by hand, never by a migration. Not verified against the real
   Duitku yet: see `docs/architecture.md`, "Known gaps" 9a.
+- **NibieRouter provisioning** (`src/modules/nibierouter`): only when `NIBIEROUTER_ADMIN_KEY` and `NIBIEROUTER_DEFAULT_MODEL` are set
+  (and `SECRETS_KEK`). After a paid instance is created, `RouterProvisioner` makes one router user per tenant, one key per instance
+  (attached through `ProviderService.attachNibieRouter`, then the instance restarts) and, for a plan with `includedCreditNano`, a
+  one-time credit guarded by the unique `CreditGrant` row (the router has no idempotency). Rows live in `RouterProvisioning`, the
+  billing tick retries them, and a failure never touches the payment. Not verified against the real router: see
+  `docs/architecture.md`, "Known gaps" 9b, and run `test/validation/nibierouter-live.ts` first.
 - **Disk quota and egress** (`runtime/volume-quota.ts`, `runtime/egress-canary.ts`, `ops/egress/`):
   `HERMES_DISK_QUOTA` and `HERMES_EGRESS_POLICY` are `enforce|off` (`off` refused in production). Tenant
   volumes carry a size quota from `Plan.storageMb` and tenant bridges are named `hn<12 hex>` so one host

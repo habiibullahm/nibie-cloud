@@ -1,6 +1,6 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-15 (landing page `apps/landing` live at cloud.nibie.app; milestone D, Duitku billing, merged in PR #22 but not yet verified against the real Duitku or deployed; production runs on `runsc`). Index of all docs: [README.md](README.md).
+Last updated: 2026-11-15 (branch `feat/billing-checkout-credit`, NOT pushed or merged: dashboard billing and checkout, and NibieRouter key and one-time credit, code-complete with tests but unproven against the real Duitku and the real router; landing live at cloud.nibie.app; milestone D merged in PR #22 but not deployed; rename to Nibie Cloud merged in PR #23; production runs on `runsc`). Index of all docs: [README.md](README.md).
 
 ## Where things stand
 
@@ -25,6 +25,22 @@ Last updated: 2026-11-15 (landing page `apps/landing` live at cloud.nibie.app; m
   Branch `fix/web-antislop-review` (PR #2) applies an antislop review: audit and report in
   `apps/web/anti-slop/`, 45 dashboard tests. It also gives outline and secondary buttons
   `border-strong` edges (approved by Nash, recorded in `DESIGN.md`).
+
+- **Billing screens and NibieRouter credit (branch `feat/billing-checkout-credit`, local only, not pushed).** Plan:
+  [superpowers/plans/2026-11-15-dashboard-billing-checkout.md](superpowers/plans/2026-11-15-dashboard-billing-checkout.md).
+  Part A (`apps/web`, commit `62d5c22`): the dashboard talks to the milestone D billing endpoints in `customer` mode
+  (checkout then Duitku payment page, "Awaiting payment" cards, return-from-payment banner, renew, cancel renewal,
+  grace/suspended banner, Start hidden while suspended); mock mode keeps working with sample subscriptions. Plan rows
+  show `includedCreditUsd`. Verified only in mock mode and with fake `fetch`: typecheck, lint, build, 83 tests.
+  Part B (backend, milestone E, uncommitted): `src/modules/nibierouter` creates one NibieRouter user per tenant, one key
+  per instance (attached as the `NIBIEROUTER` provider, instance restarted) and a one-time credit (`Plan.includedCreditNano`,
+  exactly once through `CreditGrant`) after the first payment; retried by the billing tick; off unless
+  `NIBIEROUTER_ADMIN_KEY` and `NIBIEROUTER_DEFAULT_MODEL` are set. Migration `20261115010000_add_nibierouter_credit`.
+  Tests: 17 client unit tests, 16 provisioner integration tests (real Postgres, fake router), config, billing-service and
+  billing-tick additions. **Not verified:** the router's "create key for a user" call (undocumented; run
+  `test/validation/nibierouter-live.ts` on the VPS first), a real Duitku sandbox payment, anything deployed. The
+  Hosting + Kredit AI plan must stay off sale until the live check passes. Setup and operator steps: `docs/setup.md`,
+  "NibieRouter key and credit"; gaps: `docs/architecture.md` 9b.
 
 - **Landing page (`apps/landing`, merged in PR #21, live on `cloud.nibie.app` since 2026-11-14).** Public
   site for `cloud.nibie.app` (root), needed for the Duitku KYC review: home, `/harga`, `/kontak`, Syarat Layanan,

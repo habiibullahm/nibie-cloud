@@ -16,7 +16,7 @@ export const keys = {
   regions: ["regions"] as const,
   me: ["me"] as const,
   access: (id: string) => ["access", id] as const,
-  subscription: (id: string) => ["subscription", id] as const,
+  subscriptions: ["subscriptions"] as const,
   usage: (id: string, r: string) => ["usage", id, r] as const,
   logs: (id: string, level: string, q: string) => ["logs", id, level, q] as const,
   provider: (id: string) => ["provider", id] as const,
@@ -79,8 +79,44 @@ export function useAccess(id: string) {
   return useQuery({ queryKey: keys.access(id), queryFn: () => getApi().preview.access(id) })
 }
 
-export function useSubscription(id: string) {
-  return useQuery({ queryKey: keys.subscription(id), queryFn: () => getApi().preview.subscription(id) })
+/** All subscriptions of the tenant. Polls while a purchase waits for its payment callback (`poll`). */
+export function useSubscriptions(poll = false) {
+  return useQuery({
+    queryKey: keys.subscriptions,
+    queryFn: () => getApi().billing.list(),
+    refetchInterval: poll ? 3000 : false,
+  })
+}
+
+/** The checkout starts a purchase; the caller sends the customer to `payment.paymentUrl`. */
+export function useCheckout() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ input, idempotencyKey }: { input: CreateInstanceInput; idempotencyKey: string }) =>
+      getApi().billing.checkout(input, idempotencyKey),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.subscriptions }),
+  })
+}
+
+export function useRenew() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (subscriptionId: string) => getApi().billing.renew(subscriptionId),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.subscriptions }),
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+}
+
+export function useCancelRenewal() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (subscriptionId: string) => getApi().billing.cancel(subscriptionId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.subscriptions })
+      toast.success("Renewal cancelled. Your instance keeps running until the end of the paid period.")
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  })
 }
 
 export function useUsage(id: string, range: "1h" | "24h" | "7d") {
