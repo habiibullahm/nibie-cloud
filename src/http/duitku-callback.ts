@@ -18,18 +18,12 @@ function pick(body: unknown): CallbackForm {
   return out;
 }
 
-/**
- * The one public billing route. The HMAC signature is the authentication, checked before any database
- * access. No rate limit by IP on purpose: behind the reverse proxy every caller shares one address, so a
- * limit would let an attacker lock Duitku out; a forged request costs one HMAC and is rejected.
- * The body is never logged. A valid callback is answered `200` before the slow post-payment work
- * (provisioning, restart, receipt email) runs, so Duitku never retries because an instance was slow.
- */
+/** Duitku callback route. Only registered when Duitku is configured. */
 export function registerDuitkuCallback(app: FastifyInstance, deps: { billing: BillingService; logger: Logger }): void {
   app.register(async (scope) => {
     await scope.register(formbody, { bodyLimit: 16 * 1024 });
     scope.post(CALLBACK_PATH, { bodyLimit: 16 * 1024 }, async (req, reply) => {
-      const result = await deps.billing.handleCallback(pick(req.body));
+      const result = await deps.billing.handleDuitkuCallback(pick(req.body));
       if (!result.accepted) {
         return reply.status(400).send({ error: { code: 'invalid_callback', message: 'Invalid callback' } });
       }

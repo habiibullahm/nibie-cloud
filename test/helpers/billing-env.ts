@@ -65,10 +65,10 @@ export function makeBilling(prisma: PrismaClient, o: { clock?: Clock; maxInstanc
   const duitku = new FakeDuitku();
   const mailer = new FakeMailer();
   const billing = new BillingService({
-    prisma, duitku, billing: { merchantCode: MERCHANT, apiKey: API_KEY }, commands, mailer,
-    dashboardOrigin: 'https://cloud.example.test', maxInstancesPerTenant: o.maxInstances ?? 1, logger, now: () => clock.now,
-    ...(o.router ? { router: o.router } : {}),
-  });
+      prisma, paymentClient: duitku, duitkuAuth: { merchantCode: MERCHANT, apiKey: API_KEY }, sumopodAuth: null, gateway: 'duitku', commands, mailer,
+      dashboardOrigin: 'https://cloud.example.test', maxInstancesPerTenant: o.maxInstances ?? 1, logger, now: () => clock.now,
+      ...(o.router ? { router: o.router } : {}),
+    });
   return { billing, duitku, mailer, runtime, service, commands, clock, logger };
 }
 
