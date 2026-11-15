@@ -22,6 +22,9 @@ Do not copy content from these files here; read them when the task touches the a
   Standalone with its own `package.json` and lockfile. Commands, the public-contact-email rule and the
   Cloudflare setup: `apps/landing/README.md`. `pnpm dev` there serves http://localhost:3300;
   checks are `pnpm typecheck && pnpm lint && pnpm test && pnpm build`.
+- **Fifth package, `e2e`** (`@hermes-cloud/e2e`): Playwright browser tests for the landing page, the dashboard and the backend (T0 mock,
+  T1 full stack, T2 production smoke). Standalone with its own `package.json` and lockfile. Setup, secrets rules and commands: `e2e/README.md`.
+  `pnpm test:t0` there needs `pnpm build:t0` first; checks are `pnpm typecheck`.
 - **Next.js 16 in `apps/web`, `apps/docs` and `apps/landing`:** its APIs and conventions differ from older versions.
   Read the relevant guide under that package's `node_modules/next/dist/docs/` before writing Next.js code.
 - **Deployment** (`deploy/`: Compose, Caddy, Dockerfile for a single VPS): read `deploy/README.md` for

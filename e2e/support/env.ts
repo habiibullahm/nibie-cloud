@@ -1,0 +1,36 @@
+/**
+ * Reads test settings from the environment. Values come from `e2e/.env.e2e` (git-ignored, loaded by
+ * `playwright.config.ts`) or from GitHub Actions secrets. Nothing here is ever printed.
+ */
+export function required(name: string): string {
+  const v = process.env[name]
+  if (!v) throw new Error(`Missing ${name}. See e2e/.env.e2e.example and e2e/README.md.`)
+  return v
+}
+
+export function optional(name: string): string | undefined {
+  return process.env[name] || undefined
+}
+
+/** Ports used by the local servers. Kept in one place so config and tests agree. */
+export const LANDING_PORT = 3300
+export const DASHBOARD_PORT = 3100
+export const BACKEND_PORT = 3000
+
+export const LANDING_URL = `http://127.0.0.1:${LANDING_PORT}`
+export const DASHBOARD_URL = `http://127.0.0.1:${DASHBOARD_PORT}`
+export const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`
+
+/** Test users for T1. All share one password from the environment; the Supabase test project holds nothing else. */
+export const USER_PASSWORD_VAR = "E2E_USER_PASSWORD"
+export const EMAIL_DOMAIN = process.env.E2E_EMAIL_DOMAIN ?? "example.com"
+
+export type UserKey = "lifecycle" | "outsider" | "login"
+export const emailOf = (key: UserKey): string => `e2e-${key}@${EMAIL_DOMAIN}`
+/** Only these may create instances in the beta gate (BETA_ALLOWED_EMAILS). `outsider` and `login` must not. */
+export const BETA_USERS: UserKey[] = ["lifecycle"]
+export const authFile = (key: UserKey): string => `.auth/${key}.json`
+
+/** Own database so the tests never touch `hermes` (development) or `hermes_test` (backend tests). */
+export const e2eDatabaseUrl = (): string =>
+  process.env.E2E_DATABASE_URL ?? "postgresql://hermes:hermes_dev_only@127.0.0.1:5433/hermes_e2e"

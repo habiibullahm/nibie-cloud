@@ -1,0 +1,29 @@
+{
+  "name": "@hermes-cloud/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser end-to-end tests (Playwright) for the landing page, the dashboard and the backend.",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.28.0",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test:t0": "playwright test --project=landing --project=landing-mobile --project=dashboard-mock --project=dashboard-mock-mobile",
+    "test:landing": "playwright test --project=landing --project=landing-mobile",
+    "test:t1": "E2E_TIER=t1 playwright test --project=setup-customer --project=dashboard-customer",
+    "test:t2": "E2E_TIER=none playwright test --project=prod-smoke",
+    "report": "playwright show-report",
+    "stack:prep": "node support/stack-prep.mjs",
+    "build:t0": "pnpm --dir ../apps/landing build && pnpm --dir ../apps/web build"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "@playwright/test": "1.63.0",
+    "@types/node": "^22.20.5",
+    "@types/pg": "^8.11.10",
+    "pg": "^8.13.1",
+    "typescript": "5.9.3"
+  }
+}

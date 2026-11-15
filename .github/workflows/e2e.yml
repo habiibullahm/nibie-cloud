@@ -1,0 +1,182 @@
+# Browser end-to-end tests (Playwright). See e2e/README.md.
+#   t0  landing + dashboard on mock data. No secrets, so it also runs for pull requests from forks.
+#   t1  dashboard + real backend + stub containers + a dedicated Supabase test project. Needs secrets.
+#   t2  read-only smoke test of production. Needs the smoke account secrets.
+# t1 and t2 never upload traces, videos or screenshots: this repository is public and artifacts are downloadable.
+name: e2e
+
+on:
+  pull_request:
+    paths:
+      - "apps/web/**"
+      - "apps/landing/**"
+      - "e2e/**"
+      - ".github/workflows/e2e.yml"
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 18 * * *" # 01:00 WIB
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  t0:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: "1"
+      NEXT_PUBLIC_CONTACT_EMAIL: contact@example.invalid
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            apps/web/pnpm-lock.yaml
+            apps/landing/pnpm-lock.yaml
+            e2e/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: apps/landing
+      - run: pnpm install --frozen-lockfile
+        working-directory: apps/web
+      - run: pnpm install --frozen-lockfile
+        working-directory: e2e
+      - run: pnpm build:t0
+        working-directory: e2e
+      - run: pnpm exec playwright install --with-deps chromium
+        working-directory: e2e
+      - run: pnpm typecheck
+        working-directory: e2e
+      - run: pnpm test:t0
+        working-directory: e2e
+      # T0 uses no secrets, so its report and traces are safe to keep.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report-t0
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          retention-days: 7
+
+  t1:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: "1"
+      E2E_SUPABASE_URL: ${{ secrets.E2E_SUPABASE_URL }}
+      E2E_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.E2E_SUPABASE_PUBLISHABLE_KEY }}
+      E2E_SUPABASE_SECRET_KEY: ${{ secrets.E2E_SUPABASE_SECRET_KEY }}
+      E2E_REDIS_URL: redis://:hermes_dev_only@127.0.0.1:6380
+      NEXT_PUBLIC_CONTACT_EMAIL: contact@example.invalid
+    services:
+      postgres:
+        image: postgres:16.6
+        env:
+          POSTGRES_USER: hermes
+          POSTGRES_PASSWORD: hermes_dev_only
+          POSTGRES_DB: hermes
+        ports:
+          - 127.0.0.1:5433:5432
+        options: >-
+          --health-cmd "pg_isready -U hermes"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Skip when the Supabase test project is not configured yet
+        id: gate
+        run: |
+          if [ -z "$E2E_SUPABASE_URL" ] || [ -z "$E2E_SUPABASE_PUBLISHABLE_KEY" ] || [ -z "$E2E_SUPABASE_SECRET_KEY" ]; then
+            echo "::notice::T1 skipped: the E2E_SUPABASE_* secrets are not set (see e2e/README.md)."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+      - uses: pnpm/action-setup@v4
+        if: steps.gate.outputs.run == 'true'
+        with:
+          version: 10.28.0
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.run == 'true'
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            apps/web/pnpm-lock.yaml
+            e2e/pnpm-lock.yaml
+      - name: Random password for the test users (masked, never stored)
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          pw="$(openssl rand -hex 24)"
+          echo "::add-mask::$pw"
+          echo "E2E_USER_PASSWORD=$pw" >> "$GITHUB_ENV"
+      - name: Redis for the job queue (password, AOF, no eviction)
+        if: steps.gate.outputs.run == 'true'
+        run: >
+          docker run -d --name e2e-redis -p 127.0.0.1:6380:6379 redis:7.4
+          redis-server --appendonly yes --maxmemory-policy noeviction --requirepass hermes_dev_only
+      - if: steps.gate.outputs.run == 'true'
+        run: pnpm install --frozen-lockfile
+      - if: steps.gate.outputs.run == 'true'
+        run: pnpm install --frozen-lockfile
+        working-directory: apps/web
+      - if: steps.gate.outputs.run == 'true'
+        run: pnpm install --frozen-lockfile
+        working-directory: e2e
+      - if: steps.gate.outputs.run == 'true'
+        run: pnpm exec playwright install --with-deps chromium
+        working-directory: e2e
+      - name: Prepare the stack (database, seed, stub image, dashboard build)
+        if: steps.gate.outputs.run == 'true'
+        run: pnpm stack:prep
+        working-directory: e2e
+      - name: Run T1
+        if: steps.gate.outputs.run == 'true'
+        run: pnpm test:t1
+        working-directory: e2e
+      - name: Remove leftover tenant containers
+        if: always() && steps.gate.outputs.run == 'true'
+        run: |
+          docker ps -aq --filter "name=^hermes-" | xargs -r docker rm -f
+          docker volume ls -q --filter "name=^hermes-data-" | xargs -r docker volume rm -f
+          docker network ls -q --filter "name=^hn" | xargs -r docker network rm || true
+
+  t2:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CI: "1"
+      PROD_SMOKE_EMAIL: ${{ secrets.PROD_SMOKE_EMAIL }}
+      PROD_SMOKE_PASSWORD: ${{ secrets.PROD_SMOKE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: e2e/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: e2e
+      - run: pnpm exec playwright install --with-deps chromium
+        working-directory: e2e
+      - run: pnpm test:t2
+        working-directory: e2e
