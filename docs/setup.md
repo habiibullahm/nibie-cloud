@@ -289,12 +289,15 @@ stays `PENDING` with a short code (`router_unreachable`, `router_rejected`, `rou
 billing tick retries every 5 minutes, up to 24 attempts.
 
 - **Turn it on:** put `NIBIEROUTER_ADMIN_KEY` and `NIBIEROUTER_DEFAULT_MODEL` in the backend environment on the host
-  (the admin key is created in the NibieRouter admin dashboard, restricted to the VPS address, kept in the password
+  (the admin key is created in the NibieRouter admin dashboard, kept in the password
   manager). Without them nothing changes. `SECRETS_KEK` must be set too.
-- **Check the real router first** (the admin "create key for a user" call is not described in the SumoRouter docs, so
-  the client's request shape is a guess until this passes): on the VPS,
+- **Check the real router first** (done once on 2026-11-15, all admin calls passed): on the VPS,
   `NIBIEROUTER_ADMIN_KEY=... pnpm tsx test/validation/nibierouter-live.ts` creates one throwaway user and tries
   create key, list keys, a US$0.01 credit and the balance history. It prints only OK/FAILED and field names.
+- **Admin key IP restriction:** the router checks `allowed_ips` against the `X-Real-IP` header its reverse proxy sets, and
+  refuses a restricted key when the header is missing or wrong (HTTP 403, seen on 2026-11-15). Restrict the key to the
+  VPS address only after the router's proxy passes the real client IP in `X-Real-IP`; otherwise use an unrestricted key and
+  keep it only in the backend env and the password manager.
 - **Plan prices and credit** are set by hand (SQL), never by a migration, for example the two beta plans:
   `UPDATE hermes."Plan" SET "monthlyPriceIdr" = 25000 WHERE slug = '<hosting slug>';` and
   `UPDATE hermes."Plan" SET "monthlyPriceIdr" = 50000, "includedCreditNano" = 2000000000 WHERE slug = '<hosting+credit slug>';`

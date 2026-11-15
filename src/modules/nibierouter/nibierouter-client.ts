@@ -40,7 +40,9 @@ const creditAnswer = z.object({ balance_nano: z.number().int() });
 const keyAnswer = wrapped(z.object({ id, key: z.string().regex(/^sk-[A-Za-z0-9_-]{8,}$/) }), 'api_key');
 const listOf = (item: z.ZodTypeAny) => z.union([z.array(item), z.object({ items: z.array(item) }).transform((v) => v.items), z.object({ keys: z.array(item) }).transform((v) => v.keys), z.object({ history: z.array(item) }).transform((v) => v.history)]);
 const keyRow = z.object({ name: z.string(), revoked_at: z.string().nullable().optional() });
-const noteRow = z.object({ note: z.string().nullable().optional() });
+// The docs list `kind, amount_nano, reference, actor_email, created_at` for a balance entry and no `note` field: the note of an
+// admin credit is expected in `reference`. Both are accepted until the live check shows which one carries it.
+const noteRow = z.object({ note: z.string().nullable().optional(), reference: z.string().nullable().optional() });
 
 /**
  * HTTP client for the NibieRouter admin API. Errors are fixed and coarse (`RouterUnavailableError`): a router
@@ -97,8 +99,9 @@ export function createNibieRouterClient(cfg: RouterConfig, deps: { fetcher?: Fet
       return { balanceNano: BigInt(out.balance_nano) };
     },
     async hasCreditNote(userId, note) {
-      const rows = parse(listOf(noteRow), await call('GET', `/users/${enc(userId)}/balance-history`)) as { note?: string | null }[];
-      return rows.some((r) => r.note === note);
+      // Newest first, 200 is the largest page the router allows.
+      const rows = parse(listOf(noteRow), await call('GET', `/users/${enc(userId)}/balance-history?limit=200`)) as { note?: string | null; reference?: string | null }[];
+      return rows.some((r) => r.note === note || r.reference === note);
     },
     async createKey(userId, input) {
       const out = parse(keyAnswer, await call('POST', `/users/${enc(userId)}/keys`, { name: input.name }));
