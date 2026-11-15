@@ -55,6 +55,12 @@ describe('createNibieRouterClient', () => {
     expect(await createNibieRouterClient(cfg, { fetcher: fakeFetch({ items: rows }) }).hasCreditNote('u', 'nibie-cloud credit y')).toBe(false);
   });
 
+  it('hasCreditNote reads the documented balance-history shape: items with the note in `reference`, newest 200', async () => {
+    const f = fakeFetch({ items: [{ kind: 'usage', amount_nano: -5, reference: 'day', actor_email: null }, { kind: 'admin', amount_nano: 2_000_000_000, reference: 'nibie-cloud credit x', actor_email: 'a@b.test' }], total: 2 });
+    expect(await createNibieRouterClient(cfg, { fetcher: f }).hasCreditNote('u', 'nibie-cloud credit x')).toBe(true);
+    expect(lastCall(f)[0]).toBe('https://router.example.test/api/admin/users/u/balance-history?limit=200');
+  });
+
   it('createKey returns the id and the secret; a body without an sk- secret is unexpected', async () => {
     const ok = createNibieRouterClient(cfg, { fetcher: fakeFetch({ id: 'k1', key: 'sk-abcdefghijkl' }) });
     expect(await ok.createKey('u', { name: 'inst-1' })).toEqual({ id: 'k1', secret: 'sk-abcdefghijkl' });
