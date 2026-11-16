@@ -1,0 +1,7 @@
+[Unit]
+Description=Nibie Cloud host watchdog (readyz, containers, disk, backups, certificate)
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/hermes-watchdog

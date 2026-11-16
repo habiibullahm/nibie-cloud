@@ -1,0 +1,9 @@
+[Unit]
+Description=Hermes Cloud: copy of the newest database dump to the restic repository on R2
+After=hermes-db-backup.service network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/hermes-db-offsite
