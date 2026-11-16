@@ -14,6 +14,7 @@ import { registerSumoPodWebhook } from './sumopod-callback.js';
 import { registerCustomerRoutes, type CustomerDeps } from './customer-routes.js';
 import { registerOperatorRoutes } from './operator-routes.js';
 import { registerAdminRoutes, type AdminDeps } from './admin-routes.js';
+import { registerReadyz, type ReadinessCheck } from './readyz.js';
 import { AppError, NotFoundError } from '../shared/errors.js';
 import type { Logger } from '../shared/logger.js';
 
@@ -38,6 +39,8 @@ export function buildServer(deps: {
   logs?: LogService | null;
   /** Duitku billing. Null or absent: the billing routes and the callback do not exist (404). */
   billing?: BillingService | null;
+  /** Dependency checks for `/readyz` (database, Redis, Docker). Absent: `/readyz` answers 200 like `/healthz`. */
+  readiness?: Record<string, ReadinessCheck>;
 }): FastifyInstance {
   const { service, config, logger, customer } = deps;
   const integrations = deps.integrations ?? null;
@@ -79,6 +82,7 @@ export function buildServer(deps: {
   });
 
   app.get('/healthz', async () => ({ status: 'ok' }));
+  registerReadyz(app, deps.readiness ?? {});
 
   registerOperatorRoutes(app, { service, commands, queue: deps.queue ?? null, config, integrations });
   const billing = deps.billing ?? null;

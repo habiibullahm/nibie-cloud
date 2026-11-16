@@ -1,4 +1,5 @@
 import Docker from 'dockerode';
+import { Redis } from 'ioredis';
 import 'dotenv/config';
 import { loadConfig } from './config/env.js';
 import { createPrisma } from './db/client.js';
@@ -151,7 +152,14 @@ const alertStore = new PrismaAlertStore(prisma);
 const alerter = new Alerter({ store: alertStore, logger, sink: config.ops?.telegram ? createTelegramSink(config.ops.telegram) : null });
 const alertScanner = new AlertScanner({ prisma, alerter, store: alertStore, logger, ...(queue ? { failedJobs: () => queue.listFailed() } : {}) });
 logger.info({ alertChannel: alerter.enabled }, 'operator alerts');
-const app = buildServer({ service, commands, queue, config, logger, integrations, logs: logService, billing, ...(customer ? { customer } : {}), ...(admin ? { admin } : {}) });
+// Dependency checks behind the loopback-only /readyz that the host watchdog polls.
+const readyRedis = config.redisUrl ? new Redis(config.redisUrl, { lazyConnect: true, maxRetriesPerRequest: 1, enableOfflineQueue: false }) : null;
+const readiness = {
+  database: async () => { await prisma.$queryRaw`select 1`; },
+  docker: async () => { await docker.ping(); },
+  ...(readyRedis ? { redis: async () => { if (readyRedis.status === 'wait') await readyRedis.connect(); await readyRedis.ping(); } } : {}),
+};
+const app = buildServer({ service, commands, queue, config, logger, integrations, logs: logService, billing, readiness, ...(customer ? { customer } : {}), ...(admin ? { admin } : {}) });
 
 let stopReconciler: () => void | Promise<void> = () => undefined;
 let stopWorker: (() => Promise<void>) | undefined;
@@ -193,7 +201,7 @@ async function shutdown() {
   // Whatever hangs (a dead Redis, a stuck Docker call), the process still exits.
   setTimeout(() => process.exit(1), 30_000).unref();
   await app.close().catch(() => undefined); // stop taking requests first
-  await Promise.allSettled([Promise.resolve(stopReconciler()), stopWorker?.(), queue?.close()]);
+  await Promise.allSettled([Promise.resolve(stopReconciler()), stopWorker?.(), queue?.close(), readyRedis?.quit()]);
   stopDiskMonitor();
   await prisma.$disconnect().catch(() => undefined);
   process.exit(0);

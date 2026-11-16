@@ -1,6 +1,46 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-15 (dashboard billing/checkout and the NibieRouter key and one-time credit are merged in PRs #24 and #25 and deployed to the VPS as `0e844b1` plus the later fix, with billing and the router still switched OFF there; the admin calls were checked against the real router, a full paid flow was not; landing live at cloud.nibie.app; production runs on `runsc`). Index of all docs: [README.md](README.md).
+Last updated: 2026-11-17 (go-live preparation: sign-up closed on the landing page, admin API phase A deployed to the VPS, production plans match the landing, billing still OFF on the VPS; production runs on `runsc`). Earlier entries below keep their own dates. Index of all docs: [README.md](README.md).
+
+## Go-live status (2026-11-17)
+
+Everything here was checked with real command output or a real page on 2026-11-17; items marked "not done" are open.
+
+- **Sign-up is closed.** The build variable `NEXT_PUBLIC_SIGNUP_OPEN=false` was added to the Worker `nibie-cloud-landing` and the build
+  retried (green); the live page now shows "Minta akses beta" and the invite text instead of links to `/dashboard/register`. Reopen it
+  only after a real payment has worked end to end (`docs/billing-go-live.md`).
+- **Admin dashboard phase A is deployed.** Migration `20261115174608_add_audit_log` applied on Supabase after a fresh dump,
+  `ADMIN_EMAILS` set in `/etc/hermes-cloud/backend.env`, backend and Caddy recreated (image tag `affd9d3`), startup log shows the admin API on
+  with one admin email. From the internet: `/api/v1/admin/me` and `/overview` answer 401 without a token, operator routes and `/jobs/failed`
+  answer 404, a CORS preflight from another origin gets no allow-origin header. **Not verified:** an admin call with a real admin token and
+  the `/dashboard/admin` pages; MFA TOTP (only needed for phase B, which is not built).
+- **Production plans match the landing.** `deploy/sql/2026-11-17-production-plans.sql` (run once on Supabase): `hosting` Rp 25.000 and
+  `hosting-kredit` Rp 50.000 with a one-time US$2 NibieRouter credit (both 1 CPU, 1 GB RAM, 1 GB storage); `beta-starter` (2 GB RAM, 5 GB
+  storage, 4 instances still on it) is no longer for sale. The landing and the database now agree.
+- **Billing runs in SumoPod sandbox mode on the VPS (since 2026-11-17).** Gateway decision (owner): SumoPod first, Duitku optional. The sandbox
+  variables from the owner's local `.env` were copied into `/etc/hermes-cloud/backend.env` (values never printed) with
+  `SUMOPOD_ENV=sandbox`, `BILLING_GATEWAY=sumopod`, the callback URL set to the public API host, and the backend recreated: startup log shows
+  billing on. From the internet, `POST /api/v1/billing/sumopod/webhook` with a `payment.test` body answers 200 with the right token and 400
+  with a wrong or missing one. **Not verified:** a real invoice reaching `PAID` (the SumoPod sandbox cannot simulate payment), the receipt
+  email, the NibieRouter credit after a payment. Neither gateway has KYC, so no real payment can happen and sign-up stays closed. The checkout
+  fix (return the payment row that has `paymentUrl`) is in PR #34 and not on `main` until merged. Runbook: [billing-go-live.md](billing-go-live.md).
+- **Backups.** Daily local `pg_dump` (19:00 UTC, newest 14 kept). New on 2026-11-17: `hermes-db-offsite` (19:30 UTC) copies the newest dump into the
+  existing restic repository on Cloudflare R2 (tag `nibie-cloud-db`, same credentials as the older `hermes-r2-backup.sh`, which only covers
+  `/opt/hermes`), and `hermes-restore-drill --from-r2` (Sundays 20:00 UTC) restores the newest snapshot into a throwaway Postgres with no network. Proven
+  on the VPS on 2026-11-17: first upload OK, drill from R2 OK (3 plans, 2 tenants, 4 instances, 3 users, equal to the live database). **Not done:**
+  tenant volume backups, a disaster-recovery rehearsal on a second server.
+- **Host watchdog and `/readyz` are deployed (2026-11-17, image `2ab6462`), alerts are not live yet.** `GET /readyz` (loopback only; the public
+  proxy answers 404) checks the database, Redis and Docker and answers only `ok` or the names that failed. `hermes-watchdog` (systemd timer, every
+  minute) checks `/readyz`, the three core containers, disk, the freshness of the local dump, the public API and the TLS certificate age; it
+  restarts only the backend container, after 3 failed checks in a row and at most 3 times an hour. Tested with a fake `docker` (alert at the third
+  failure, one restart call, recovery message). It sends Telegram messages once `OPS_TELEGRAM_BOT_TOKEN` and `OPS_TELEGRAM_CHAT_ID` are set in
+  `/etc/hermes-cloud/ops.env`; until then it only writes to the journal. **Not done from the autopilot plan:** the `OperatorAlert` table and emit
+  points inside the backend (recovery exhausted, stalled provisioning, failed jobs), a daily summary with payment counts, customer emails on
+  incidents. The branch `claude/project-thread-uym76i` named in earlier notes never reached GitHub, so this is a smaller rewrite, not that code.
+  Incident during the test: a first test run used `sudo`, which ignored the fake `docker`, and restarted the real backend once (healthy again in
+  seconds, no customer traffic then).
+- **Owner to-do:** VPS auto-renew (the plan ends 2026-12-11), Telegram alert bot, SPF/DKIM/DMARC for the SumoPod sender, KYC at the chosen
+  gateway, read the three legal drafts, test the admin pages.
 
 - **Autopilot phase 1, backend alerts (2026-11-16, branch `claude/project-thread-uym76i`, NOT deployed).** The part PR #33 lists as "not done": the table
   `OperatorAlert` (migration `20261116230000_add_operator_alert`; enable row level security on it like the other `hermes` tables) and `src/modules/ops`:
@@ -16,10 +56,9 @@ Last updated: 2026-11-15 (dashboard billing/checkout and the NibieRouter key and
 
 ## Where things stand
 
-- **Git.** `main` is at `6e5d644` and `origin/main` matches it (checked in a fresh clone on
-  2026-11-12). Nothing from earlier "uncommitted" notes is still uncommitted. The earlier working
-  branch `feat/official-image-compatibility` was reported at the same commit but is not part of
-  that clone. `origin` is `https://github.com/habiibullahm/nibie-cloud` (public).
+- **Git.** `main` was at `729f938` (merge of PR #32) when this was updated on 2026-11-17; PR #33 (`claude/prod-readiness`) carries the go-live
+  changes below and is the checkout the VPS currently runs (`affd9d3` plus docs and ops scripts that are not deployed). `origin` is
+  `https://github.com/habiibullahm/nibie-cloud` (public). Older notes saying `main` is at `6e5d644` are historical.
 - **Milestone 1 (runtime foundation)** is complete: `src/` modules, Prisma migrations, `compose.yaml`,
   Vitest suite.
 - **Milestone 2.2 (runtime security acceptance)** is partly done. The hardening baseline and the

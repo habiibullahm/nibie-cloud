@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily offsite copy of the Hermes Cloud database dump (30 minutes after the local dump)
+
+[Timer]
+OnCalendar=*-*-* 19:30:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target
