@@ -1,0 +1,9 @@
+[Unit]
+Description=Hermes Cloud: encrypted copy of the newest database dump to R2
+After=hermes-db-backup.service network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/hermes-backup-offsite

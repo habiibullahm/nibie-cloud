@@ -1,0 +1,9 @@
+[Unit]
+Description=Hermes Cloud: weekly restore drill from the R2 copy
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/hermes-restore-drill --from-r2
