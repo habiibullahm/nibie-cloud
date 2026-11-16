@@ -1,5 +1,5 @@
 [Unit]
-Description=Hermes Cloud: weekly restore drill from the R2 copy
+Description=Hermes Cloud: weekly restore drill from the R2 restic snapshot
 After=network-online.target docker.service
 Wants=network-online.target
 Requires=docker.service
