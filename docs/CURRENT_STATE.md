@@ -1,13 +1,41 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-15 (dashboard billing/checkout and the NibieRouter key and one-time credit are merged in PRs #24 and #25 and deployed to the VPS as `0e844b1` plus the later fix, with billing and the router still switched OFF there; the admin calls were checked against the real router, a full paid flow was not; landing live at cloud.nibie.app; production runs on `runsc`). Index of all docs: [README.md](README.md).
+Last updated: 2026-11-17 (go-live preparation: sign-up closed on the landing page, admin API phase A deployed to the VPS, production plans match the landing, billing still OFF on the VPS; production runs on `runsc`). Earlier entries below keep their own dates. Index of all docs: [README.md](README.md).
+
+## Go-live status (2026-11-17)
+
+Everything here was checked with real command output or a real page on 2026-11-17; items marked "not done" are open.
+
+- **Sign-up is closed.** The build variable `NEXT_PUBLIC_SIGNUP_OPEN=false` was added to the Worker `nibie-cloud-landing` and the build
+  retried (green); the live page now shows "Minta akses beta" and the invite text instead of links to `/dashboard/register`. Reopen it
+  only after a real payment has worked end to end (`docs/billing-go-live.md`).
+- **Admin dashboard phase A is deployed.** Migration `20261115174608_add_audit_log` applied on Supabase after a fresh dump,
+  `ADMIN_EMAILS` set in `/etc/hermes-cloud/backend.env`, backend and Caddy recreated (image tag `affd9d3`), startup log shows the admin API on
+  with one admin email. From the internet: `/api/v1/admin/me` and `/overview` answer 401 without a token, operator routes and `/jobs/failed`
+  answer 404, a CORS preflight from another origin gets no allow-origin header. **Not verified:** an admin call with a real admin token and
+  the `/dashboard/admin` pages; MFA TOTP (only needed for phase B, which is not built).
+- **Production plans match the landing.** `deploy/sql/2026-11-17-production-plans.sql` (run once on Supabase): `hosting` Rp 25.000 and
+  `hosting-kredit` Rp 50.000 with a one-time US$2 NibieRouter credit (both 1 CPU, 1 GB RAM, 1 GB storage); `beta-starter` (2 GB RAM, 5 GB
+  storage, 4 instances still on it) is no longer for sale. The landing and the database now agree.
+- **Billing is still OFF on the VPS.** Gateway decision (owner, 2026-11-17): SumoPod first, Duitku optional. Caddy forwards the SumoPod webhook
+  and the Duitku callback; the SumoPod route answers 404 until `SUMOPOD_*` is set. Neither gateway has KYC yet, so no real payment can happen.
+  Runbook: [billing-go-live.md](billing-go-live.md). The owner's local fix (checkout returns the updated payment row so the payment URL is
+  present) is not on `main` until it is committed.
+- **Backups.** Daily local `pg_dump` (19:00 UTC, newest 14 kept) exists. `ops/host/hermes-backup-offsite.sh` (encrypts, uploads to R2,
+  verifies size, keeps 30) and `ops/host/hermes-restore-drill.sh` are written; the restore drill was run on the VPS against the newest local
+  dump on 2026-11-17 and passed (3 plans, 2 tenants, 4 instances, 3 users, matching the live database). **Not done:** the R2 bucket and token,
+  installing the scripts and timers, the first upload, the weekly drill from R2, tenant volume backups.
+- **Autopilot phase 1 (alerts, `/readyz`, watchdog) is not deployed.** The branch `claude/project-thread-uym76i` named in earlier notes does not
+  exist on GitHub, so there is nothing to merge; it has to be pushed by the thread that built it or rewritten from
+  `hermes-cloud/plans/2026-11-15-operasi-autopilot-tanpa-admin.md`.
+- **Owner to-do:** VPS auto-renew (the plan ends 2026-12-11), Telegram alert bot, SPF/DKIM/DMARC for the SumoPod sender, KYC at the chosen
+  gateway, read the three legal drafts, test the admin pages.
 
 ## Where things stand
 
-- **Git.** `main` is at `6e5d644` and `origin/main` matches it (checked in a fresh clone on
-  2026-11-12). Nothing from earlier "uncommitted" notes is still uncommitted. The earlier working
-  branch `feat/official-image-compatibility` was reported at the same commit but is not part of
-  that clone. `origin` is `https://github.com/habiibullahm/nibie-cloud` (public).
+- **Git.** `main` was at `729f938` (merge of PR #32) when this was updated on 2026-11-17; PR #33 (`claude/prod-readiness`) carries the go-live
+  changes below and is the checkout the VPS currently runs (`affd9d3` plus docs and ops scripts that are not deployed). `origin` is
+  `https://github.com/habiibullahm/nibie-cloud` (public). Older notes saying `main` is at `6e5d644` are historical.
 - **Milestone 1 (runtime foundation)** is complete: `src/` modules, Prisma migrations, `compose.yaml`,
   Vitest suite.
 - **Milestone 2.2 (runtime security acceptance)** is partly done. The hardening baseline and the
