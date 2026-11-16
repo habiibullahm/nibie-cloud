@@ -17,17 +17,28 @@ Everything here was checked with real command output or a real page on 2026-11-1
 - **Production plans match the landing.** `deploy/sql/2026-11-17-production-plans.sql` (run once on Supabase): `hosting` Rp 25.000 and
   `hosting-kredit` Rp 50.000 with a one-time US$2 NibieRouter credit (both 1 CPU, 1 GB RAM, 1 GB storage); `beta-starter` (2 GB RAM, 5 GB
   storage, 4 instances still on it) is no longer for sale. The landing and the database now agree.
-- **Billing is still OFF on the VPS.** Gateway decision (owner, 2026-11-17): SumoPod first, Duitku optional. Caddy forwards the SumoPod webhook
-  and the Duitku callback; the SumoPod route answers 404 until `SUMOPOD_*` is set. Neither gateway has KYC yet, so no real payment can happen.
-  Runbook: [billing-go-live.md](billing-go-live.md). The owner's local fix (checkout returns the updated payment row so the payment URL is
-  present) is not on `main` until it is committed.
-- **Backups.** Daily local `pg_dump` (19:00 UTC, newest 14 kept) exists. `ops/host/hermes-backup-offsite.sh` (encrypts, uploads to R2,
-  verifies size, keeps 30) and `ops/host/hermes-restore-drill.sh` are written; the restore drill was run on the VPS against the newest local
-  dump on 2026-11-17 and passed (3 plans, 2 tenants, 4 instances, 3 users, matching the live database). **Not done:** the R2 bucket and token,
-  installing the scripts and timers, the first upload, the weekly drill from R2, tenant volume backups.
-- **Autopilot phase 1 (alerts, `/readyz`, watchdog) is not deployed.** The branch `claude/project-thread-uym76i` named in earlier notes does not
-  exist on GitHub, so there is nothing to merge; it has to be pushed by the thread that built it or rewritten from
-  `hermes-cloud/plans/2026-11-15-operasi-autopilot-tanpa-admin.md`.
+- **Billing runs in SumoPod sandbox mode on the VPS (since 2026-11-17).** Gateway decision (owner): SumoPod first, Duitku optional. The sandbox
+  variables from the owner's local `.env` were copied into `/etc/hermes-cloud/backend.env` (values never printed) with
+  `SUMOPOD_ENV=sandbox`, `BILLING_GATEWAY=sumopod`, the callback URL set to the public API host, and the backend recreated: startup log shows
+  billing on. From the internet, `POST /api/v1/billing/sumopod/webhook` with a `payment.test` body answers 200 with the right token and 400
+  with a wrong or missing one. **Not verified:** a real invoice reaching `PAID` (the SumoPod sandbox cannot simulate payment), the receipt
+  email, the NibieRouter credit after a payment. Neither gateway has KYC, so no real payment can happen and sign-up stays closed. The checkout
+  fix (return the payment row that has `paymentUrl`) is in PR #34 and not on `main` until merged. Runbook: [billing-go-live.md](billing-go-live.md).
+- **Backups.** Daily local `pg_dump` (19:00 UTC, newest 14 kept). New on 2026-11-17: `hermes-db-offsite` (19:30 UTC) copies the newest dump into the
+  existing restic repository on Cloudflare R2 (tag `nibie-cloud-db`, same credentials as the older `hermes-r2-backup.sh`, which only covers
+  `/opt/hermes`), and `hermes-restore-drill --from-r2` (Sundays 20:00 UTC) restores the newest snapshot into a throwaway Postgres with no network. Proven
+  on the VPS on 2026-11-17: first upload OK, drill from R2 OK (3 plans, 2 tenants, 4 instances, 3 users, equal to the live database). **Not done:**
+  tenant volume backups, a disaster-recovery rehearsal on a second server.
+- **Host watchdog and `/readyz` are deployed (2026-11-17, image `2ab6462`), alerts are not live yet.** `GET /readyz` (loopback only; the public
+  proxy answers 404) checks the database, Redis and Docker and answers only `ok` or the names that failed. `hermes-watchdog` (systemd timer, every
+  minute) checks `/readyz`, the three core containers, disk, the freshness of the local dump, the public API and the TLS certificate age; it
+  restarts only the backend container, after 3 failed checks in a row and at most 3 times an hour. Tested with a fake `docker` (alert at the third
+  failure, one restart call, recovery message). It sends Telegram messages once `OPS_TELEGRAM_BOT_TOKEN` and `OPS_TELEGRAM_CHAT_ID` are set in
+  `/etc/hermes-cloud/ops.env`; until then it only writes to the journal. **Not done from the autopilot plan:** the `OperatorAlert` table and emit
+  points inside the backend (recovery exhausted, stalled provisioning, failed jobs), a daily summary with payment counts, customer emails on
+  incidents. The branch `claude/project-thread-uym76i` named in earlier notes never reached GitHub, so this is a smaller rewrite, not that code.
+  Incident during the test: a first test run used `sudo`, which ignored the fake `docker`, and restarted the real backend once (healthy again in
+  seconds, no customer traffic then).
 - **Owner to-do:** VPS auto-renew (the plan ends 2026-12-11), Telegram alert bot, SPF/DKIM/DMARC for the SumoPod sender, KYC at the chosen
   gateway, read the three legal drafts, test the admin pages.
 
