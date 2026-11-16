@@ -447,7 +447,7 @@ export class BillingService {
         returnUrl,
         expiryMinutes: INVOICE_EXPIRY_MINUTES,
       });
-      await this.d.prisma.payment.update({ where: { id: payment.id }, data: { reference: invoice.reference, paymentUrl: invoice.paymentUrl } });
+      const updated = await this.d.prisma.payment.update({ where: { id: payment.id }, data: { reference: invoice.reference, paymentUrl: invoice.paymentUrl } });
       // In 'both' mode, also issue invoices from secondary gateways (best-effort, non-blocking).
       if (this.d.gateway === 'both' && this.d.paymentClients) {
         for (const client of this.d.paymentClients) {
@@ -461,7 +461,7 @@ export class BillingService {
           }).catch(() => { /* secondary gateway failure is non-fatal */ });
         }
       }
-      return payment;
+      return updated;
     } catch (e) {
       await this.d.prisma.payment.updateMany({ where: { id: payment.id, status: 'PENDING', paymentUrl: null }, data: { status: 'FAILED' } });
       throw e;
