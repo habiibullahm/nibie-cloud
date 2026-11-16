@@ -1,4 +1,5 @@
 import Docker from 'dockerode';
+import { Redis } from 'ioredis';
 import 'dotenv/config';
 import { loadConfig } from './config/env.js';
 import { createPrisma } from './db/client.js';
@@ -142,7 +143,14 @@ const admin = customer
   ? { verify: customer.verify, prisma, audit: new AuditService({ prisma }), queue }
   : undefined;
 logger.info({ adminApi: admin !== undefined, adminEmails: config.adminEmails.length }, 'admin API');
-const app = buildServer({ service, commands, queue, config, logger, integrations, logs: logService, billing, ...(customer ? { customer } : {}), ...(admin ? { admin } : {}) });
+// Dependency checks behind the loopback-only /readyz that the host watchdog polls.
+const readyRedis = config.redisUrl ? new Redis(config.redisUrl, { lazyConnect: true, maxRetriesPerRequest: 1, enableOfflineQueue: false }) : null;
+const readiness = {
+  database: async () => { await prisma.$queryRaw`select 1`; },
+  docker: async () => { await docker.ping(); },
+  ...(readyRedis ? { redis: async () => { if (readyRedis.status === 'wait') await readyRedis.connect(); await readyRedis.ping(); } } : {}),
+};
+const app = buildServer({ service, commands, queue, config, logger, integrations, logs: logService, billing, readiness, ...(customer ? { customer } : {}), ...(admin ? { admin } : {}) });
 
 let stopReconciler: () => void | Promise<void> = () => undefined;
 let stopWorker: (() => Promise<void>) | undefined;
@@ -180,7 +188,7 @@ async function shutdown() {
   // Whatever hangs (a dead Redis, a stuck Docker call), the process still exits.
   setTimeout(() => process.exit(1), 30_000).unref();
   await app.close().catch(() => undefined); // stop taking requests first
-  await Promise.allSettled([Promise.resolve(stopReconciler()), stopWorker?.(), queue?.close()]);
+  await Promise.allSettled([Promise.resolve(stopReconciler()), stopWorker?.(), queue?.close(), readyRedis?.quit()]);
   stopDiskMonitor();
   await prisma.$disconnect().catch(() => undefined);
   process.exit(0);
