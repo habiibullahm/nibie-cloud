@@ -2,6 +2,18 @@
 
 Last updated: 2026-11-15 (dashboard billing/checkout and the NibieRouter key and one-time credit are merged in PRs #24 and #25 and deployed to the VPS as `0e844b1` plus the later fix, with billing and the router still switched OFF there; the admin calls were checked against the real router, a full paid flow was not; landing live at cloud.nibie.app; production runs on `runsc`). Index of all docs: [README.md](README.md).
 
+- **Autopilot phase 1, backend alerts (2026-11-16, branch `claude/project-thread-uym76i`, NOT deployed).** The part PR #33 lists as "not done": the table
+  `OperatorAlert` (migration `20261116230000_add_operator_alert`; enable row level security on it like the other `hermes` tables) and `src/modules/ops`:
+  `Alerter` (dedupe per condition, repeat after 1 h critical / 6 h warning, immediate escalation, one recovery message, storm limit of 20 messages per
+  10 minutes, token-like text removed), `createTelegramSink` through `safeFetch`, and `AlertScanner`, which runs inside the locked maintenance tick
+  (at most once a minute) and raises alerts from state the platform already records: instance `DEGRADED` or `recovery_exhausted` after 10 minutes,
+  `FAILED` (critical when the customer already pays), a verified payment without an instance after 15 minutes, router provisioning or credit grant
+  stuck from 5 attempts, full tenant disk, exhausted queue jobs, plus a daily summary from 09:00 WIB. New optional env names
+  `OPS_TELEGRAM_BOT_TOKEN` and `OPS_TELEGRAM_CHAT_ID` (together or neither; `deploy/backend.env.example`). The host watchdog and `/readyz` of PR #33 are
+  untouched. Plan: [superpowers/plans/2026-11-15-operasi-autopilot-tanpa-admin.md](superpowers/plans/2026-11-15-operasi-autopilot-tanpa-admin.md).
+  **Verified in a cloud sandbox:** `tsc`, unit tests (alerter, Telegram sink, config), the scanner against Postgres 16. **Not verified:** delivery to a real
+  Telegram chat, a run on the VPS or against the production database volume. Not built: customer emails on incidents, plan phases 2-6.
+
 ## Where things stand
 
 - **Git.** `main` is at `6e5d644` and `origin/main` matches it (checked in a fresh clone on

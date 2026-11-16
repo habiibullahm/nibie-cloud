@@ -459,3 +459,33 @@ describe('loadConfig: NibieRouter', () => {
     expect(message).not.toContain('sk-admin-canary-value-123');
   });
 });
+
+describe('operator alerting settings', () => {
+  const token = '123456789:AAHdqTcvCH1vGWJxfSeofSAs0K5PALDsaw';
+
+  it('is off by default', () => {
+    expect(loadConfig(base).ops).toEqual({ telegram: null });
+  });
+
+  it('reads the Telegram channel', () => {
+    const cfg = loadConfig({ ...base, OPS_TELEGRAM_BOT_TOKEN: token, OPS_TELEGRAM_CHAT_ID: '-1001234567890' });
+    expect(cfg.ops).toEqual({ telegram: { botToken: token, chatId: '-1001234567890' } });
+  });
+
+  it.each([
+    ['only the token', { OPS_TELEGRAM_BOT_TOKEN: token }],
+    ['only the chat id', { OPS_TELEGRAM_CHAT_ID: '42' }],
+  ])('refuses %s', (_l, extra) => {
+    expect(() => loadConfig({ ...base, ...extra })).toThrow('OPS_TELEGRAM_BOT_TOKEN');
+  });
+
+  it('does not echo the bot token in an error', () => {
+    let message = '';
+    try {
+      loadConfig({ ...base, OPS_TELEGRAM_BOT_TOKEN: token });
+    } catch (e) {
+      message = (e as Error).message;
+    }
+    expect(message).not.toContain('AAHdqTcv');
+  });
+});
