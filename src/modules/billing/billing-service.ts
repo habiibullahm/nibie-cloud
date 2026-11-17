@@ -1,7 +1,7 @@
 import type { RouterProvisioner } from '../nibierouter/router-provisioner.js';
 import { randomUUID } from 'node:crypto';
 import type { Payment, PaymentPurpose, PaymentStatus, Plan, Prisma, PrismaClient, Subscription, SubscriptionStatus } from '@prisma/client';
-import { AppError, ConflictError, InstanceLimitError, NotFoundError, ValidationError } from '../../shared/errors.js';
+import { AppError, CapacityFullError, ConflictError, InstanceLimitError, NotFoundError, ValidationError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import { isUuid } from '../../shared/uuid.js';
 import type { InstanceCommands } from '../instances/instance-commands.js';
@@ -10,6 +10,7 @@ import { DUITKU_MIN_AMOUNT_IDR, verifyCallbackSignature, type DuitkuClient, type
 import { renderEmail, type EmailKind } from './email-templates.js';
 import { periodAfterPayment } from './lifecycle.js';
 import type { Mailer } from './mailer.js';
+import { totalLoad } from '../instances/capacity.js';
 import type { PaymentClient } from './payment-client.js';
 import type { SumoPodConfig } from './sumopod-client.js';
 
@@ -65,6 +66,8 @@ export interface BillingDeps {
   mailer: Mailer;
   dashboardOrigin: string;
   maxInstancesPerTenant: number;
+  /** Whole-server cap (see capacity.ts). Absent or null: no cap. */
+  maxTotalInstances?: number | null;
   logger: Logger;
   /** NibieRouter key and credit for a freshly created paid instance. Absent: the operator attaches a provider by hand. */
   router?: Pick<RouterProvisioner, 'begin'>;
@@ -158,6 +161,8 @@ export class BillingService {
         data: { status: 'EXPIRED' },
       });
       await this.assertCapacity(tx, i.tenantId, now);
+      // A new purchase is refused before any invoice exists when the server is full; paying customers are never blocked here.
+      if (this.d.maxTotalInstances != null && (await totalLoad(tx, now)) >= this.d.maxTotalInstances) throw new CapacityFullError();
       const subscription = await tx.subscription.create({
         data: { tenantId: i.tenantId, planId: plan.id, intendedName: i.name, idempotencyKey: i.idempotencyKey },
       });

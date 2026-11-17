@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createPrisma } from '../../src/db/client.js';
-import { ConflictError, InstanceLimitError, NotFoundError, PaymentProviderUnavailableError } from '../../src/shared/errors.js';
+import { CapacityFullError, ConflictError, InstanceLimitError, NotFoundError, PaymentProviderUnavailableError } from '../../src/shared/errors.js';
 import { PlanNotForSaleError } from '../../src/modules/billing/billing-service.js';
 import { resetDb } from '../helpers/db.js';
 import { PRICE, callbackForm, makeBilling, makeClock, seedBilling } from '../helpers/billing-env.js';
@@ -107,6 +107,19 @@ describe('BillingService', () => {
       const r = await pay(await orderIdOf(first.payment.id));
       expect((await prisma.payment.findUniqueOrThrow({ where: { id: first.payment.id } })).status).toBe('PAID');
       expect(r).toBeDefined();
+    });
+
+    it('refuses a new purchase at the whole-server cap before any invoice exists, and never blocks a paying customer', async () => {
+      env = makeBilling(prisma, { maxTotal: 1 });
+      const first = await checkout();
+      const other = await prisma.tenant.create({ data: { name: 'other' } });
+      await expect(env.billing.checkout({ tenantId: other.id, email: 'o@example.test', planId: s.plan.id, name: 'x', idempotencyKey: randomUUID() }))
+        .rejects.toBeInstanceOf(CapacityFullError);
+      expect(await prisma.subscription.count()).toBe(1);
+      expect(env.duitku.invoices).toHaveLength(1);
+      // The first customer, already counted, pays and is fulfilled even though the server is at its cap.
+      await pay(await orderIdOf(first.payment.id));
+      expect((await prisma.instance.count({ where: { status: 'ACTIVE' } }))).toBe(1);
     });
 
     it('a Duitku outage answers 503, marks the attempt failed and a retry works', async () => {

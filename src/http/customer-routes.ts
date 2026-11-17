@@ -4,11 +4,12 @@ import type { PrismaClient } from '@prisma/client';
 import type { Config } from '../config/env.js';
 import type { InstanceCommands } from '../modules/instances/instance-commands.js';
 import type { InstanceService } from '../modules/instances/instance-service.js';
-import { ForbiddenError } from '../shared/errors.js';
+import { CapacityFullError, ForbiddenError } from '../shared/errors.js';
 import type { LogService } from '../modules/integrations/log-service.js';
 import type { Integrations } from '../modules/integrations/types.js';
 import { registerCustomerIntegrationRoutes } from './integration-routes.js';
 import { createBody, idempotencyKey } from './operator-routes.js';
+import { totalLoad } from '../modules/instances/capacity.js';
 import { registerBillingRoutes } from './billing-routes.js';
 import type { BillingService } from '../modules/billing/billing-service.js';
 import { AppError } from '../shared/errors.js';
@@ -74,6 +75,11 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
       }
       const key = idempotencyKey.parse(req.headers['idempotency-key']);
       const body = createBody.parse(req.body);
+      // Whole-server cap. A replay of a creation that already exists is not a new instance and is never refused.
+      if (config.maxTotalInstances !== null) {
+        const replay = await prisma.instance.findFirst({ where: { tenantId: p.tenantId, idempotencyKey: key }, select: { id: true } });
+        if (!replay && (await totalLoad(prisma, new Date())) >= config.maxTotalInstances) throw new CapacityFullError();
+      }
       const { instance, jobId } = await commands.provision({
         tenantId: p.tenantId, name: body.name, planId: body.planId, idempotencyKey: key,
         maxInstances: config.maxInstancesPerTenant, activePlanOnly: true,

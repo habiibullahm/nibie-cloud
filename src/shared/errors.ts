@@ -71,6 +71,12 @@ export class ForbiddenError extends AppError {
   }
 }
 
+export class CapacityFullError extends AppError {
+  constructor() {
+    super('Nibie Cloud is at capacity right now. Please try again later.', 409, 'capacity_full');
+  }
+}
+
 export class InstanceLimitError extends AppError {
   constructor() {
     super('Instance limit reached for this account', 409, 'instance_limit_reached');

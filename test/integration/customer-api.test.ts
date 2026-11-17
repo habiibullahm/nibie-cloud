@@ -52,6 +52,23 @@ describe('customer API', () => {
     });
   });
 
+  it('refuses a new instance at the whole-server cap, but never a replay and never after one is deleted', async () => {
+    const a = app({ maxTotalInstances: 1 });
+    const alice = await user(ALICE);
+    const key = randomUUID();
+    const first = await create(a, alice, undefined, key);
+    expect(first.statusCode).toBe(202);
+    // Another invited tenant is refused before anything is created.
+    const refused = await create(a, await user(BOB));
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json().error.code).toBe('capacity_full');
+    // The same request replayed is the same instance, not a new one.
+    expect((await create(a, alice, undefined, key)).statusCode).toBe(202);
+    // Deleting frees the slot.
+    await a.inject({ method: 'DELETE', url: `/api/v1/instances/${first.json().instance.id}`, headers: alice });
+    expect((await create(a, await user(BOB))).statusCode).toBe(202);
+  });
+
   it('shows the unpriced beta preview plan only to invited accounts', async () => {
     await prisma.plan.create({ data: { slug: 'paid', name: 'Paid', cpuMillis: 1000, memoryMb: 1024, pids: 256, storageMb: 1024, monthlyPriceIdr: 25_000 } });
     const slugs = async (email: string) => {
