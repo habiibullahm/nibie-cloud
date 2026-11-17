@@ -115,8 +115,8 @@ Merged on 2026-11-17:
 | **#50** | **landing "Daftar beta gratis" mode with a live counter** | **merged 05:15 UTC; off in the code by default; reported live with `NEXT_PUBLIC_FREE_BETA_OPEN=true`; not independently verified** |
 
 Open: **#51 automatic waiting list** (table `WaitlistEntry`, `POST /api/v1/public/waitlist`, inviter in the maintenance tick,
-48 hour claim window, read-only admin page). It was stacked on #49 and #50, so GitHub reports it as having conflicts; bring it up
-to date with `main` before review. Not deployed. Owner approval is required before it is merged.
+48 hour claim window, read-only admin page). Its branch already merged `main` at `1584e35`; GitHub reported it `MERGEABLE` later on
+2026-11-17 (checks and review findings: [CURRENT_STATE.md](CURRENT_STATE.md)). Not deployed. Owner approval is required before it is merged.
 
 To check what the VPS really runs: `grep '^BACKEND_TAG=' /etc/hermes-cloud/backend.env` on the host and compare with
 `git log` in `/opt/hermes-cloud`. This handoff cannot see the VPS.
@@ -161,9 +161,8 @@ Owner (cannot be done by an agent):
 
 Engineering, in order:
 
-1. Confirm what the go-live work reported: backend with #49 and #50 deployed, `FREE_BETA_SLOTS=10`, `PAID_CHECKOUT_OPEN=false` in the
-   host env, landing built with `NEXT_PUBLIC_FREE_BETA_OPEN=true` and `NEXT_PUBLIC_API_URL`. Check `GET /api/v1/public/beta-slots`
-   from outside and the counter on the landing page, and record the real values in `CURRENT_STATE.md`.
+1. Done from outside on 2026-11-17 (counter `10/10`, landing in free beta mode with the live counter; see `CURRENT_STATE.md`). Still open:
+   `PAID_CHECKOUT_OPEN=false` (needs a signed-in, non-invited account) and the image tag on the VPS.
 2. Review and, with approval, merge #51 after bringing it up to date; apply its migration and check RLS; set the SMTP variables.
 3. Known free-beta risks: fake accounts can take slots (add email confirmation or a captcha if it happens); the slot check is not
    atomic (the total cap still bounds the damage); the waiting list does not verify email addresses.
