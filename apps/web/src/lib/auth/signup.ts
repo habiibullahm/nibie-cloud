@@ -1,6 +1,6 @@
 /** Pure helpers for the sign-up and sign-in screens (email code, Google return, error texts). No Supabase import, so they are testable. */
 
-/** Supabase's "Email OTP length" on the project (set to 6 by the owner on 2026-11-17). */
+/** Must match Supabase's "Email OTP length" setting. */
 export const DEFAULT_CODE_LENGTH = 6
 /** Seconds before "Send a new code" may be pressed again; Supabase also rate-limits resends on its side. */
 export const RESEND_COOLDOWN_S = 60

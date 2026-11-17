@@ -6,7 +6,7 @@ several still describe branches as "not committed" or billing as "OFF" that have
 
 ## Branch `claude/free-signup-flow`: free beta sign-up flow, tested end to end on localhost (2026-11-17, not merged or deployed)
 
-From `main` at `f8f035f`. Not committed when this entry was written.
+From `main` at `f8f035f`. Committed as `83fb915`, PR #56 (open, not merged or deployed); the anti-slop audit fixes follow on the same branch.
 
 - **Dashboard sign-up.**
   - Email registration is confirmed with the code from the email. The field takes exactly the project's length: 6 by default, matching Supabase's "Email OTP length", which the owner changed from 8 to 6 on 2026-11-17. `NEXT_PUBLIC_EMAIL_CODE_LENGTH` overrides it. A wrong or expired code gives one clear message, and "Send a new code" has a 60 s wait.
@@ -24,7 +24,7 @@ From `main` at `f8f035f`. Not committed when this entry was written.
   - New free instances get their NibieRouter key on every 15 s maintenance run (`RouterProvisioner.runNewFree`) instead of waiting up to 5 minutes; failures still retry on the billing tick.
 - **Landing.** `NEXT_PUBLIC_DASHBOARD_URL` lets the local landing link to the dashboard on its own port. The price section now says 5 GB storage.
 - **Storage 1 GB to 5 GB** (owner decision, 2026-11-17).
-  - Why: Hermes sends "Low disk space" to the customer's chat whenever its disk has less than 2 GiB free, so every 1 GB instance got it. The smallest competing plans carry 8 to 10 GB.
+  - Why: Hermes sends "Low disk space" to the customer's chat whenever its disk has less than 2 GiB free, so every 1 GB instance got it. The smallest competing plans carry 8 to 10 GB (Agent37 Basic 8 GB, OpenClaw Launch Lite 10 GB; from web search results on 2026-11-17, not checked on their own pages).
   - `deploy/sql/2026-11-17-storage-5gb.sql` raises `hosting` and `hosting-kredit` to 5120 MB. It is **not run**; it runs on Supabase only with the owner's approval.
   - Existing volumes keep their size. The draft host steps to grow them are in `docs/disk-quota-host-notes.md`, not verified.
   - The seeded `config.yaml` now also sets `sessions.auto_prune: true` unless the file already has a value (`src/modules/runtime/hermes-config.ts`). Hermes then never asks the customer, and deletes ended sessions idle for more than 90 days.
@@ -37,14 +37,13 @@ From `main` at `f8f035f`. Not committed when this entry was written.
     - Router provisioner integration tests: 19 passed, on local `hermes_test`.
   - Not run: the other integration tests and the `@google/design.md` lint (no local copy of the CLI).
 - **Local end-to-end run** (backend :3400, dashboard :3500, landing :3300; real Supabase Auth of the production project, local Postgres, stub image), steps done by the owner in their own browser:
-  - landing counter, then register with an alias and the 8-digit code;
+  - landing counter, then register with an alias and the 8-digit code (before the switch to 6; the 6-digit flow and "Send a new code" were not re-tested);
   - wrong code message;
   - free deploy reaching `ACTIVE` with the counter going from 10 to 9;
   - Google sign-in;
   - NibieRouter attached 28 s after `ACTIVE` with the provider test OK;
   - Telegram test message received;
   - the "Could not reach the API" text with the backend stopped.
-  - Not reported: "Send a new code".
 - **Outside the repository** (Supabase project `nibie-cloud-sgp`, changed through the owner's browser with their approval):
   - Redirect URL `http://localhost:3500/**` added;
   - "Confirm signup" template shows `{{ .Token }}` above the existing link;

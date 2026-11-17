@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 
 /**
  * Google's "G" mark, drawn as Google's sign-in guidelines ask. It is the one brand logo allowed outside Lucide
- * (DESIGN.md, "Third-party sign-in marks").
+ * (DESIGN.md, Do's and Don'ts: the approved Google "G" exception).
  */
 function GoogleMark() {
   return (

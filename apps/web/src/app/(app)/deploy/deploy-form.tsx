@@ -136,7 +136,13 @@ export function DeployForm() {
               <Alert>
                 <Info aria-hidden="true" />
                 <AlertTitle>No plan is open for your account</AlertTitle>
-                <AlertDescription>The free beta slots may be full. Try again later.</AlertDescription>
+                <AlertDescription>
+                  All free beta slots are taken right now. Join the waiting list on{" "}
+                  <a href="https://cloud.nibie.app" className="text-foreground underline underline-offset-4">
+                    cloud.nibie.app
+                  </a>{" "}
+                  and we will email you when a slot opens.
+                </AlertDescription>
               </Alert>
             ) : (
               <RadioGroup value={plan?.id} onValueChange={setPlanId} aria-label="Plan" className="grid gap-3 md:grid-cols-3">

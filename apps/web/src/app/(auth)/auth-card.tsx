@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { GoogleButton } from "@/components/auth/google-button"
-import { Turnstile, turnstileSiteKey } from "@/components/auth/turnstile"
+import { Turnstile, turnstileSiteKey, type TurnstileProblem } from "@/components/auth/turnstile"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader } from "@/components/ui/card"
@@ -45,6 +45,7 @@ export function AuthCard({ mode }: { mode: "sign-in" | "register" }) {
   const [cooldown, setCooldown] = useState(0)
   const [captcha, setCaptcha] = useState<string | null>(null)
   const [captchaRound, setCaptchaRound] = useState(0)
+  const [captchaProblem, setCaptchaProblem] = useState<TurnstileProblem>(null)
   const needsCaptcha = siteKey !== null && captcha === null
 
   useEffect(() => {
@@ -58,12 +59,13 @@ export function AuthCard({ mode }: { mode: "sign-in" | "register" }) {
     const token = captcha
     if (siteKey) {
       setCaptcha(null)
+      setCaptchaProblem(null)
       setCaptchaRound((n) => n + 1)
     }
     return token ? { captchaToken: token } : {}
   }
 
-  function toCode(email: string, message: string, startCooldown: boolean) {
+  function toCode(email: string, message: string | null, startCooldown: boolean) {
     setStep({ kind: "code", email })
     setCode("")
     setNotice(message)
@@ -89,7 +91,8 @@ export function AuthCard({ mode }: { mode: "sign-in" | "register" }) {
       })
       setBusy(false)
       if (e2) return setError(authErrorMessage(e2, "sign-up"))
-      return toCode(email, `We sent a verification code to ${email}. Enter it below to finish.`, true)
+      // The code step's own heading already says where the code went.
+      return toCode(email, null, true)
     }
     const { error: e2 } = await supabase.auth.signInWithPassword({ email, password, options: takeCaptcha() })
     setBusy(false)
@@ -151,7 +154,18 @@ export function AuthCard({ mode }: { mode: "sign-in" | "register" }) {
       ) : null}
     </>
   )
-  const captchaWidget = siteKey ? <Turnstile key={captchaRound} siteKey={siteKey} onToken={setCaptcha} /> : null
+  const captchaWidget = siteKey ? (
+    <>
+      <Turnstile key={captchaRound} siteKey={siteKey} onToken={setCaptcha} onProblem={setCaptchaProblem} />
+      {captchaProblem ? (
+        <p role="status" className="text-foreground">
+          {captchaProblem === "expired"
+            ? "The security check expired. Complete it again."
+            : "The security check could not load. Allow challenges.cloudflare.com, or reload the page."}
+        </p>
+      ) : null}
+    </>
+  ) : null
 
   if (step.kind === "code") {
     const digits = codeLength()
@@ -173,14 +187,13 @@ export function AuthCard({ mode }: { mode: "sign-in" | "register" }) {
                 autoComplete="one-time-code"
                 pattern={`\\d{${digits}}`}
                 maxLength={digits}
-                placeholder={"0".repeat(digits)}
                 value={code}
                 aria-describedby="code-hint"
                 onChange={(ev) => {
                   setCode(normalizeCode(ev.target.value, digits))
                   setError(null)
                 }}
-                className="font-mono tracking-[0.3em]"
+                className="font-mono tracking-widest"
               />
               <p id="code-hint" className={partial ? "text-foreground" : "text-muted-foreground"}>
                 {partial ? `${code.length} of ${digits} digits.` : `The ${digits}-digit code from the email.`}

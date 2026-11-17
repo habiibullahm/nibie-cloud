@@ -1,6 +1,6 @@
 -- Storage 1 GB -> 5 GB for the paid 1 CPU / 1 GB plans (owner decision, 2026-11-17).
 -- Why: Hermes warns "Low disk space" whenever its disk has less than 2 GiB free, so a 1 GB volume warned on every
--- instance; competitors' smallest plans carry 8 to 10 GB. 5 GB keeps 20 instances (MAX_TOTAL_INSTANCES) within the
+-- instance. 5 GB keeps 20 instances (MAX_TOTAL_INSTANCES) within the
 -- 100 GB tenant XFS image even when every volume is full.
 --
 -- Run by hand against the Supabase project, after the owner approves it. Idempotent: safe to re-run.

@@ -164,10 +164,12 @@ function HealthCard({ instance }: { instance: Instance }) {
         <div className="flex flex-wrap gap-2 pt-4">
           {/* The next step after deploying: the primary action until a bot is connected. */}
           <Button asChild variant={telegram.data && !telegram.data.configured ? "default" : "outline"} size="sm">
-            <Link href={`/instances/${instance.id}/configuration?tab=telegram`}>Connect Telegram</Link>
+            <Link href={`/instances/${instance.id}/configuration?tab=telegram`}>
+              {telegram.data?.configured ? "Telegram settings" : "Connect Telegram"}
+            </Link>
           </Button>
           <Button asChild variant="outline" size="sm">
-            <Link href={`/instances/${instance.id}/configuration?tab=provider`}>AI provider</Link>
+            <Link href={`/instances/${instance.id}/configuration?tab=provider`}>AI provider settings</Link>
           </Button>
         </div>
       </CardContent>

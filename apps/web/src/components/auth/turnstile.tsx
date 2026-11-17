@@ -43,12 +43,27 @@ function loadTurnstile(): Promise<TurnstileApi> {
  * Cloudflare Turnstile. Supabase checks the token itself (Authentication → Attack Protection), so the dashboard only
  * forwards it as `captchaToken`. A token works once: the parent remounts this component (a new `key`) after every call.
  */
-export function Turnstile({ siteKey, onToken }: { siteKey: string; onToken: (token: string | null) => void }) {
+export type TurnstileProblem = "expired" | "unavailable" | null
+
+export function Turnstile({
+  siteKey,
+  onToken,
+  onProblem,
+}: {
+  siteKey: string
+  onToken: (token: string | null) => void
+  /** Why there is no token, so the screen can say so instead of leaving the buttons disabled without a reason. */
+  onProblem: (problem: TurnstileProblem) => void
+}) {
   const box = useRef<HTMLDivElement>(null)
-  const report = useRef(onToken)
+  const handlers = useRef({ onToken, onProblem })
   useEffect(() => {
-    report.current = onToken
-  }, [onToken])
+    handlers.current = { onToken, onProblem }
+  }, [onToken, onProblem])
+  const report = useRef((token: string | null, problem: TurnstileProblem) => {
+    handlers.current.onToken(token)
+    handlers.current.onProblem(problem)
+  })
 
   useEffect(() => {
     let widget: string | null = null
@@ -58,14 +73,14 @@ export function Turnstile({ siteKey, onToken }: { siteKey: string; onToken: (tok
         if (!alive || !box.current) return
         widget = api.render(box.current, {
           sitekey: siteKey,
-          theme: "auto",
+          theme: "dark",
           size: "flexible",
-          callback: (t: string) => report.current(t),
-          "expired-callback": () => report.current(null),
-          "error-callback": () => report.current(null),
+          callback: (t: string) => report.current(t, null),
+          "expired-callback": () => report.current(null, "expired"),
+          "error-callback": () => report.current(null, "unavailable"),
         })
       })
-      .catch(() => report.current(null))
+      .catch(() => report.current(null, "unavailable"))
     return () => {
       alive = false
       if (widget && window.turnstile) window.turnstile.remove(widget)

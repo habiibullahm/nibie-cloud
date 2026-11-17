@@ -223,8 +223,9 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
               </>
             ) : routerComing ? (
               <p className="text-muted-foreground">
-                Setting up NibieRouter for you. This takes about a minute and this page updates by itself. Nothing to do here:
-                add your Telegram bot in the Telegram tab.
+                Nibie Cloud is connecting NibieRouter. This usually takes under a minute and this page updates on its own.
+                Meanwhile, add your bot in the Telegram tab. If it is still not connected after a few minutes, add your own key
+                below.
               </p>
             ) : (
               <p className="text-muted-foreground">No AI provider yet. Add your own key below so Hermes can answer.</p>
