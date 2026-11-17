@@ -1,6 +1,27 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-17 (go-live preparation: sign-up closed on the landing page, admin API phase A deployed to the VPS, production plans match the landing, billing still OFF on the VPS; production runs on `runsc`). Earlier entries below keep their own dates. Index of all docs: [README.md](README.md).
+Last updated: 2026-11-17 (evening: free beta slots and landing counter merged, see the first section). Earlier entries below keep their own dates, and
+several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
+[HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
+
+## Latest status (2026-11-17, read from `origin/main` at `1584e35` and the GitHub PR list)
+
+- **Git.** `main` contains PRs #22 to #50 (merged: #49 and #50 at 05:15 UTC). One PR is open: **#51, automatic waiting list**
+  (`WaitlistEntry`, `POST /api/v1/public/waitlist`, inviter in the maintenance tick, read-only admin page); it was stacked on #49 and #50, GitHub
+  reports conflicts, it is not deployed and needs the owner's approval before merge. Status per PR: [HANDOFF.md](HANDOFF.md), section 6.
+- **Free beta (PRs #46 to #50).** The unpriced plan is listed only to invited accounts (`BETA_ALLOWED_EMAILS`) unless `FREE_BETA_SLOTS` is above 0, in
+  which case any signed-in user may create one free instance, first come first served; a full beta answers 409 `beta_full`. `GET
+  /api/v1/public/beta-slots` returns `{ total, remaining }` for the landing counter. `PAID_CHECKOUT_OPEN=false` hides the priced plans and refuses
+  checkout for everyone but invited accounts. `MAX_TOTAL_INSTANCES` (20 on the VPS) caps the whole server. The landing page has a "Daftar beta gratis"
+  mode (`NEXT_PUBLIC_FREE_BETA_OPEN`, `NEXT_PUBLIC_API_URL`; rebuild needed).
+  **Deployment of #49 and #50 and the live landing mode were reported by the go-live work on 2026-11-17 and were not re-checked from this repository.**
+  Known risks: fake accounts can take free slots; the slot check is not atomic (the total cap bounds it).
+- **Billing.** SumoPod is the gateway; a sandbox payment reached `PAID` and an `ACTIVE` instance (above). Production keys were reported installed and
+  the webhook reported verified; **the real Rp 25.000 payment test has not been done**, so paid checkout stays closed.
+- **Also merged since the entries below were written:** operator alerts in the backend (#35, inactive until configured), deploy script with rollback (#38),
+  tenant volume backup to R2 with weekly restore verification (#39), dashboard provider/Telegram/logs wiring (#40, #41, #43), operator script for
+  provider and Telegram (#42), usage log and `docs/capacity.md` (#45), abandoned-invoice fix (#37).
+- **Owner to-do and open engineering work:** [HANDOFF.md](HANDOFF.md), section 9.
 
 ## Dashboard: Hermes configuration wired to the backend (2026-11-17, branch `claude/project-thread-aeigzy`)
 

@@ -9,6 +9,8 @@ real tool output win, then CURRENT_STATE, then everything else.
 | --- | --- |
 | [prd.md](prd.md) | Product requirements v1.0, the source of truth for scope. Do not edit without the owner. |
 | [CURRENT_STATE.md](CURRENT_STATE.md) | Verified status: commits, what was tested and where, known issues, open decisions. |
+| [HANDOFF.md](HANDOFF.md) | Single-page handoff for a new person or session: architecture, repo map, deploy, env names, status per PR, working rules, prioritised to-do (2026-11-17). |
+| [START_PROMPT.md](START_PROMPT.md) | Paste-ready opening prompt (Indonesian) for a new session. |
 | [architecture.md](architecture.md) | What the backend builds today, the hardening table, the image contract, known gaps. |
 | [setup.md](setup.md) | Prerequisites, first run, commands, configuration variables, operator API usage. |
 | [milestone-2-runtime-security.md](milestone-2-runtime-security.md) | Milestone 2.2 runtime-security evidence. A partial reconstruction; each result is tagged re-run or reported. |
