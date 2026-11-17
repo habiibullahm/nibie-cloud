@@ -1,0 +1,8 @@
+/var/log/hermes-usage.csv {
+    weekly
+    rotate 12
+    compress
+    missingok
+    notifempty
+    copytruncate
+}
