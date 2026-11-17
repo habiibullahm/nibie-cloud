@@ -47,7 +47,8 @@ function FooterColumn({ title, children }: { title: string; children: React.Reac
   return (
     <div>
       <h2 className="type-label mb-3 text-muted-foreground">{title}</h2>
-      <div className="grid gap-2 [&_a]:w-fit [&_a]:text-foreground [&_a]:no-underline [&_a]:hover:underline">
+      {/* On touch each link is at least 44x44px (the gap folds into the taller rows); every link gets the button focus ring. */}
+      <div className="grid gap-2 pointer-coarse:gap-0 [&_a]:hit-area [&_a]:relative [&_a]:-mx-1 [&_a]:inline-flex [&_a]:px-1 [&_a]:w-fit [&_a]:items-center [&_a]:rounded-sm [&_a]:text-foreground [&_a]:no-underline [&_a]:outline-none [&_a]:hover:underline [&_a]:focus-visible:ring-2 [&_a]:focus-visible:ring-ring [&_a]:pointer-coarse:min-h-11">
         {children}
       </div>
     </div>

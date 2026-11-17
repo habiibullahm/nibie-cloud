@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function KonfirmasiDaftarTungguPage() {
   return (
-    <PageShell title="Konfirmasi daftar tunggu" intro="Tekan tombol di bawah untuk memastikan alamat email ini milikmu. Setelah itu kamu masuk antrean beta gratis.">
+    <PageShell title="Konfirmasi daftar tunggu" intro="Halaman ini memastikan alamat email untuk daftar tunggu beta gratis Nibie Cloud.">
       <WaitlistConfirm />
     </PageShell>
   )

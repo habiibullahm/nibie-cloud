@@ -1,6 +1,7 @@
 "use client"
 
-import { useId, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
+import { CircleAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -37,6 +38,19 @@ function WaitlistForm({ url }: { url: string }) {
   const [state, setState] = useState<State>({ phase: "idle" })
   const sending = state.phase === "sending"
   const invalid = (f: WaitlistField) => state.phase === "error" && state.field === f
+  const formRef = useRef<HTMLFormElement>(null)
+  const statusRef = useRef<HTMLParagraphElement>(null)
+  const doneRef = useRef<HTMLDivElement>(null)
+
+  // The fields are disabled while sending and the form is replaced when done, so focus would fall back to the page.
+  // Put it where the answer is: the invalid field, the error message, or the confirmation.
+  useEffect(() => {
+    if (state.phase === "done") doneRef.current?.focus()
+    else if (state.phase === "error") {
+      const field = state.field ? formRef.current?.querySelector<HTMLElement>(`[name="${state.field}"]`) : null
+      ;(field ?? statusRef.current)?.focus()
+    }
+  }, [state])
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -59,7 +73,7 @@ function WaitlistForm({ url }: { url: string }) {
 
   if (state.phase === "done") {
     return (
-      <div role="status" className="max-w-[62ch] rounded-md border bg-card p-6">
+      <div ref={doneRef} tabIndex={-1} role="status" className="max-w-[62ch] rounded-md border bg-card p-6 outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <p className="type-label">Satu langkah lagi: cek emailmu</p>
         <p className="mt-2 text-muted-foreground">
           Kami mengirim tautan konfirmasi ke {state.email} (cek folder spam juga). Buka tautan itu dan tekan Konfirmasi dalam 24 jam;
@@ -70,7 +84,7 @@ function WaitlistForm({ url }: { url: string }) {
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate className="relative grid max-w-[62ch] gap-5" aria-describedby={`${id}-status`}>
+    <form ref={formRef} onSubmit={onSubmit} noValidate className="relative grid max-w-[62ch] gap-5" aria-describedby={`${id}-status`}>
       <div className="grid gap-2">
         <Label htmlFor={`${id}-name`}>Nama</Label>
         <Input id={`${id}-name`} name="name" autoComplete="name" maxLength={WAITLIST_LIMITS.name} aria-invalid={invalid("name")} disabled={sending} required />
@@ -90,8 +104,14 @@ function WaitlistForm({ url }: { url: string }) {
           <input name="website" type="text" tabIndex={-1} autoComplete="off" />
         </label>
       </div>
-      <p id={`${id}-status`} role="alert" className="min-h-5 text-[0.8125rem] text-destructive">
-        {state.phase === "error" ? state.message : ""}
+      {/* Error text in the foreground color: the destructive token is below 4.5:1 for small text, so the icon and "Gagal:" carry the meaning. */}
+      <p ref={statusRef} tabIndex={-1} id={`${id}-status`} role="alert" className="flex min-h-5 items-start gap-2 rounded-sm text-[0.8125rem] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        {state.phase === "error" ? (
+          <>
+            <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+            <span>Gagal: {state.message}</span>
+          </>
+        ) : null}
       </p>
       <div>
         <Button type="submit" disabled={sending}>{sending ? "Mengirim…" : "Masuk daftar tunggu"}</Button>
