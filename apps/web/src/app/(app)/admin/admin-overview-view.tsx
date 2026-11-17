@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/app/page-header"
 import { QueryFallback } from "@/components/app/query-fallback"
 import { StatusBadge } from "@/components/app/status-badge"
 import { useAdminOverview, useAdminSystem } from "@/hooks/use-admin"
+import { instanceStatusId } from "@/lib/admin-format"
 import type { BackendStatus } from "@/lib/api/types"
 
 function Stat({ label, value, hint }: { label: string; value: number | string; hint?: string }) {
@@ -73,7 +74,7 @@ export function AdminOverviewView() {
                 .sort(([a], [b]) => a.localeCompare(b))
                 .map(([status, count]) => (
                   <span key={status} className="flex items-center gap-2">
-                    <StatusBadge status={status as BackendStatus} />
+                    <StatusBadge status={status as BackendStatus} label={instanceStatusId(status)} />
                     <span className="type-mono text-muted-foreground">{count}</span>
                   </span>
                 ))

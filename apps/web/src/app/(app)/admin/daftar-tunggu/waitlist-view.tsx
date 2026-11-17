@@ -1,6 +1,6 @@
 "use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/app/page-header"
 import { AdminTable, TableCell, TableHead, TableRow } from "@/components/app/admin-table"
 import { useAdminWaitlist } from "@/hooks/use-admin"
@@ -44,7 +44,6 @@ export function AdminWaitlistView() {
             <CardTitle>Beta gratis belum aktif</CardTitle>
             <CardDescription>FREE_BETA_SLOTS di backend bernilai 0, jadi tidak ada undangan yang dikirim.</CardDescription>
           </CardHeader>
-          <CardContent />
         </Card>
       ) : null}
 

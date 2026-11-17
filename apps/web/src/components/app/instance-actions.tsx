@@ -59,8 +59,9 @@ export function InstanceActions({
           </Link>
         </Button>
       ) : null}
+      {/* Secondary like Restart and Stop: the page's one terracotta button belongs to its main task (Connect Telegram, Renew now). */}
       {allowed.has("start") && !suspended ? (
-        <Button variant="default" disabled={busy} onClick={() => action.mutate("start")}>
+        <Button variant="secondary" disabled={busy} onClick={() => action.mutate("start")}>
           <Play aria-hidden="true" />
           Start
         </Button>
@@ -97,6 +98,7 @@ export function InstanceActions({
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
+              variant={confirm === "stop" ? "destructive" : "default"}
               onClick={() => {
                 if (confirm) action.mutate(confirm)
                 setConfirm(null)

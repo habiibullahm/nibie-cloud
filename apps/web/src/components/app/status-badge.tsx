@@ -5,9 +5,9 @@ import { presentStatus } from "@/lib/api/status"
 
 /**
  * Status is always carried by its text label; each tone also has its own icon shape, so color is
- * never the only signal (DESIGN.md Do's and Don'ts).
+ * never the only signal (DESIGN.md Do's and Don'ts). `label` replaces the English text (the Indonesian admin panel).
  */
-export function StatusBadge({ status, className }: { status: InstanceStatus; className?: string }) {
+export function StatusBadge({ status, label, className }: { status: InstanceStatus; label?: string; className?: string }) {
   const p = presentStatus(status)
   return (
     <span
@@ -21,7 +21,7 @@ export function StatusBadge({ status, className }: { status: InstanceStatus; cla
       )}
     >
       <StatusIcon status={status} />
-      {p.label}
+      {label ?? p.label}
     </span>
   )
 }

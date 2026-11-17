@@ -8,13 +8,13 @@ import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
+import { ComingSoon } from "@/components/app/coming-soon"
 import { KeyValue } from "@/components/app/key-value"
 import { PreviewNote } from "@/components/app/preview-note"
 import { QueryFallback } from "@/components/app/query-fallback"
@@ -27,8 +27,10 @@ import {
   useInstanceMeta,
   usePlans,
   useProvider,
+  useSubscriptions,
   useTelegram,
 } from "@/hooks/use-hermes"
+import { subscriptionOfInstance } from "@/lib/billing"
 import { getApi, type ProviderConfig, type ProviderKind, type TelegramConfig } from "@/lib/api"
 import { BYOK_PROVIDERS, MAX_TELEGRAM_USERS, type ByokProviderName } from "@/lib/api/providers"
 import { allowedActions, isTransitional } from "@/lib/api/status"
@@ -565,8 +567,9 @@ function TelegramForm({ id, cfg }: { id: string; cfg: TelegramConfig }) {
 function RuntimeSection({ id }: { id: string }) {
   const meta = useInstanceMeta(id)
   const plans = usePlans()
-  const plan = plans.data?.find((p) => p.id === meta.data?.planId)
-  const [preBackup, setPreBackup] = useState(true)
+  const subs = useSubscriptions()
+  // Same rule as the instance header (instance-frame.tsx): the billed plan wins over the preview metadata.
+  const plan = plans.data?.find((p) => p.id === (subscriptionOfInstance(subs.data, id)?.planId ?? meta.data?.planId))
 
   if (!meta.data || !plan) return <QueryFallback what="the runtime details" queries={[meta, plans]} />
 
@@ -590,12 +593,10 @@ function RuntimeSection({ id }: { id: string }) {
             { k: "Processes", v: <span className="type-mono">{plan.pids}</span> },
           ]}
         />
-        <div className="flex items-start gap-3 border-t pt-4">
-          <Checkbox id="pre-upgrade-backup" checked={preBackup} onCheckedChange={(v) => setPreBackup(v === true)} className="mt-1" />
-          <div className="grid gap-1">
-            <Label htmlFor="pre-upgrade-backup">Back up before runtime upgrades</Label>
-            <p className="text-muted-foreground">Recommended. We snapshot your volume before applying a new Hermes version.</p>
-          </div>
+        {/* TODO(backups): offer a backup before runtime upgrades once the backup API exists (PRD §12). */}
+        <div className="flex flex-wrap items-center gap-3 border-t pt-4 text-muted-foreground">
+          <ComingSoon />
+          <p>Backups before runtime upgrades.</p>
         </div>
       </CardContent>
     </Card>

@@ -67,7 +67,8 @@ const P: Record<InstanceStatus, StatusPresentation> = {
     label: "Failed",
     tone: "danger",
     defaultReason: "The last operation did not complete.",
-    nextAction: "Retry the deployment, or contact support on Telegram if it keeps failing.",
+    // A failed instance only allows delete (allowedActions below); there is no retry and no support channel yet.
+    nextAction: "Delete this instance and deploy a new one.",
   },
   DELETING: {
     label: "Deleting",

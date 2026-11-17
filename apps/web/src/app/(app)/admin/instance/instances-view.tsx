@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/app/page-header"
 import { StatusBadge } from "@/components/app/status-badge"
 import { AdminTable, TableCell, TableHead, TableRow } from "@/components/app/admin-table"
 import { useAdminInstances } from "@/hooks/use-admin"
-import { formatBytesId, formatDateTimeId } from "@/lib/admin-format"
+import { formatBytesId, formatDateTimeId, instanceStatusId } from "@/lib/admin-format"
 import { BACKEND_STATUSES, type BackendStatus } from "@/lib/api/types"
 
 const ALL = "semua"
@@ -31,7 +31,7 @@ export function AdminInstancesView() {
             <SelectItem value={ALL}>Semua status</SelectItem>
             {BACKEND_STATUSES.map((s) => (
               <SelectItem key={s} value={s}>
-                {s}
+                {instanceStatusId(s)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -58,14 +58,14 @@ export function AdminInstancesView() {
         row={(i) => (
           <TableRow key={i.id}>
             <TableCell>
-              <StatusBadge status={i.status as BackendStatus} />
+              <StatusBadge status={i.status as BackendStatus} label={instanceStatusId(i.status)} />
             </TableCell>
             <TableCell>
               <Link href={`/admin/instance/${i.id}`} className="no-underline hover:underline">
                 {i.name}
               </Link>
             </TableCell>
-            <TableCell className="text-muted-foreground">{i.email ?? "—"}</TableCell>
+            <TableCell className="text-muted-foreground">{i.email ?? "Tidak ada"}</TableCell>
             <TableCell className="type-mono">{i.plan}</TableCell>
             <TableCell className="type-mono">{i.node}</TableCell>
             <TableCell className="type-mono">{formatBytesId(i.diskUsedBytes)}</TableCell>

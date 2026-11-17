@@ -19,8 +19,8 @@ export function PreviewNote({ what = "This section", reason = "api" }: { what?: 
       </PopoverTrigger>
       <PopoverContent className="w-72 text-sm">
         {reason === "mock"
-          ? `${what} come from the in-browser mock, not your backend. Set NEXT_PUBLIC_HERMES_API_MODE=live to use real instances.`
-          : `${what} uses sample data. Its API is planned (PRD §15) but not built yet.`}
+          ? `${what}: sample data from this preview, not real instances.`
+          : `${what}: sample data. This part is not built yet, so nothing here reflects your account.`}
       </PopoverContent>
     </Popover>
   )

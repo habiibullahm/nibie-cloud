@@ -60,7 +60,8 @@ export function InstancesView() {
         actions={
           <>
             {mock ? <PreviewNote what="These instances" reason="mock" /> : null}
-            <Button asChild>
+            {/* While a purchase awaits payment, "Pay now" is the screen's primary action. */}
+            <Button asChild variant={pending.length > 0 ? "outline" : "default"}>
               <Link href="/deploy">
                 <Plus aria-hidden="true" />
                 Deploy instance
@@ -108,10 +109,10 @@ export function InstancesView() {
         <EmptyState
           icon={<Boxes />}
           title="No instances yet"
-          description="Deploy your first Hermes agent. Choose a plan and region, name it, and we handle the runtime, storage and recovery."
+          description="Pick a plan and a name. Nibie Cloud runs the container, keeps its storage and restarts it if it crashes."
           action={
             <Button asChild variant="outline">
-              <Link href="/deploy">Start a deployment</Link>
+              <Link href="/deploy">Deploy your first instance</Link>
             </Button>
           }
         />

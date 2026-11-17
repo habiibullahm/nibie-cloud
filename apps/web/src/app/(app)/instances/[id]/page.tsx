@@ -8,8 +8,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { PreviewNote } from "@/components/app/preview-note"
 import { QueryFallback } from "@/components/app/query-fallback"
 import { ProvisionProgress } from "@/components/app/provision-progress"
-import { useApiMode, useEvents, useInstance, useProvider, useTelegram } from "@/hooks/use-hermes"
+import { useApiMode, useEvents, useInstance, useProvider, useSubscriptions, useTelegram } from "@/hooks/use-hermes"
 import { isTransitional, presentStatus, provisionStepIndex } from "@/lib/api/status"
+import { billingNotice, subscriptionOfInstance } from "@/lib/billing"
 import type { Instance } from "@/lib/api/types"
 import { copyWithToast } from "@/lib/copy"
 import { formatDateTime, formatRelative } from "@/lib/format"
@@ -107,6 +108,11 @@ function HealthRow({ label, state, text }: { label: string; state: Health; text:
 function HealthCard({ instance }: { instance: Instance }) {
   const provider = useProvider(instance.id)
   const telegram = useTelegram(instance.id)
+  // Provider and Telegram are real in customer mode; only the mock and the dev bridge serve sample health.
+  const customer = useApiMode() === "customer"
+  // A late-payment notice owns the screen's one primary button ("Renew now"), so Connect Telegram steps back.
+  const subs = useSubscriptions()
+  const billingLate = billingNotice(subscriptionOfInstance(subs.data, instance.id)) !== null
   const s = instance.status
   const running = s === "ACTIVE" || s === "DEGRADED"
   const runtime: [Health, string] = running
@@ -150,9 +156,11 @@ function HealthCard({ instance }: { instance: Instance }) {
       <CardHeader>
         <CardTitle>Health</CardTitle>
         <CardDescription>Each layer is checked separately.</CardDescription>
-        <CardAction>
-          <PreviewNote what="Provider and Telegram health" />
-        </CardAction>
+        {customer ? null : (
+          <CardAction>
+            <PreviewNote what="Provider and Telegram health" />
+          </CardAction>
+        )}
       </CardHeader>
       <CardContent>
         <ul className="grid">
@@ -163,7 +171,7 @@ function HealthCard({ instance }: { instance: Instance }) {
         </ul>
         <div className="flex flex-wrap gap-2 pt-4">
           {/* The next step after deploying: the primary action until a bot is connected. */}
-          <Button asChild variant={telegram.data && !telegram.data.configured ? "default" : "outline"} size="sm">
+          <Button asChild variant={telegram.data && !telegram.data.configured && !billingLate ? "default" : "outline"} size="sm">
             <Link href={`/instances/${instance.id}/configuration?tab=telegram`}>
               {telegram.data?.configured ? "Telegram settings" : "Connect Telegram"}
             </Link>

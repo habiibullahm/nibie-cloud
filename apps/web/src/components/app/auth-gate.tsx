@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
+import { Loader2 } from "lucide-react"
 import { getSupabase } from "@/lib/auth/supabase"
 
 /**
@@ -30,5 +31,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     }
   }, [supabase, router])
 
-  return ready ? <>{children}</> : null
+  if (ready) return <>{children}</>
+  // Announced to screen readers and visible, so the check never looks like a blank, frozen page.
+  return (
+    <div role="status" className="flex min-h-dvh items-center justify-center gap-2 px-4 text-muted-foreground">
+      <Loader2 className="size-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+      Checking your session…
+    </div>
+  )
 }

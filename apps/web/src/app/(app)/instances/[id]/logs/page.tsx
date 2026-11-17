@@ -24,6 +24,7 @@ export default function LogsPage() {
   const [follow, setFollow] = useState(false)
   const q = useDeferredValue(query)
   const logs = useLogs(id, level, q)
+  const filtered = level !== "all" || q.trim() !== ""
   const mode = useApiMode()
   const qc = useQueryClient()
 
@@ -77,7 +78,11 @@ export default function LogsPage() {
             <QueryFallback what="logs" queries={[logs]} className="h-40 bg-elevated" />
           </div>
         ) : logs.data.length === 0 ? (
-          <p className="p-4 text-muted-foreground">No log lines match these filters.</p>
+          <p className="p-4 text-muted-foreground">
+            {filtered
+              ? "No log lines match these filters. Clear the search or choose All levels."
+              : "No log lines yet. Hermes writes here once the instance has started."}
+          </p>
         ) : (
           <ol className="type-mono min-w-max py-2">
             {logs.data.map((l, i) => (

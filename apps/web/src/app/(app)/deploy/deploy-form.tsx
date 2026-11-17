@@ -8,12 +8,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { QueryFallback } from "@/components/app/query-fallback"
 import { KeyValue } from "@/components/app/key-value"
 import { PageHeader, SectionTitle } from "@/components/app/page-header"
 import { PreviewNote } from "@/components/app/preview-note"
-import { errorMessage, useCheckout, useCreateInstance, usePlans, useRegions } from "@/hooks/use-hermes"
+import { errorMessage, useApiMode, useCheckout, useCreateInstance, usePlans, useRegions } from "@/hooks/use-hermes"
 import { cn } from "@/lib/utils"
 import { formatCpu, formatMb, formatPriceIdr } from "@/lib/format"
 import { startPayment } from "@/lib/pay"
@@ -32,11 +31,14 @@ export function DeployForm() {
   const [touched, setTouched] = useState(false)
   const [regionId, setRegionId] = useState<string>("")
   const [planId, setPlanId] = useState<string>("")
-  const [cycle, setCycle] = useState("monthly")
 
+  // Regions are sample data and the create call never sends one, so customers do not see the choice.
+  const showRegion = useApiMode() !== "customer"
   // PRD §4.2: only advertise regions the scheduler can place an instance in.
   const placeable = useMemo(() => regions.data?.filter((r) => r.hasCapacity) ?? [], [regions.data])
   const region = placeable.find((r) => r.id === (regionId || placeable[0]?.id))
+  const regionReady = !showRegion || region !== undefined
+  const step = (n: number) => (showRegion || n < 2 ? n : n - 1)
   // Default to the smallest plan: no tier is promoted, and upgrading later is always possible.
   const plan = plans.data?.find((p) => p.id === (planId || plans.data?.[0]?.id))
   const nameError = validateInstanceName(name)
@@ -47,7 +49,7 @@ export function DeployForm() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     setTouched(true)
-    if (nameError || !plan || !region) return
+    if (nameError || !plan || !regionReady) return
     if (priced) {
       // A paid plan: the backend creates the instance only after Duitku confirms the first payment.
       checkout.mutate(
@@ -66,7 +68,7 @@ export function DeployForm() {
   return (
     <form onSubmit={submit} noValidate className="grid gap-8">
       <PageHeader
-        actions={<PreviewNote what="Plans, regions and pricing" />}
+        actions={showRegion ? <PreviewNote what="Plans, regions and pricing" /> : null}
         title="Deploy a Hermes instance"
         description="Your instance runs in its own container with dedicated persistent storage. You can change plans later."
       />
@@ -75,7 +77,7 @@ export function DeployForm() {
         <div className="grid gap-8">
           <section className="grid gap-3" aria-labelledby="sec-name">
             <SectionTitle>
-              <span id="sec-name">1 · Name</span>
+              <span id="sec-name">{step(1)} · Name</span>
             </SectionTitle>
             <div className="grid max-w-md gap-2">
               <Label htmlFor="instance-name">Instance name</Label>
@@ -97,9 +99,10 @@ export function DeployForm() {
             </div>
           </section>
 
+          {showRegion ? (
           <section className="grid gap-3" aria-labelledby="sec-region">
             <SectionTitle>
-              <span id="sec-region">2 · Region</span>
+              <span id="sec-region">{step(2)} · Region</span>
             </SectionTitle>
             {!regions.data ? (
               <QueryFallback what="regions" queries={[regions]} className="h-16 max-w-md" />
@@ -125,10 +128,11 @@ export function DeployForm() {
               </RadioGroup>
             )}
           </section>
+          ) : null}
 
           <section className="grid gap-3" aria-labelledby="sec-plan">
             <SectionTitle>
-              <span id="sec-plan">3 · Plan</span>
+              <span id="sec-plan">{step(3)} · Plan</span>
             </SectionTitle>
             {!plans.data ? (
               <QueryFallback what="plans" queries={[plans]} className="h-40" />
@@ -178,25 +182,20 @@ export function DeployForm() {
             )}
           </section>
 
-          <section className="grid gap-3" aria-labelledby="sec-billing">
-            <SectionTitle>
-              <span id="sec-billing">4 · Billing cycle</span>
-            </SectionTitle>
-            <div className="grid max-w-md gap-2">
-              <Label htmlFor="billing-cycle">Cycle</Label>
-              <Select value={cycle} onValueChange={setCycle}>
-                <SelectTrigger id="billing-cycle" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-muted-foreground">
-                Hosting is billed monthly. AI usage is billed separately by NibieRouter or by your own provider.
-              </p>
-            </div>
-          </section>
+          {/* Monthly is the only cycle, so it is stated rather than offered as a choice. A free plan has no cycle. */}
+          {priced ? (
+            <section className="grid gap-3" aria-labelledby="sec-billing">
+              <SectionTitle>
+                <span id="sec-billing">{step(4)} · Billing cycle</span>
+              </SectionTitle>
+              <div className="grid max-w-md gap-1">
+                <p className="text-foreground">Monthly</p>
+                <p className="text-muted-foreground">
+                  Hosting is billed monthly. AI usage is billed separately by NibieRouter or by your own provider.
+                </p>
+              </div>
+            </section>
+          ) : null}
         </div>
 
         <aside className="grid gap-4 rounded-md border bg-card p-4 lg:sticky lg:top-10" aria-labelledby="sum-title">
@@ -210,7 +209,7 @@ export function DeployForm() {
                 k: "Name",
                 v: name.trim() ? <span className="type-mono">{name.trim()}</span> : <span className="text-muted-foreground">Not set</span>,
               },
-              { k: "Region", v: region ? region.name : <Unset loading={regions.isLoading} /> },
+              ...(showRegion ? [{ k: "Region", v: region ? region.name : <Unset loading={regions.isLoading} /> }] : []),
               { k: "Plan", v: plan ? plan.name : <Unset loading={plans.isLoading} /> },
               ...(plan
                 ? [
@@ -225,7 +224,7 @@ export function DeployForm() {
                   ]
                 : []),
               { k: "Network", v: "Dedicated container, platform egress policy" },
-              { k: "Billing", v: cycle === "monthly" ? "Monthly" : cycle },
+              ...(priced ? [{ k: "Billing", v: "Monthly" }] : []),
               ...(plan ? [{ k: "Price", v: formatPriceIdr(plan.monthlyPriceIdr) }] : []),
               ...(plan && plan.includedCreditUsd !== null
                 ? [{ k: "AI credit", v: `US$${plan.includedCreditUsd}, one-time, with the first payment` }]
@@ -235,11 +234,11 @@ export function DeployForm() {
           {plan ? (
             <Alert>
               <Info aria-hidden="true" />
-              <AlertTitle>{priced ? "Pay with Duitku" : "No payment for this plan"}</AlertTitle>
+              <AlertTitle>{priced ? "Pay with Duitku" : "Free during the beta"}</AlertTitle>
               <AlertDescription>
                 {priced
                   ? "You pay by virtual account or QRIS on the Duitku page. Your instance is created after the payment is confirmed, usually within a minute."
-                  : "This plan has no price yet, so deploying skips payment and starts provisioning directly."}
+                  : "There is nothing to pay. Deploying starts provisioning right away."}
               </AlertDescription>
             </Alert>
           ) : null}
@@ -249,7 +248,7 @@ export function DeployForm() {
               <AlertDescription>{errorMessage(failure)}</AlertDescription>
             </Alert>
           ) : null}
-          <Button type="submit" disabled={busy || !plan || !region} className="w-full">
+          <Button type="submit" disabled={busy || !plan || !regionReady} className="w-full">
             <Rocket aria-hidden="true" />
             {busy ? (priced ? "Preparing payment…" : "Deploying…") : priced ? `Pay ${formatPriceIdr(plan?.monthlyPriceIdr ?? null)} and deploy` : "Deploy instance"}
           </Button>

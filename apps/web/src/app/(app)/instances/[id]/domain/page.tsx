@@ -1,8 +1,6 @@
 "use client"
 
-import Link from "next/link"
 import { Globe } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -27,12 +25,7 @@ export default function DomainPage() {
       <EmptyState
         icon={<Globe />}
         title="Custom domains need a larger plan"
-        description={`The ${plan.name} plan uses the instance URL only. Switch to a plan with custom domains to use your own.`}
-        action={
-          <Button asChild variant="outline">
-            <Link href={`/instances/${id}/billing`}>See plans</Link>
-          </Button>
-        }
+        description={`The ${plan.name} plan uses the instance URL only. Custom domains come with larger plans.`}
       />
     )
   }

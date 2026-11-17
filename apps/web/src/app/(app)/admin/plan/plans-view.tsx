@@ -1,6 +1,6 @@
 "use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/app/page-header"
 import { AdminTable, TableCell, TableHead, TableRow } from "@/components/app/admin-table"
 import { useAdminPlans } from "@/hooks/use-admin"
@@ -55,7 +55,6 @@ export function AdminPlansView() {
             Edit harga dan plan (Fase B) butuh MFA TOTP dan alasan wajib. Untuk sekarang harga diubah lewat SQL oleh operator.
           </CardDescription>
         </CardHeader>
-        <CardContent />
       </Card>
     </div>
   )
