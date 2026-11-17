@@ -116,6 +116,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
       mail: config.mail !== null,
       redis: config.redisUrl !== null,
       customerApi: config.supabaseUrl !== null,
+      freeBetaSlots: config.freeBetaSlots,
       adminEmails: config.adminEmails.length,
     }));
 
@@ -295,6 +296,31 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
           includedCreditNano: p.includedCreditNano?.toString() ?? null,
           includedCreditUsd: p.includedCreditNano ? Number(p.includedCreditNano) / 1e9 : null,
         })),
+      };
+    });
+
+    /**
+     * The beta waiting list, read only. The platform invites people by itself; nothing here changes data. Oldest first, so the
+     * position is the order in which free slots are offered. `lapsed` means the claim window passed without a registration.
+     */
+    api.get('/waitlist', async () => {
+      const now = new Date();
+      const [waiting, invited, lapsed, registered, rows] = await Promise.all([
+        prisma.waitlistEntry.count({ where: { status: 'WAITING' } }),
+        prisma.waitlistEntry.count({ where: { status: 'INVITED', inviteExpiresAt: { gt: now } } }),
+        prisma.waitlistEntry.count({ where: { status: 'INVITED', inviteExpiresAt: { lte: now } } }),
+        prisma.waitlistEntry.count({ where: { status: 'REGISTERED' } }),
+        prisma.waitlistEntry.findMany({
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          take: 500,
+          select: { id: true, name: true, email: true, useCase: true, status: true, createdAt: true, invitedAt: true, inviteExpiresAt: true, inviteFailures: true, registeredAt: true },
+        }),
+      ]);
+      const entries = rows.map((e) => ({ ...e, lapsed: e.status === 'INVITED' && e.inviteExpiresAt !== null && e.inviteExpiresAt <= now }));
+      return {
+        counts: { waiting, invited, lapsed, registered },
+        freeBetaSlots: config.freeBetaSlots,
+        entries,
       };
     });
 

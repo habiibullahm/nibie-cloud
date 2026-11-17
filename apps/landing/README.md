@@ -51,7 +51,10 @@ with it). It is inlined at build time, so a rebuild is needed in both directions
 While `NEXT_PUBLIC_SIGNUP_OPEN=false`, setting `NEXT_PUBLIC_FREE_BETA_OPEN=true` turns the main buttons into "Daftar beta gratis"
 (`/dashboard/register`) and shows a live counter ("Sisa N dari 10 slot gratis"). The counter is fetched in the browser from
 `${NEXT_PUBLIC_API_URL}/api/v1/public/beta-slots` (no secret; the public API address). When no slot is left the button becomes "Masuk
-daftar tunggu" (the access-request email); if the counter cannot be read the page shows the button without a number. Both variables are
+daftar tunggu" and a form (name, email, use case; `src/components/site/waitlist-form.tsx`) appears above the closing section, posting to
+`${NEXT_PUBLIC_API_URL}/api/v1/public/waitlist`; the backend then invites people by email as slots open (`docs/setup.md`, "Waiting list").
+Without `NEXT_PUBLIC_API_URL` the button falls back to the access-request email. If the counter cannot be read the page shows the button
+without a number. Both variables are
 inlined at build time, so a rebuild is needed in both directions. Without `NEXT_PUBLIC_FREE_BETA_OPEN`, the closed copy and the
 access-request email are shown as before. The number of free slots itself is the backend setting `FREE_BETA_SLOTS`.
 

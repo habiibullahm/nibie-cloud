@@ -2,6 +2,20 @@
 
 Last updated: 2026-11-17 (go-live preparation: sign-up closed on the landing page, admin API phase A deployed to the VPS, production plans match the landing, billing still OFF on the VPS; production runs on `runsc`). Earlier entries below keep their own dates. Index of all docs: [README.md](README.md).
 
+## Automatic waiting list for the free beta (2026-11-17, branch `claude/project-thread-cs6oyk`, on top of PRs #49 and #50)
+
+When the free slots are used, the landing page shows a form (name, email, use case) instead of the access-request email. The backend keeps the
+list (`WaitlistEntry`, migration `20261117050000_add_waitlist`, row level security enabled in the migration) and invites the oldest waiting
+person by email whenever a slot opens, with a 48 hour window and no manual step. An open invitation reserves its slot, so a visitor cannot take
+it. The admin panel has a read-only "Daftar tunggu" page. Details and limits: [setup.md](setup.md#waiting-list-automatic-beta-invitations).
+
+Verified in a cloud sandbox: `tsc`; backend unit tests (509) and the new integration file `test/integration/waitlist.test.ts` (28 tests, local Postgres,
+fake runtime and fake mailer) plus `customer-api`, `admin-api`, `billing-api`, `billing-tick` and `schema` integration tests; `apps/web` typecheck, lint and 116
+tests; `apps/landing` typecheck, lint, 47 tests and a build checked in a browser against a fake API (form, validation message, success state, no horizontal
+scroll at 390 px). **Not verified:** a real invitation email arriving (needs SumoPod SMTP on the VPS), the form against the production API and CORS, and
+the migration on Supabase. Before it works in production: merge #49 and #50 and this change, apply the migration (then check RLS, see setup.md), set
+`FREE_BETA_SLOTS=10` and the SMTP variables, recreate the backend, and rebuild the Worker with `NEXT_PUBLIC_FREE_BETA_OPEN=true` and `NEXT_PUBLIC_API_URL`.
+
 ## Dashboard: Hermes configuration wired to the backend (2026-11-17, branch `claude/project-thread-aeigzy`)
 
 In `customer` mode `apps/web` now calls the real provider, Telegram and logs routes of `src/http/integration-routes.ts`

@@ -35,6 +35,7 @@ export const adminKeys = {
   instance: (id: string) => ["admin", "instance", id] as const,
   plans: ["admin", "plans"] as const,
   nodes: ["admin", "nodes"] as const,
+  waitlist: ["admin", "waitlist"] as const,
   subscriptions: ["admin", "subscriptions"] as const,
   payments: ["admin", "payments"] as const,
   audit: ["admin", "audit"] as const,
@@ -72,6 +73,10 @@ export function useAdminPlans() {
 
 export function useAdminNodes() {
   return useQuery({ queryKey: adminKeys.nodes, queryFn: () => getAdminApi().nodes(), staleTime: LONG })
+}
+
+export function useAdminWaitlist() {
+  return useQuery({ queryKey: adminKeys.waitlist, queryFn: () => getAdminApi().waitlist(), staleTime: LONG })
 }
 
 export function useAdminSubscriptions() {

@@ -10,7 +10,8 @@ import type { Integrations } from '../modules/integrations/types.js';
 import { registerCustomerIntegrationRoutes } from './integration-routes.js';
 import { createBody, idempotencyKey } from './operator-routes.js';
 import { totalLoad } from '../modules/instances/capacity.js';
-import { freeBetaRemaining } from '../modules/instances/free-beta.js';
+import { freeBetaRemaining, hasActiveInvite } from '../modules/instances/free-beta.js';
+import { markWaitlistRegistered } from '../modules/waitlist/waitlist.js';
 import { registerBillingRoutes } from './billing-routes.js';
 import type { BillingService } from '../modules/billing/billing-service.js';
 import { AppError } from '../shared/errors.js';
@@ -29,6 +30,8 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
   const { service, commands, config } = deps;
   const { prisma } = deps.customer;
   const allowed = new Set(config.betaAllowedEmails);
+  // With email configured the platform invites people already waiting, so a freed slot is theirs before a visitor's.
+  const queueFirst = config.mail !== null;
   app.register(async (api) => {
     // Auth first so the rate limit below can key on the user. Token verification is local and cheap;
     // brute-forcing credentials is Supabase's job to limit, not ours.
@@ -54,7 +57,9 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
       // A plan without a price is the free beta preview plan. Invited accounts always see it; everyone else only while free
       // slots remain. Priced plans are shown to everyone unless the launch switch (PAID_CHECKOUT_OPEN) is off.
       const invited = allowed.has(principalOf(req).email.toLowerCase());
-      const showFree = invited || (config.freeBetaSlots > 0 && (await freeBetaRemaining(prisma, config.freeBetaSlots)) > 0);
+      const email = principalOf(req).email;
+      const showFree = invited || (config.freeBetaSlots > 0
+        && ((await freeBetaRemaining(prisma, config.freeBetaSlots, { queueFirst })) > 0 || (await hasActiveInvite(prisma, email, new Date()))));
       const showPaid = invited || config.paidCheckoutOpen;
       const kinds: Prisma.PlanWhereInput[] = [];
       if (showFree) kinds.push({ monthlyPriceIdr: null });
@@ -87,7 +92,8 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
           throw new ForbiddenError('Instance creation is not enabled for this account yet', 'provisioning_not_enabled');
         }
         const replay = await prisma.instance.findFirst({ where: { tenantId: p.tenantId, idempotencyKey: key }, select: { id: true } });
-        if (!replay && (await freeBetaRemaining(prisma, config.freeBetaSlots)) <= 0) throw new BetaFullError();
+        // An open waiting-list invitation holds a slot for exactly this person, so it never meets `beta_full`.
+        if (!replay && (await freeBetaRemaining(prisma, config.freeBetaSlots, { queueFirst })) <= 0 && !(await hasActiveInvite(prisma, p.email, new Date()))) throw new BetaFullError();
       }
       // Whole-server cap. A replay of a creation that already exists is not a new instance and is never refused.
       if (config.maxTotalInstances !== null) {
@@ -98,6 +104,8 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
         tenantId: p.tenantId, name: body.name, planId: body.planId, idempotencyKey: key,
         maxInstances: config.maxInstancesPerTenant, activePlanOnly: true,
       });
+      // The person now holds a free instance: stop counting them as waiting or invited.
+      if (config.freeBetaSlots > 0) await markWaitlistRegistered(prisma, p.email);
       return reply.status(202).send({ instance, jobId });
     });
 
