@@ -13,34 +13,33 @@ walau container dimulai ulang atau dipulihkan.
 
 | Status | Artinya | Yang bisa kamu lakukan |
 | --- | --- | --- |
-| `Pending` | Permintaan diterima, menunggu diproses. | Menunggu. |
-| `Provisioning` | Container dan volume sedang dibuat. | Menunggu, progres terlihat di dashboard. |
+| `Pending` | Permintaan diterima dan masuk antrean. | Menunggu. |
+| `Provisioning` | Container dan volume sedang dibuat, lalu pengaturan awal diterapkan. | Menunggu, progres terlihat di halaman Overview. |
 | `Starting` | Hermes dijalankan dan dicek kesehatannya. | Menunggu. |
-| `Active` | Instance sehat dan siap dipakai. | Pakai Hermes, restart, atau hentikan. |
-| `Degraded` | Ada masalah. Nibie Cloud mencoba memulihkan otomatis, atau butuh tindakanmu. | Baca alasan yang ditampilkan, lalu ikuti langkah berikutnya. |
-| `Suspended` | Dihentikan karena langganan lewat masa tenggang. Data disimpan 30 hari. | [Perpanjang langganan](/siklus-langganan). |
-| `Failed` | Provisioning atau pemulihan gagal. | Baca alasan dan hubungi [bantuan](/bantuan). |
+| `Active` | Instance sehat dan siap dipakai. | Pakai Hermes, restart, stop, atau hapus. |
+| `Degraded` | Hermes berjalan tetapi gagal dicek kesehatannya. Nibie Cloud mencoba memulihkan otomatis. | Baca alasan yang ditampilkan dan periksa **Logs**. Bila terus terjadi, restart instance. |
+| `Stopping` | Container sedang dihentikan. Data tetap disimpan. | Menunggu. |
+| `Stopped` | Container berhenti, karena kamu menekan **Stop** atau karena langganan di-suspend. Data tetap disimpan. | **Start** bila kamu yang menghentikannya. Bila langganan di-suspend, [perpanjang langganan](/siklus-langganan). |
+| `Failed` | Pembuatan atau pemulihan instance gagal. | Hapus instance ini lalu deploy yang baru. Bila terus gagal, hubungi [bantuan](/bantuan). |
 | `Deleting` | Instance dan datanya sedang dihapus. | Tidak ada. |
 | `Deleted` | Instance sudah dihapus. | Tidak ada. |
 
-Untuk setiap kegagalan yang terlihat olehmu, dashboard menampilkan alasan yang tidak sensitif dan langkah
-berikutnya.
+Untuk setiap masalah, dashboard menampilkan alasan singkat yang tidak memuat data sensitif.
 
-<Callout type="info" title="Catatan implementasi">
-Daftar di atas adalah status untuk pelanggan menurut rancangan produk. Di dalam sistem ada tahap perantara
-tambahan (misalnya `CONFIGURING`, `STOPPING`, dan `STOPPED` saat kamu menghentikan instance sendiri).
-</Callout>
+**Suspended** bukan status instance, melainkan status langganan berbayar. Saat langganan di-suspend, instance
+dihentikan (statusnya `Stopped`), tombol **Start** disembunyikan, dan setiap halaman instance menampilkan
+pemberitahuan dengan tombol untuk memperpanjang. Lihat [Siklus langganan](/siklus-langganan).
 
 ## Pemulihan otomatis
 
 Bila container crash, Nibie Cloud mencoba memulainya lagi dengan jeda yang makin panjang (maksimal 3 percobaan
-berturut-turut). Jika tetap gagal, status menjadi `Degraded` dan operator diberi tahu.
+berturut-turut). Jika tetap gagal, status menjadi `Degraded` dan tim kami diberi tahu.
 
 Gangguan di sisi penyedia model AI **tidak** memicu restart. Hermes yang sehat tidak dimulai ulang hanya
 karena penyedia AI sedang bermasalah. Lihat [Provider AI](/provider-ai#bila-penyedia-ai-bermasalah).
 
+Instance yang kamu hentikan sendiri (`Stopped`) tidak pernah dinyalakan ulang secara otomatis.
+
 ## Aksi pada instance
 
-- **Restart** untuk memulai ulang Hermes.
-- **Stop dan start** bila diizinkan oleh status langganan dan kebijakan produk.
-- **Web Console** untuk shell di dalam container-mu. Lihat [Web Console](/web-console).
+Restart, stop, start, dan hapus dijelaskan di [Kelola instance](/kelola-instance#aksi-instance).

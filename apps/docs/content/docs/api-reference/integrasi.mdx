@@ -1,0 +1,75 @@
+---
+title: Telegram, provider, dan log
+description: Endpoint untuk bot Telegram, provider AI, dan log container sebuah instance.
+---
+
+Semua endpoint di halaman ini berada di bawah `/instances/:instanceId`. Secret (token bot dan API key) hanya
+diterima saat menyimpan, dan tidak pernah muncul di respons; respons hanya memuat beberapa karakter terakhirnya
+(`keyHint`).
+
+Perubahan Telegram dan provider baru dipakai Hermes setelah instance di-start atau di-restart. Selama itu respons
+memuat `"restartRequired": true`.
+
+## Telegram
+
+| Endpoint | Fungsi |
+| --- | --- |
+| `GET /instances/:instanceId/telegram` | Pengaturan bot saat ini: `{ "telegram": { … } }`, dengan `"configured": false` bila belum ada bot. |
+| `PUT /instances/:instanceId/telegram` | Menyimpan token bot dan daftar pengguna yang diizinkan. |
+| `POST /instances/:instanceId/telegram/verify` | Memeriksa token lalu mengirim satu pesan uji ke pengguna pertama di daftar. |
+| `DELETE /instances/:instanceId/telegram` | Memutus bot dari instance. |
+
+Body `PUT`:
+
+```json
+{ "token": "<TOKEN_BOT>", "allowedUserIds": ["123456789"] }
+```
+
+- `allowedUserIds` berisi 1 sampai 20 ID pengguna Telegram berupa angka, sebagai string. Username `@nama` ditolak.
+- Token diperiksa ke Telegram sebelum disimpan. Token yang ditolak Telegram mendapat `400 validation_error`.
+- Bot yang sudah tersambung ke instance lain mendapat `409 conflict`.
+
+Field `status` bernilai `UNTESTED`, `OK`, atau `FAILED`. Setelah `verify`, `lastErrorCode` bisa berisi:
+
+| `lastErrorCode` | Artinya |
+| --- | --- |
+| `needs_start` | Pengguna pertama belum menekan Start di bot. |
+| `token_rejected` | Telegram menolak token. |
+| `send_failed` | Telegram tidak menerima pesan uji. |
+
+## Provider AI
+
+| Endpoint | Fungsi |
+| --- | --- |
+| `GET /instances/:instanceId/providers` | `{ "providers": [ … ] }` berisi provider saat ini (paling banyak satu), atau daftar kosong. |
+| `PUT /instances/:instanceId/providers` | Menyimpan API key sendiri (BYOK). Menggantikan provider yang ada, termasuk NibieRouter. |
+| `POST /instances/:instanceId/providers/test` | Memanggil `GET {baseUrl}/models` dengan key yang tersimpan. |
+| `DELETE /instances/:instanceId/providers/:providerConfigId` | Menghapus provider. |
+
+Body `PUT`:
+
+```json
+{ "baseUrl": "https://api.openai.com/v1", "model": "gpt-4o-mini", "apiKey": "<API_KEY>" }
+```
+
+- `baseUrl` harus https, paling panjang 200 karakter, tanpa kredensial, query, atau fragment. Alamat yang mengarah
+  ke jaringan privat atau internal mendapat `400 outbound_blocked`, saat menyimpan atau saat menguji.
+- `PUT` dan `test` mengembalikan `{ "provider": { … } }`.
+- Field `kind` di respons bernilai `BYOK` atau `NIBIEROUTER`. NibieRouter hanya dipasang oleh Nibie Cloud,
+  tidak lewat endpoint ini.
+- Hasil `test` hanya mengubah `status` dan `lastErrorCode`. Penyedia yang gangguan tidak mengubah status instance.
+
+## Log
+
+`GET /instances/:instanceId/logs?tail=100` mengembalikan baris terakhir output container, dengan kredensial
+instance itu disamarkan. `tail` bernilai 1 sampai 500, bawaannya 100.
+
+```json
+{ "lines": [ "…" ] }
+```
+
+## Riwayat status
+
+`GET /instances/:instanceId/events` dijelaskan di [Instances](/api-reference/instances#get-instancesidevents).
+
+Endpoint `verify` dan `test` dibatasi 5 permintaan per menit, karena keduanya memanggil layanan luar.

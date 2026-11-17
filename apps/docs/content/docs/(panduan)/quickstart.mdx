@@ -1,66 +1,95 @@
 ---
 title: Quickstart
-description: Dari daftar sampai agen Hermes pertamamu aktif.
+description: Dari daftar sampai agen Hermes pertamamu membalas di Telegram.
 ---
 
-<Callout type="info" title="Draft">
-Alur ini mengikuti rancangan produk. Pembayaran dan beberapa langkah dashboard belum aktif di tahap
-private beta, jadi tampilannya bisa berbeda saat dirilis.
-</Callout>
+Selama beta gratis, slot instance gratis jumlahnya terbatas. Bila slot masih ada, kamu bisa langsung daftar dan
+deploy. Bila semua slot terpakai, kamu masuk [daftar tunggu](#bila-slot-gratis-habis) dulu.
 
 <Steps>
 <Step>
 
-### Daftar dan verifikasi akun
+### Buat akun
 
-Buat akun di dashboard Nibie Cloud, lalu verifikasi emailmu.
+Buka [cloud.nibie.app/dashboard/register](https://cloud.nibie.app/dashboard/register).
 
-</Step>
-<Step>
-
-### Pilih paket dan beri nama instance
-
-Pilih paket hosting (batas CPU, RAM, dan penyimpanan ditampilkan jelas), lalu beri nama instance. Nama
-hanya untuk memudahkanmu mengenali instance.
-
-</Step>
-<Step>
-
-### Tinjau ringkasan dan bayar
-
-Periksa spesifikasi, siklus tagihan bulanan, dan harga. Bayar lewat metode yang tersedia (termasuk QRIS bila
-didukung). Instance baru dibuat setelah pembayaran diverifikasi oleh server, bukan hanya dari halaman
-redirect.
+1. Centang kotak persetujuan di bagian paling atas (Terms of Service, Privacy Policy, dan Refund Policy).
+   Tombol Google dan tombol daftar baru aktif setelah kotak ini dicentang.
+2. Pilih salah satu:
+   - **Continue with Google**, lalu masuk dengan akun Google-mu. Kamu tidak perlu kode email.
+   - Isi **Name**, **Email**, dan **Password**, selesaikan pemeriksaan keamanan Cloudflare bila muncul, lalu
+     tekan **Create account**.
 
 </Step>
 <Step>
 
-### Tunggu provisioning
+### Masukkan kode dari email
 
-Dashboard menampilkan progres: instance dibuat, volume penyimpanan disiapkan, lalu Hermes dijalankan dan
-dicek kesehatannya. Statusnya berubah dari `Provisioning` ke `Starting` lalu `Active`. Lihat
-[status instance](/instance-dan-status).
+Bila kamu daftar dengan email, kami mengirim kode 6 digit ke alamatmu. Ketik kode itu di kolom
+**Verification code**, lalu tekan **Verify and continue**.
 
-</Step>
-<Step>
-
-### Atur penyedia AI dan Telegram
-
-Pilih [NibieRouter atau API key sendiri](/provider-ai), lalu [hubungkan bot Telegram](/telegram) milikmu.
+Kode belum masuk? Periksa folder spam. Tombol **Send a new code** aktif 60 detik setelah kode terakhir dikirim.
+Salah ketik alamat? Tekan **Use a different email**.
 
 </Step>
 <Step>
 
-### Mulai pakai
+### Deploy instance
 
-Buka halaman **Access** untuk cara mengakses instance, dan kelola sisanya dari dashboard. Lihat
-[Kelola instance](/kelola-instance).
+Setelah akun terverifikasi, dashboard membuka halaman **Deploy a Hermes instance**.
+
+1. Isi **Instance name** (maksimal 63 karakter). Nama hanya untuk memudahkanmu mengenali instance.
+2. Pilih paket. Selama slot masih ada, paket beta gratis muncul di sini dan tidak perlu pembayaran.
+3. Tekan **Deploy instance**.
+
+Bila yang kamu pilih paket berbayar, tombolnya berubah menjadi **Pay ... and deploy**. Kamu membayar di halaman
+pembayaran, dan instance baru dibuat setelah server menerima konfirmasi pembayaran.
+
+</Step>
+<Step>
+
+### Tunggu sampai Active
+
+Halaman **Overview** instance menampilkan progresnya. Statusnya berjalan dari `Pending` ke `Provisioning`, lalu
+`Starting`, lalu `Active`. Lihat [status instance](/instance-dan-status).
+
+Setelah itu Nibie Cloud memasang NibieRouter sebagai penyedia AI dan memulai ulang instance sekali. Untuk instance
+beta gratis, ini biasanya terjadi dalam sekitar satu menit setelah `Active`. Kamu tidak perlu memilih apa pun.
+Lihat [Provider AI](/provider-ai).
+
+</Step>
+<Step>
+
+### Sambungkan Telegram
+
+Di kartu **Health** pada halaman Overview, tekan **Connect Telegram**. Ikuti [panduan Telegram](/telegram):
+buat bot di BotFather, masukkan token dan ID Telegram-mu, restart instance, lalu kirim pesan uji.
+
+</Step>
+<Step>
+
+### Mulai mengobrol
+
+Buka bot-mu di Telegram dan kirim pesan. Hermes membalas dari instance-mu. Untuk mengelola instance selanjutnya,
+lihat [Kelola instance](/kelola-instance).
 
 </Step>
 </Steps>
 
+## Bila slot gratis habis
+
+Saat semua slot gratis terpakai, halaman Deploy menampilkan **No plan is open for your account**, dan tombol di
+[cloud.nibie.app](https://cloud.nibie.app) berubah menjadi **Masuk daftar tunggu**.
+
+1. Isi formulir daftar tunggu (nama, email, dan rencana pemakaian).
+2. Buka email konfirmasi dari kami dan klik tautannya dalam 24 jam. Hanya pendaftar yang sudah konfirmasi yang
+   diundang.
+3. Saat ada slot kosong, kami mengirim undangan lewat email. Slot itu disimpan untukmu selama 48 jam.
+4. Daftar atau masuk dengan **alamat email yang sama** dengan yang ada di daftar tunggu, lalu deploy seperti
+   langkah di atas.
+
 ## Berikutnya
 
-- [Atur provider AI](/provider-ai)
 - [Hubungkan Telegram](/telegram)
+- [Atur provider AI](/provider-ai)
 - [Pahami siklus langganan](/siklus-langganan)

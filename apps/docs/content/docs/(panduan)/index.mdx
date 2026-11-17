@@ -1,18 +1,17 @@
 ---
 title: Pengenalan
-description: Nibie Cloud menjalankan agen AI Hermes milikmu 24/7, tanpa VPS, tanpa setup, dan tanpa perawatan infrastruktur.
+description: Nibie Cloud menjalankan agen AI Hermes milikmu di container sendiri, tanpa kamu perlu mengurus VPS, Docker, atau server.
 ---
 
 <Callout type="warn" title="Status: beta">
-Nibie Cloud sedang beta dan terus dikembangkan. Halaman yang menjelaskan fitur yang belum jadi ditandai
-**Draft**. Harga paket ada di [halaman harga](https://cloud.nibie.app/harga).
+Nibie Cloud sedang beta dan terus dikembangkan. Halaman yang menjelaskan fitur yang belum tersedia ditandai
+callout **Draft**. Harga paket ada di [halaman harga](https://cloud.nibie.app/harga).
 </Callout>
 
 Nibie Cloud adalah layanan hosting terkelola untuk agen AI Hermes.
 Kamu mendapat satu container Hermes yang khusus dan terisolasi, plus penyimpanan permanen, tanpa harus mengurus
-VPS, Docker, deployment, atau pemeliharaan server.
-
-Prinsip kerjanya: **kamu yang mengatur agen, Nibie Cloud yang mengurus infrastrukturnya.**
+VPS, Docker, deployment, atau pemeliharaan server. Kamu mengatur agennya; Nibie Cloud menjalankan dan memantau
+container-nya.
 
 ## Dokumentasi ini untuk siapa?
 
@@ -20,24 +19,37 @@ Prinsip kerjanya: **kamu yang mengatur agen, Nibie Cloud yang mengurus infrastru
 | --- | --- |
 | Pengguna baru yang ingin punya agen Hermes sendiri | [Quickstart](/quickstart) |
 | Pengguna yang sudah punya instance | [Kelola instance](/kelola-instance) |
-| Developer yang ingin mengotomasi lewat API | [API Reference](/api-reference) (draft) |
+| Developer yang ingin tahu cara kerja API | [API Reference](/api-reference) |
 
-## Yang kamu dapat
+## Yang sudah bisa kamu pakai
 
-- **Instance khusus.** Satu container Hermes per pelanggan, dengan penyimpanan permanen sendiri.
-- **Akses penuh ke instance-mu.** Pakai semua fitur dan tool Hermes, pasang skill kustom, dan buka shell
-  di dalam container-mu sendiri. Tidak ada akses SSH ke server host.
-- **Dashboard satu pintu.** Deploy, pantau, lihat log, kelola file, dan atur konfigurasi dari satu tempat.
-- **Infrastruktur otomatis.** Pemantauan kesehatan, pemulihan otomatis, backup, dan pembaruan runtime
-  dikelola oleh Nibie Cloud.
-- **Banyak platform pesan.** Hermes bisa terhubung ke banyak platform pesan dari satu gateway. Saat ini dashboard menyambungkan **Telegram** (pakai bot milikmu supaya bisa berbicara dengan agen dari ponsel). Platform lain menyusul.
-- **Pilihan penyedia AI.** Pakai NibieRouter sebagai default, atau bawa API key sendiri (BYOK).
+Setiap pelanggan mendapat satu container Hermes dengan penyimpanan permanen sendiri. Dari dashboard kamu bisa
+membuat instance, melihat statusnya, menyalakan, menghentikan, memulai ulang, dan menghapusnya, serta membaca
+log container dengan kredensial yang disamarkan.
 
-## Biaya hosting dan biaya AI terpisah
+Agenmu tersambung ke Telegram lewat bot milikmu sendiri. NibieRouter dipasang otomatis sebagai penyedia AI,
+dan kamu bisa menggantinya dengan API key sendiri. Bila container crash, Nibie Cloud mencoba memulainya lagi
+secara otomatis.
 
-Nibie Cloud hanya menagih **langganan hosting**. Pemakaian token AI ditagih terpisah, lewat NibieRouter atau
-lewat penyedia yang kamu pilih sendiri. Paket hosting tidak menyertakan token dan tidak menjanjikan pemakaian
-AI tanpa batas.
+## Yang menyusul
+
+Fitur berikut belum tersedia di dashboard. Halamannya di dokumentasi ini menjelaskan rancangannya dan ditandai
+**Draft**.
+
+- [Web Console](/web-console) (shell di dalam container) dan [File Manager](/file-manager).
+- Halaman Monitor (grafik CPU, memori, dan disk), halaman Access, dan halaman Backups.
+- [Custom domain](/custom-domain).
+- Ganti paket (upgrade atau downgrade).
+- Laporan pemakaian AI di dashboard.
+- Platform pesan selain Telegram. Hermes sendiri mendukung banyak platform, tetapi dashboard baru menyambungkan
+  Telegram.
+
+## Biaya hosting dan biaya AI
+
+Nibie Cloud menagih **langganan hosting**. Pemakaian token AI ditagih terpisah, lewat NibieRouter atau
+lewat penyedia yang kamu pilih sendiri. Paket Hosting tidak menyertakan kredit AI. Paket Hosting + Kredit AI
+menyertakan kredit NibieRouter US$2 satu kali di awal, bukan setiap bulan. Tidak ada paket yang menjanjikan
+pemakaian AI tanpa batas.
 
 ## Yang bukan produk ini
 
@@ -48,13 +60,13 @@ bukan marketplace skill, bukan VPS serbaguna, dan tidak memberi akses SSH atau D
 
 <Cards>
   <Card title="Quickstart" href="/quickstart">
-    Deploy instance Hermes pertamamu.
+    Daftar dan deploy instance Hermes pertamamu.
+  </Card>
+  <Card title="Telegram" href="/telegram">
+    Sambungkan bot Telegram milikmu ke agen.
   </Card>
   <Card title="Instance dan status" href="/instance-dan-status">
-    Pahami status instance dan apa artinya.
-  </Card>
-  <Card title="Provider AI" href="/provider-ai">
-    Pilih NibieRouter atau pakai API key sendiri.
+    Arti setiap status instance.
   </Card>
   <Card title="Keamanan" href="/keamanan">
     Bagaimana instance-mu diisolasi.

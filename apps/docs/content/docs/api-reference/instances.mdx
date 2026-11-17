@@ -3,11 +3,6 @@ title: Instances
 description: Membuat, melihat, dan mengatur siklus hidup instance Hermes.
 ---
 
-<Callout type="error" title="Draft">
-Endpoint di halaman ini sudah ada di backend operator, tetapi **versi pelanggan** (dengan token login,
-bukan token operator) masih dirancang. Contoh memakai path versi pelanggan.
-</Callout>
-
 ## Objek instance
 
 ```json
@@ -31,8 +26,9 @@ bukan token operator) masih dirancang. Contoh memakai path versi pelanggan.
 | `accessUrl` | URL akses. Sementara masih alamat lokal sampai ingress subdomain tersedia, jadi jangan tampilkan ke pengguna sebagai URL sungguhan. |
 | `createdAt` | Waktu dibuat (ISO 8601). |
 
-Nilai `status` di API memakai huruf besar, misalnya `PENDING`, `PROVISIONING`, `CONFIGURING`, `STARTING`,
-`ACTIVE`, `DEGRADED`, `STOPPING`, `STOPPED`, `FAILED`, `DELETING`, `DELETED`.
+Nilai `status` di API memakai huruf besar: `PENDING`, `PROVISIONING`, `CONFIGURING`, `STARTING`,
+`ACTIVE`, `DEGRADED`, `STOPPING`, `STOPPED`, `FAILED`, `DELETING`, `DELETED`. `CONFIGURING` adalah tahap singkat
+setelah `PROVISIONING`; dashboard menampilkannya sebagai Provisioning.
 
 ## POST /instances
 
@@ -48,14 +44,24 @@ Body diperiksa ketat: field lain ditolak.
 Respons `202 Accepted`:
 
 ```json
-{ "instance": { "id": "…", "status": "PENDING", "…": "…" } }
+{ "instance": { "id": "…", "status": "PENDING", "…": "…" }, "jobId": "…" }
 ```
 
-<Callout type="warn" title="Dibatasi selama beta">
-Sampai pembayaran aktif, pembuatan instance hanya untuk akun yang diizinkan (selain itu `403
-provisioning_not_enabled`). Ada batas jumlah instance per akun (melewati batas mendapat `409`), dan
-pembuatan instance dibatasi 5 permintaan per 10 menit per pengguna.
-</Callout>
+`jobId` adalah ID pekerjaan di antrean, atau `null` bila pekerjaan langsung dijalankan.
+
+Lewat endpoint ini kamu hanya bisa membuat instance di **paket beta gratis**. Instance berbayar dibuat otomatis
+setelah pembayaran terverifikasi, lewat [langganan](/api-reference/langganan).
+
+| Respons | Kapan |
+| --- | --- |
+| `403 provisioning_not_enabled` | `planId` bukan paket beta gratis, atau beta gratis sedang tidak dibuka. |
+| `409 beta_full` | Slot beta gratis habis. Masuk daftar tunggu di cloud.nibie.app. Undangan yang masih berlaku menyimpan slot untukmu. |
+| `409 capacity_full` | Server sedang penuh. Coba lagi nanti. |
+| `409 instance_limit_reached` | Akunmu sudah mencapai batas jumlah instance. |
+| `429 rate_limited` | Lebih dari 5 permintaan membuat instance dalam 10 menit. |
+
+Mengulang permintaan dengan `Idempotency-Key` yang sama untuk instance yang sudah dibuat tidak pernah ditolak
+karena slot atau kapasitas penuh.
 
 ## GET /instances
 
@@ -92,8 +98,13 @@ Riwayat perubahan status instance. Respons: `{ "events": [ … ] }`.
 | `POST /instances/:id/restart` | Memulai ulang instance. |
 | `DELETE /instances/:id` | Menghapus instance. |
 
-Semuanya mengembalikan `202 Accepted` dengan `{ "instance": { … } }`. Perubahan status diproses dengan
-aman terhadap permintaan yang berbarengan: bila aksimu kalah bersaing dengan aksi lain pada instance yang
-sama, kamu mendapat `409`.
+Semuanya mengembalikan `202 Accepted` dengan `{ "instance": { … }, "jobId": … }`. Aksi yang tidak cocok dengan
+status saat ini (misalnya start pada instance yang `ACTIVE`) mendapat `409 conflict`. Perubahan status diproses
+dengan aman terhadap permintaan yang berbarengan: bila aksimu kalah bersaing dengan aksi lain pada instance yang
+sama, kamu juga mendapat `409 conflict`.
+
+Untuk instance berbayar yang langganannya di-suspend, `start` dan `restart` mendapat
+`409 subscription_suspended`. Instance itu kembali hanya lewat perpanjangan. Menghapus instance berbayar ikut
+mengakhiri langganannya.
 
 Mengakses instance tenant lain pada semua endpoint di atas selalu menghasilkan `404`.

@@ -1,11 +1,7 @@
 ---
 title: Error dan idempotensi
-description: Format galat dan cara aman mengulang permintaan membuat instance.
+description: Format galat, kode galat, dan cara aman mengulang permintaan membuat instance atau memulai pembayaran.
 ---
-
-<Callout type="error" title="Draft">
-Katalog kode galat lengkap belum final. Kode di bawah ini adalah yang sudah muncul di rancangan.
-</Callout>
 
 ## Format galat
 
@@ -20,21 +16,36 @@ Semua galat memakai satu bentuk:
 }
 ```
 
-Pesan galat disanitasi. Pesan tidak pernah memuat secret, token, atau detail infrastruktur.
+Pesan galat disanitasi. Pesan tidak pernah memuat secret, token, atau detail infrastruktur. Andalkan `code`, bukan
+`message`, karena teks pesan bisa berubah.
+
+## Kode galat
 
 | HTTP | `code` | Kapan |
 | --- | --- | --- |
+| 400 | `validation_error` | Body, header, atau parameter tidak valid (termasuk `Idempotency-Key` yang hilang). |
+| 400 | `bad_request` | Permintaan tidak bisa dibaca, misalnya JSON rusak. |
+| 400 | `outbound_blocked` | Alamat provider mengarah ke jaringan privat atau internal. |
 | 401 | `unauthorized` | Token hilang atau tidak valid. |
-| 403 | `provisioning_not_enabled` | Akunmu belum diizinkan membuat instance (tahap beta). |
-| 404 | | Sumber daya tidak ada, atau bukan milik tenant-mu. |
-| 409 | | Konflik status (mis. aksi bentrok dengan operasi yang sedang berjalan) atau batas jumlah instance. |
-| 429 | | Terkena rate limit. |
+| 403 | `provisioning_not_enabled` | Akunmu tidak bisa membuat instance di paket itu. Lihat [Instances](/api-reference/instances#post-instances). |
+| 403 | `billing_not_open` | Pembayaran belum dibuka untuk akunmu. |
+| 404 | `not_found` | Sumber daya tidak ada, atau bukan milik akunmu. |
+| 409 | `conflict` | Aksi tidak cocok dengan status saat ini, bentrok dengan aksi lain, atau `Idempotency-Key` dipakai ulang dengan isi berbeda. |
+| 409 | `beta_full` | Slot beta gratis habis. |
+| 409 | `capacity_full` | Server sedang penuh. |
+| 409 | `instance_limit_reached` | Akunmu sudah mencapai batas jumlah instance. |
+| 409 | `subscription_suspended` | Instance tidak bisa di-start atau di-restart karena langganannya di-suspend. |
+| 409 | `volume_quota_missing`, `network_policy_missing` | Instance lama tidak memenuhi aturan keamanan saat ini. Hapus lalu deploy ulang, atau hubungi [bantuan](/bantuan). |
+| 429 | `rate_limited` | Terlalu banyak permintaan. Tunggu sebentar lalu ulangi. |
 | 500 | `internal_error` | Galat server. |
+| 502 | `outbound_failed` | Telegram atau penyedia AI tidak bisa dihubungi. |
+| 502 | `payment_provider_rejected` | Payment gateway menolak permintaan. |
+| 503 | `auth_unavailable`, `queue_unavailable`, `runtime_unavailable`, `database_unavailable`, `secrets_unavailable`, `payment_provider_unavailable` | Layanan pendukung sedang tidak tersedia. Tidak ada yang berubah; ulangi nanti. |
 
 ## Idempotency-Key
 
-`POST /instances` mewajibkan header `Idempotency-Key` (1 sampai 128 karakter). Gunakan nilai acak unik,
-misalnya UUID, untuk setiap *niat* membuat instance.
+`POST /instances` dan `POST /subscriptions/checkout` mewajibkan header `Idempotency-Key` (1 sampai 128 karakter).
+Gunakan nilai acak unik, misalnya UUID, untuk setiap *niat* membuat instance atau memulai langganan.
 
 ```bash
 curl -X POST https://api.cloud.nibie.app/api/v1/instances \
@@ -46,5 +57,5 @@ curl -X POST https://api.cloud.nibie.app/api/v1/instances \
 
 - Mengulang permintaan dengan key yang sama dan isi yang sama tidak membuat instance kedua. Kamu mendapat
   instance yang sama.
-- Key terikat pada `name` dan `planId`. Memakai key yang sama dengan isi berbeda ditolak.
+- Key terikat pada `name` dan `planId`. Memakai key yang sama dengan isi berbeda mendapat `409 conflict`.
 - Aman untuk mengulang setelah koneksi putus atau timeout.

@@ -3,14 +3,14 @@ title: Siklus langganan
 description: Masa tenggang, suspend, retensi data 30 hari, dan pembatalan.
 ---
 
-Kebijakan di halaman ini sudah disetujui sebagai rancangan produk. Detail penagihan (misalnya kapan tepatnya
-masa tenggang dimulai) akan ditampilkan jelas di dashboard dan dipublikasikan sebelum peluncuran publik.
+Halaman ini berlaku untuk instance berbayar. Aturan untuk instance beta gratis setelah beta berakhir belum
+ditentukan; diumumkan lewat email.
 
 ## Ringkasan
 
 | Hal | Kebijakan |
 | --- | --- |
-| Masa tenggang | 3 hari setelah langganan jatuh tempo atau pembayaran tertunda |
+| Masa tenggang | 3 hari setelah langganan jatuh tempo dan belum dibayar |
 | Retensi data setelah suspend | 30 hari |
 | Pembatalan | Instance tetap aktif sampai masa berlangganan yang sudah dibayar habis |
 
@@ -27,24 +27,38 @@ Suspended
   → Deleting → Deleted  (masa retensi habis)
 ```
 
+Grace period dan Suspended di atas adalah status langganan. Status instance-nya dijelaskan di
+[Instance dan status](/instance-dan-status).
+
+## Masa tenggang
+
+Selama masa tenggang, instance tetap berjalan. Setiap halaman instance menampilkan pemberitahuan
+**Payment overdue** beserta tanggal berakhirnya masa tenggang, dengan tombol **Renew now**.
+
 ## Suspend
 
-- Runtime dihentikan supaya tidak terus memakai sumber daya.
-- Volume dan metadata pemulihan disimpan selama **30 hari**.
-- Akses normal ke instance ditutup selama suspend.
-- Kamu mendapat pemberitahuan sebelum suspend dan sebelum penghapusan permanen.
+- Instance dihentikan (statusnya `Stopped`) supaya tidak terus memakai sumber daya.
+- Volume dan datanya disimpan selama **30 hari**.
+- Tombol **Start** tidak tersedia selama suspend. Setiap halaman instance menampilkan pemberitahuan
+  **Instance suspended, scheduled for deletion**. Satu-satunya jalan kembali adalah perpanjangan.
+- Kamu mendapat email sebelum suspend dan sebelum penghapusan permanen.
 
 ## Memulihkan instance
 
-Bila kamu memperpanjang dalam masa retensi, instance diaktifkan kembali setelah pembayaran terverifikasi dan
-kapasitas dicek.
+Buka menu **Upgrade & renew** di instance-mu dan tekan **Renew now** (atau **Renew now to prevent deletion** di pemberitahuan di atas halaman).
+Setelah pembayaran terverifikasi dalam masa retensi, instance dinyalakan lagi otomatis dengan data yang sama.
 
 ## Penghapusan
 
-Di akhir masa retensi, data runtime dan secret terkait dihapus. Penyelesaian penghapusan dicatat di audit
-trail. Aturan kedaluwarsa backup akan dijelaskan di kebijakan penghapusan data untuk pelanggan.
+Di akhir masa retensi, instance, datanya, dan secret terkait dihapus. Aturan kedaluwarsa backup akan dijelaskan di
+kebijakan penghapusan data untuk pelanggan.
 
 ## Membatalkan langganan
 
-Pembatalan hanya menjadwalkan **tidak diperpanjang**. Instance tidak langsung berhenti, dan tetap berjalan
-sampai masa berlangganan yang sudah dibayar habis. Setelah itu berlaku aturan masa tenggang dan suspend di atas.
+1. Buka menu **Upgrade & renew** di instance-mu.
+2. Tekan **Cancel renewal**.
+3. Di jendela konfirmasi, tekan **Cancel renewal** lagi. Pilih **Keep renewing** bila berubah pikiran.
+
+Pembatalan hanya menghentikan perpanjangan. Instance tidak langsung berhenti, dan tetap berjalan sampai masa
+berlangganan yang sudah dibayar habis. Setelah itu berlaku aturan suspend dan retensi di atas. Sebelum itu, kamu
+masih bisa memperpanjang lagi dengan **Renew now**.

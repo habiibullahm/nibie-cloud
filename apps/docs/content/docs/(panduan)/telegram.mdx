@@ -3,15 +3,12 @@ title: Telegram
 description: Hubungkan bot Telegram milikmu ke instance Hermes.
 ---
 
-<Callout type="info" title="Draft">
-Pengaturan Telegram di dashboard masih berupa pratinjau. Mode polling atau webhook akan mengikuti dukungan
-gateway Hermes pada image yang dipakai.
-</Callout>
+Hermes mendukung banyak platform pesan (daftar lengkapnya ada di
+[dokumentasi resmi Hermes](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/)). Dashboard Nibie Cloud
+saat ini baru menyambungkan Telegram. Kamu memakai bot milikmu sendiri, dan hanya akun Telegram yang kamu izinkan
+yang bisa berbicara dengan agenmu.
 
-Hermes mendukung banyak platform pesan dari satu gateway, misalnya Discord, Slack, WhatsApp, Signal, dan email
-(daftar lengkap dan terbaru ada di [dokumentasi resmi Hermes](https://hermes-agent.nousresearch.com/docs/user-guide/messaging/)).
-Di Nibie Cloud, **Telegram adalah kanal pertama yang bisa disambungkan lewat dashboard**. Platform lain belum bisa
-diatur dari dashboard dan akan ditambahkan satu per satu. Kamu memakai **bot milikmu sendiri**.
+Siapkan aplikasi Telegram dan dashboard Nibie Cloud. Instance-mu sebaiknya sudah `Active`.
 
 ## Langkah
 
@@ -20,29 +17,75 @@ diatur dari dashboard dan akan ditambahkan satu per satu. Kamu memakai **bot mil
 
 ### Buat bot di BotFather
 
-Di Telegram, buat bot lewat BotFather dan salin token bot-nya.
+Di Telegram, buka **@BotFather** dan kirim `/newbot`. Ikuti pertanyaannya (nama bot, lalu username yang berakhiran
+`bot`). BotFather lalu mengirim token bot, bentuknya seperti `123456789:AA...`. Salin token itu dan jangan bagikan
+ke siapa pun.
 
 </Step>
 <Step>
 
-### Masukkan token di dashboard
+### Cari ID Telegram-mu
 
-Server memeriksa token ke endpoint identitas bot Telegram, menyimpannya terenkripsi, lalu mengonfigurasi
-instance Hermes-mu.
+Kirim pesan apa saja ke **@userinfobot**. Bot itu membalas dengan ID pengguna berupa angka. Itu yang dibutuhkan,
+bukan username `@nama`.
+
+Ingin orang lain juga bisa memakai agenmu? Minta mereka melakukan hal yang sama dan kirim ID-nya kepadamu.
+
+</Step>
+<Step>
+
+### Tekan Start di bot barumu
+
+Buka bot yang baru kamu buat dan tekan **Start**. Telegram tidak mengizinkan bot mengirim pesan ke orang yang
+belum pernah memulai obrolan dengannya, jadi tanpa langkah ini pesan uji nanti gagal.
+
+</Step>
+<Step>
+
+### Simpan di dashboard
+
+Buka instance-mu, lalu **Configuration**, tab **Telegram**.
+
+1. Tempel token di **Bot token**.
+2. Isi **Allowed users** dengan ID Telegram berupa angka, satu per baris. Minimal satu, maksimal 20.
+3. Tekan **Save**.
+
+Server memeriksa token ke Telegram sebelum menyimpannya. Token yang salah ditolak, dan satu bot hanya bisa
+tersambung ke satu instance.
+
+</Step>
+<Step>
+
+### Restart instance
+
+Setelah disimpan, muncul pesan **Restart to apply your changes**. Tekan **Restart instance** (atau
+**Start instance** bila instance sedang berhenti). Hermes baru memakai bot itu setelah container dimulai ulang.
 
 </Step>
 <Step>
 
 ### Kirim pesan uji
 
-Verifikasi bahwa bot bisa menerima dan membalas pesan uji.
+Tekan **Send test message**. Nibie Cloud mengirim satu pesan uji ke ID pertama di **Allowed users**. Bila pesan
+sampai, statusnya menjadi **Verified**. Setelah itu kirim pesan ke bot-mu, dan Hermes yang membalas.
 
 </Step>
 </Steps>
 
-## Hal penting
+## Bila ada masalah
 
-- Satu token bot **tidak** dipakai bersama beberapa pelanggan. Setiap instance memakai bot masing-masing.
-- Token bisa diganti dan dicabut. Token disamarkan di semua log dan respons tampilan.
-- Aktifkan kontrol pairing dan allowlist Hermes supaya hanya orang yang kamu izinkan yang bisa berbicara
-  dengan agenmu. Panduan konfigurasi aman yang direkomendasikan akan ditambahkan di sini.
+| Pesan di dashboard | Yang perlu dilakukan |
+| --- | --- |
+| Open your bot in Telegram and press Start, then send the test message again. | Buka bot-mu, tekan **Start**, lalu tekan **Send test message** lagi. |
+| Telegram rejected the bot token. | Salin ulang token dari BotFather, tempel lagi, lalu **Save**. |
+| This bot is already connected to another instance | Pakai bot lain, atau putuskan dulu bot itu dari instance yang lama. |
+| allowedUserIds must contain only numeric Telegram user ids | Ganti username `@nama` dengan ID berupa angka dari @userinfobot. |
+
+## Mengganti atau memutus bot
+
+- Token disimpan terenkripsi dan tidak pernah ditampilkan lagi. Dashboard hanya menunjukkan beberapa karakter
+  terakhirnya. Karena itu, tempel token lagi setiap kali kamu menyimpan perubahan, termasuk saat hanya mengubah
+  **Allowed users**.
+- Untuk memutus bot, tekan **Disconnect bot**, lalu restart instance.
+- Setiap instance memakai bot-nya sendiri. Jangan memakai satu token bot di beberapa tempat.
+- Orang yang ID-nya tidak ada di **Allowed users** diabaikan oleh agenmu.
