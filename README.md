@@ -38,10 +38,10 @@ Dashboard preview (separate package): `cd apps/web && pnpm install && pnpm dev` 
 | Service | Dir | Command | URL |
 | --- | --- | --- | --- |
 | Postgres (5433) + Redis (6380) | root | `docker compose up -d postgres redis` | 127.0.0.1 |
-| Backend API + reconciler | root | `pnpm dev` (after `pnpm install`, `.env`, `pnpm db:migrate`) | 127.0.0.1:3000 (`PORT`) |
-| Dashboard | `apps/web` | `pnpm install && pnpm dev` | http://localhost:3100/dashboard |
-| Docs site | `apps/docs` | `pnpm install && pnpm dev` | http://localhost:3200/docs |
-| Landing | `apps/landing` | `pnpm install && pnpm dev` | http://localhost:3300 |
+| Backend API + reconciler | root | `PORT=3400 DASHBOARD_ORIGIN=http://localhost:3500 pnpm dev` (after `pnpm install`, `.env`, `pnpm db:migrate`) | 127.0.0.1:3400 |
+| Dashboard | `apps/web` | `pnpm install && pnpm exec next dev --port 3500` | http://localhost:3500/dashboard |
+| Docs site | `apps/docs` | `pnpm install && pnpm exec next dev --port 3800` | http://localhost:3800/docs |
+| Landing | `apps/landing` | `pnpm install && pnpm exec next dev --port 3300` | http://localhost:3300 |
 | E2E (optional) | `e2e` | `pnpm build:t0 && pnpm test:t0` | n/a |
 
 Notes:
@@ -50,8 +50,8 @@ Notes:
 - Root `.env` (from `.env.example`) needs `ADMIN_TOKEN` (>= 24 chars) and `HERMES_MASTER_KEY` (>= 32 chars). Never commit values.
 - The dashboard runs on mock data by default. To use the real backend set
   `NEXT_PUBLIC_HERMES_API_MODE=customer` and `NEXT_PUBLIC_HERMES_API_URL`.
-- Ports are fixed: the dashboard, docs and landing scripts pin `--port` to 3100, 3200 and 3300, and the
-  backend uses `PORT` (default 3000). Do not change them: the Supabase redirect, `DASHBOARD_ORIGIN` and the
-  e2e tests expect these values. If a port is busy, stop the process holding it instead of picking another
-  (check with `netstat -ano | findstr :3100` on Windows).
+- Local ports: backend 3400, dashboard 3500, docs 3800, landing 3300. Ports 3000, 3100, 3200, 3600, 3700 and
+  4200 are reserved for other projects on this machine, so do not use them. The `package.json` dev scripts
+  still default to 3100, 3200 and 3300, which is why the commands above pass the port explicitly. If a port is
+  busy, stop the process holding it (`netstat -ano | findstr :3500` on Windows).
 - More detail: [docs/setup.md](docs/setup.md).
