@@ -48,8 +48,13 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
     });
 
     // Resource limits, plus the monthly price once the operator has set one (null: not for sale, PRD 5.2).
-    api.get('/plans', async () => {
-      const rows = await prisma.plan.findMany({ where: { active: true }, orderBy: [{ cpuMillis: 'asc' }, { slug: 'asc' }] });
+    api.get('/plans', async (req) => {
+      // A plan without a price is the free beta preview plan: only invited accounts can use it, so only they see it.
+      const invited = allowed.has(principalOf(req).email.toLowerCase());
+      const rows = await prisma.plan.findMany({
+        where: invited ? { active: true } : { active: true, monthlyPriceIdr: { not: null } },
+        orderBy: [{ cpuMillis: 'asc' }, { slug: 'asc' }],
+      });
       return {
         plans: rows.map((p) => ({
           id: p.id, slug: p.slug, name: p.name, cpuMillis: p.cpuMillis, memoryMb: p.memoryMb,

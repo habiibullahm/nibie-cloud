@@ -69,6 +69,16 @@ describe('customer API', () => {
     expect((await create(a, await user(BOB))).statusCode).toBe(202);
   });
 
+  it('shows the unpriced beta preview plan only to invited accounts', async () => {
+    await prisma.plan.create({ data: { slug: 'paid', name: 'Paid', cpuMillis: 1000, memoryMb: 1024, pids: 256, storageMb: 1024, monthlyPriceIdr: 25_000 } });
+    const slugs = async (email: string) => {
+      const res = await app().inject({ method: 'GET', url: '/api/v1/plans', headers: await user(email) });
+      return (res.json().plans as Array<{ slug: string }>).map((p) => p.slug).sort();
+    };
+    expect(await slugs(ALICE)).toEqual(['paid', 'test-small']);
+    expect(await slugs('stranger@example.test')).toEqual(['paid']);
+  });
+
   it('provisions, lists, reads status and events, restarts, stops, starts and deletes', async () => {
     const a = app();
     const h = await user(ALICE);
