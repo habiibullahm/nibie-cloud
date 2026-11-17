@@ -110,7 +110,15 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
       return reply.status(202).send({ instance, jobId });
     });
 
-    if (deps.billing) registerBillingRoutes(api, deps.billing);
+    if (deps.billing) {
+      // A production deployment whose gateways are all sandbox takes no real money, so a sandbox "payment" would hand out a
+      // free instance. Until a production gateway is configured, only invited beta users may start a purchase.
+      const cfg = config.billing;
+      const sandboxOnly = config.nodeEnv === 'production' && cfg !== null && [cfg.duitku, cfg.sumopod].every((g) => g === null || g.env === 'sandbox');
+      registerBillingRoutes(api, deps.billing, (email) => {
+        if (sandboxOnly && !allowed.has(email.toLowerCase())) throw new ForbiddenError('Payments are not open yet', 'billing_not_open');
+      });
+    }
     registerCustomerIntegrationRoutes(api, deps.integrations, deps.logs);
   }, { prefix: '/api/v1' });
 }
