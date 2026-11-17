@@ -32,9 +32,10 @@ const SECTIONS = [
 
 /**
  * Sections that have a real backend behind them in customer mode. The rest (monitor, files, console, backups,
- * domain, access, logs) still render sample data, so they are not offered to customers until they are wired.
+ * domain, access) still render sample data, so they are not offered to customers until they are wired.
+ * Logs are real since the Configuration wiring (container output with the instance's credentials scrubbed).
  */
-const CUSTOMER_SECTIONS = new Set(["", "configuration", "billing"])
+const CUSTOMER_SECTIONS = new Set(["", "logs", "configuration", "billing"])
 
 function sectionFor(pathname: string, base: string) {
   const rest = pathname.slice(base.length).split("/")[1] ?? ""
@@ -156,7 +157,7 @@ export function InstanceFrame({ children }: { children: React.ReactNode }) {
           <Alert>
             <AlertTitle>Not available in the beta yet</AlertTitle>
             <AlertDescription>
-              <p>This section is still being built. Overview, Configuration and Upgrade &amp; renew work today.</p>
+              <p>This section is still being built. Overview, Logs, Configuration and Upgrade &amp; renew work today.</p>
               <Button asChild variant="outline" size="sm">
                 <Link href={base}>Back to overview</Link>
               </Button>
