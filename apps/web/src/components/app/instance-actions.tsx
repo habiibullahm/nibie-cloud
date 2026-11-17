@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import type { Instance } from "@/lib/api/types"
 import { allowedActions, runtimeReachable } from "@/lib/api/status"
-import { useInstanceAction } from "@/hooks/use-hermes"
+import { useApiMode, useInstanceAction } from "@/hooks/use-hermes"
 
 /** Restart, stop/start, open console, delete. Buttons that are not allowed are hidden, not faked. */
 export function InstanceActions({
@@ -46,10 +46,12 @@ export function InstanceActions({
   const [confirm, setConfirm] = useState<null | "stop" | "restart">(null)
   const [deleting, setDeleting] = useState(false)
   const busy = action.isPending
+  // The console has no backend yet: in customer mode it would open sample data, so the button is not shown.
+  const consoleAvailable = useApiMode() !== "customer"
 
   return (
     <>
-      {runtimeReachable(instance.status) && !compact ? (
+      {runtimeReachable(instance.status) && !compact && consoleAvailable ? (
         <Button asChild variant="outline">
           <Link href={`/instances/${instance.id}/console`}>
             <Terminal aria-hidden="true" />

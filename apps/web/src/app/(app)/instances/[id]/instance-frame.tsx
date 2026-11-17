@@ -30,6 +30,12 @@ const SECTIONS = [
   { slug: "domain", label: "Custom domain" },
 ]
 
+/**
+ * Sections that have a real backend behind them in customer mode. The rest (monitor, files, console, backups,
+ * domain, access, logs) still render sample data, so they are not offered to customers until they are wired.
+ */
+const CUSTOMER_SECTIONS = new Set(["", "configuration", "billing"])
+
 function sectionFor(pathname: string, base: string) {
   const rest = pathname.slice(base.length).split("/")[1] ?? ""
   return SECTIONS.find((s) => s.slug === rest) ?? SECTIONS[0]!
@@ -58,7 +64,11 @@ export function InstanceFrame({ children }: { children: React.ReactNode }) {
   // Prefer the plan the customer is actually billed for; fall back to the preview metadata.
   const plan = plans.data?.find((p) => p.id === (subscription?.planId ?? meta.data?.planId))
   const base = `/instances/${id}`
-  const mock = useApiMode() === "mock"
+  const mode = useApiMode()
+  const mock = mode === "mock"
+  const customer = mode === "customer"
+  const sections = customer ? SECTIONS.filter((s) => CUSTOMER_SECTIONS.has(s.slug)) : SECTIONS
+  const hiddenSection = customer && !CUSTOMER_SECTIONS.has(sectionFor(pathname, base).slug)
   useDocumentTitle(instance ? `${sectionFor(pathname, base).label} · ${instance.name}` : null)
 
   if (error) {
@@ -96,7 +106,7 @@ export function InstanceFrame({ children }: { children: React.ReactNode }) {
                 <span className="type-mono text-muted-foreground">
                   {shortId(instance.id)}
                   {plan ? ` · ${plan.name.toLowerCase()}` : ""}
-                  {meta.data ? ` · ${meta.data.regionId} · ${meta.data.runtime}` : ""}
+                  {meta.data && !customer ? ` · ${meta.data.regionId} · ${meta.data.runtime}` : ""}
                 </span>
                 {mock ? <PreviewNote what="This instance and its events" reason="mock" /> : null}
               </div>
@@ -120,7 +130,7 @@ export function InstanceFrame({ children }: { children: React.ReactNode }) {
 
       <nav aria-label="Instance" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
         <ul className="flex min-w-max gap-1 border-b">
-          {SECTIONS.map(({ slug, label }) => {
+          {sections.map(({ slug, label }) => {
             const href = slug ? `${base}/${slug}` : base
             const active = slug ? pathname.startsWith(href) : pathname === base
             return (
@@ -141,7 +151,21 @@ export function InstanceFrame({ children }: { children: React.ReactNode }) {
         </ul>
       </nav>
 
-      <div className="min-w-0">{children}</div>
+      <div className="min-w-0">
+        {hiddenSection ? (
+          <Alert>
+            <AlertTitle>Not available in the beta yet</AlertTitle>
+            <AlertDescription>
+              <p>This section is still being built. Overview, Configuration and Upgrade &amp; renew work today.</p>
+              <Button asChild variant="outline" size="sm">
+                <Link href={base}>Back to overview</Link>
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : (
+          children
+        )}
+      </div>
     </div>
   )
 }

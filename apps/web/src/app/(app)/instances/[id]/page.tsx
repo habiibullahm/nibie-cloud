@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { PreviewNote } from "@/components/app/preview-note"
 import { QueryFallback } from "@/components/app/query-fallback"
 import { ProvisionProgress } from "@/components/app/provision-progress"
-import { useEvents, useInstance, useProvider, useTelegram } from "@/hooks/use-hermes"
+import { useApiMode, useEvents, useInstance, useProvider, useTelegram } from "@/hooks/use-hermes"
 import { isTransitional, presentStatus, provisionStepIndex } from "@/lib/api/status"
 import type { Instance } from "@/lib/api/types"
 import { copyWithToast } from "@/lib/copy"
@@ -43,6 +43,9 @@ export default function OverviewPage() {
 }
 
 function StatusCard({ instance }: { instance: Instance }) {
+  // The access URL is the host-internal address of the container, useless to a customer. In the beta the agent is
+  // reached through Telegram, so the URL is only shown outside customer mode.
+  const showUrl = useApiMode() !== "customer"
   const p = presentStatus(instance.status)
   const reason = instance.statusReason ?? p.defaultReason
   return (
@@ -59,6 +62,7 @@ function StatusCard({ instance }: { instance: Instance }) {
             <p>{p.nextAction}</p>
           </div>
         ) : null}
+        {showUrl ? (
         <div className="grid gap-2 border-t pt-4">
           <span className="type-label text-muted-foreground">Instance URL</span>
           {instance.accessUrl ? (
@@ -79,6 +83,7 @@ function StatusCard({ instance }: { instance: Instance }) {
             <p className="text-muted-foreground">Available once the instance is active.</p>
           )}
         </div>
+        ) : null}
       </CardContent>
     </Card>
   )
