@@ -11,11 +11,11 @@ const bricolage = Bricolage_Grotesque({
   display: "swap",
 })
 
-// typography.body-md
+// typography.body-md; 600 so bold text in prose uses the real face instead of a synthetic bold.
 const onest = Onest({
   variable: "--font-onest",
   subsets: ["latin"],
-  weight: ["400"],
+  weight: ["400", "600"],
   display: "swap",
 })
 

@@ -1,46 +1,26 @@
 ---
 title: Endpoint berikutnya
-description: Endpoint yang direncanakan tetapi belum dirancang detail.
+description: Endpoint yang direncanakan tetapi belum ada di API.
 ---
 
-<Callout type="error" title="Draft: hanya garis besar">
-Daftar ini adalah garis besar dari rancangan produk. Skema permintaan dan respons belum ditentukan.
+<Callout type="warn" title="Draft: belum tersedia">
+Endpoint di halaman ini belum ada. Daftar ini adalah garis besar dari rancangan produk; skema permintaan dan
+respons belum ditentukan. Endpoint yang sudah berjalan ada di [Instances](/api-reference/instances),
+[Telegram, provider, dan log](/api-reference/integrasi), dan [Langganan](/api-reference/langganan).
 </Callout>
 
-## Penagihan dan langganan
+## Ganti paket
 
 ```text
-GET    /subscriptions/current
-POST   /subscriptions/checkout
-POST   /subscriptions/cancel
-POST   /subscriptions/renew
-POST   /subscriptions/upgrade
-GET    /payments/:paymentId
+POST   /subscriptions/:subscriptionId/upgrade
 ```
 
-## Pemakaian dan log
+Ganti paket butuh pembayaran dan pengecekan kapasitas server, dan belum ada di backend.
+
+## Pemakaian
 
 ```text
 GET    /instances/:instanceId/usage
-GET    /instances/:instanceId/logs
-```
-
-## Provider AI
-
-```text
-GET    /instances/:instanceId/providers
-PUT    /instances/:instanceId/providers
-POST   /instances/:instanceId/providers/test
-DELETE /instances/:instanceId/providers/:providerConfigId
-```
-
-## Telegram
-
-```text
-GET    /instances/:instanceId/telegram
-PUT    /instances/:instanceId/telegram
-POST   /instances/:instanceId/telegram/verify
-DELETE /instances/:instanceId/telegram
 ```
 
 ## File Manager dan Web Console
@@ -55,8 +35,8 @@ POST   /instances/:instanceId/console/sessions
 DELETE /instances/:instanceId/console/sessions/:sessionId
 ```
 
-Endpoint ini akan memakai broker eksekusi yang dibatasi pada tenant. Tidak ada operasi Docker atau path host
-yang diterima dari klien.
+Endpoint ini akan memakai layanan perantara yang hanya bisa menjangkau instance-mu. Tidak ada operasi Docker atau
+path host yang diterima dari klien.
 
 ## Backup dan audit
 
@@ -64,6 +44,5 @@ yang diterima dari klien.
 GET    /instances/:instanceId/backups
 POST   /instances/:instanceId/backups
 POST   /instances/:instanceId/backups/:backupId/restore
-GET    /instances/:instanceId/events
 GET    /audit-logs
 ```

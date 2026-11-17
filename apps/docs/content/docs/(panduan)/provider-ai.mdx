@@ -1,38 +1,51 @@
 ---
 title: Provider AI
-description: Pilih NibieRouter sebagai default atau bawa API key sendiri (BYOK).
+description: NibieRouter dipasang otomatis. Kamu bisa menggantinya dengan API key sendiri (BYOK).
 ---
 
-<Callout type="info" title="Draft">
-Pengaturan provider di dashboard masih berupa pratinjau. Pelaporan pemakaian AI di dashboard belum tersedia.
+<Callout type="warn" title="Draft: belum tersedia">
+Laporan pemakaian AI di dashboard belum tersedia.
 </Callout>
 
-Hermes membutuhkan penyedia model AI. Ada dua pilihan, dan keduanya ditagih terpisah dari hosting.
+Hermes membutuhkan penyedia model AI untuk bisa menjawab. Pengaturannya ada di instance-mu, menu
+**Configuration**, tab **AI provider**.
 
 ## NibieRouter (default)
 
-Jalur paling mudah: terhubung tanpa kamu perlu membuat akun penyedia lain. Pemakaian AI ditagih lewat
-NibieRouter, bukan lewat tagihan hosting. Pemakaian AI hanya ditampilkan di dashboard bila data dari sisi
-NibieRouter sudah akurat dan tersedia.
+Kamu tidak perlu memilih atau memasang apa pun. Setelah instance dibuat, Nibie Cloud membuatkan API key NibieRouter
+khusus untuk instance itu, memasangnya, lalu memulai ulang instance sekali supaya Hermes memakainya. Untuk instance
+beta gratis, ini biasanya terjadi dalam sekitar satu menit setelah instance pertama kali `Active`. Setelah itu tab
+**AI provider** menampilkan **NibieRouter (included)**.
 
-Untuk instance yang dibuat lewat pembayaran, kami membuatkan akun NibieRouter dan satu API key untuk instance itu
-secara otomatis. Key disimpan terenkripsi dan tidak pernah ditampilkan. Paket **Hosting + Kredit AI** juga menambah
-kredit US$2 satu kali di awal; kredit itu bukan bulanan. Bila pemasangan key belum selesai, instance tetap berjalan
-dan kami mencobanya lagi otomatis.
+Key itu disimpan terenkripsi dan tidak pernah ditampilkan. Bila pemasangan gagal, instance tetap berjalan dan kami
+mencobanya lagi otomatis. Bila setelah beberapa menit masih belum tersambung, kamu bisa memasang API key sendiri.
+
+Pemakaian AI lewat NibieRouter ditagih lewat NibieRouter, bukan lewat tagihan hosting. Paket **Hosting + Kredit AI**
+menambah kredit NibieRouter US$2 satu kali di awal; kredit itu bukan bulanan.
 
 ## BYOK (bawa API key sendiri)
 
-Kamu memasukkan kredensial penyedia yang kamu pilih. Yang perlu diketahui:
+1. Di tab **AI provider**, pilih **Bring your own key**.
+2. Pilih **Provider**: OpenAI, OpenRouter, atau OpenAI-compatible (custom URL).
+3. Isi **Model** persis seperti nama model di penyedia itu.
+4. Untuk penyedia custom, isi **Base URL**. Alamatnya harus https, bisa diakses publik, dan menjawab
+   `GET /models`.
+5. Tempel **API key**, lalu tekan **Save provider**.
+6. Restart instance saat muncul pesan **Restart to apply your changes**.
+7. Tekan **Test connection** untuk memeriksa key.
 
-- API key dienkripsi saat disimpan, dan **tidak pernah ditampilkan kembali** setelah kamu menyimpannya.
-- Ada aksi **Test koneksi** yang tidak memperlihatkan key.
-- Key bisa diganti dan dihapus kapan saja.
+Yang perlu diketahui:
+
+- Menyimpan key sendiri **menggantikan** NibieRouter yang dipasang otomatis. Dashboard tidak bisa mengembalikannya
+  sendiri; untuk kembali ke NibieRouter, hubungi kami lewat [Bantuan](/bantuan).
+- API key dienkripsi saat disimpan dan **tidak pernah ditampilkan lagi**. Tempel lagi setiap kali kamu menyimpan
+  perubahan.
+- **Test connection** tidak memperlihatkan key.
 - Biaya pemakaian ditagih oleh penyedia itu, bukan oleh Nibie Cloud.
-- Bila kamu memakai base URL kustom, alamatnya divalidasi. Alamat ke jaringan privat, loopback, atau metadata
-  cloud ditolak untuk mencegah SSRF.
+- Alamat ke jaringan privat, ke server lokal, atau ke layanan internal penyedia cloud ditolak.
 
 ## Bila penyedia AI bermasalah
 
-Dashboard membedakan **masalah penyedia** dari **masalah instance**. Jika penyedia sedang gangguan, kamu
-melihat status koneksi penyedia dan pesan galat yang sudah disanitasi. Instance yang sehat tidak di-restart
-hanya karena penyedia AI tidak merespons.
+Dashboard membedakan **masalah penyedia** dari **masalah instance**. Jika penyedia sedang gangguan, tab
+**AI provider** menunjukkan **Connection error** dengan pesan singkat yang tidak memuat key. Instance yang sehat tidak
+di-restart hanya karena penyedia AI tidak merespons.

@@ -1,18 +1,17 @@
 ---
 title: Autentikasi
-description: Cara mengautentikasi permintaan ke API pelanggan.
+description: Token yang dibawa setiap permintaan ke API pelanggan.
 ---
 
-<Callout type="error" title="Draft">
-Rancangan ini belum final dan belum aktif.
-</Callout>
-
-Setiap permintaan ke API pelanggan harus membawa token sesi login di header `Authorization`:
+Setiap permintaan ke API pelanggan membawa token sesi login dashboard di header `Authorization`:
 
 ```bash
 curl https://api.cloud.nibie.app/api/v1/me \
   -H "Authorization: Bearer <TOKEN_SESI_LOGIN>"
 ```
+
+Token ini adalah token yang didapat dashboard saat kamu masuk. Belum ada cara membuat token khusus untuk skrip
+atau otomasi.
 
 ## Aturan
 
@@ -20,8 +19,7 @@ curl https://api.cloud.nibie.app/api/v1/me \
 - Token yang hilang, rusak, kedaluwarsa, atau tidak valid semuanya mendapat satu respons yang sama,
   `401 unauthorized`, supaya tidak membocorkan alasan penolakan.
 - Token tidak pernah muncul di respons atau log.
-- Token pelanggan hanya berlaku di API pelanggan. Token itu tidak bisa dipakai di endpoint operator, dan
-  token operator tidak bisa dipakai di API pelanggan.
+- Token pelanggan hanya berlaku di API pelanggan. Token itu tidak bisa dipakai di endpoint internal Nibie Cloud.
 - Browser hanya boleh memanggil API dari origin dashboard resmi. Cookie tidak dipakai, hanya bearer token.
 
 <Callout type="warn" title="Jangan bagikan token">

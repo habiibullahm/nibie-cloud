@@ -1,6 +1,6 @@
 ---
 title: Paket dan penagihan
-description: Cara kerja paket hosting, pembayaran, upgrade, dan perpanjangan.
+description: Cara kerja paket hosting, pembayaran, dan perpanjangan.
 ---
 
 <Callout type="warn" title="Harga belum ditetapkan">
@@ -8,44 +8,47 @@ Harga paket belum final. Angka akan dipublikasikan setelah pemakaian sumber daya
 jaringan, backup, dan biaya lainnya diukur selama beta. Dokumentasi ini sengaja tidak mencantumkan angka.
 </Callout>
 
+## Paket
+
+Ada dua paket berbayar. Keduanya memberi sumber daya yang sama: 1 CPU, RAM 1 GB, dan penyimpanan permanen 5 GB,
+di server Jakarta.
+
+| Paket | Kredit AI |
+| --- | --- |
+| **Hosting** | Tidak ada. Pemakaian AI ditagih terpisah oleh NibieRouter atau penyedia pilihanmu. |
+| **Hosting + Kredit AI** | Kredit NibieRouter US$2, diberikan satu kali di awal, bukan setiap bulan. |
+
+Selama beta gratis, slot gratis yang terbatas memakai paket tanpa harga. Lihat [Quickstart](/quickstart).
+
 ## Yang ditagih
 
-- **Langganan hosting** berulang (bulanan), untuk container, penyimpanan, backup, dan operasi infrastruktur.
-- **Pemakaian AI** ditagih terpisah oleh NibieRouter atau penyedia pilihanmu. Lihat [Provider AI](/provider-ai).
+- **Langganan hosting** berulang (bulanan), untuk container, penyimpanan, dan operasi infrastruktur.
+- **Pemakaian AI** di luar kredit di atas ditagih terpisah oleh NibieRouter atau penyedia pilihanmu. Lihat
+  [Provider AI](/provider-ai).
 
-Tidak ada token AI yang dibundel di paket hosting, dan tidak ada janji pemakaian AI tanpa batas.
+Tidak ada paket yang menjanjikan pemakaian AI tanpa batas.
 
-## Paket berbasis batas sumber daya
+## Batas sumber daya
 
-Setiap paket dipetakan ke batas nyata yang diterapkan pada container, bukan sekadar label. Dimensi yang
-dipertimbangkan:
-
-- Kuota CPU
-- Batas memori
-- Kuota penyimpanan permanen
-- Batas jumlah proses
-- Kebijakan jaringan keluar
-- Frekuensi dan lama retensi backup
-- Fitur opsional seperti custom domain
-
-Dashboard menampilkan batas CPU, RAM, penyimpanan, dan jaringan setiap paket sebelum kamu membayar. Paket atau
-wilayah hanya ditampilkan jika ada kapasitas untuk menjalankannya.
+Setiap paket dipetakan ke batas nyata yang diterapkan pada container, bukan sekadar label: kuota CPU, batas
+memori, kuota penyimpanan permanen, dan batas jumlah proses. Halaman Deploy menampilkan batas CPU, memori,
+penyimpanan, dan jumlah proses setiap paket sebelum kamu deploy atau membayar.
 
 ## Pembayaran
 
 - Pembayaran memakai payment gateway yang mendukung metode di Indonesia, termasuk QRIS bila tersedia.
-- Server memverifikasi tanda tangan dan keaslian notifikasi pembayaran, lalu mencocokkan referensi invoice,
-  jumlah, mata uang, dan status.
-- Instance **tidak** diaktifkan hanya karena kamu kembali dari halaman pembayaran. Aktivasi menunggu
-  verifikasi server.
-- Setiap perubahan status pembayaran dicatat dan bisa diaudit.
+- Server memverifikasi keaslian notifikasi pembayaran, lalu mencocokkan referensi invoice, jumlah, mata uang,
+  dan status.
+- Instance **tidak** diaktifkan hanya karena kamu kembali dari halaman pembayaran. Instance baru dibuat setelah
+  server menerima konfirmasi pembayaran.
 
-## Upgrade dan perpanjangan
+## Perpanjangan
 
-- Upgrade dihitung secara prorata atau mulai siklus berikutnya, sesuai kebijakan penagihan yang akan
-  dipublikasikan.
-- Instance yang sedang berjalan tidak diubah ukurannya sebelum pembayaran dan pengecekan kapasitas berhasil.
-  Bila paket baru tidak muat di server saat ini, instance dijadwalkan pindah atau kamu diberi tahu bahwa
-  kapasitas belum tersedia.
-- Perpanjangan mengaktifkan kembali instance yang `Suspended` hanya setelah pembayaran terverifikasi dan
-  kapasitas tersedia.
+Perpanjangan ada di menu **Upgrade & renew** instance-mu, tombol **Renew now**. Bila langganan sudah
+di-suspend, instance dinyalakan lagi otomatis setelah pembayaran perpanjangan terverifikasi. Lihat
+[Siklus langganan](/siklus-langganan).
+
+<Callout type="warn" title="Draft: belum tersedia">
+Ganti paket (upgrade atau downgrade) belum tersedia. Di menu **Upgrade & renew**, bagian **Change plan** masih
+bertanda segera hadir.
+</Callout>

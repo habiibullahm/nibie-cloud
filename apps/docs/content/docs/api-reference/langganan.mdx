@@ -1,0 +1,48 @@
+---
+title: Langganan
+description: Endpoint langganan dan pembayaran untuk instance berbayar.
+---
+
+Endpoint ini hanya aktif bila penagihan dinyalakan di server. Selama pembayaran belum dibuka untuk akunmu,
+`checkout` dan `renew` mendapat `403 billing_not_open`. Aturan masa tenggang, suspend, dan retensi dijelaskan di
+[Siklus langganan](/siklus-langganan).
+
+| Endpoint | Fungsi |
+| --- | --- |
+| `GET /subscriptions` | Daftar langgananmu: `{ "subscriptions": [ … ] }`. |
+| `GET /subscriptions/:subscriptionId` | Satu langganan: `{ "subscription": { … } }`. |
+| `POST /subscriptions/checkout` | Memulai langganan baru dan membuat invoice pertama. |
+| `POST /subscriptions/:subscriptionId/renew` | Membuat invoice untuk periode berikutnya. |
+| `POST /subscriptions/:subscriptionId/cancel` | Menghentikan perpanjangan di akhir periode yang sudah dibayar. |
+| `GET /payments/:paymentId` | Status satu pembayaran: `{ "payment": { … } }`. |
+
+## POST /subscriptions/checkout
+
+Memerlukan header [`Idempotency-Key`](/api-reference/error-dan-idempotensi#idempotency-key).
+
+| Body | Tipe | Keterangan |
+| --- | --- | --- |
+| `name` | string | Nama instance yang akan dibuat. |
+| `planId` | string (UUID) | ID paket berbayar dari `GET /plans`. |
+
+Respons `201 Created` berisi `subscription` dan `payment`. Arahkan pengguna ke `payment.paymentUrl` untuk membayar.
+Instance dibuat setelah server menerima konfirmasi pembayaran dari payment gateway, bukan saat pengguna kembali
+dari halaman pembayaran.
+
+## POST /subscriptions/:subscriptionId/renew
+
+Untuk langganan yang aktif, dalam masa tenggang, atau di-suspend. Bila masih ada invoice perpanjangan yang belum
+kedaluwarsa, invoice itu yang dikembalikan, bukan invoice baru. Respons `201 Created` berisi `subscription` dan
+`payment`.
+
+`checkout` dan `renew` dibatasi 10 permintaan per 10 menit.
+
+## Status langganan
+
+| `status` | Artinya |
+| --- | --- |
+| `PENDING_PAYMENT` | Menunggu pembayaran pertama. Instance belum dibuat. |
+| `ACTIVE` | Sudah dibayar untuk periode berjalan. |
+| `GRACE` | Jatuh tempo dan belum dibayar. Instance masih berjalan selama masa tenggang. |
+| `SUSPENDED` | Masa tenggang habis. Instance dihentikan dan datanya disimpan sampai `retentionEndsAt`. |
+| `ENDED` | Langganan berakhir. |

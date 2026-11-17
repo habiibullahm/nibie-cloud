@@ -3,10 +3,6 @@ title: Akun dan paket
 description: GET /me dan GET /plans.
 ---
 
-<Callout type="error" title="Draft">
-Bentuk respons mengikuti rancangan backend dan dapat berubah.
-</Callout>
-
 ## GET /me
 
 Mengembalikan akun yang sedang login.
@@ -24,11 +20,18 @@ curl https://api.cloud.nibie.app/api/v1/me \
 }
 ```
 
-Saat permintaan terverifikasi pertama kali, akun dan tenant pribadimu dibuat otomatis.
+Saat permintaan terverifikasi pertama kali, akun dan tenant pribadimu dibuat otomatis. `tenantId` adalah ID
+ruang milikmu tempat instance disimpan.
 
 ## GET /plans
 
-Mengembalikan paket yang sedang aktif beserta batas sumber dayanya.
+Mengembalikan paket yang bisa kamu pilih saat ini, beserta batas sumber dayanya. Isinya bergantung pada akunmu:
+
+- Paket beta gratis (tanpa harga) muncul selama slot gratis masih ada, atau bila kamu punya undangan dari daftar
+  tunggu yang masih berlaku.
+- Paket berbayar muncul setelah pembayaran dibuka.
+
+Daftar kosong berarti belum ada paket yang terbuka untukmu.
 
 ```json
 {
@@ -41,7 +44,8 @@ Mengembalikan paket yang sedang aktif beserta batas sumber dayanya.
       "memoryMb": 1024,
       "storageMb": 5120,
       "pids": 256,
-      "monthlyPriceIdr": null
+      "monthlyPriceIdr": null,
+      "includedCreditUsd": null
     }
   ]
 }
@@ -53,6 +57,7 @@ Mengembalikan paket yang sedang aktif beserta batas sumber dayanya.
 | `memoryMb` | Batas memori dalam MB. |
 | `storageMb` | Kuota penyimpanan permanen dalam MB. |
 | `pids` | Batas jumlah proses. |
-| `monthlyPriceIdr` | Harga bulanan dalam rupiah. Saat ini selalu `null` karena harga belum ditetapkan. |
+| `monthlyPriceIdr` | Harga bulanan dalam rupiah. `null` berarti paket tanpa harga, yaitu paket beta gratis. |
+| `includedCreditUsd` | Kredit NibieRouter dalam US$ yang diberikan satu kali bersama pembayaran pertama, atau `null` bila tidak ada. |
 
-Angka pada contoh hanya ilustrasi untuk menunjukkan bentuk respons, bukan paket yang ditawarkan.
+Angka pada contoh hanya menunjukkan bentuk respons.
