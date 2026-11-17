@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/app/empty-state"
 import { PageHeader } from "@/components/app/page-header"
 import { PreviewNote } from "@/components/app/preview-note"
 import { StatusBadge } from "@/components/app/status-badge"
+import { subscriptionOfInstance } from "@/lib/billing"
 import { errorMessage, keys, useApiMode, useInstanceMeta, useInstances, usePlans, useSubscriptions } from "@/hooks/use-hermes"
 import type { BillingSubscription, Instance } from "@/lib/api/types"
 import { evaluateReturn, isPendingPurchase, payableUrl } from "@/lib/billing"
@@ -130,7 +131,11 @@ export function InstancesView() {
 function InstanceCard({ instance }: { instance: Instance }) {
   const meta = useInstanceMeta(instance.id)
   const plans = usePlans()
-  const plan = plans.data?.find((p) => p.id === meta.data?.planId)
+  const customer = useApiMode() === "customer"
+  const subs = useSubscriptions()
+  // Customer mode: the plan comes from what the customer is billed for. Sample meta (plan, region, runtime) is not shown.
+  const billedPlanId = subscriptionOfInstance(subs.data, instance.id)?.planId
+  const plan = plans.data?.find((p) => p.id === (customer ? billedPlanId : meta.data?.planId))
   const p = presentStatus(instance.status)
   const reason = instance.statusReason ?? (p.tone === "ok" ? null : p.defaultReason)
 
@@ -151,8 +156,8 @@ function InstanceCard({ instance }: { instance: Instance }) {
       <p className="type-mono text-muted-foreground">
         {shortId(instance.id)}
         {plan ? ` · ${plan.name.toLowerCase()}` : ""}
-        {meta.data ? ` · ${meta.data.regionId}` : ""}
-        {meta.data ? ` · ${meta.data.runtime}` : ""}
+        {meta.data && !customer ? ` · ${meta.data.regionId}` : ""}
+        {meta.data && !customer ? ` · ${meta.data.runtime}` : ""}
       </p>
       {reason ? <p className="text-muted-foreground">{reason}</p> : null}
       <div className="mt-auto flex items-center justify-between gap-3 border-t pt-3 text-muted-foreground">
