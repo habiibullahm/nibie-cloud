@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { BETA_USERS, PLANS, discountPercent, formatIdr } from "@/lib/plans"
-import { betaAccessHref, contactEmail, ctaHref, signupOpen, SITE } from "@/lib/site"
+import { ACCESS_REQUEST_BODY, betaAccessHref, contactEmail, ctaHref, signupOpen, SITE } from "@/lib/site"
 
 describe("formatIdr", () => {
   it("groups thousands with dots", () => {
@@ -45,7 +45,7 @@ describe("contact", () => {
 
   it("builds an encoded mailto link when an email is configured", () => {
     expect(betaAccessHref("Minta akses: Hosting + Kredit", "hello@example.com")).toBe(
-      "mailto:hello@example.com?subject=Minta%20akses%3A%20Hosting%20%2B%20Kredit"
+      `mailto:hello@example.com?subject=Minta%20akses%3A%20Hosting%20%2B%20Kredit&body=${encodeURIComponent(ACCESS_REQUEST_BODY)}`
     )
   })
 })
@@ -65,7 +65,7 @@ describe("sign-up switch", () => {
   })
 
   it("keeps the invite request when closed", () => {
-    expect(ctaHref("Halo", false, "hello@example.com")).toBe("mailto:hello@example.com?subject=Halo")
+    expect(ctaHref("Halo", false, "hello@example.com")).toBe(`mailto:hello@example.com?subject=Halo&body=${encodeURIComponent(ACCESS_REQUEST_BODY)}`)
     expect(ctaHref("Halo", false, null)).toBe(SITE.telegramUrl)
   })
 })

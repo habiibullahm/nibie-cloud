@@ -34,10 +34,20 @@ export function signupOpen(raw: string | undefined = process.env.NEXT_PUBLIC_SIG
   return raw?.trim().toLowerCase() !== "false"
 }
 
+/** Pre-filled email body for an access request, so the owner gets what is needed to pick the free beta users. */
+export const ACCESS_REQUEST_BODY = [
+  "Halo Nibie Cloud, saya mau ikut beta preview gratis.",
+  "",
+  "Nama:",
+  "Email yang mau didaftarkan:",
+  "Akun Telegram (opsional):",
+  "Agent Hermes mau dipakai untuk apa:",
+].join("\n")
+
 /** Where "Minta akses beta" goes: a pre-filled email when configured, otherwise Telegram. */
 export function betaAccessHref(subject: string, email: string | null = contactEmail()): string {
   if (!email) return SITE.telegramUrl
-  return `mailto:${email}?subject=${encodeURIComponent(subject)}`
+  return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(ACCESS_REQUEST_BODY)}`
 }
 
 /**
