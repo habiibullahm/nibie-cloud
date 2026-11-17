@@ -130,12 +130,21 @@ export function useLogs(id: string, level: LogLevel | "all", query: string) {
   })
 }
 
+/** Re-reads every few seconds while a saved change waits for the restart that applies it. */
 export function useProvider(id: string) {
-  return useQuery({ queryKey: keys.provider(id), queryFn: () => getApi().preview.provider(id) })
+  return useQuery({
+    queryKey: keys.provider(id),
+    queryFn: () => getApi().preview.provider(id),
+    refetchInterval: (q) => (q.state.data?.restartRequired ? POLL_MS * 3 : false),
+  })
 }
 
 export function useTelegram(id: string) {
-  return useQuery({ queryKey: keys.telegram(id), queryFn: () => getApi().preview.telegram(id) })
+  return useQuery({
+    queryKey: keys.telegram(id),
+    queryFn: () => getApi().preview.telegram(id),
+    refetchInterval: (q) => (q.state.data?.restartRequired ? POLL_MS * 3 : false),
+  })
 }
 
 export function useFiles(id: string, path: string, enabled: boolean) {

@@ -36,8 +36,8 @@ pairs in `src/lib/api/proxy-rules.ts` (UUID ids only). It refuses to run in a pr
 unless `HERMES_ALLOW_DEV_BRIDGE=1`. It exists because the backend API is operator-only today; it
 must be replaced by the customer API once auth exists.
 
-Sections without a backend endpoint yet (PRD §15): plans, regions, usage, logs, provider config,
-Telegram, files, console, backups, subscription, custom domain, account. Each is marked with a
+Sections without a backend endpoint yet (PRD §15): regions, usage, files, console, backups, custom
+domain, account (in `customer` mode provider config, Telegram and logs are real, see below). Each is marked with a
 "Preview data" tag in the UI.
 
 ## Design system mapping
@@ -133,7 +133,13 @@ Domains & Routes). Verified locally with `wrangler dev`; not yet deployed to a r
 straight from the browser, with the signed-in user's Supabase access token as a bearer header; the backend
 derives the tenant from the token. Set `NEXT_PUBLIC_HERMES_API_URL` (public origin, no path) next to the two
 Supabase variables, all at build time. Real: instance list, get, status, events, create, start, stop,
-restart, delete, plus `/me` and `/plans`. Everything else is still preview data. Without the URL or the
+restart, delete, `/me`, `/plans`, billing, the AI provider and Telegram settings
+(`src/http/integration-routes.ts`, mapped in `src/lib/api/integrations.ts`) and the container logs. The
+Configuration page needs a model name and numeric Telegram user IDs (the backend denies everyone else by
+default), asks for the key or token again on every save (the backend never returns them), and shows a
+restart notice while `restartRequired` is true. BYOK presets (`src/lib/api/providers.ts`) are OpenAI,
+OpenRouter and a custom URL; Anthropic is left out because the backend tests a provider with a Bearer
+`GET /models`. NibieRouter is attached by Nibie Cloud, so the customer form cannot select it. Everything else is still preview data. Without the URL or the
 Supabase variables the app falls back to labelled mock data. Backend prerequisites: `SUPABASE_URL`,
 `DASHBOARD_ORIGIN` (exact origin, for CORS), `BETA_ALLOWED_EMAILS` (creation is refused with 403
 `provisioning_not_enabled` for other accounts) and at least one active plan row.

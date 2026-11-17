@@ -117,26 +117,36 @@ export interface LogLine {
 
 export type ProviderKind = "nibierouter" | "byok"
 export interface ProviderConfig {
+  /** Empty while nothing is configured yet (`configured` is false). */
   id: string
+  configured: boolean
   kind: ProviderKind
-  /** BYOK only. */
+  /** BYOK preset the base URL matches (see providers.ts); "custom" for any other URL. */
   providerName: string | null
   baseUrl: string | null
-  /** Never the key itself: last four characters only (PRD §7.4). */
+  /** Model name Hermes uses; the backend requires it. */
+  model: string | null
+  /** Never the key itself: last four characters only (PRD §7.4). Null for the NibieRouter key. */
   keyHint: string | null
   status: "connected" | "untested" | "error"
   statusMessage: string | null
-  updatedAt: string
+  /** When the connection was last tested; null until the first test. */
+  lastTestedAt: string | null
+  /** The running container was not recreated since the last change (backend `restartRequired`). */
+  restartRequired: boolean
 }
 
 export interface TelegramConfig {
   configured: boolean
   botUsername: string | null
   tokenHint: string | null
-  mode: "polling" | "webhook"
+  /** The last test message was delivered. */
   verified: boolean
+  statusMessage: string | null
+  /** Numeric Telegram user IDs; the backend denies everyone else. */
   allowlist: string[]
-  updatedAt: string | null
+  verifiedAt: string | null
+  restartRequired: boolean
 }
 
 export interface FileEntry {

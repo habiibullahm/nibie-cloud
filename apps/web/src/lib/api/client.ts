@@ -68,14 +68,11 @@ export interface PreviewApi {
   provider(instanceId: string): Promise<ProviderConfig>
   saveProvider(
     instanceId: string,
-    input: { kind: ProviderKind; providerName?: string; baseUrl?: string; apiKey?: string }
+    input: { kind: ProviderKind; providerName?: string; baseUrl?: string; model?: string; apiKey?: string }
   ): Promise<ProviderConfig>
   testProvider(instanceId: string): Promise<ProviderConfig>
   telegram(instanceId: string): Promise<TelegramConfig>
-  saveTelegram(
-    instanceId: string,
-    input: { token?: string; mode: "polling" | "webhook"; allowlist: string[] }
-  ): Promise<TelegramConfig>
+  saveTelegram(instanceId: string, input: { token: string; allowlist: string[] }): Promise<TelegramConfig>
   verifyTelegram(instanceId: string): Promise<TelegramConfig>
   removeTelegram(instanceId: string): Promise<TelegramConfig>
   files(instanceId: string, path: string): Promise<FileEntry[]>

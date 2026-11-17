@@ -2,6 +2,15 @@
 
 Last updated: 2026-11-17 (go-live preparation: sign-up closed on the landing page, admin API phase A deployed to the VPS, production plans match the landing, billing still OFF on the VPS; production runs on `runsc`). Earlier entries below keep their own dates. Index of all docs: [README.md](README.md).
 
+## Dashboard: Hermes configuration wired to the backend (2026-11-17, branch `claude/project-thread-aeigzy`)
+
+In `customer` mode `apps/web` now calls the real provider, Telegram and logs routes of `src/http/integration-routes.ts`
+(`apps/web/src/lib/api/integrations.ts`) instead of the mock; the Configuration page has the Model field, the numeric
+Telegram allowlist and a restart notice driven by `restartRequired`. Verified by unit tests with a fake `fetch`
+(`test/integrations-api.test.ts`), `typecheck`, `lint`, `pnpm test` and `next build` in a cloud sandbox; **not yet verified
+against the production backend or a real Telegram chat** (that is the next step on the instance "nibie testing"). Known limits:
+the backend requires the key and the bot token on every save, and the customer API cannot switch back to NibieRouter.
+
 ## Go-live status (2026-11-17)
 
 Everything here was checked with real command output or a real page on 2026-11-17; items marked "not done" are open.
