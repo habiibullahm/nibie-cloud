@@ -20,7 +20,7 @@ test("mock data is labelled as preview data", async ({ page }) => {
 test("?empty shows the empty state with a way to deploy", async ({ page }) => {
   await page.goto(`${BASE}/instances?empty`)
   await expect(page.getByText("No instances yet")).toBeVisible()
-  await page.getByRole("link", { name: "Start a deployment" }).click()
+  await page.getByRole("link", { name: "Deploy your first instance" }).click()
   await expect(page).toHaveURL(/\/dashboard\/deploy$/)
 })
 
