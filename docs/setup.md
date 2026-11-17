@@ -43,7 +43,7 @@ DATABASE_URL=postgresql://hermes:hermes_dev_only@127.0.0.1:5433/hermes_test pnpm
 | `HERMES_IMAGE` | Pinned image. Tag != `latest` in dev/test; `name@sha256:<digest>` required when `NODE_ENV=production`. Startup fails otherwise |
 | `ADMIN_TOKEN` | Bearer token for the operator API (>= 24 chars). Never logged |
 | `PORT` | Default 3000. The API always binds `127.0.0.1` |
-| `DOCKER_SOCKET_PATH` | Default `/var/run/docker.sock` |
+| `DOCKER_SOCKET_PATH` | Default `/var/run/docker.sock`. Docker Desktop on Windows: `//./pipe/docker_engine` |
 | `HERMES_MASTER_KEY` | Required, at least 32 characters (`openssl rand -hex 32`). Every instance's `API_SERVER_KEY` is derived from it (HMAC-SHA256 with the instance id); it is never stored or logged. Changing it makes running instances reject the new keys: the Reconciler marks them `DEGRADED` (`auth_rejected`) without restarting them, and they stay that way until their containers are recreated (see below) |
 | `HERMES_DISK_QUOTA` | `enforce` (default) or `off`. `enforce` creates every tenant volume with `Plan.storageMb` as its size limit and refuses to run a volume that has none. `off` is rejected when `NODE_ENV=production` |
 | `HERMES_DISK_CHECK_INTERVAL_MS` | Default `300000` (5 minutes), minimum `1000`. How often the DiskMonitor reads volume usage and records `disk.warning`, `disk.full` and `disk.ok` events |
@@ -51,7 +51,8 @@ DATABASE_URL=postgresql://hermes:hermes_dev_only@127.0.0.1:5433/hermes_test pnpm
 | `HERMES_CANARY_IMAGE` | Required when `HERMES_EGRESS_POLICY=enforce` **or `HERMES_RUNTIME=runsc`**: an image with `sh` and `nc`, pinned as `name@sha256:<64 hex>` (a tag is rejected). Under `runsc` it is also used to seed the tenant `resolv.conf` volume (see `HERMES_DNS_RESOLVERS` below). It is not pulled for you: `docker pull` it first |
 | `HERMES_CANARY_PRIVATE_IP` | Optional IPv4 address of this host. If set, the canary also checks that a tenant cannot reach it |
 | `SUPABASE_URL` | Optional. `https://<project-ref>.supabase.co` (https, no path). Enables the customer API; unset means the customer routes do not exist |
-| `DASHBOARD_ORIGIN` | Optional. Exact browser origin of the dashboard, no path (`https://cloud.nibie.app`, even though the dashboard is served under `/dashboard`). The only origin granted CORS; unset sends no CORS headers |
+| `DASHBOARD_ORIGIN` | Optional. Exact browser origin of the dashboard, no path (`https://cloud.nibie.app`, even though the dashboard is served under `/dashboard`). The only origin granted CORS in production; unset sends no CORS headers. Local: `http://localhost:3500` (not `127.0.0.1:3500`, a different origin) |
+| `CORS_EXTRA_ORIGINS` | Development only, refused when `NODE_ENV=production`. Comma-separated exact origins also granted CORS, e.g. `http://localhost:3300` so the local landing page can read the beta counter and post to the waiting list |
 | `BETA_ALLOWED_EMAILS` | Comma-separated emails allowed to create instances until payments exist. Empty or unset: nobody can (fail closed). Set it in the host environment only, never in the repository |
 | `MAX_INSTANCES_PER_TENANT` | Default `1`. Non-deleted instances a tenant may hold through the customer API (the operator API has no cap) |
 | `FREE_BETA_SLOTS` | Default `0`. How many instances on the unpriced plan any signed-in user may take (first come, first served); invited accounts share the slots. `> 0` with the customer API also turns on the automatic [waiting list](#waiting-list-automatic-beta-invitations) |
@@ -61,7 +62,7 @@ DATABASE_URL=postgresql://hermes:hermes_dev_only@127.0.0.1:5433/hermes_test pnpm
 | `SECRETS_KEK_VERSION` | Positive integer, default `1`. The version number stored beside every secret sealed with `SECRETS_KEK` |
 | `SUMOPOD_SMTP_HOST`, `SUMOPOD_SMTP_PORT`, `SUMOPOD_SMTP_USER`, `SUMOPOD_SMTP_PASS`, `MAIL_FROM` | All five or none. SumoPod SMTP for the billing emails (port 465 uses implicit TLS, any other port STARTTLS). Unset: the backend sends no email; billing still works and the notice is retried once mail is configured |
 | `DUITKU_MERCHANT_CODE`, `DUITKU_API_KEY`, `DUITKU_CALLBACK_URL` | All three or none (billing off: checkout, the billing routes and the callback answer 404). Needs `DASHBOARD_ORIGIN` too (the invoice's return URL). Host environment only, never the repository. See [Billing](#billing-duitku-pop) |
-| `NIBIEROUTER_ADMIN_KEY`, `NIBIEROUTER_DEFAULT_MODEL` | Both or neither. Turns on the NibieRouter user, per-instance key and one-time credit for paid instances (needs `SECRETS_KEK`). Host environment only. See [NibieRouter](#nibierouter-key-and-credit) |
+| `NIBIEROUTER_ADMIN_KEY`, `NIBIEROUTER_DEFAULT_MODEL` | Both or neither. Turns on the NibieRouter user, per-instance key and one-time credit for paid instances, and the key for free instances (needs `SECRETS_KEK`). Host environment only. See [NibieRouter](#nibierouter-key-and-credit) |
 | `NIBIEROUTER_API_URL`, `NIBIEROUTER_USER_EMAIL_DOMAIN` | Optional. Router origin (https, default `https://router.nibie.app`) and the domain of the synthetic per-tenant router user address (default `cloud.nibie.app`) |
 | `DUITKU_ENV` | `sandbox` (default) or `production`. `production` is refused unless `NODE_ENV=production` |
 | `SECRETS_KEK_PREVIOUS`, `SECRETS_KEK_PREVIOUS_VERSION` | Only during a KEK rotation: the old key and its version (both required together, and the version must differ from the current one) |
@@ -304,9 +305,12 @@ billing tick retries every 5 minutes, up to 24 attempts.
 **Free beta instances get it too** (owner decision, 2026-11-17: NibieRouter is the default provider). The same tick finds
 instances on a plan without a price that are `ACTIVE` and have no provider, records a row without a subscription and runs
 (a) and (b) with `NIBIEROUTER_DEFAULT_MODEL`; there is no credit, because there is no payment. So a new free instance has
-its key and is restarted within about 5 minutes of becoming `ACTIVE`. A provider the customer set is never replaced, and
-a row is made once per instance, so a provider removed later is not put back. This needs the billing tick, so a gateway
-must be configured; the default model must be one a router user with no balance can call, or free agents get errors.
+its key and is restarted within about 30 seconds of becoming `ACTIVE`: every maintenance run (15 s) tries new free
+instances once (`runNewFree`), and a failure is left to the billing tick, which retries every 5 minutes as for paid ones
+(measured locally on 2026-11-17: `ACTIVE` at 15:33:03, key attached and restarted at 15:33:31). A provider the customer
+set is never replaced, and a row is made once per instance, so a provider removed later is not put back. The fast path
+does not need a payment gateway; the retries do. The default model must be one a router user with no balance can call,
+or free agents get errors.
 
 - **Turn it on:** put `NIBIEROUTER_ADMIN_KEY` and `NIBIEROUTER_DEFAULT_MODEL` in the backend environment on the host
   (the admin key is created in the NibieRouter admin dashboard, kept in the password

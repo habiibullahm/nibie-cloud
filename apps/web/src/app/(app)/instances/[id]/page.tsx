@@ -128,7 +128,9 @@ function HealthCard({ instance }: { instance: Instance }) {
     ? ["warn", "Could not check"]
     : !provider.data
     ? ["none", "Loading"]
-    : provider.data.status === "connected"
+    : !provider.data.configured
+      ? ["none", "Not set up yet"]
+      : provider.data.status === "connected"
       ? ["ok", provider.data.kind === "nibierouter" ? "NibieRouter connected" : "Own key connected"]
       : provider.data.status === "error"
         ? ["fail", "Connection error"]
@@ -160,8 +162,12 @@ function HealthCard({ instance }: { instance: Instance }) {
           <HealthRow label="Telegram" state={tg[0]} text={tg[1]} />
         </ul>
         <div className="flex flex-wrap gap-2 pt-4">
+          {/* The next step after deploying: the primary action until a bot is connected. */}
+          <Button asChild variant={telegram.data && !telegram.data.configured ? "default" : "outline"} size="sm">
+            <Link href={`/instances/${instance.id}/configuration?tab=telegram`}>Connect Telegram</Link>
+          </Button>
           <Button asChild variant="outline" size="sm">
-            <Link href={`/instances/${instance.id}/configuration`}>Configure provider and Telegram</Link>
+            <Link href={`/instances/${instance.id}/configuration?tab=provider`}>AI provider</Link>
           </Button>
         </div>
       </CardContent>

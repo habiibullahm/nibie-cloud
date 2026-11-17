@@ -20,7 +20,8 @@ export const PLAN_SPECS = {
   app: "Hermes Agent",
   cpu: "1 CPU",
   ramGb: 1,
-  storageGb: 1,
+  // 5 GB since 2026-11-17: Hermes warns about low disk below 2 GiB free, so 1 GB warned on every instance.
+  storageGb: 5,
   region: "Jakarta",
 } as const
 

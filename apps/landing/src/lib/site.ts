@@ -1,13 +1,25 @@
 /** Public facts about the site. Nothing secret: the repository is public. */
 
+/**
+ * Where the dashboard lives. Production serves it on the same origin (`/dashboard`), so the default stays relative. The
+ * build variable NEXT_PUBLIC_DASHBOARD_URL points it elsewhere for local development, e.g. `http://localhost:3500/dashboard`,
+ * because the landing page then runs on another port. Anything that is not an http(s) URL is ignored.
+ */
+export function dashboardBase(raw: string | undefined = process.env.NEXT_PUBLIC_DASHBOARD_URL): string {
+  const v = raw?.trim().replace(/\/+$/, "") ?? ""
+  return /^https?:\/\/[^\s/]+(\/[^\s]*)?$/.test(v) ? v : "/dashboard"
+}
+
+const DASHBOARD = dashboardBase()
+
 export const SITE = {
   /** Product name (Nash, 2026-11-15: renamed from "Hermes Cloud" to "Nibie Cloud"; Hermes is the agent the product hosts). */
   name: "Nibie Cloud",
   operator: "nibie.app",
   url: "https://cloud.nibie.app",
-  dashboardUrl: "/dashboard",
-  signInUrl: "/dashboard/sign-in",
-  registerUrl: "/dashboard/register",
+  dashboardUrl: DASHBOARD,
+  signInUrl: `${DASHBOARD}/sign-in`,
+  registerUrl: `${DASHBOARD}/register`,
   docsUrl: "/docs",
   telegramHandle: "@abib_mohd",
   telegramUrl: "https://t.me/abib_mohd",

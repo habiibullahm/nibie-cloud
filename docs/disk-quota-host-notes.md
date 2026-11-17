@@ -26,3 +26,26 @@ observed. Nothing here has been verified on an XFS host with project quotas yet.
 - How long the volume df call takes with about 10 populated volumes, and that `UsageData.Size` behaves
   the same on an XFS quota volume.
 - Behaviour under `runsc`.
+
+## Growing an existing volume (not verified; draft for the 1 GB to 5 GB change of 2026-11-17)
+
+A volume's quota is set once, when Docker creates it, so a plan change (`deploy/sql/2026-11-17-storage-5gb.sql`) only
+reaches new instances. On an XFS host with `prjquota`, Docker's local driver gives each sized volume an XFS project; the
+limit of that project can be raised in place, without stopping the container. Expected steps on the VPS, to be checked
+on the host before use:
+
+```bash
+# 1. The volume of one instance (names derive from the instance id only)
+V=hermes-data-<instanceId>
+D=$(sudo docker volume inspect -f '{{ .Mountpoint }}' "$V")
+# 2. Its XFS project id, and the mount point of the filesystem that holds it
+P=$(sudo xfs_io -c lsproj "$D" | awk '{print $NF}')
+M=$(df --output=target "$D" | tail -1)
+# 3. Raise the hard limit to 5 GiB and check it
+sudo xfs_quota -x -c "limit -p bhard=5120m $P" "$M"
+sudo xfs_quota -x -c "report -p -h" "$M" | grep -w "$P"
+```
+
+`docker volume inspect` keeps showing the old `size` option afterwards, so the backend still records
+`disk.quota_mismatch` for that volume; the event is informational. The alternative that needs no host step is to delete
+the instance and create a new one, which loses its data.

@@ -268,6 +268,28 @@ describe('RouterProvisioner', () => {
     expect(router.keys).toHaveLength(2);
   });
 
+  it('runNewFree attaches the key to a new free instance at once, tries each one only once, and leaves retries to runPending', async () => {
+    await prisma.plan.update({ where: { id: s.plan.id }, data: { monthlyPriceIdr: null } });
+    const mkFree = () => prisma.instance.create({
+      data: { tenantId: s.tenant.id, planId: s.plan.id, nodeId: s.node.id, name: 'free', idempotencyKey: crypto.randomUUID(), image: 'hermes-stub:0.2.0', status: 'ACTIVE' },
+    });
+    const a = await mkFree();
+    expect(await prov.runNewFree()).toBe(1);
+    expect(await prisma.providerConfig.findUniqueOrThrow({ where: { instanceId: a.id } })).toMatchObject({ kind: 'NIBIEROUTER', model: 'model-x' });
+    expect(applied).toEqual([a.id]);
+    expect(await prov.runNewFree()).toBe(0);
+
+    // A router outage: one attempt on the fast path, then nothing more there; the slow tick finishes it.
+    const b = await mkFree();
+    router.failNext = ['listKeys'];
+    expect(await prov.runNewFree()).toBe(0);
+    expect(await rowOf(b.id)).toMatchObject({ status: 'PENDING', lastError: 'router_unreachable', attempts: 1 });
+    expect(await prov.runNewFree()).toBe(0);
+    expect((await rowOf(b.id)).attempts).toBe(1);
+    expect(await prov.runPending()).toBe(1);
+    expect((await rowOf(b.id)).status).toBe('DONE');
+  });
+
   it('never replaces a free instance\'s own provider, and does not put one back after it was provisioned once', async () => {
     await prisma.plan.update({ where: { id: s.plan.id }, data: { monthlyPriceIdr: null } });
     const own = await prisma.instance.create({

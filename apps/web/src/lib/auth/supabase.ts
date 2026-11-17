@@ -12,8 +12,9 @@ export function getSupabase(): SupabaseClient | null {
   if (client !== undefined) return client
   client = authConfigured()
     ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, {
-        // The confirm page verifies the token itself, so nothing should parse the URL on its own.
-        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+        // The confirm and callback pages handle the URL themselves, so nothing should parse it on its own. PKCE: Google
+        // returns a one-time `code` to /auth/callback, never tokens in the URL.
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: "pkce" },
       })
     : null
   return client
