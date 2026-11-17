@@ -10,7 +10,7 @@ export function ClosingCta() {
         <p className="text-muted-foreground">
           {open
             ? `${SITE.name} sedang beta. Daftar, pilih paket, bayar, dan instance-mu aktif setelah pembayaran terverifikasi.`
-            : `${SITE.name} sedang beta undangan. Minta akses dan kami kabari saat slot tersedia.`}
+            : `${SITE.name} sedang beta preview gratis untuk 10 pengguna pertama. Minta akses dan kami kabari lewat email saat slotmu siap.`}
         </p>
         <Button asChild>
           <a href={ctaHref("Minta akses beta Nibie Cloud", open)}>{open ? "Daftar dan pilih paket" : "Minta akses beta"}</a>

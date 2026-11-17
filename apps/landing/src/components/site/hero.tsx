@@ -11,7 +11,7 @@ export function Hero() {
         <div className="min-w-0">
           <Badge className="hc-rise">
             <span aria-hidden className="size-1.5 rounded-full bg-foreground" />
-            {open ? "Beta terbuka" : "Beta undangan"}
+            {open ? "Beta terbuka" : "Beta gratis · 10 slot"}
           </Badge>
           <h1 className="type-display hc-rise hc-rise-1 mt-4">Agent <span className="whitespace-nowrap">Hermes-mu</span> aktif 24 jam, tanpa kamu mengurus server.</h1>
           <p className="type-lead hc-rise hc-rise-2 mt-6 max-w-[52ch] text-muted-foreground">
