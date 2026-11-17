@@ -1,0 +1,8 @@
+[Unit]
+Description=Hermes Cloud: restore one tenant backup into a temp directory and check it
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/hermes-tenant-backup --verify
+Nice=10

@@ -1,0 +1,11 @@
+[Unit]
+Description=Hermes Cloud: back up tenant data volumes to the restic repository on R2
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/hermes-tenant-backup
+Nice=10
+IOSchedulingClass=idle
