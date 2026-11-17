@@ -53,7 +53,7 @@ export async function seedBilling(prisma: PrismaClient, o: { price?: number | nu
   return { tenant, other, user, plan, node };
 }
 
-export function makeBilling(prisma: PrismaClient, o: { clock?: Clock; maxInstances?: number; router?: NonNullable<ConstructorParameters<typeof BillingService>[0]['router']> } = {}) {
+export function makeBilling(prisma: PrismaClient, o: { clock?: Clock; maxInstances?: number; maxTotal?: number | null; router?: NonNullable<ConstructorParameters<typeof BillingService>[0]['router']> } = {}) {
   const logger = createLogger({ level: 'silent' });
   const runtime = new FakeRuntime();
   const clock = o.clock ?? makeClock();
@@ -66,7 +66,7 @@ export function makeBilling(prisma: PrismaClient, o: { clock?: Clock; maxInstanc
   const mailer = new FakeMailer();
   const billing = new BillingService({
       prisma, paymentClient: duitku, duitkuAuth: { merchantCode: MERCHANT, apiKey: API_KEY }, sumopodAuth: null, gateway: 'duitku', commands, mailer,
-      dashboardOrigin: 'https://cloud.example.test', maxInstancesPerTenant: o.maxInstances ?? 1, logger, now: () => clock.now,
+      dashboardOrigin: 'https://cloud.example.test', maxInstancesPerTenant: o.maxInstances ?? 1, maxTotalInstances: o.maxTotal ?? null, logger, now: () => clock.now,
       ...(o.router ? { router: o.router } : {}),
     });
   return { billing, duitku, mailer, runtime, service, commands, clock, logger };

@@ -134,7 +134,7 @@ const billing = config.billing && config.dashboardOrigin
         sumopodAuth: config.billing.sumopod ? { webhookToken: config.billing.sumopod.webhookToken } : null,
         gateway: config.billing.gateway,
         commands, mailer,
-        dashboardOrigin: config.dashboardOrigin!, maxInstancesPerTenant: config.maxInstancesPerTenant, logger,
+        dashboardOrigin: config.dashboardOrigin!, maxInstancesPerTenant: config.maxInstancesPerTenant, maxTotalInstances: config.maxTotalInstances, logger,
         ...(router ? { router } : {}),
       });
     })()

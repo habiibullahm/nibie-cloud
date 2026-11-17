@@ -105,6 +105,8 @@ const schema = z.object({
   SECRETS_KEK_PREVIOUS: kekB64,
   SECRETS_KEK_PREVIOUS_VERSION: kekVersion,
   MAX_INSTANCES_PER_TENANT: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(1000).default(1)),
+  /** Whole-server cap on live instances plus purchases in progress; new purchases and creations are refused at the cap. Unset: no cap. */
+  MAX_TOTAL_INSTANCES: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(100000).optional()),
   /** Outbound email over SumoPod SMTP. All unset: the backend sends no email. Set together or not at all. */
   SUMOPOD_SMTP_HOST: optionalText,
   SUMOPOD_SMTP_PORT: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(65535).optional()),
@@ -284,6 +286,8 @@ export interface Config {
   /** Lowercased, trimmed. Empty means nobody may use the admin API (fail closed). */
   adminEmails: string[];
   maxInstancesPerTenant: number;
+  /** Null: no whole-server cap. */
+  maxTotalInstances: number | null;
   /** Operator alerting. Absent or `telegram: null`: alerts are recorded but not delivered. `botToken` is a secret: never log it. */
   ops?: { telegram: { botToken: string; chatId: string } | null };
   /** Null: no job queue, operations run inline in the request. */
@@ -339,6 +343,7 @@ export function loadConfig(env: NodeJS.ProcessEnv | Record<string, string | unde
       .map((s) => s.trim().toLowerCase())
       .filter((s) => s.length > 0),
     maxInstancesPerTenant: e.MAX_INSTANCES_PER_TENANT,
+    maxTotalInstances: e.MAX_TOTAL_INSTANCES ?? null,
     ops: { telegram: e.OPS_TELEGRAM_BOT_TOKEN && e.OPS_TELEGRAM_CHAT_ID ? { botToken: e.OPS_TELEGRAM_BOT_TOKEN, chatId: e.OPS_TELEGRAM_CHAT_ID } : null },
     redisUrl: e.REDIS_URL ?? null,
     secrets: e.SECRETS_KEK
