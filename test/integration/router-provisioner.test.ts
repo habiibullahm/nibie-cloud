@@ -243,6 +243,50 @@ describe('RouterProvisioner', () => {
     expect((await rowOf(b.instance.id)).status).toBe('PENDING');
   });
 
+  it('gives an ACTIVE free-plan instance without a provider a router key with the default model, and no credit', async () => {
+    await prisma.plan.update({ where: { id: s.plan.id }, data: { monthlyPriceIdr: null, includedCreditNano: CREDIT } });
+    const mkFree = (status: 'ACTIVE' | 'PROVISIONING' | 'DELETED') => prisma.instance.create({
+      data: { tenantId: s.tenant.id, planId: s.plan.id, nodeId: s.node.id, name: 'free', idempotencyKey: crypto.randomUUID(), image: 'hermes-stub:0.2.0', status },
+    });
+    const active = await mkFree('ACTIVE');
+    const provisioning = await mkFree('PROVISIONING');
+    const deleted = await mkFree('DELETED');
+
+    expect(await prov.runPending()).toBe(1);
+    expect(await prisma.providerConfig.findUniqueOrThrow({ where: { instanceId: active.id } })).toMatchObject({ kind: 'NIBIEROUTER', model: 'model-x' });
+    expect(router.keys.map((k) => k.name)).toEqual([`inst-${active.id}`]);
+    expect(router.history).toEqual([]); // no subscription, so no credit even if the plan carries one
+    expect(applied).toEqual([active.id]);
+    expect(await rowOf(active.id)).toMatchObject({ status: 'DONE', subscriptionId: null });
+    // Not yet ACTIVE, or gone: nothing recorded, nothing called.
+    expect(await prisma.routerProvisioning.count({ where: { instanceId: { in: [provisioning.id, deleted.id] } } })).toBe(0);
+
+    // Once it is ACTIVE the next tick picks it up; a second tick changes nothing.
+    await prisma.instance.update({ where: { id: provisioning.id }, data: { status: 'ACTIVE' } });
+    expect(await prov.runPending()).toBe(1);
+    expect(await prov.runPending()).toBe(0);
+    expect(router.keys).toHaveLength(2);
+  });
+
+  it('never replaces a free instance\'s own provider, and does not put one back after it was provisioned once', async () => {
+    await prisma.plan.update({ where: { id: s.plan.id }, data: { monthlyPriceIdr: null } });
+    const own = await prisma.instance.create({
+      data: { tenantId: s.tenant.id, planId: s.plan.id, nodeId: s.node.id, name: 'own', idempotencyKey: crypto.randomUUID(), image: 'hermes-stub:0.2.0', status: 'ACTIVE' },
+    });
+    await providers.attachNibieRouter(s.tenant.id, own.id, { apiKey: 'sk-customer-own-0123456789', model: 'their-model' });
+    expect(await prov.runPending()).toBe(0);
+    expect(router.calls).toEqual([]);
+
+    const later = await prisma.instance.create({
+      data: { tenantId: s.tenant.id, planId: s.plan.id, nodeId: s.node.id, name: 'later', idempotencyKey: crypto.randomUUID(), image: 'hermes-stub:0.2.0', status: 'ACTIVE' },
+    });
+    await prov.runPending();
+    await prisma.providerConfig.delete({ where: { instanceId: later.id } });
+    await prov.runPending();
+    expect(router.keys.filter((k) => k.name === `inst-${later.id}`)).toHaveLength(1);
+    expect(await prisma.providerConfig.count({ where: { instanceId: later.id } })).toBe(0);
+  });
+
   it('never stores the router secret in the provisioning row or leaks it in lastError', async () => {
     const { instance, sub } = await mk();
     router.failNext = ['grantCredit'];

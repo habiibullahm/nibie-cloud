@@ -4,6 +4,23 @@ Last updated: 2026-11-17 (evening: free beta slots and landing counter merged, s
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Deployed: waiting list with email confirmation (2026-11-17, VPS image `db46806`)
+
+- **Git.** PRs #53 (docs) and #51 (waiting list with double opt-in) were merged on 2026-11-17 with the owner's approval; `main` at `db46806`.
+- **Deploy** (run by the owner on the VPS with `bash /opt/hermes-cloud/ops/host/deploy.sh`; the scripts in `ops/host/` are stored without the
+  executable bit, so calling the path directly answers "Permission denied"). Output pasted by the owner: all migrations applied, backend and Caddy
+  recreated, "backend db46806 is ready (previous tag was 1584e35, kept on disk for a manual rollback)".
+- **Checked from the internet afterwards:** `beta-slots` 200 `{"total":10,"remaining":10}`; `POST /api/v1/public/waitlist/confirm` with a made-up
+  token 400 `confirm_link_invalid` (new backend and new Caddy allowlist); `POST /api/v1/public/waitlist` with `{}` 400; operator route 404;
+  `https://cloud.nibie.app/daftar-tunggu/konfirmasi` 200 (Cloudflare built the landing from `main`); the public rate limit now counts per visitor.
+- **Live waiting-list test** with the owner's address: `POST /api/v1/public/waitlist` answered 200, which for a new address means the confirmation
+  email was accepted by SumoPod SMTP. Delivery, the click on the link and the automatic invitation are **not confirmed yet** (owner to check the inbox).
+  Once confirmed and invited, that address holds one free slot for 48 hours.
+- **Free plan test (owner):** a free instance reached `ACTIVE` in 18 seconds (events pasted by the owner) but had no provider: until now NibieRouter was
+  attached only after a payment. Branch `claude/nibierouter-default-free` makes it the default for free instances too (see `setup.md`, "NibieRouter key
+  and credit"); not merged or deployed yet.
+- **Not checked:** the RLS query on `WaitlistEntry` on Supabase and the backend startup lines for `waiting list` and `nibierouter` (owner steps).
+
 ## Latest status (2026-11-17, read from `origin/main` at `1584e35` and the GitHub PR list)
 
 - **Git.** `main` contains PRs #22 to #50 (merged: #49 and #50 at 05:15 UTC). One PR is open: **#51, automatic waiting list**
