@@ -23,7 +23,7 @@ export function WaitlistSection() {
       id="daftar-tunggu"
       label="Daftar tunggu"
       title={`Semua ${slots.total} slot gratis sedang terpakai`}
-      intro="Isi formulir ini. Begitu ada slot kosong, kami kirim undangan lewat email dengan urutan siapa yang masuk lebih dulu. Slot dipegang untukmu selama 48 jam."
+      intro="Isi formulir ini lalu konfirmasi lewat tautan yang kami kirim ke emailmu. Begitu ada slot kosong, kami kirim undangan dengan urutan siapa yang masuk lebih dulu. Slot dipegang untukmu selama 48 jam."
     >
       <WaitlistForm url={url} />
     </Section>
@@ -60,9 +60,10 @@ function WaitlistForm({ url }: { url: string }) {
   if (state.phase === "done") {
     return (
       <div role="status" className="max-w-[62ch] rounded-md border bg-card p-6">
-        <p className="type-label">Kamu sudah masuk daftar tunggu</p>
+        <p className="type-label">Satu langkah lagi: cek emailmu</p>
         <p className="mt-2 text-muted-foreground">
-          Saat slot kosong, undangan dikirim ke {state.email}. Cek folder spam juga. Setelah undangan datang, daftar dengan email yang sama dalam 48 jam.
+          Kami mengirim tautan konfirmasi ke {state.email} (cek folder spam juga). Buka tautan itu dan tekan Konfirmasi dalam 24 jam;
+          tanpa konfirmasi kamu belum masuk antrean. Saat slot kosong, undangan dikirim ke alamat yang sama.
         </p>
       </div>
     )

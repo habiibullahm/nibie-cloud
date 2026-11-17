@@ -9,6 +9,7 @@ import type { LogService } from '../modules/integrations/log-service.js';
 import type { Integrations } from '../modules/integrations/types.js';
 import { isDatabaseUnavailable } from '../db/errors.js';
 import type { BillingService } from '../modules/billing/billing-service.js';
+import type { Mailer } from '../modules/billing/mailer.js';
 import { registerDuitkuCallback } from './duitku-callback.js';
 import { registerSumoPodWebhook } from './sumopod-callback.js';
 import { registerCustomerRoutes, type CustomerDeps } from './customer-routes.js';
@@ -42,6 +43,8 @@ export function buildServer(deps: {
   billing?: BillingService | null;
   /** Dependency checks for `/readyz` (database, Redis, Docker). Absent: `/readyz` answers 200 like `/healthz`. */
   readiness?: Record<string, ReadinessCheck>;
+  /** Sends the waiting-list confirmation emails. Null, absent or disabled: `POST /public/waitlist` answers 503. */
+  mailer?: Mailer | null;
 }): FastifyInstance {
   const { service, config, logger, customer } = deps;
   const integrations = deps.integrations ?? null;
@@ -87,7 +90,7 @@ export function buildServer(deps: {
 
   registerOperatorRoutes(app, { service, commands, queue: deps.queue ?? null, config, integrations });
   const billing = deps.billing ?? null;
-  if (customer) registerPublicRoutes(app, { prisma: customer.prisma, config });
+  if (customer) registerPublicRoutes(app, { prisma: customer.prisma, config, mailer: deps.mailer ?? null });
   if (customer) registerCustomerRoutes(app, { customer, service, commands, config, integrations, logs: deps.logs ?? null, billing });
   if (deps.admin) registerAdminRoutes(app, { admin: deps.admin, config });
   if (billing) {

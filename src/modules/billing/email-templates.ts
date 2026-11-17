@@ -113,6 +113,29 @@ export interface WaitlistInviteContext {
   registerUrl: string;
 }
 
+export interface WaitlistConfirmContext {
+  /** What the person typed on the waiting-list form; shown escaped in the greeting only. */
+  name: string;
+  /** The confirmation page with the token in the fragment, e.g. `https://cloud.nibie.app/daftar-tunggu/konfirmasi#t=...`. */
+  confirmUrl: string;
+  /** End of the link's validity. */
+  validUntil: Date;
+}
+
+/** The double opt-in email: the entry joins the queue only after the person opens this link and confirms. */
+export function renderWaitlistConfirm(ctx: WaitlistConfirmContext): RenderedEmail {
+  return layout({
+    subject: 'Konfirmasi email daftar tunggu - Nibie Cloud', heading: 'Konfirmasi email Anda', tag: 'BETA',
+    paragraphs: [
+      `Halo ${ctx.name},`,
+      'Seseorang (semoga Anda) memasukkan alamat email ini ke daftar tunggu beta gratis Nibie Cloud.',
+      `Buka tautan di bawah dan tekan "Konfirmasi" sebelum ${fmtDate(ctx.validUntil)}. Tanpa konfirmasi, alamat ini tidak masuk antrean dan datanya kami hapus.`,
+      'Kalau Anda tidak merasa mendaftar, abaikan email ini.',
+    ],
+    button: 'Buka halaman konfirmasi',
+  }, ctx.confirmUrl);
+}
+
 /** The invitation sent when a free beta slot is reserved for a waiting-list entry. */
 export function renderWaitlistInvite(ctx: WaitlistInviteContext): RenderedEmail {
   return layout({

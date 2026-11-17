@@ -2,10 +2,27 @@
 
 export const WAITLIST_LIMITS = { name: 100, email: 254, useCase: 500, useCaseMin: 3 } as const
 
+function apiBase(raw: string | undefined): string | null {
+  const base = raw?.trim().replace(/\/+$/, "") ?? ""
+  return /^https?:\/\/[^\s]+$/.test(base) ? base : null
+}
+
 /** Public waiting-list endpoint, or null when the API address is not configured (the form is then not offered). */
 export function waitlistUrl(raw: string | undefined = process.env.NEXT_PUBLIC_API_URL): string | null {
-  const base = raw?.trim().replace(/\/+$/, "") ?? ""
-  return /^https?:\/\/[^\s]+$/.test(base) ? `${base}/api/v1/public/waitlist` : null
+  const base = apiBase(raw)
+  return base ? `${base}/api/v1/public/waitlist` : null
+}
+
+/** Endpoint the confirmation page posts the token to, or null when the API address is not configured. */
+export function waitlistConfirmUrl(raw: string | undefined = process.env.NEXT_PUBLIC_API_URL): string | null {
+  const base = apiBase(raw)
+  return base ? `${base}/api/v1/public/waitlist/confirm` : null
+}
+
+/** The token from the confirmation link's fragment (`#t=...`). The fragment never reaches a server log. */
+export function readConfirmToken(hash: string): string | null {
+  const m = /^#?t=([A-Za-z0-9_-]{43})$/.exec(hash.trim())
+  return m ? m[1]! : null
 }
 
 export interface WaitlistInput {
@@ -42,6 +59,16 @@ const MESSAGES = {
   unavailable: "Formulir belum bisa terkirim. Coba lagi sebentar lagi.",
 } as const
 
+/** The API's error code, when the body carries one. */
+async function errorCode(res: Response): Promise<string | null> {
+  try {
+    const body = (await res.json()) as { error?: { code?: unknown } }
+    return typeof body.error?.code === "string" ? body.error.code : null
+  } catch {
+    return null
+  }
+}
+
 /** Posts the form. The same success answer comes back for a new address and one already on the list. */
 export async function submitWaitlist(url: string, input: WaitlistInput, fetchImpl: typeof fetch = fetch): Promise<WaitlistResult> {
   try {
@@ -51,9 +78,34 @@ export async function submitWaitlist(url: string, input: WaitlistInput, fetchImp
       body: JSON.stringify({ name: input.name, email: input.email, useCase: input.useCase, website: input.website ?? "" }),
     })
     if (res.ok) return { ok: true }
-    const kind = res.status === 400 ? "invalid" : res.status === 429 ? "rate_limited" : res.status === 503 ? "full" : "unavailable"
+    const full = res.status === 503 && (await errorCode(res)) === "waitlist_full"
+    const kind = res.status === 400 ? "invalid" : res.status === 429 ? "rate_limited" : full ? "full" : "unavailable"
     return { ok: false, kind, message: MESSAGES[kind] }
   } catch {
     return { ok: false, kind: "unavailable", message: MESSAGES.unavailable }
+  }
+}
+
+export type ConfirmResult = { ok: true } | { ok: false; kind: "invalid" | "rate_limited" | "unavailable"; message: string }
+
+const CONFIRM_MESSAGES = {
+  invalid: "Tautan ini tidak berlaku atau sudah kedaluwarsa (berlaku 24 jam). Isi formulir daftar tunggu lagi untuk tautan baru.",
+  rate_limited: "Terlalu banyak percobaan dari jaringan ini. Coba lagi beberapa menit lagi.",
+  unavailable: "Konfirmasi belum bisa dikirim. Coba lagi sebentar lagi.",
+} as const
+
+/** Confirms the address behind the token. A link that was already used also answers ok. */
+export async function submitConfirm(url: string, token: string, fetchImpl: typeof fetch = fetch): Promise<ConfirmResult> {
+  try {
+    const res = await fetchImpl(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token }),
+    })
+    if (res.ok) return { ok: true }
+    const kind = res.status === 400 ? "invalid" : res.status === 429 ? "rate_limited" : "unavailable"
+    return { ok: false, kind, message: CONFIRM_MESSAGES[kind] }
+  } catch {
+    return { ok: false, kind: "unavailable", message: CONFIRM_MESSAGES.unavailable }
   }
 }

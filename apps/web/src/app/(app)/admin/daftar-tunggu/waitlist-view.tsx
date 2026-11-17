@@ -20,9 +20,10 @@ export function AdminWaitlistView() {
       />
 
       {data ? (
-        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {(
             [
+              ["Belum konfirmasi", data.counts.unconfirmed],
               ["Menunggu", data.counts.waiting],
               ["Diundang", data.counts.invited],
               ["Kedaluwarsa", data.counts.lapsed],

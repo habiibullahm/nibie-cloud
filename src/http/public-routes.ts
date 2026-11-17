@@ -5,7 +5,9 @@ import type { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import type { Config } from '../config/env.js';
 import { freeBetaRemaining } from '../modules/instances/free-beta.js';
-import { joinWaitlist } from '../modules/waitlist/waitlist.js';
+import { renderWaitlistConfirm } from '../modules/billing/email-templates.js';
+import type { Mailer } from '../modules/billing/mailer.js';
+import { CONFIRM_TOKEN_PATTERN, confirmWaitlist, forgetConfirmSend, joinWaitlist } from '../modules/waitlist/waitlist.js';
 import { AppError } from '../shared/errors.js';
 
 /**
@@ -30,19 +32,37 @@ export const waitlistBody = z.object({
   website: z.string().max(500).optional(),
 }).strict();
 
+export const confirmBody = z.object({ token: z.string().regex(CONFIRM_TOKEN_PATTERN) }).strict();
+
 class WaitlistFullError extends AppError {
   constructor() {
     super('The waiting list is full right now. Please try again later.', 503, 'waitlist_full');
   }
 }
 
+/** No email can be sent (not configured, or the send failed): without the confirmation email nobody can join. */
+class WaitlistUnavailableError extends AppError {
+  constructor() {
+    super('The waiting list cannot take entries right now. Please try again later.', 503, 'waitlist_unavailable');
+  }
+}
+
+class ConfirmLinkInvalidError extends AppError {
+  constructor() {
+    super('This confirmation link is not valid or has expired.', 400, 'confirm_link_invalid');
+  }
+}
+
 /**
  * Routes with no authentication, for the public website. Nothing personal or per-tenant is ever returned here.
  * `GET /api/v1/public/beta-slots` feeds the "N of 10 free slots left" counter on the landing page, and
- * `POST /api/v1/public/waitlist` takes a name, email and use case once the free slots are used.
+ * `POST /api/v1/public/waitlist` takes a name, email and use case once the free slots are used and emails a confirmation
+ * link; `POST /api/v1/public/waitlist/confirm` turns the entry into a place in line (double opt-in).
  */
-export function registerPublicRoutes(app: FastifyInstance, deps: { prisma: PrismaClient; config: Config }): void {
+export function registerPublicRoutes(app: FastifyInstance, deps: { prisma: PrismaClient; config: Config; mailer: Mailer | null }): void {
   const { prisma, config } = deps;
+  const mailer = deps.mailer?.enabled ? deps.mailer : null;
+  const confirmPage = `${config.dashboardOrigin ?? 'https://cloud.nibie.app'}/daftar-tunggu/konfirmasi`;
   app.register(async (pub) => {
     await pub.register(rateLimit, { global: true, max: 60, timeWindow: '1 minute', keyGenerator: clientIp });
     pub.get('/api/v1/public/beta-slots', async (_req, reply) => {
@@ -58,9 +78,29 @@ export function registerPublicRoutes(app: FastifyInstance, deps: { prisma: Prism
       const body = waitlistBody.parse(req.body);
       // A bot that fills the hidden field gets the same answer as a person, and nothing is stored.
       if (body.website !== undefined && body.website.length > 0) return { ok: true };
+      if (!mailer) throw new WaitlistUnavailableError();
       // A new address and one already on the list look the same from outside, so the list cannot be probed for who joined.
       const result = await joinWaitlist(prisma, { name: body.name, email: body.email, useCase: body.useCase });
-      if (result === 'full') throw new WaitlistFullError();
+      if (result.kind === 'full') throw new WaitlistFullError();
+      if (result.kind === 'send') {
+        try {
+          await mailer.send({
+            to: body.email,
+            ...renderWaitlistConfirm({ name: result.name, confirmUrl: `${confirmPage}#t=${result.token}`, validUntil: result.expiresAt }),
+          });
+        } catch {
+          // Let the person ask again at once instead of waiting for the resend interval.
+          await forgetConfirmSend(prisma, result.id);
+          throw new WaitlistUnavailableError();
+        }
+      }
+      return { ok: true };
+    });
+
+    pub.post('/api/v1/public/waitlist/confirm', { config: { rateLimit: { max: 20, timeWindow: '10 minutes' } } }, async (req, reply) => {
+      reply.header('cache-control', 'no-store');
+      const parsed = confirmBody.safeParse(req.body);
+      if (!parsed.success || (await confirmWaitlist(prisma, parsed.data.token)) === 'invalid') throw new ConfirmLinkInvalidError();
       return { ok: true };
     });
   });

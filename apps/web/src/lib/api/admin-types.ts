@@ -198,8 +198,10 @@ export interface AdminWaitlistEntry {
   name: string
   email: string
   useCase: string
-  status: "WAITING" | "INVITED" | "REGISTERED"
+  /** UNCONFIRMED: joined, email not confirmed yet; not in the queue and deleted after 24 hours. */
+  status: "UNCONFIRMED" | "WAITING" | "INVITED" | "REGISTERED"
   createdAt: string
+  confirmedAt: string | null
   invitedAt: string | null
   inviteExpiresAt: string | null
   inviteFailures: number
@@ -209,7 +211,7 @@ export interface AdminWaitlistEntry {
 }
 
 export interface AdminWaitlist {
-  counts: { waiting: number; invited: number; lapsed: number; registered: number }
+  counts: { unconfirmed: number; waiting: number; invited: number; lapsed: number; registered: number }
   freeBetaSlots: number
   /** Oldest first: the order in which free slots are offered. */
   entries: AdminWaitlistEntry[]

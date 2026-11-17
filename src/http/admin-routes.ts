@@ -305,7 +305,8 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
      */
     api.get('/waitlist', async () => {
       const now = new Date();
-      const [waiting, invited, lapsed, registered, rows] = await Promise.all([
+      const [unconfirmed, waiting, invited, lapsed, registered, rows] = await Promise.all([
+        prisma.waitlistEntry.count({ where: { status: 'UNCONFIRMED' } }),
         prisma.waitlistEntry.count({ where: { status: 'WAITING' } }),
         prisma.waitlistEntry.count({ where: { status: 'INVITED', inviteExpiresAt: { gt: now } } }),
         prisma.waitlistEntry.count({ where: { status: 'INVITED', inviteExpiresAt: { lte: now } } }),
@@ -313,12 +314,12 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
         prisma.waitlistEntry.findMany({
           orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
           take: 500,
-          select: { id: true, name: true, email: true, useCase: true, status: true, createdAt: true, invitedAt: true, inviteExpiresAt: true, inviteFailures: true, registeredAt: true },
+          select: { id: true, name: true, email: true, useCase: true, status: true, createdAt: true, confirmedAt: true, invitedAt: true, inviteExpiresAt: true, inviteFailures: true, registeredAt: true },
         }),
       ]);
       const entries = rows.map((e) => ({ ...e, lapsed: e.status === 'INVITED' && e.inviteExpiresAt !== null && e.inviteExpiresAt <= now }));
       return {
-        counts: { waiting, invited, lapsed, registered },
+        counts: { unconfirmed, waiting, invited, lapsed, registered },
         freeBetaSlots: config.freeBetaSlots,
         entries,
       };

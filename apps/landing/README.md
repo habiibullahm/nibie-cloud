@@ -52,7 +52,9 @@ While `NEXT_PUBLIC_SIGNUP_OPEN=false`, setting `NEXT_PUBLIC_FREE_BETA_OPEN=true`
 (`/dashboard/register`) and shows a live counter ("Sisa N dari 10 slot gratis"). The counter is fetched in the browser from
 `${NEXT_PUBLIC_API_URL}/api/v1/public/beta-slots` (no secret; the public API address). When no slot is left the button becomes "Masuk
 daftar tunggu" and a form (name, email, use case; `src/components/site/waitlist-form.tsx`) appears above the closing section, posting to
-`${NEXT_PUBLIC_API_URL}/api/v1/public/waitlist`; the backend then invites people by email as slots open (`docs/setup.md`, "Waiting list").
+`${NEXT_PUBLIC_API_URL}/api/v1/public/waitlist`. The backend emails a confirmation link to `/daftar-tunggu/konfirmasi#t=<token>`, a
+no-index page that posts the token after one click (`src/components/site/waitlist-confirm.tsx`); only confirmed people are invited by email as
+slots open (`docs/setup.md`, "Waiting list").
 Without `NEXT_PUBLIC_API_URL` the button falls back to the access-request email. If the counter cannot be read the page shows the button
 without a number. Both variables are
 inlined at build time, so a rebuild is needed in both directions. Without `NEXT_PUBLIC_FREE_BETA_OPEN`, the closed copy and the

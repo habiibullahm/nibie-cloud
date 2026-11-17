@@ -84,7 +84,7 @@ describe("admin client", () => {
 
 describe("waiting list", () => {
   it("reads the whole body from /waitlist without a write route", async () => {
-    const body = { counts: { waiting: 1, invited: 0, lapsed: 0, registered: 0 }, freeBetaSlots: 10, entries: [] }
+    const body = { counts: { unconfirmed: 2, waiting: 1, invited: 0, lapsed: 0, registered: 0 }, freeBetaSlots: 10, entries: [] }
     const fetchImpl = vi.fn(async () => jsonResponse(body))
     expect(await client(fetchImpl as unknown as typeof fetch).waitlist()).toEqual(body)
     const [url, init] = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit]
@@ -97,6 +97,7 @@ describe("waiting list", () => {
     expect(waitlistStatusLabel({ status: "INVITED", lapsed: false })).toBe("Diundang")
     expect(waitlistStatusLabel({ status: "INVITED", lapsed: true })).toBe("Kedaluwarsa")
     expect(waitlistStatusLabel({ status: "REGISTERED", lapsed: false })).toBe("Sudah daftar")
+    expect(waitlistStatusLabel({ status: "UNCONFIRMED", lapsed: false })).toBe("Belum konfirmasi")
   })
 })
 

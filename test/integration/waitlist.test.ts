@@ -36,6 +36,7 @@ function app(cfg: Partial<Config> = {}) {
     config: testConfig(IMAGE, TEST_MASTER_KEY, { freeBetaSlots: 2, adminEmails: [BOSS], ...cfg }),
     customer: { verify: auth.verify, identity: new IdentityService({ prisma }), prisma },
     admin: { verify: auth.verify, prisma, audit: new AuditService({ prisma }) },
+    mailer,
   });
 }
 const inviter = (slots = 2) => new WaitlistInviter({
@@ -48,7 +49,7 @@ const person = (n: number, over: Record<string, unknown> = {}) => ({ name: `Oran
 async function queue(n: number) {
   for (let i = 1; i <= n; i++) {
     await prisma.waitlistEntry.create({
-      data: { email: `p${i}@example.test`, name: `Orang ${i}`, useCase: 'x', createdAt: new Date(T0.getTime() + i * 60_000) },
+      data: { email: `p${i}@example.test`, name: `Orang ${i}`, useCase: 'x', status: 'WAITING', createdAt: new Date(T0.getTime() + i * 60_000), confirmedAt: T0 },
     });
   }
 }
@@ -62,6 +63,10 @@ async function holdSlot(email: string, status: 'ACTIVE' | 'DELETED' = 'ACTIVE') 
   });
 }
 const status = async (n: number) => (await prisma.waitlistEntry.findUniqueOrThrow({ where: { email: `p${n}@example.test` } })).status;
+/** The confirmation token from the last email sent, as the landing page would read it from the link's fragment. */
+const lastToken = () => /#t=([A-Za-z0-9_-]{43})/.exec(mailer.sent.at(-1)!.text)![1]!;
+const confirm = (a: ReturnType<typeof app>, token: unknown, ip = '203.0.113.7') =>
+  a.inject({ method: 'POST', url: '/api/v1/public/waitlist/confirm', headers: { 'x-forwarded-for': ip }, payload: { token } as object });
 
 describe('waiting list', () => {
   beforeAll(async () => { auth = await createTestAuth(); });
@@ -80,7 +85,9 @@ describe('waiting list', () => {
       expect(again.json()).toEqual({ ok: true });
       const rows = await prisma.waitlistEntry.findMany();
       expect(rows).toHaveLength(1);
-      expect(rows[0]).toMatchObject({ email: 'orang1@example.test', name: 'Siti', useCase: 'Asisten pribadi di Telegram', status: 'WAITING' });
+      expect(rows[0]).toMatchObject({ email: 'orang1@example.test', name: 'Siti', useCase: 'Asisten pribadi di Telegram', status: 'UNCONFIRMED' });
+      // One confirmation email: the duplicate a moment later does not send another.
+      expect(mailer.sent.map((m) => m.to)).toEqual(['orang1@example.test']);
     });
 
     it('does not reveal an entry that was already invited or registered', async () => {
@@ -95,6 +102,8 @@ describe('waiting list', () => {
       }
       expect(await status(1)).toBe('INVITED');
       expect(await status(2)).toBe('REGISTERED');
+      // Only the new address gets a confirmation email.
+      expect(mailer.sent.map((m) => m.to)).toEqual(['p3@example.test']);
     });
 
     it('stores nothing for a bot that fills the honeypot, and answers like a person', async () => {
@@ -102,6 +111,7 @@ describe('waiting list', () => {
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual({ ok: true });
       expect(await prisma.waitlistEntry.count()).toBe(0);
+      expect(mailer.sent).toHaveLength(0);
       // An empty honeypot is what a person sends.
       expect((await join(app(), person(2, { website: '' }))).statusCode).toBe(200);
       expect(await prisma.waitlistEntry.count()).toBe(1);
@@ -142,7 +152,7 @@ describe('waiting list', () => {
     it('answers 503 waitlist_full beyond the cap instead of growing without bound', async () => {
       const { MAX_WAITING } = await import('../../src/modules/waitlist/waitlist.js');
       await prisma.waitlistEntry.createMany({
-        data: Array.from({ length: MAX_WAITING }, (_v, i) => ({ email: `bulk${i}@example.test`, name: 'x', useCase: 'x' })),
+        data: Array.from({ length: MAX_WAITING }, (_v, i) => ({ email: `bulk${i}@example.test`, name: 'x', useCase: 'x', status: 'WAITING' as const })),
       });
       const res = await join(app(), person(1));
       expect(res.statusCode).toBe(503);
@@ -151,6 +161,118 @@ describe('waiting list', () => {
 
     it('needs no sign-in and the Caddy allowlist forwards it', async () => {
       expect((await join(app(), person(1))).statusCode).toBe(200);
+    });
+
+    it('answers 503 waitlist_unavailable and stores nothing when email cannot be sent', async () => {
+      mailer.enabled = false;
+      const res = await join(app(), person(1));
+      expect(res.statusCode).toBe(503);
+      expect(res.json().error.code).toBe('waitlist_unavailable');
+      expect(await prisma.waitlistEntry.count()).toBe(0);
+    });
+
+    it('a failed confirmation email answers 503 and the person may ask again at once', async () => {
+      const a = app();
+      mailer.failNext = true;
+      const res = await join(a, person(1));
+      expect(res.statusCode).toBe(503);
+      expect(res.json().error.code).toBe('waitlist_unavailable');
+      expect((await prisma.waitlistEntry.findUniqueOrThrow({ where: { email: 'p1@example.test' } })).confirmSentAt).toBeNull();
+      expect((await join(a, person(1))).statusCode).toBe(200);
+      expect(mailer.sent.map((m) => m.to)).toEqual(['p1@example.test']);
+    });
+
+    it('caps unconfirmed entries separately, so a flood of unconfirmed addresses does not fill the queue', async () => {
+      const { MAX_UNCONFIRMED } = await import('../../src/modules/waitlist/waitlist.js');
+      await prisma.waitlistEntry.createMany({
+        data: Array.from({ length: MAX_UNCONFIRMED }, (_v, i) => ({ email: `bulk${i}@example.test`, name: 'x', useCase: 'x' })),
+      });
+      const res = await join(app(), person(1));
+      expect(res.statusCode).toBe(503);
+      expect(res.json().error.code).toBe('waitlist_full');
+    });
+  });
+
+  describe('confirmation (double opt-in)', () => {
+    it('emails a link to the landing page with the token in the fragment; confirming makes the entry WAITING', async () => {
+      const a = app();
+      await join(a, person(1, { name: '<b>Siti</b>' }));
+      const m = mailer.sent[0]!;
+      expect(m.subject).toBe('Konfirmasi email daftar tunggu - Nibie Cloud');
+      expect(m.html).toMatch(/href="https:\/\/[^"]+\/daftar-tunggu\/konfirmasi#t=[A-Za-z0-9_-]{43}"/);
+      expect(m.html).toContain('&lt;b&gt;Siti&lt;/b&gt;');
+      expect(m.text).toContain('WIB');
+      const token = lastToken();
+      // Only a hash is stored, never the token.
+      const row = await prisma.waitlistEntry.findUniqueOrThrow({ where: { email: 'p1@example.test' } });
+      expect(row.confirmTokenHash).toMatch(/^[0-9a-f]{64}$/);
+      expect(JSON.stringify(row)).not.toContain(token);
+
+      const res = await confirm(a, token);
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ ok: true });
+      expect(res.headers['cache-control']).toBe('no-store');
+      expect(await status(1)).toBe('WAITING');
+      // A second click is not an error and changes nothing.
+      expect((await confirm(a, token)).statusCode).toBe(200);
+      expect(await status(1)).toBe('WAITING');
+    });
+
+    it.each([
+      ['an unknown token', 'A'.repeat(43)],
+      ['a malformed token', 'short'],
+      ['a token that is not a string', 42],
+    ])('answers 400 confirm_link_invalid for %s', async (_label, token) => {
+      const res = await confirm(app(), token);
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error.code).toBe('confirm_link_invalid');
+    });
+
+    it('refuses an expired link, and the entry stays unconfirmed', async () => {
+      const a = app();
+      await join(a, person(1));
+      await prisma.waitlistEntry.update({ where: { email: 'p1@example.test' }, data: { confirmExpiresAt: new Date(Date.now() - 1000) } });
+      expect((await confirm(a, lastToken())).json().error.code).toBe('confirm_link_invalid');
+      expect(await status(1)).toBe('UNCONFIRMED');
+    });
+
+    it('sends a fresh link when an unconfirmed address joins again after the resend interval; the old link stops working', async () => {
+      const a = app();
+      await join(a, person(1));
+      const old = lastToken();
+      await prisma.waitlistEntry.update({ where: { email: 'p1@example.test' }, data: { confirmSentAt: new Date(Date.now() - 11 * 60_000) } });
+      await join(a, person(1, { name: 'Lain' }));
+      expect(mailer.sent).toHaveLength(2);
+      const fresh = lastToken();
+      expect(fresh).not.toBe(old);
+      expect((await confirm(a, old)).statusCode).toBe(400);
+      expect((await confirm(a, fresh)).statusCode).toBe(200);
+      // The first name is kept.
+      expect((await prisma.waitlistEntry.findUniqueOrThrow({ where: { email: 'p1@example.test' } })).name).toBe('Orang 1');
+    });
+
+    it('an unconfirmed entry holds nothing: it is not counted, not invited, and deleted once its link expires', async () => {
+      const a = app({ freeBetaSlots: 1, mail: MAIL });
+      await join(a, person(1));
+      expect((await a.inject({ method: 'GET', url: '/api/v1/public/beta-slots' })).json()).toEqual({ total: 1, remaining: 1 });
+      mailer.sent.length = 0;
+      clock = new Date();
+      expect(await inviter(1).runOnce()).toMatchObject({ invited: 0, purged: 0 });
+      expect(mailer.sent).toHaveLength(0);
+
+      clock = new Date(Date.now() + 25 * 3_600_000);
+      expect(await inviter(1).runOnce()).toMatchObject({ invited: 0, purged: 1 });
+      expect(await prisma.waitlistEntry.count()).toBe(0);
+    });
+
+    it('once confirmed, the entry is counted and invited like any other', async () => {
+      const a = app({ freeBetaSlots: 1, mail: MAIL });
+      await join(a, person(1));
+      await confirm(a, lastToken());
+      expect((await a.inject({ method: 'GET', url: '/api/v1/public/beta-slots' })).json()).toEqual({ total: 1, remaining: 0 });
+      clock = new Date();
+      expect(await inviter(1).runOnce()).toMatchObject({ invited: 1 });
+      expect(mailer.sent.at(-1)!.subject).toBe('Slot beta gratis Anda sudah siap - Nibie Cloud');
     });
   });
 
@@ -164,7 +286,7 @@ describe('waiting list', () => {
 
       await prisma.instance.update({ where: { id: a.id }, data: { status: 'DELETED' } });
       const run = await inviter().runOnce();
-      expect(run).toEqual({ registered: 0, invited: 1, failed: 0 });
+      expect(run).toEqual({ registered: 0, invited: 1, failed: 0, purged: 0 });
       expect(mailer.sent.map((m) => m.to)).toEqual(['p1@example.test']);
       expect([await status(1), await status(2), await status(3)]).toEqual(['INVITED', 'WAITING', 'WAITING']);
       const e = await prisma.waitlistEntry.findUniqueOrThrow({ where: { email: 'p1@example.test' } });
@@ -250,7 +372,7 @@ describe('waiting list', () => {
     });
 
     it('writes an Indonesian email with the registration link, the deadline, and escapes what the visitor typed', async () => {
-      await prisma.waitlistEntry.create({ data: { email: 'x@example.test', name: '<b>Siti</b> & "Co"', useCase: 'x' } });
+      await prisma.waitlistEntry.create({ data: { email: 'x@example.test', name: '<b>Siti</b> & "Co"', useCase: 'x', status: 'WAITING' } });
       await inviter(1).runOnce();
       const m = mailer.sent[0]!;
       expect(m.subject).toBe('Slot beta gratis Anda sudah siap - Nibie Cloud');
@@ -332,7 +454,8 @@ describe('waiting list', () => {
       expect(res.statusCode).toBe(200);
       expect(res.headers['cache-control']).toBe('no-store');
       const body = res.json();
-      expect(body.counts).toEqual({ waiting: 1, invited: 1, lapsed: 1, registered: 1 });
+      expect(body.counts).toEqual({ unconfirmed: 0, waiting: 1, invited: 1, lapsed: 1, registered: 1 });
+      expect(JSON.stringify(body)).not.toContain('confirmTokenHash');
       expect(body.entries.map((e: { email: string }) => e.email)).toEqual(['p1@example.test', 'p2@example.test', 'p3@example.test', 'p4@example.test']);
       expect(body.entries[2].lapsed).toBe(true);
       expect(body.entries[1].lapsed).toBe(false);

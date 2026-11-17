@@ -3,6 +3,7 @@ import type { Logger } from '../../shared/logger.js';
 import { renderWaitlistInvite } from '../billing/email-templates.js';
 import type { Mailer } from '../billing/mailer.js';
 import { freeBetaUsed, MAX_INVITE_FAILURES, reservedInvites } from '../instances/free-beta.js';
+import { purgeUnconfirmed } from './waitlist.js';
 
 const HOUR_MS = 3_600_000;
 /** How long an invited person holds their slot before it goes to the next one in line. */
@@ -17,6 +18,8 @@ export interface InviteSummary {
   invited: number;
   /** Invitations that could not be sent (the entry goes back to WAITING and keeps its place). */
   failed: number;
+  /** Unconfirmed entries deleted because their confirmation link expired. */
+  purged: number;
 }
 
 export interface WaitlistInviterDeps {
@@ -33,8 +36,8 @@ export interface WaitlistInviterDeps {
 }
 
 /**
- * The automatic part of the waiting list. Each run (1) marks entries REGISTERED once the person holds a free instance and
- * (2) invites the oldest WAITING entries, never more than the free slots that are neither used nor held by an open
+ * The automatic part of the waiting list. Each run (1) deletes unconfirmed entries whose link expired, (2) marks entries
+ * REGISTERED once the person holds a free instance and (3) invites the oldest WAITING entries, never more than the free slots that are neither used nor held by an open
  * invitation. There is no approval step. The slot arithmetic runs under one database advisory lock, so two replicas or two
  * overlapping runs cannot invite the same slot twice; the entry is claimed (INVITED) before the email is sent and goes
  * back to WAITING when sending fails, the same pattern as the billing notices.
@@ -63,7 +66,10 @@ export class WaitlistInviter {
   async runOnce(): Promise<InviteSummary> {
     const { prisma, mailer, logger } = this.d;
     const now = this.now();
-    const sum: InviteSummary = { registered: 0, invited: 0, failed: 0 };
+    const sum: InviteSummary = { registered: 0, invited: 0, failed: 0, purged: 0 };
+
+    // Nobody confirmed these addresses: keep nothing about them.
+    sum.purged = await purgeUnconfirmed(prisma, now);
 
     // Anyone who got a free instance, invited or not, is done waiting.
     const done = await prisma.$queryRaw<Array<{ id: string }>>`
