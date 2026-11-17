@@ -10,7 +10,7 @@ import { QueryFallback } from "@/components/app/query-fallback"
 
 /**
  * Failed jobs. The backend answers 503 `queue_unavailable` when no queue is configured, which is a
- * real state (no Redis) and must not be drawn as "no failed jobs" — an empty list would look healthy.
+ * real state (no Redis) and must not be drawn as "no failed jobs": an empty list would look healthy.
  */
 export function AdminJobsView() {
   const q = useQuery({
@@ -47,7 +47,7 @@ export function AdminJobsView() {
           {jobs.map((j) => (
             <li key={j.id} className="flex flex-wrap items-baseline justify-between gap-3 rounded-sm border px-4 py-3">
               <span className="type-mono">{j.id}</span>
-              <span className="type-mono text-muted-foreground">{j.reason ?? "—"}</span>
+              <span className="type-mono text-muted-foreground">{j.reason ?? "Tanpa alasan"}</span>
             </li>
           ))}
         </ul>

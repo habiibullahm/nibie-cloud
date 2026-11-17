@@ -7,7 +7,14 @@ import { QueryFallback } from "@/components/app/query-fallback"
 import { StatusBadge } from "@/components/app/status-badge"
 import { KeyValue } from "@/components/app/key-value"
 import { useAdminCustomer } from "@/hooks/use-admin"
-import { formatDateTimeId, formatIdr } from "@/lib/admin-format"
+import {
+  formatDateTimeId,
+  formatIdr,
+  instanceStatusId,
+  paymentPurposeId,
+  paymentStatusId,
+  subscriptionStatusId,
+} from "@/lib/admin-format"
 import type { BackendStatus } from "@/lib/api/types"
 
 export function AdminCustomerView({ tenantId }: { tenantId: string }) {
@@ -32,7 +39,7 @@ export function AdminCustomerView({ tenantId }: { tenantId: string }) {
         <CardContent>
           <KeyValue
             items={[
-              { k: "Email", v: customer.email ?? "—" },
+              { k: "Email", v: customer.email ?? "Tidak ada" },
               { k: "Nama tenant", v: customer.name },
               { k: "Terdaftar", v: formatDateTimeId(customer.createdAt) },
               { k: "Akun NibieRouter", v: customer.hasRouterUser ? "Ada" : "Belum ada" },
@@ -54,7 +61,7 @@ export function AdminCustomerView({ tenantId }: { tenantId: string }) {
                 className="flex flex-wrap items-center justify-between gap-3 rounded-sm border bg-card px-4 py-3 no-underline transition-colors hover:bg-row-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 <span className="flex items-center gap-3">
-                  <StatusBadge status={i.status as BackendStatus} />
+                  <StatusBadge status={i.status as BackendStatus} label={instanceStatusId(i.status)} />
                   <span className="text-foreground">{i.name}</span>
                   <span className="type-mono text-muted-foreground">{i.plan.slug} · {i.node.name}</span>
                 </span>
@@ -74,7 +81,7 @@ export function AdminCustomerView({ tenantId }: { tenantId: string }) {
             {subscriptions.map((s) => (
               <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 rounded-sm border px-4 py-3">
                 <span className="flex flex-wrap items-center gap-3">
-                  <span className="type-label">{s.status}</span>
+                  <span className="type-label">{subscriptionStatusId(s.status)}</span>
                   <span className="type-mono text-muted-foreground">{s.plan.slug} · {formatIdr(s.plan.monthlyPriceIdr)}</span>
                 </span>
                 <span className="type-mono text-muted-foreground">
@@ -95,9 +102,9 @@ export function AdminCustomerView({ tenantId }: { tenantId: string }) {
             {payments.map((p) => (
               <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 rounded-sm border px-4 py-3">
                 <span className="flex flex-wrap items-center gap-3">
-                  <span className="type-label">{p.status}</span>
+                  <span className="type-label">{paymentStatusId(p.status)}</span>
                   <span className="type-mono">{formatIdr(p.amountIdr)}</span>
-                  <span className="type-mono text-muted-foreground">{p.purpose}</span>
+                  <span className="text-muted-foreground">{paymentPurposeId(p.purpose)}</span>
                 </span>
                 <span className="type-mono text-muted-foreground">{formatDateTimeId(p.paidAt ?? p.createdAt)}</span>
               </li>

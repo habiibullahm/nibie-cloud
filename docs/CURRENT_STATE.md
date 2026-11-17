@@ -1,12 +1,52 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-17 (evening: free beta slots and landing counter merged, see the first section). Earlier entries below keep their own dates, and
+Last updated: 2026-11-18 (anti-slop fixes on three branches, see the first section). Earlier entries below keep their own dates, and
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
-## Branch `claude/free-signup-flow`: free beta sign-up flow, tested end to end on localhost (2026-11-17, not merged or deployed)
+## Anti-slop fixes for dashboard, landing and docs (2026-11-18, three branches from `main` at `9922356`, not merged)
 
-From `main` at `f8f035f`. Committed as `83fb915`, PR #56 (open, not merged or deployed); the anti-slop audit fixes follow on the same branch.
+Audit of the three apps in anti-slop mode AFTER; finding numbers are D (dashboard), L (landing), X (docs). One PR per branch.
+
+- **`claude/dashboard-antislop-fixes`** (`apps/web`):
+  - "Sign out" on the account page now ends the session (D1).
+  - Removed the "Back up before runtime upgrades" checkbox that saved nothing (D2).
+  - Region is hidden in customer mode, because it was never sent (D3).
+  - A failed instance is told to delete and deploy again (D5).
+  - The free plan reads "Free during the beta" (D9, D10).
+  - Preview labels and the data-mode chip are hidden in customer mode (D8, D15, D16).
+  - Indonesian labels and "-" for empty values in the admin panel (D7, D21).
+  - Smaller wording, button-variant and empty-state fixes (D6, D11-D14, D17-D22, D24).
+  - Brand logo in the app and sign-in headers, plus favicon and app icons. The asset is recorded in `DESIGN.md`.
+  - Not done, waiting for the owner: D4 (backup wording, depends on the VPS backup timers) and D23 ("24/7").
+- **`claude/landing-antislop-fixes`** (`apps/landing`):
+  - Planned features say "Belum tersedia" (L4).
+  - Readable error text (L5).
+  - 44 px tap targets (L6).
+  - Slot note placement (L11), "Telegram sekarang" (L13).
+  - Focus ring on text links (L16) and a phone menu (L17).
+  - Focus after submit (L18), no hard-coded slot count (L19).
+  - Logo and icons.
+  - The rest (L1-L3, L7-L10, L12, L14, L15) waits for owner decisions.
+- **`claude/docs-antislop-fixes`** (`apps/docs`):
+  - Quickstart, Telegram and AI provider pages rewritten for the free beta.
+  - The API reference matches the live endpoints, with new pages for integrations and subscriptions.
+  - Feature lists are split into available and planned, and status and error tables are corrected.
+  - Onest 600 is loaded; logo and icons added.
+  - Waiting for the owner: X3 (prices), X8 (AI usage billing), X17 (backup timers), X19 (free beta lifecycle).
+- **Checks:**
+  - Dashboard: typecheck, 137 tests.
+  - Landing: typecheck, lint, 60 tests.
+  - Docs: typecheck, lint, build.
+  - Not checked in a browser: the admin panel, the customer dashboard behind sign-in, and the rendered docs.
+
+**Since the previous entry:**
+- PR #56 was merged (`9922356`) and deployed to the VPS on 2026-11-18.
+- On Supabase production, `hosting` and `hosting-kredit` were raised to 5120 MB. The free plan `beta-starter` is still 1024 MB, pending an owner decision.
+
+## Branch `claude/free-signup-flow`: free beta sign-up flow, tested end to end on localhost (2026-11-17, merged in PR #56 and deployed 2026-11-18)
+
+From `main` at `f8f035f`. Committed as `83fb915`, PR #56; the anti-slop audit fixes follow on the same branch.
 
 - **Dashboard sign-up.**
   - Email registration is confirmed with the code from the email. The field takes exactly the project's length: 6 by default, matching Supabase's "Email OTP length", which the owner changed from 8 to 6 on 2026-11-17. `NEXT_PUBLIC_EMAIL_CODE_LENGTH` overrides it. A wrong or expired code gives one clear message, and "Send a new code" has a 60 s wait.

@@ -17,8 +17,9 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
+/** `null` is a plan with no price: during the beta that is the free plan. */
 export function formatPriceIdr(price: number | null): string {
-  if (price === null) return "Not set yet"
+  if (price === null) return "Free during the beta"
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(price)
 }
 

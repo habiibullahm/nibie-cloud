@@ -102,7 +102,7 @@ export default function ConsolePage() {
       </CardContent>
       <CardFooter className="flex-wrap justify-between gap-3 border-t">
         {/* PRD §7 asks for idle timeouts and audit events; the timeout length is not decided yet. */}
-        <p className="text-muted-foreground">Idle sessions time out, and each session is recorded as an audit event.</p>
+        <p className="text-muted-foreground">Planned: idle sessions will time out, and each session will be recorded as an audit event.</p>
         {session ? (
           <Button variant="secondary" onClick={() => {
               setSession(false)

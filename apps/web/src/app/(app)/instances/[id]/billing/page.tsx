@@ -39,10 +39,8 @@ export default function BillingPage() {
   if (!sub) {
     return (
       <Alert>
-        <AlertTitle>No subscription found</AlertTitle>
-        <AlertDescription>
-          This instance has no billing record. If you deployed it before payments existed, it stays free during the beta.
-        </AlertDescription>
+        <AlertTitle>Free beta instance</AlertTitle>
+        <AlertDescription>This instance is on the free beta, so there is nothing to pay or renew.</AlertDescription>
       </Alert>
     )
   }
@@ -76,7 +74,7 @@ export default function BillingPage() {
               ...(sub.status === "SUSPENDED" && sub.retentionEndsAt
                 ? [{ k: "Data deleted on", v: formatDate(sub.retentionEndsAt) }]
                 : []),
-              { k: "Price", v: formatPriceIdr(current?.monthlyPriceIdr ?? null) },
+              { k: "Price", v: current ? formatPriceIdr(current.monthlyPriceIdr) : "Not available" },
               ...(payment
                 ? [
                     {
@@ -128,7 +126,9 @@ export default function BillingPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep renewing</AlertDialogCancel>
-            <AlertDialogAction onClick={() => cancel.mutate(sub.id)}>Cancel renewal</AlertDialogAction>
+            <AlertDialogAction variant="destructive" onClick={() => cancel.mutate(sub.id)}>
+              Cancel renewal
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -162,8 +162,8 @@ export default function BillingPage() {
           })}
         </ul>
         <p className="text-muted-foreground">
-          Upgrades apply after payment and a capacity check. If your plan does not fit on the current node, we schedule a
-          migration and tell you first.
+          When plan changes arrive, an upgrade will apply after payment and a capacity check. If the new plan does not fit on
+          the current node, we will schedule a migration and tell you first.
         </p>
       </section>
     </div>

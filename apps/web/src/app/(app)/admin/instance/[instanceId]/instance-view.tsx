@@ -1,13 +1,21 @@
 "use client"
 
 import Link from "next/link"
+import { CircleX } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/app/page-header"
 import { QueryFallback } from "@/components/app/query-fallback"
 import { StatusBadge } from "@/components/app/status-badge"
 import { KeyValue } from "@/components/app/key-value"
 import { useAdminInstance } from "@/hooks/use-admin"
-import { formatBytesId, formatDateTimeId } from "@/lib/admin-format"
+import {
+  EMPTY,
+  formatBytesId,
+  formatDateTimeId,
+  instanceStatusId,
+  integrationStatusId,
+  providerKindId,
+} from "@/lib/admin-format"
 import { formatCpu, formatMb } from "@/lib/format"
 import type { BackendStatus } from "@/lib/api/types"
 
@@ -39,11 +47,15 @@ export function AdminInstanceView({ instanceId }: { instanceId: string }) {
             ) : null}
           </>
         }
-        actions={<StatusBadge status={i.status as BackendStatus} />}
+        actions={<StatusBadge status={i.status as BackendStatus} label={instanceStatusId(i.status)} />}
       />
 
+      {/* Readable text colour; the icon and the border carry the alert (destructive text is under 4.5:1 here). */}
       {i.statusReason ? (
-        <p className="rounded-sm border border-destructive px-4 py-3 text-destructive">Alasan: {i.statusReason}</p>
+        <p className="flex items-start gap-2 rounded-sm border border-destructive px-4 py-3 text-foreground">
+          <CircleX className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden="true" />
+          <span className="min-w-0 break-words">Alasan: {i.statusReason}</span>
+        </p>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -59,7 +71,7 @@ export function AdminInstanceView({ instanceId }: { instanceId: string }) {
                 { k: "Dibuat", v: formatDateTimeId(i.createdAt) },
                 { k: "Diperbarui", v: formatDateTimeId(i.updatedAt) },
                 { k: "Health terakhir", v: formatDateTimeId(i.lastHealthAt) },
-                { k: "Port host", v: <span className="type-mono">{i.hostPort ?? "—"}</span> },
+                { k: "Port host", v: <span className="type-mono">{i.hostPort ?? EMPTY}</span> },
                 { k: "Image", v: <span className="type-mono break-all">{i.image}</span> },
                 { k: "Disk terpakai", v: `${formatBytesId(i.diskUsedBytes)} (${i.diskLevel})` },
                 { k: "Kegagalan berturut", v: String(i.consecutiveFailures) },
@@ -100,15 +112,15 @@ export function AdminInstanceView({ instanceId }: { instanceId: string }) {
                   items={[
                     ...(i.provider
                       ? [
-                          { k: "Provider", v: `${i.provider.kind} · ${i.provider.model}` },
-                          { k: "Status provider", v: i.provider.status },
+                          { k: "Provider", v: `${providerKindId(i.provider.kind)} · ${i.provider.model}` },
+                          { k: "Status provider", v: integrationStatusId(i.provider.status) },
                           { k: "Base URL", v: <span className="type-mono break-all">{i.provider.baseUrl}</span> },
                         ]
                       : []),
                     ...(i.telegram
                       ? [
                           { k: "Telegram", v: `@${i.telegram.botUsername}` },
-                          { k: "Status Telegram", v: i.telegram.status },
+                          { k: "Status Telegram", v: integrationStatusId(i.telegram.status) },
                         ]
                       : []),
                   ]}

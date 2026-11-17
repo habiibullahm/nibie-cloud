@@ -3,7 +3,7 @@
 import { PageHeader } from "@/components/app/page-header"
 import { AdminTable, TableCell, TableHead, TableRow } from "@/components/app/admin-table"
 import { useAdminAudit } from "@/hooks/use-admin"
-import { formatDateTimeId } from "@/lib/admin-format"
+import { EMPTY, formatDateTimeId } from "@/lib/admin-format"
 
 /** The audit trail: who did what, and (for a change) why. Read-only in Fase A. */
 export function AdminAuditView() {
@@ -36,8 +36,8 @@ export function AdminAuditView() {
             <TableCell className="type-mono text-muted-foreground">{formatDateTimeId(e.createdAt)}</TableCell>
             <TableCell>{e.actorEmail}</TableCell>
             <TableCell className="type-mono">{e.action}</TableCell>
-            <TableCell className="type-mono text-muted-foreground">{e.targetId ?? "—"}</TableCell>
-            <TableCell className="text-muted-foreground">{e.reason ?? "—"}</TableCell>
+            <TableCell className="type-mono text-muted-foreground">{e.targetId ?? EMPTY}</TableCell>
+            <TableCell className="text-muted-foreground">{e.reason ?? "Tidak ada"}</TableCell>
           </TableRow>
         )}
       />

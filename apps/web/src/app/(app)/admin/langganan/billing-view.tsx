@@ -1,11 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/app/page-header"
 import { AdminTable, TableCell, TableHead, TableRow } from "@/components/app/admin-table"
 import { useAdminPayments, useAdminSubscriptions } from "@/hooks/use-admin"
-import { formatDateTimeId, formatIdr } from "@/lib/admin-format"
+import { formatDateTimeId, formatIdr, paymentPurposeId, paymentStatusId, subscriptionStatusId } from "@/lib/admin-format"
 
 export function AdminBillingView() {
   const subs = useAdminSubscriptions()
@@ -36,19 +36,23 @@ export function AdminBillingView() {
           }
           row={(s) => (
             <TableRow key={s.id}>
-              <TableCell className="type-label">{s.status}</TableCell>
-              <TableCell className="text-muted-foreground">{s.email ?? "—"}</TableCell>
+              <TableCell className="type-label">{subscriptionStatusId(s.status)}</TableCell>
+              <TableCell className="text-muted-foreground">{s.email ?? "Tidak ada"}</TableCell>
               <TableCell>{s.intendedName}</TableCell>
               <TableCell className="type-mono">{s.plan.slug}</TableCell>
               <TableCell className="type-mono">{formatIdr(s.plan.monthlyPriceIdr)}</TableCell>
               <TableCell className="type-mono text-muted-foreground">{formatDateTimeId(s.currentPeriodEnd)}</TableCell>
-              <TableCell className="type-mono">
+              <TableCell>
                 {s.instanceId ? (
-                  <Link href={`/admin/instance/${s.instanceId}`} className="no-underline hover:underline">
-                    buka
+                  <Link
+                    href={`/admin/instance/${s.instanceId}`}
+                    aria-label={`Lihat instance ${s.intendedName}`}
+                    className="no-underline hover:underline"
+                  >
+                    Lihat instance
                   </Link>
                 ) : (
-                  "—"
+                  <span className="text-muted-foreground">Belum dibuat</span>
                 )}
               </TableCell>
             </TableRow>
@@ -76,10 +80,10 @@ export function AdminBillingView() {
           }
           row={(p) => (
             <TableRow key={p.id}>
-              <TableCell className="type-label">{p.status}</TableCell>
-              <TableCell className="text-muted-foreground">{p.email ?? "—"}</TableCell>
+              <TableCell className="type-label">{paymentStatusId(p.status)}</TableCell>
+              <TableCell className="text-muted-foreground">{p.email ?? "Tidak ada"}</TableCell>
               <TableCell className="type-mono">{formatIdr(p.amountIdr)}</TableCell>
-              <TableCell className="type-mono text-muted-foreground">{p.purpose}</TableCell>
+              <TableCell className="text-muted-foreground">{paymentPurposeId(p.purpose)}</TableCell>
               <TableCell className="type-mono text-muted-foreground">{p.merchantOrderId}</TableCell>
               <TableCell className="type-mono text-muted-foreground">{formatDateTimeId(p.paidAt)}</TableCell>
             </TableRow>
@@ -94,7 +98,6 @@ export function AdminBillingView() {
             Refund dan perubahan langganan menunggu keputusan gateway (Duitku atau SumoPod). Panel ini untuk sekarang hanya membaca.
           </CardDescription>
         </CardHeader>
-        <CardContent />
       </Card>
     </div>
   )

@@ -70,10 +70,13 @@ function RailFooter() {
   const me = useMe()
   return (
     <div className="mt-auto flex flex-col gap-3 border-t pt-4 text-muted-foreground">
-      <div className="flex items-center gap-2">
-        <span className="type-label">Data</span>
-        <span className="type-mono rounded-sm border px-2 py-1">{mode === "mock" ? "mock" : "live api"}</span>
-      </div>
+      {/* A developer hint: customers only ever see their real data, so they do not get the chip. */}
+      {mode === "customer" ? null : (
+        <div className="flex items-center gap-2">
+          <span className="type-label">Data</span>
+          <span className="type-mono rounded-sm border px-2 py-1">{mode === "mock" ? "mock" : "live api"}</span>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-foreground">{me.data?.name ?? " "}</p>

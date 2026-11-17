@@ -42,7 +42,7 @@ export default function BackupsPage() {
       <CardHeader>
         <CardTitle>Backups</CardTitle>
         {/* Storage and encryption follow PRD §12. */}
-        <CardDescription>Encrypted copies of your volume, stored outside the runtime node.</CardDescription>
+        <CardDescription>Planned: encrypted copies of your volume, stored outside the runtime node.</CardDescription>
         <CardAction className="flex flex-wrap items-center gap-2">
           <PreviewNote what="Backups" />
         </CardAction>
