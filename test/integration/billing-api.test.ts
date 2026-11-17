@@ -67,6 +67,19 @@ describe('billing API', () => {
       expect((await checkout(a, await user('Invited@Example.test'))).statusCode).toBe(201);
     });
 
+    it('PAID_CHECKOUT_OPEN=false refuses everyone but invited accounts, even with a production gateway', async () => {
+      const a = buildServer({
+        service: env.service, commands: env.commands, logger: silentLogger,
+        config: testConfig('hermes-stub:0.2.0', TEST_MASTER_KEY, { betaAllowedEmails: ['invited@example.test'], paidCheckoutOpen: false, billing: billingCfg, maxInstancesPerTenant: 1 }),
+        customer: { verify: auth.verify, identity: new IdentityService({ prisma }), prisma },
+        billing: env.billing,
+      });
+      const refused = await checkout(a, await user('stranger@example.test'));
+      expect(refused.statusCode).toBe(403);
+      expect(refused.json().error.code).toBe('billing_not_open');
+      expect((await checkout(a, await user('invited@example.test'))).statusCode).toBe(201);
+    });
+
     it('is open to everyone once a production gateway is configured', async () => {
       const a = sandboxApp({ ...billingCfg, duitku: { ...billingCfg.duitku, env: 'production' } });
       expect((await checkout(a, await user('stranger@example.test'))).statusCode).toBe(201);

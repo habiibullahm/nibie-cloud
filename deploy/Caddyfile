@@ -14,7 +14,7 @@ api.cloud.nibie.app {
 	# Allowlist: only customer API routes. /api/v1/tenants/* (operator API), /api/v1/jobs/* and everything
 	# else are NOT forwarded. Paths containing "..", "%2e", "%2f" or "//" are rejected too.
 	@public {
-		path /healthz /api/v1/me /api/v1/plans /api/v1/instances /api/v1/instances/* /api/v1/subscriptions /api/v1/subscriptions/* /api/v1/payments/* /api/v1/billing/duitku/callback /api/v1/billing/sumopod/webhook /api/v1/admin/*
+		path /healthz /api/v1/me /api/v1/plans /api/v1/public/beta-slots /api/v1/instances /api/v1/instances/* /api/v1/subscriptions /api/v1/subscriptions/* /api/v1/payments/* /api/v1/billing/duitku/callback /api/v1/billing/sumopod/webhook /api/v1/admin/*
 		not path_regexp (?i)(\.\.|%2e|%2f|//)
 	}
 	handle @public {

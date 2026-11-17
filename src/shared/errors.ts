@@ -71,6 +71,12 @@ export class ForbiddenError extends AppError {
   }
 }
 
+export class BetaFullError extends AppError {
+  constructor() {
+    super('The free beta preview is full. Join the waiting list on the website.', 409, 'beta_full');
+  }
+}
+
 export class CapacityFullError extends AppError {
   constructor() {
     super('Nibie Cloud is at capacity right now. Please try again later.', 409, 'capacity_full');

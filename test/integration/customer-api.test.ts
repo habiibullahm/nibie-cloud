@@ -69,6 +69,71 @@ describe('customer API', () => {
     expect((await create(a, await user(BOB))).statusCode).toBe(202);
   });
 
+  describe('free beta slots', () => {
+    const STRANGER1 = 'stranger1@example.test';
+    const STRANGER2 = 'stranger2@example.test';
+    const plansFor = async (a: ReturnType<typeof app>, email: string) =>
+      ((await a.inject({ method: 'GET', url: '/api/v1/plans', headers: await user(email) })).json().plans as Array<{ slug: string }>).map((p) => p.slug).sort();
+
+    it('gives the free plan to the first strangers until the slots are used, then hides it and answers beta_full', async () => {
+      await prisma.plan.create({ data: { slug: 'paid', name: 'Paid', cpuMillis: 1000, memoryMb: 1024, pids: 256, storageMb: 1024, monthlyPriceIdr: 25_000 } });
+      const a = app({ freeBetaSlots: 1 });
+      // One token per person: each call to user() would otherwise be a new tenant.
+      const h1 = await user(STRANGER1);
+      const h2 = await user(STRANGER2);
+      const hAlice = await user(ALICE);
+      expect(await plansFor(a, STRANGER1)).toEqual(['paid', 'test-small']);
+      const key = randomUUID();
+      const first = await create(a, h1, undefined, key);
+      expect(first.statusCode).toBe(202);
+      // Slots are used: the free plan disappears for strangers and creating on it answers beta_full.
+      expect(await plansFor(a, STRANGER2)).toEqual(['paid']);
+      const full = await create(a, h2);
+      expect(full.statusCode).toBe(409);
+      expect(full.json().error.code).toBe('beta_full');
+      // A replay of the stranger's own request is not a new slot.
+      expect((await create(a, h1, undefined, key)).statusCode).toBe(202);
+      // Invited accounts are never refused and still see the free plan.
+      expect(await plansFor(a, ALICE)).toEqual(['paid', 'test-small']);
+      const alice = await create(a, hAlice);
+      expect(alice.statusCode).toBe(202);
+      // Invited accounts share the same free slots: deleting only the stranger's instance leaves none free...
+      await a.inject({ method: 'DELETE', url: `/api/v1/instances/${first.json().instance.id}`, headers: h1 });
+      expect((await create(a, h2)).statusCode).toBe(409);
+      // ...and deleting the invited one too frees the slot again.
+      await a.inject({ method: 'DELETE', url: `/api/v1/instances/${alice.json().instance.id}`, headers: hAlice });
+      expect((await create(a, h2)).statusCode).toBe(202);
+    });
+
+    it('never lets a stranger create a priced plan through this route, and is off with zero slots', async () => {
+      const paid = await prisma.plan.create({ data: { slug: 'paid', name: 'Paid', cpuMillis: 1000, memoryMb: 1024, pids: 256, storageMb: 1024, monthlyPriceIdr: 25_000 } });
+      const withSlots = app({ freeBetaSlots: 5 });
+      const refused = await create(withSlots, await user(STRANGER1), { name: 'agent', planId: paid.id });
+      expect(refused.statusCode).toBe(403);
+      expect(refused.json().error.code).toBe('provisioning_not_enabled');
+      const off = await create(app({ freeBetaSlots: 0 }), await user(STRANGER1));
+      expect(off.statusCode).toBe(403);
+    });
+
+    it('PAID_CHECKOUT_OPEN=false hides the priced plans from strangers only', async () => {
+      await prisma.plan.create({ data: { slug: 'paid', name: 'Paid', cpuMillis: 1000, memoryMb: 1024, pids: 256, storageMb: 1024, monthlyPriceIdr: 25_000 } });
+      const a = app({ freeBetaSlots: 1, paidCheckoutOpen: false });
+      expect(await plansFor(a, STRANGER1)).toEqual(['test-small']);
+      expect(await plansFor(a, ALICE)).toEqual(['paid', 'test-small']);
+    });
+
+    it('publishes the slot counter without authentication', async () => {
+      const a = app({ freeBetaSlots: 2 });
+      expect((await a.inject({ method: 'GET', url: '/api/v1/public/beta-slots' })).json()).toEqual({ total: 2, remaining: 2 });
+      await create(a, await user(STRANGER1));
+      const res = await a.inject({ method: 'GET', url: '/api/v1/public/beta-slots' });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ total: 2, remaining: 1 });
+      expect(res.headers['cache-control']).toBe('public, max-age=15');
+      expect((await app({ freeBetaSlots: 0 }).inject({ method: 'GET', url: '/api/v1/public/beta-slots' })).json()).toEqual({ total: 0, remaining: 0 });
+    });
+  });
+
   it('shows the unpriced beta preview plan only to invited accounts', async () => {
     await prisma.plan.create({ data: { slug: 'paid', name: 'Paid', cpuMillis: 1000, memoryMb: 1024, pids: 256, storageMb: 1024, monthlyPriceIdr: 25_000 } });
     const slugs = async (email: string) => {
