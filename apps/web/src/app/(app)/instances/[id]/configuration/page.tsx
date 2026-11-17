@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { Check, CircleX, PlugZap, Send, TriangleAlert } from "lucide-react"
+import { Check, CircleX, PlugZap, RotateCw, Send, TriangleAlert } from "lucide-react"
 import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -17,8 +17,20 @@ import { Textarea } from "@/components/ui/textarea"
 import { KeyValue } from "@/components/app/key-value"
 import { PreviewNote } from "@/components/app/preview-note"
 import { QueryFallback } from "@/components/app/query-fallback"
-import { errorMessage, keys, useInstanceMeta, usePlans, useProvider, useTelegram } from "@/hooks/use-hermes"
+import {
+  errorMessage,
+  keys,
+  useApiMode,
+  useInstance,
+  useInstanceAction,
+  useInstanceMeta,
+  usePlans,
+  useProvider,
+  useTelegram,
+} from "@/hooks/use-hermes"
 import { getApi, type ProviderConfig, type ProviderKind, type TelegramConfig } from "@/lib/api"
+import { BYOK_PROVIDERS, MAX_TELEGRAM_USERS, type ByokProviderName } from "@/lib/api/providers"
+import { allowedActions, isTransitional } from "@/lib/api/status"
 import { formatCpu, formatMb, formatRelative } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { useInstanceId } from "../instance-frame"
@@ -45,14 +57,53 @@ export default function ConfigurationPage() {
   )
 }
 
+// ── Restart notice ───────────────────────────────────────────────────────────
+
+/**
+ * Saved provider and Telegram settings only reach Hermes when the container is recreated, which the next
+ * start or restart does (backend `restartRequired`). Offers that action right where the change was made.
+ */
+function RestartNotice({ id }: { id: string }) {
+  const qc = useQueryClient()
+  const instance = useInstance(id)
+  const action = useInstanceAction(id)
+  const status = instance.data?.status
+  const allowed = status ? allowedActions(status) : null
+  const verb = allowed?.has("restart") ? "restart" : allowed?.has("start") ? "start" : null
+
+  const apply = () => {
+    if (!verb) return
+    action.mutate(verb, {
+      onSuccess: () => {
+        void qc.invalidateQueries({ queryKey: keys.provider(id) })
+        void qc.invalidateQueries({ queryKey: keys.telegram(id) })
+      },
+    })
+  }
+
+  return (
+    <Alert>
+      <RotateCw aria-hidden="true" />
+      <AlertTitle>Restart to apply your changes</AlertTitle>
+      <AlertDescription>
+        <p>Your changes are saved, but Hermes keeps running with the old settings until the instance restarts.</p>
+        {verb ? (
+          <Button type="button" size="sm" variant="outline" className="mt-2" onClick={apply} disabled={action.isPending}>
+            {action.isPending ? "Requesting…" : verb === "restart" ? "Restart instance" : "Start instance"}
+          </Button>
+        ) : status && isTransitional(status) ? (
+          <p>The instance is changing state. This notice disappears once the new settings are running.</p>
+        ) : null}
+      </AlertDescription>
+    </Alert>
+  )
+}
+
 // ── Provider (PRD §8) ────────────────────────────────────────────────────────
 
-const BYOK_PROVIDERS = [
-  { value: "openai", label: "OpenAI" },
-  { value: "anthropic", label: "Anthropic" },
-  { value: "openrouter", label: "OpenRouter" },
-  { value: "custom", label: "OpenAI-compatible (custom URL)" },
-]
+function labelFor(name: string | null) {
+  return BYOK_PROVIDERS.find((p) => p.value === name)?.label ?? name ?? "Provider"
+}
 
 function ConnectionStatus({ config }: { config: ProviderConfig }) {
   const Icon = config.status === "connected" ? Check : config.status === "error" ? CircleX : TriangleAlert
@@ -75,28 +126,35 @@ function ProviderSection({ id }: { id: string }) {
 
 function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
   const qc = useQueryClient()
-  const [kind, setKind] = useState<ProviderKind>(cfg.kind)
-  const [providerName, setProviderName] = useState(cfg.providerName ?? "openai")
-  const [baseUrl, setBaseUrl] = useState(cfg.baseUrl ?? "")
+  const mode = useApiMode()
+  // Only the in-browser mock can switch to NibieRouter; on the real API that key is attached by Nibie Cloud.
+  const routerLocked = mode !== "mock"
+  const [kind, setKind] = useState<ProviderKind>(cfg.configured ? cfg.kind : "byok")
+  const [providerName, setProviderName] = useState<ByokProviderName>(
+    cfg.kind === "byok" && cfg.providerName ? (cfg.providerName as ByokProviderName) : "openai"
+  )
+  const [baseUrl, setBaseUrl] = useState(cfg.kind === "byok" && cfg.providerName === "custom" ? (cfg.baseUrl ?? "") : "")
+  const [model, setModel] = useState(cfg.kind === "byok" ? (cfg.model ?? "") : "")
   const [apiKey, setApiKey] = useState("")
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const preset = BYOK_PROVIDERS.find((p) => p.value === providerName)
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault()
     setFormError(null)
     setSaving(true)
     try {
-      const next = await getApi().preview.saveProvider(id, {
-        kind,
-        providerName: kind === "byok" ? providerName : undefined,
-        baseUrl: kind === "byok" && providerName === "custom" ? baseUrl : undefined,
-        apiKey: kind === "byok" && apiKey ? apiKey : undefined,
-      })
+      const next = await getApi().preview.saveProvider(
+        id,
+        kind === "byok"
+          ? { kind, providerName, baseUrl: preset?.baseUrl ?? baseUrl.trim(), model: model.trim(), apiKey }
+          : { kind }
+      )
       qc.setQueryData(keys.provider(id), next)
       setApiKey("")
-      toast.success("Provider saved. Test the connection to confirm it works.")
+      toast.success("Provider saved. Restart your instance to apply it, then test the connection.")
     } catch (err) {
       setFormError(errorMessage(err))
     } finally {
@@ -109,7 +167,8 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
     try {
       const next = await getApi().preview.testProvider(id)
       qc.setQueryData(keys.provider(id), next)
-      toast.success("Connection test passed")
+      if (next.status === "connected") toast.success("Connection test passed")
+      else toast.error(next.statusMessage ?? "Connection test failed")
     } catch (err) {
       toast.error(errorMessage(err))
     } finally {
@@ -123,24 +182,45 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
         <CardHeader>
           <CardTitle>AI provider</CardTitle>
           <CardDescription>Nibie Cloud bills hosting only. AI usage is billed by the provider you choose.</CardDescription>
-          <CardAction>
-            <PreviewNote what="Provider configuration" />
-          </CardAction>
+          {mode !== "customer" ? (
+            <CardAction>
+              <PreviewNote what="Provider configuration" />
+            </CardAction>
+          ) : null}
         </CardHeader>
         <CardContent className="grid gap-6">
+          {cfg.restartRequired ? <RestartNotice id={id} /> : null}
+
           <div className="grid gap-1">
             <span className="type-label text-muted-foreground">Current</span>
-            <p>
-              {cfg.kind === "nibierouter" ? "NibieRouter (default)" : `Own key · ${labelFor(cfg.providerName)}`}
-              {cfg.keyHint ? <span className="type-mono text-muted-foreground"> · key {cfg.keyHint}</span> : null}
-            </p>
-            <ConnectionStatus config={cfg} />
-            <p className="text-muted-foreground">Updated {formatRelative(cfg.updatedAt)}</p>
+            {cfg.configured ? (
+              <>
+                <p>
+                  {cfg.kind === "nibierouter" ? "NibieRouter (included)" : `Own key · ${labelFor(cfg.providerName)}`}
+                  {cfg.model ? <span className="type-mono text-muted-foreground"> · {cfg.model}</span> : null}
+                  {cfg.keyHint ? <span className="type-mono text-muted-foreground"> · key {cfg.keyHint}</span> : null}
+                </p>
+                <ConnectionStatus config={cfg} />
+                {cfg.lastTestedAt ? (
+                  <p className="text-muted-foreground">Last tested {formatRelative(cfg.lastTestedAt)}</p>
+                ) : null}
+              </>
+            ) : (
+              <p className="text-muted-foreground">No AI provider yet. Add your own key below so Hermes can answer.</p>
+            )}
           </div>
 
           <RadioGroup value={kind} onValueChange={(v) => setKind(v as ProviderKind)} aria-label="Provider type" className="grid gap-3 md:grid-cols-2">
-            <ChoiceCard id="kind-nibie" value="nibierouter" selected={kind === "nibierouter"} title="NibieRouter">
-              Works out of the box. Usage is attributed to your account and billed by NibieRouter.
+            <ChoiceCard
+              id="kind-nibie"
+              value="nibierouter"
+              selected={kind === "nibierouter"}
+              title="NibieRouter"
+              disabled={routerLocked && cfg.kind !== "nibierouter"}
+            >
+              {routerLocked && cfg.kind !== "nibierouter"
+                ? "Added by Nibie Cloud with your plan. Contact support to switch back."
+                : "Works out of the box. Usage is attributed to your account and billed by NibieRouter."}
             </ChoiceCard>
             <ChoiceCard id="kind-byok" value="byok" selected={kind === "byok"} title="Bring your own key">
               Use your own provider account. Charges come from that provider, not Nibie Cloud.
@@ -151,7 +231,7 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="byok-provider">Provider</Label>
-                <Select value={providerName} onValueChange={setProviderName}>
+                <Select value={providerName} onValueChange={(v) => setProviderName(v as ByokProviderName)}>
                   <SelectTrigger id="byok-provider" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
@@ -165,18 +245,19 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
                 </Select>
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="byok-key">API key</Label>
+                <Label htmlFor="byok-model">Model</Label>
                 <Input
-                  id="byok-key"
-                  type="password"
+                  id="byok-model"
                   autoComplete="off"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={cfg.kind === "byok" && cfg.keyHint ? `Saved (${cfg.keyHint}). Leave empty to keep.` : "sk-…"}
-                  aria-describedby="byok-key-hint"
+                  spellCheck={false}
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  placeholder={preset?.modelHint ?? "model-name"}
+                  aria-describedby="byok-model-hint"
+                  className="type-mono"
                 />
-                <p id="byok-key-hint" className="text-muted-foreground">
-                  Stored encrypted. We never show it again after you save.
+                <p id="byok-model-hint" className="text-muted-foreground">
+                  The model name exactly as your provider lists it.
                 </p>
               </div>
               {providerName === "custom" ? (
@@ -192,9 +273,29 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
                     aria-describedby="byok-url-hint"
                   />
                   <p id="byok-url-hint" className="text-muted-foreground">
-                    Must be a public https endpoint.
+                    Must be a public https endpoint that answers <span className="type-mono">GET /models</span>.
                   </p>
                 </div>
+              ) : null}
+              <div className="grid gap-2 md:col-span-2">
+                <Label htmlFor="byok-key">API key</Label>
+                <Input
+                  id="byok-key"
+                  type="password"
+                  autoComplete="off"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder={cfg.kind === "byok" && cfg.keyHint ? `Saved (${cfg.keyHint}). Paste it again to save.` : "sk-…"}
+                  aria-describedby="byok-key-hint"
+                />
+                <p id="byok-key-hint" className="text-muted-foreground">
+                  Stored encrypted and never shown again, so paste the key each time you save.
+                </p>
+              </div>
+              {cfg.kind === "nibierouter" && cfg.configured ? (
+                <p className="text-muted-foreground md:col-span-2">
+                  Saving your own key replaces the NibieRouter connection that came with your plan.
+                </p>
               ) : null}
             </div>
           ) : null}
@@ -207,10 +308,10 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
           ) : null}
         </CardContent>
         <CardFooter className="flex-wrap border-t">
-          <Button type="submit" disabled={saving}>
+          <Button type="submit" disabled={saving || (kind === "nibierouter" && routerLocked)}>
             {saving ? "Saving…" : "Save provider"}
           </Button>
-          <Button type="button" variant="outline" onClick={test} disabled={testing}>
+          <Button type="button" variant="outline" onClick={test} disabled={testing || !cfg.configured}>
             <PlugZap aria-hidden="true" />
             {testing ? "Testing…" : "Test connection"}
           </Button>
@@ -220,32 +321,31 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
   )
 }
 
-function labelFor(name: string | null) {
-  return BYOK_PROVIDERS.find((p) => p.value === name)?.label ?? name ?? "Provider"
-}
-
 function ChoiceCard({
   id,
   value,
   selected,
   title,
+  disabled,
   children,
 }: {
   id: string
   value: string
   selected: boolean
   title: string
+  disabled?: boolean
   children: React.ReactNode
 }) {
   return (
     <Label
       htmlFor={id}
       className={cn(
-        "flex cursor-pointer items-start gap-3 rounded-md border bg-card p-4 transition-colors hover:border-muted-foreground",
+        "flex items-start gap-3 rounded-md border bg-card p-4 transition-colors",
+        disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:border-muted-foreground",
         selected && "border-foreground bg-elevated"
       )}
     >
-      <RadioGroupItem id={id} value={value} className="mt-1" />
+      <RadioGroupItem id={id} value={value} disabled={disabled} className="mt-1" />
       <span className="grid gap-1">
         <span className="type-label">{title}</span>
         <span className="text-muted-foreground">{children}</span>
@@ -264,19 +364,27 @@ function TelegramSection({ id }: { id: string }) {
 
 function TelegramForm({ id, cfg }: { id: string; cfg: TelegramConfig }) {
   const qc = useQueryClient()
+  const mode = useApiMode()
   const [token, setToken] = useState("")
-  const [mode, setMode] = useState<"polling" | "webhook">(cfg.mode)
   const [allowlist, setAllowlist] = useState(cfg.allowlist.join("\n"))
   const [busy, setBusy] = useState<null | "save" | "verify" | "remove">(null)
   const [formError, setFormError] = useState<string | null>(null)
 
-  const run = async (kind: "save" | "verify" | "remove", fn: () => Promise<TelegramConfig>, ok: string) => {
+  const run = async (
+    kind: "save" | "verify" | "remove",
+    fn: () => Promise<TelegramConfig>,
+    ok: string,
+    failure?: (next: TelegramConfig) => string | null
+  ) => {
     setFormError(null)
     setBusy(kind)
     try {
-      qc.setQueryData(keys.telegram(id), await fn())
+      const next = await fn()
+      qc.setQueryData(keys.telegram(id), next)
       if (kind === "save") setToken("")
-      toast.success(ok)
+      const problem = failure?.(next)
+      if (problem) setFormError(problem)
+      else toast.success(ok)
     } catch (err) {
       setFormError(errorMessage(err))
     } finally {
@@ -285,7 +393,7 @@ function TelegramForm({ id, cfg }: { id: string; cfg: TelegramConfig }) {
   }
 
   const entries = allowlist
-    .split(/\s+/)
+    .split(/[\s,]+/)
     .map((s) => s.trim())
     .filter(Boolean)
 
@@ -295,8 +403,8 @@ function TelegramForm({ id, cfg }: { id: string; cfg: TelegramConfig }) {
         e.preventDefault()
         void run(
           "save",
-          () => getApi().preview.saveTelegram(id, { token: token || undefined, mode, allowlist: entries }),
-          "Telegram settings saved"
+          () => getApi().preview.saveTelegram(id, { token: token.trim(), allowlist: entries }),
+          "Telegram settings saved. Restart your instance to apply them."
         )
       }}
     >
@@ -304,14 +412,18 @@ function TelegramForm({ id, cfg }: { id: string; cfg: TelegramConfig }) {
         <CardHeader>
           <CardTitle>Telegram bot</CardTitle>
           <CardDescription>Chat with Hermes from Telegram using a bot you own.</CardDescription>
-          <CardAction>
-            <PreviewNote what="Telegram configuration" />
-          </CardAction>
+          {mode !== "customer" ? (
+            <CardAction>
+              <PreviewNote what="Telegram configuration" />
+            </CardAction>
+          ) : null}
         </CardHeader>
         <CardContent className="grid gap-6">
+          {cfg.restartRequired ? <RestartNotice id={id} /> : null}
+
           <div className="grid gap-1">
             <span className="type-label text-muted-foreground">Status</span>
-            <p className="inline-flex items-center gap-2">
+            <p className="inline-flex flex-wrap items-center gap-2">
               {cfg.configured ? (
                 cfg.verified ? (
                   <>
@@ -319,7 +431,7 @@ function TelegramForm({ id, cfg }: { id: string; cfg: TelegramConfig }) {
                   </>
                 ) : (
                   <>
-                    <TriangleAlert className="size-4" aria-hidden="true" /> Saved, not verified yet
+                    <TriangleAlert className="size-4" aria-hidden="true" /> Saved, not verified yet · @{cfg.botUsername}
                   </>
                 )
               ) : (
@@ -327,6 +439,13 @@ function TelegramForm({ id, cfg }: { id: string; cfg: TelegramConfig }) {
               )}
               {cfg.tokenHint ? <span className="type-mono text-muted-foreground">· token {cfg.tokenHint}</span> : null}
             </p>
+            {cfg.configured && cfg.statusMessage ? <p className="text-muted-foreground">{cfg.statusMessage}</p> : null}
+            {cfg.configured ? (
+              <p className="text-muted-foreground">
+                {cfg.allowlist.length === 1 ? "1 allowed user" : `${cfg.allowlist.length} allowed users`}
+                {cfg.verifiedAt ? ` · test message delivered ${formatRelative(cfg.verifiedAt)}` : ""}
+              </p>
+            ) : null}
           </div>
 
           <ol className="grid list-decimal gap-1 pl-4 text-muted-foreground">
@@ -335,10 +454,14 @@ function TelegramForm({ id, cfg }: { id: string; cfg: TelegramConfig }) {
               <span className="type-mono text-foreground">/newbot</span>.
             </li>
             <li>Copy the token it gives you and paste it below.</li>
-            <li>Add your own Telegram username to the allowlist so only you can talk to the bot.</li>
+            <li>
+              Send any message to <span className="type-mono text-foreground">@userinfobot</span> to get your numeric user ID,
+              and add it to the allowed users.
+            </li>
+            <li>Open your new bot and press Start, save here, then restart the instance to switch the bot on.</li>
           </ol>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="tg-token">Bot token</Label>
               <Input
@@ -347,34 +470,28 @@ function TelegramForm({ id, cfg }: { id: string; cfg: TelegramConfig }) {
                 autoComplete="off"
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
-                placeholder={cfg.configured ? `Saved (${cfg.tokenHint}). Leave empty to keep.` : "123456789:AA…"}
+                placeholder={cfg.configured ? `Saved (${cfg.tokenHint}). Paste it again to save.` : "123456789:AA…"}
+                aria-describedby="tg-token-hint"
               />
+              <p id="tg-token-hint" className="text-muted-foreground">
+                Stored encrypted and never shown again, so paste the token each time you save.
+              </p>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="tg-mode">Update mode</Label>
-              <Select value={mode} onValueChange={(v) => setMode(v as "polling" | "webhook")}>
-                <SelectTrigger id="tg-mode" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="polling">Polling (recommended)</SelectItem>
-                  <SelectItem value="webhook">Webhook</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2 md:col-span-2">
               <Label htmlFor="tg-allow">Allowed users</Label>
               <Textarea
                 id="tg-allow"
                 value={allowlist}
                 onChange={(e) => setAllowlist(e.target.value)}
-                placeholder={"@your_username\n123456789"}
+                placeholder={"123456789"}
                 rows={3}
+                inputMode="numeric"
                 className="type-mono"
                 aria-describedby="tg-allow-hint"
               />
               <p id="tg-allow-hint" className="text-muted-foreground">
-                One username or numeric user ID per line. Leave empty to require pairing in Hermes.
+                Numeric Telegram user IDs, one per line, up to {MAX_TELEGRAM_USERS}. Only these people can talk to your bot;
+                everyone else is ignored. At least one is required. Usernames such as @name do not work.
               </p>
             </div>
           </div>
@@ -394,7 +511,11 @@ function TelegramForm({ id, cfg }: { id: string; cfg: TelegramConfig }) {
             type="button"
             variant="outline"
             disabled={busy !== null || !cfg.configured}
-            onClick={() => void run("verify", () => getApi().preview.verifyTelegram(id), "Test message delivered")}
+            onClick={() =>
+              void run("verify", () => getApi().preview.verifyTelegram(id), "Test message delivered", (next) =>
+                next.verified ? null : (next.statusMessage ?? "The test message was not delivered.")
+              )
+            }
           >
             <Send aria-hidden="true" />
             {busy === "verify" ? "Sending…" : "Send test message"}
@@ -404,7 +525,9 @@ function TelegramForm({ id, cfg }: { id: string; cfg: TelegramConfig }) {
               type="button"
               variant="ghost"
               disabled={busy !== null}
-              onClick={() => void run("remove", () => getApi().preview.removeTelegram(id), "Telegram bot disconnected")}
+              onClick={() =>
+                void run("remove", () => getApi().preview.removeTelegram(id), "Telegram bot disconnected. Restart your instance to apply it.")
+              }
             >
               Disconnect bot
             </Button>

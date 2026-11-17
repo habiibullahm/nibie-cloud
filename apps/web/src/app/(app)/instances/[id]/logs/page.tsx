@@ -11,7 +11,7 @@ import { Switch } from "@/components/ui/switch"
 import { SectionTitle } from "@/components/app/page-header"
 import { PreviewNote } from "@/components/app/preview-note"
 import { QueryFallback } from "@/components/app/query-fallback"
-import { useLogs } from "@/hooks/use-hermes"
+import { useApiMode, useLogs } from "@/hooks/use-hermes"
 import type { LogLevel } from "@/lib/api/types"
 import { formatTime } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -24,6 +24,7 @@ export default function LogsPage() {
   const [follow, setFollow] = useState(false)
   const q = useDeferredValue(query)
   const logs = useLogs(id, level, q)
+  const mode = useApiMode()
   const qc = useQueryClient()
 
   useEffect(() => {
@@ -34,7 +35,7 @@ export default function LogsPage() {
 
   return (
     <div className="grid gap-4">
-      <SectionTitle aside={<PreviewNote what="Logs" />}>Logs</SectionTitle>
+      <SectionTitle aside={mode === "customer" ? null : <PreviewNote what="Logs" />}>Logs</SectionTitle>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="grid flex-1 gap-2">
@@ -81,9 +82,13 @@ export default function LogsPage() {
           <ol className="type-mono min-w-max py-2">
             {logs.data.map((l, i) => (
               <li key={i} className="grid grid-cols-[72px_56px_72px_minmax(0,1fr)] gap-3 px-4 py-1 hover:bg-row-hover">
-                <time dateTime={l.t} className="text-muted-foreground">
-                  {formatTime(l.t)}
-                </time>
+                {l.t ? (
+                  <time dateTime={l.t} className="text-muted-foreground">
+                    {formatTime(l.t)}
+                  </time>
+                ) : (
+                  <span aria-hidden="true" />
+                )}
                 <span className={cn("uppercase", l.level === "error" ? "text-foreground underline decoration-destructive decoration-2 underline-offset-4" : l.level === "debug" ? "text-muted-foreground" : "text-foreground")}>
                   {l.level}
                 </span>

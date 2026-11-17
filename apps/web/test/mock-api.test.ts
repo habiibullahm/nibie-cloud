@@ -77,7 +77,13 @@ describe("mock preview API", () => {
   it("never returns a stored secret, only a hint", async () => {
     const api = fresh()
     const i = await api.instances.create({ name: "demo", planId: PLANS[0]!.id }, "k")
-    const saved = await api.preview.saveProvider(i.id, { kind: "byok", providerName: "openai", apiKey: "sk-test-1234567890abcd" })
+    const saved = await api.preview.saveProvider(i.id, {
+      kind: "byok",
+      providerName: "openai",
+      baseUrl: "https://api.openai.com/v1",
+      model: "gpt-4o-mini",
+      apiKey: "sk-test-1234567890abcd",
+    })
     expect(JSON.stringify(saved)).not.toContain("sk-test")
     expect(saved.keyHint).toBe("…abcd")
   })
@@ -86,18 +92,27 @@ describe("mock preview API", () => {
     const api = fresh()
     const i = await api.instances.create({ name: "demo", planId: PLANS[0]!.id }, "k")
     await expect(
-      api.preview.saveProvider(i.id, { kind: "byok", providerName: "custom", apiKey: "k-1234", baseUrl: "http://10.0.0.1" })
+      api.preview.saveProvider(i.id, { kind: "byok", providerName: "custom", model: "m", apiKey: "k-1234", baseUrl: "http://10.0.0.1" })
     ).rejects.toThrow(/https/)
   })
 
   it("rejects malformed Telegram tokens and stores only a hint", async () => {
     const api = fresh()
     const i = await api.instances.create({ name: "demo", planId: PLANS[0]!.id }, "k")
-    await expect(api.preview.saveTelegram(i.id, { token: "nope", mode: "polling", allowlist: [] })).rejects.toThrow()
+    await expect(api.preview.saveTelegram(i.id, { token: "nope", allowlist: ["1"] })).rejects.toThrow()
     const token = "123456789:AAEexampleexampleexampleexample_12"
-    const saved = await api.preview.saveTelegram(i.id, { token, mode: "polling", allowlist: ["@me"] })
+    const saved = await api.preview.saveTelegram(i.id, { token, allowlist: ["123456789"] })
     expect(JSON.stringify(saved)).not.toContain(token)
     expect(saved.verified).toBe(false)
+    expect(saved.restartRequired).toBe(true)
+  })
+
+  it("requires numeric Telegram user IDs, like the backend allowlist", async () => {
+    const api = fresh()
+    const i = await api.instances.create({ name: "demo", planId: PLANS[0]!.id }, "k")
+    const token = "123456789:AAEexampleexampleexampleexample_12"
+    await expect(api.preview.saveTelegram(i.id, { token, allowlist: [] })).rejects.toThrow(/numeric/)
+    await expect(api.preview.saveTelegram(i.id, { token, allowlist: ["@me"] })).rejects.toThrow(/numeric/)
   })
 
   it("synthesizes rows for unknown ids only in live mode", async () => {

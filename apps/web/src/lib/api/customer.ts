@@ -1,4 +1,5 @@
 import { ApiError, type HermesApi } from "./client"
+import { buildIntegrationsApi } from "./integrations"
 import { buildBillingApi, buildInstancesApi, makeCall } from "./live"
 import type { Account, Plan } from "./types"
 
@@ -44,8 +45,9 @@ export function toAccount(m: MeBody): Account {
 
 /**
  * Browser client for the backend customer API: every call carries the signed-in user's Supabase access
- * token, and the backend derives the tenant from it. The instance endpoints, billing, /me and /plans are
- * real; everything else is taken from `preview` (mock data, labelled in the UI).
+ * token, and the backend derives the tenant from it. The instance endpoints, billing, /me, /plans, the
+ * provider and Telegram settings and the logs are real; everything else is taken from `preview` (mock
+ * data, labelled in the UI).
  */
 export function createCustomerApi(opts: {
   baseUrl: string
@@ -75,6 +77,7 @@ export function createCustomerApi(opts: {
     billing: buildBillingApi(call),
     preview: {
       ...opts.preview,
+      ...buildIntegrationsApi(call),
       me: async () => toAccount(await call<MeBody>("/me")),
       plans: realPlans,
       meta: async (id) => {

@@ -1,4 +1,5 @@
 import { ApiError, type BillingApi, type HermesApi, type InstancesApi, type PreviewApi } from "./client"
+import { MODEL_FORMAT, TELEGRAM_TOKEN_FORMAT, TELEGRAM_USER_ID_FORMAT } from "./providers"
 import type {
   Backup,
   BillingPayment,
@@ -188,22 +189,26 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
     })
     providers.set(id, {
       id: uuid(),
+      configured: true,
       kind: "nibierouter",
       providerName: null,
-      baseUrl: null,
+      baseUrl: "https://router.nibie.app/v1",
+      model: "nibierouter-free",
       keyHint: null,
       status: status === "STOPPED" ? "untested" : "connected",
       statusMessage: null,
-      updatedAt: iso(ageMs - 60_000),
+      lastTestedAt: iso(ageMs - 60_000),
+      restartRequired: false,
     })
     telegrams.set(id, {
       configured: status === "ACTIVE",
       botUsername: status === "ACTIVE" ? `${name.replace(/-/g, "_")}_bot` : null,
       tokenHint: status === "ACTIVE" ? "…x9Qa" : null,
-      mode: "polling",
       verified: status === "ACTIVE",
-      allowlist: status === "ACTIVE" ? ["@owner"] : [],
-      updatedAt: status === "ACTIVE" ? iso(ageMs - 120_000) : null,
+      statusMessage: null,
+      allowlist: status === "ACTIVE" ? ["123456789"] : [],
+      verifiedAt: status === "ACTIVE" ? iso(ageMs - 120_000) : null,
+      restartRequired: false,
     })
     backups.set(id, [
       { id: uuid(), createdAt: iso(6 * HOUR), sizeMb: 412, status: "completed", kind: "scheduled", checksum: "sha256:9f2c…a41e" },
@@ -254,6 +259,14 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
   }
 
   /** Lookup for preview endpoints. */
+  /** A start or restart recreates the container with the saved configuration (backend `appliedRevision`). */
+  function markConfigApplied(id: string) {
+    const p = providers.get(id)
+    if (p) providers.set(id, { ...p, restartRequired: false })
+    const t = telegrams.get(id)
+    if (t) telegrams.set(id, { ...t, restartRequired: false })
+  }
+
   function previewRow(id: string): Row {
     const row = rows.get(id)
     if (row) return row
@@ -330,22 +343,26 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       rows.set(id, row)
       providers.set(id, {
         id: uuid(),
+        configured: true,
         kind: "nibierouter",
         providerName: null,
-        baseUrl: null,
+        baseUrl: "https://router.nibie.app/v1",
+        model: "nibierouter-free",
         keyHint: null,
         status: "untested",
         statusMessage: null,
-        updatedAt: iso(),
+        lastTestedAt: null,
+        restartRequired: false,
       })
       telegrams.set(id, {
         configured: false,
         botUsername: null,
         tokenHint: null,
-        mode: "polling",
         verified: false,
+        statusMessage: null,
         allowlist: [],
-        updatedAt: null,
+        verifiedAt: null,
+        restartRequired: false,
       })
       backups.set(id, [])
       schedule(row, [
@@ -363,6 +380,7 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       if (row.instance.status !== "STOPPED") throw conflict(row, "start")
       transition(row, "STARTING", "start_requested", "Start requested")
       schedule(row, [["ACTIVE", "active", "Health check passed"]])
+      markConfigApplied(id)
       return snapshot(row)
     },
     async stop(id) {
@@ -381,6 +399,7 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       if (s !== "ACTIVE" && s !== "DEGRADED" && s !== "STOPPED") throw conflict(row, "restart")
       transition(row, "STARTING", "restart_requested", "Restart requested")
       schedule(row, [["ACTIVE", "active", "Health check passed"]])
+      markConfigApplied(id)
       return snapshot(row)
     },
     async remove(id) {
@@ -492,37 +511,33 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
     async saveProvider(id, input) {
       await wait()
       previewRow(id)
-      if (input.kind === "byok") {
-        if (!input.providerName) throw new ApiError(400, "validation_error", "Choose a provider")
-        const prev = providers.get(id)
-        if (!input.apiKey && !(prev?.kind === "byok" && prev.keyHint)) {
-          throw new ApiError(400, "validation_error", "Enter an API key")
-        }
-        if (input.baseUrl) {
-          let u: URL
-          try {
-            u = new URL(input.baseUrl)
-          } catch {
-            throw new ApiError(400, "validation_error", "Base URL must be a valid https URL")
-          }
-          if (u.protocol !== "https:") throw new ApiError(400, "validation_error", "Base URL must use https")
-        }
-      }
       const prev = providers.get(id)
+      if (input.kind === "byok") {
+        if (!input.apiKey) throw new ApiError(400, "validation_error", "Enter your API key")
+        if (!input.model || !MODEL_FORMAT.test(input.model)) {
+          throw new ApiError(400, "validation_error", "Enter the model name")
+        }
+        let u: URL
+        try {
+          u = new URL(input.baseUrl ?? "")
+        } catch {
+          throw new ApiError(400, "validation_error", "Base URL must be a valid https URL")
+        }
+        if (u.protocol !== "https:") throw new ApiError(400, "validation_error", "Base URL must use https")
+      }
+      const router = input.kind === "nibierouter"
       const next: ProviderConfig = {
-        id: prev?.id ?? uuid(),
+        id: prev?.id || uuid(),
+        configured: true,
         kind: input.kind,
-        providerName: input.kind === "byok" ? input.providerName ?? null : null,
-        baseUrl: input.kind === "byok" ? input.baseUrl || null : null,
-        keyHint:
-          input.kind === "byok"
-            ? input.apiKey
-              ? `…${input.apiKey.slice(-4)}`
-              : prev?.keyHint ?? null
-            : null,
+        providerName: router ? null : (input.providerName ?? "custom"),
+        baseUrl: router ? "https://router.nibie.app/v1" : (input.baseUrl ?? null),
+        model: router ? "nibierouter-free" : (input.model ?? null),
+        keyHint: router ? null : `…${input.apiKey!.slice(-4)}`,
         status: "untested",
         statusMessage: null,
-        updatedAt: iso(),
+        lastTestedAt: null,
+        restartRequired: true,
       }
       providers.set(id, next)
       return next
@@ -531,7 +546,7 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       await wait()
       await delay(latency > 0 ? 600 : 0)
       const prev = providers.get(id)!
-      const next: ProviderConfig = { ...prev, status: "connected", statusMessage: "Test request succeeded", updatedAt: iso() }
+      const next: ProviderConfig = { ...prev, status: "connected", statusMessage: null, lastTestedAt: iso() }
       providers.set(id, next)
       return next
     },
@@ -543,19 +558,21 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
     async saveTelegram(id, input) {
       await wait()
       previewRow(id)
-      const prev = telegrams.get(id)!
-      if (input.token !== undefined && input.token !== "" && !/^\d{6,12}:[A-Za-z0-9_-]{30,}$/.test(input.token)) {
+      if (!TELEGRAM_TOKEN_FORMAT.test(input.token)) {
         throw new ApiError(400, "validation_error", "That does not look like a BotFather token")
       }
-      if (!input.token && !prev.configured) throw new ApiError(400, "validation_error", "Enter your bot token")
+      if (input.allowlist.length === 0 || !input.allowlist.every((u) => TELEGRAM_USER_ID_FORMAT.test(u))) {
+        throw new ApiError(400, "validation_error", "Allowed users must be numeric Telegram user IDs")
+      }
       const next: TelegramConfig = {
         configured: true,
-        botUsername: input.token ? "your_hermes_bot" : prev.botUsername,
-        tokenHint: input.token ? `…${input.token.slice(-4)}` : prev.tokenHint,
-        mode: input.mode,
-        verified: input.token ? false : prev.verified,
-        allowlist: input.allowlist,
-        updatedAt: iso(),
+        botUsername: "your_hermes_bot",
+        tokenHint: `…${input.token.slice(-4)}`,
+        verified: false,
+        statusMessage: null,
+        allowlist: [...new Set(input.allowlist)],
+        verifiedAt: null,
+        restartRequired: true,
       }
       telegrams.set(id, next)
       return next
@@ -563,7 +580,7 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
     async verifyTelegram(id) {
       await wait()
       await delay(latency > 0 ? 600 : 0)
-      const next = { ...telegrams.get(id)!, verified: true, updatedAt: iso() }
+      const next = { ...telegrams.get(id)!, verified: true, statusMessage: null, verifiedAt: iso() }
       telegrams.set(id, next)
       return next
     },
@@ -573,10 +590,11 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
         configured: false,
         botUsername: null,
         tokenHint: null,
-        mode: "polling",
         verified: false,
+        statusMessage: null,
         allowlist: [],
-        updatedAt: iso(),
+        verifiedAt: null,
+        restartRequired: true,
       }
       telegrams.set(id, next)
       return next
