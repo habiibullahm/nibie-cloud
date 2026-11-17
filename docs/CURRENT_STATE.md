@@ -31,6 +31,8 @@ several still describe branches as "not committed" or billing as "OFF" that have
   so the Worker was built with `NEXT_PUBLIC_FREE_BETA_OPEN=true` and `NEXT_PUBLIC_API_URL`. **Not checked from outside:**
   `PAID_CHECKOUT_OPEN=false` (the plan list needs a signed-in user), the image tag on the VPS, an actual free sign-up taking a slot.
   Each landing view fetches `beta-slots` three times (one per component using the hook), harmless at 60 requests a minute per address.
+  **Supabase Auth "Confirm email" is on** (reported by the owner on 2026-11-17 from the Supabase dashboard; not read by an agent). The free-slot
+  path and the waiting list's reserved slot rely on it: both trust the email in the Supabase token.
   Known risks: fake accounts can take free slots; the slot check is not atomic (the total cap bounds it).
 - **Billing.** SumoPod is the gateway; a sandbox payment reached `PAID` and an `ACTIVE` instance (above). Production keys were reported installed and
   the webhook reported verified; **the real Rp 25.000 payment test has not been done**, so paid checkout stays closed.
