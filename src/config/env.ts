@@ -159,7 +159,14 @@ const schema = z.object({
   ),
   /** Domain of the synthetic address each tenant's NibieRouter user gets (the customer never signs in there). */
   NIBIEROUTER_USER_EMAIL_DOMAIN: z.preprocess(emptyToUndefined, z.string().max(100).regex(/^[a-z0-9.-]+\.[a-z]{2,}$/).default('cloud.nibie.app')),
+  /** Operator alerts to one Telegram chat (bot token and chat id together, or none: alerts are recorded but not delivered). */
+  OPS_TELEGRAM_BOT_TOKEN: z.preprocess(emptyToUndefined, z.string().regex(/^\d{6,}:[A-Za-z0-9_-]{30,}$/).optional()),
+  OPS_TELEGRAM_CHAT_ID: z.preprocess(emptyToUndefined, z.string().regex(/^-?\d{1,20}$/).optional()),
 }).superRefine((e, ctx) => {
+  // A half-filled alert channel would only fail when the first alert is due.
+  if ((e.OPS_TELEGRAM_BOT_TOKEN === undefined) !== (e.OPS_TELEGRAM_CHAT_ID === undefined)) {
+    ctx.addIssue({ code: 'custom', path: ['OPS_TELEGRAM_BOT_TOKEN'], message: 'OPS_TELEGRAM_BOT_TOKEN and OPS_TELEGRAM_CHAT_ID are set together or not at all' });
+  }
   // A half-filled router block would only fail when the first paid instance is created.
   if ((e.NIBIEROUTER_ADMIN_KEY === undefined) !== (e.NIBIEROUTER_DEFAULT_MODEL === undefined)) {
     ctx.addIssue({ code: 'custom', path: ['NIBIEROUTER_ADMIN_KEY'], message: 'NIBIEROUTER_ADMIN_KEY and NIBIEROUTER_DEFAULT_MODEL are set together or not at all' });
@@ -277,6 +284,8 @@ export interface Config {
   /** Lowercased, trimmed. Empty means nobody may use the admin API (fail closed). */
   adminEmails: string[];
   maxInstancesPerTenant: number;
+  /** Operator alerting. Absent or `telegram: null`: alerts are recorded but not delivered. `botToken` is a secret: never log it. */
+  ops?: { telegram: { botToken: string; chatId: string } | null };
   /** Null: no job queue, operations run inline in the request. */
   redisUrl: string | null;
   /** Null: secret routes answer 503 `secrets_unavailable`. */
@@ -330,6 +339,7 @@ export function loadConfig(env: NodeJS.ProcessEnv | Record<string, string | unde
       .map((s) => s.trim().toLowerCase())
       .filter((s) => s.length > 0),
     maxInstancesPerTenant: e.MAX_INSTANCES_PER_TENANT,
+    ops: { telegram: e.OPS_TELEGRAM_BOT_TOKEN && e.OPS_TELEGRAM_CHAT_ID ? { botToken: e.OPS_TELEGRAM_BOT_TOKEN, chatId: e.OPS_TELEGRAM_CHAT_ID } : null },
     redisUrl: e.REDIS_URL ?? null,
     secrets: e.SECRETS_KEK
       ? {

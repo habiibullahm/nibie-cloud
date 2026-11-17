@@ -30,6 +30,10 @@ import { createSumoPodClient } from './modules/billing/sumopod-client.js';
 import type { PaymentClient } from './modules/billing/payment-client.js';
 import { createMailer } from './modules/billing/mailer.js';
 import { Reconciler } from './modules/instances/reconciler.js';
+import { AlertScanner } from './modules/ops/alert-scanner.js';
+import { PrismaAlertStore } from './modules/ops/alert-store.js';
+import { Alerter } from './modules/ops/alerter.js';
+import { createTelegramSink } from './modules/ops/telegram-sink.js';
 import { DockerRuntimeManager } from './modules/runtime/docker-runtime-manager.js';
 import { assertDiskQuotaSupported } from './modules/runtime/disk-quota-check.js';
 import { DnsResolvConfError, ensureDnsResolvConf } from './modules/runtime/dns-resolv-conf.js';
@@ -143,6 +147,11 @@ const admin = customer
   ? { verify: customer.verify, prisma, audit: new AuditService({ prisma }), queue }
   : undefined;
 logger.info({ adminApi: admin !== undefined, adminEmails: config.adminEmails.length }, 'admin API');
+// Operator alerts: derived from state the platform already records, delivered to the owner's Telegram.
+const alertStore = new PrismaAlertStore(prisma);
+const alerter = new Alerter({ store: alertStore, logger, sink: config.ops?.telegram ? createTelegramSink(config.ops.telegram) : null });
+const alertScanner = new AlertScanner({ prisma, alerter, store: alertStore, logger, ...(queue ? { failedJobs: () => queue.listFailed() } : {}) });
+logger.info({ alertChannel: alerter.enabled }, 'operator alerts');
 // Dependency checks behind the loopback-only /readyz that the host watchdog polls.
 const readyRedis = config.redisUrl ? new Redis(config.redisUrl, { lazyConnect: true, maxRetriesPerRequest: 1, enableOfflineQueue: false }) : null;
 const readiness = {
@@ -164,6 +173,7 @@ if (config.redisUrl && queue) {
     reconcileAll: async () => {
       await reconciler.reconcileAll();
       await billingTick?.run();
+      await alertScanner.run();
     },
   };
   const scheduler = startScheduler({
@@ -175,8 +185,11 @@ if (config.redisUrl && queue) {
   const stopRec = reconciler.start(15_000);
   const billingTimer = billingTick ? setInterval(() => void billingTick.run(), 60_000) : null;
   billingTimer?.unref();
+  const alertTimer = setInterval(() => void alertScanner.run(), 60_000);
+  alertTimer.unref();
   stopReconciler = () => {
     if (billingTimer) clearInterval(billingTimer);
+    clearInterval(alertTimer);
     return stopRec();
   };
 }

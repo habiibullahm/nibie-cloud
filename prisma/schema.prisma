@@ -385,3 +385,28 @@ model AuditLog {
   @@index([actorEmail, createdAt])
   @@index([targetId, createdAt])
 }
+
+enum AlertSeverity {
+  CRITICAL
+  WARNING
+  INFO
+}
+
+/// An alert for the operator (the owner), kept so one condition is reported once and its recovery is reported once.
+/// `dedupeKey` names the condition (for example `instance-degraded:<instanceId>`); it holds ids and fixed codes only,
+/// never customer text or secrets. `resolvedAt` null means the condition is still open.
+model OperatorAlert {
+  id          String        @id @default(uuid()) @db.Uuid
+  dedupeKey   String        @unique
+  severity    AlertSeverity
+  title       String
+  detail      String        @default("")
+  firstSeenAt DateTime      @default(now()) @db.Timestamptz(3)
+  lastSeenAt  DateTime      @default(now()) @db.Timestamptz(3)
+  /// Null until a message was delivered; a failed delivery leaves it null so the next scan tries again.
+  lastSentAt  DateTime?     @db.Timestamptz(3)
+  sendCount   Int           @default(0)
+  resolvedAt  DateTime?     @db.Timestamptz(3)
+
+  @@index([resolvedAt])
+}
