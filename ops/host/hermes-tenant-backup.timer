@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily tenant volume backup (20:00 UTC, quiet hours in Indonesia)
+
+[Timer]
+OnCalendar=*-*-* 20:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target
