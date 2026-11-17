@@ -1,0 +1,8 @@
+[Unit]
+Description=Hermes Cloud: record RAM and CPU of tenant containers and the host
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/hermes-usage
+Nice=10
