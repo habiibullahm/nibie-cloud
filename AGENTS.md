@@ -4,18 +4,27 @@ Managed hosting for Hermes AI agents: one dedicated, isolated container plus one
 Product source of truth: `docs/prd.md`. **Not production-ready** (open gaps: `docs/architecture.md`,
 "Known gaps and deferred security work").
 
-Two separate packages, no pnpm workspace:
+Five standalone packages, no pnpm workspace; each has its own `package.json` and lockfile:
 
-| Package | Path | What it is |
-| --- | --- | --- |
-| Backend `hermes-cloud` | repo root (`src/`, `test/`, `prisma/`) | Fastify operator API + Docker runtime manager + reconciler (TypeScript, ESM) |
-| Dashboard `@hermes-cloud/web` | `apps/web/` | Next.js 16 customer dashboard preview (mock data by default); its own `package.json` and lockfile |
+| Package | Path | What it is | Details |
+| --- | --- | --- | --- |
+| Backend `hermes-cloud` | repo root (`src/`, `test/`, `prisma/`) | Fastify APIs + Docker runtime manager + reconciler (TypeScript, ESM) | this file, `docs/` |
+| Dashboard `@hermes-cloud/web` | `apps/web/` | Next.js 16 customer dashboard and admin panel (mock data by default) | `apps/web/README.md` |
+| Docs `@hermes-cloud/docs` | `apps/docs/` | Customer docs site (Fumadocs, Next.js 16, static export under `/docs`, Indonesian) | `apps/docs/README.md` |
+| Landing `@hermes-cloud/landing` | `apps/landing/` | Public landing page for `cloud.nibie.app` (static export, Cloudflare Worker, Indonesian, legal pages for Duitku KYC) | `apps/landing/README.md` |
+| E2E `@hermes-cloud/e2e` | `e2e/` | Playwright tests: T0 mock, T1 full stack, T2 production smoke | `e2e/README.md` |
+
+Next.js 16 (`apps/web`, `apps/docs`, `apps/landing`) differs from older versions: read the guide under that
+package's `node_modules/next/dist/docs/` before writing Next.js code. The `AGENTS.md` in each of those apps
+is written by `next dev`; leave it as generated.
 
 ## Working rules
 
 - Read first: this file, `docs/CURRENT_STATE.md`, then the doc index `docs/README.md`.
   Verify branch, commits and test results yourself. The repository and real tool output are the
   source of truth, never an older summary or conversation history.
+- Precedence: repository and real tool output > `docs/CURRENT_STATE.md` > every other document.
+  Files that `docs/README.md` lists under "Historical records" are not kept up to date.
 - Do not guess. If a fact is not in the repo or in tool output, say so and ask the owner.
 - Do not commit or push unless the owner asks. Keep unrelated changes out of a change set.
 - Before ending a task that changes behaviour or status, update `docs/CURRENT_STATE.md`
@@ -58,9 +67,24 @@ pnpm typecheck && pnpm lint && pnpm test    # also: pnpm build
 pnpm vitest run test/status.test.ts         # single file
 ```
 
-Last verified in a cloud sandbox on 2026-11-13 (milestone C branch on top of main `edb7d62`, uncommitted): backend `tsc` clean
-and `pnpm test` 676 passed, 2 skipped (56 files; unit and Docker/Postgres/Redis integration, stub image); dashboard
-`typecheck`, `lint` and 44/44 tests (earlier run).
+Other packages (run inside the package folder after `pnpm install`):
+
+```bash
+# apps/docs     pnpm dev -> http://localhost:3200/docs; checks: pnpm typecheck && pnpm lint
+# apps/landing  pnpm dev -> http://localhost:3300;      checks: pnpm typecheck && pnpm lint && pnpm test && pnpm build
+# e2e           pnpm build:t0 before pnpm test:t0;      checks: pnpm typecheck
+```
+
+Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
+
+## Deployment and host controls
+
+- `deploy/` (Compose, Caddy, Dockerfile for one VPS): read `deploy/README.md` for the order of work and
+  what was and was not verified on a real host.
+- Host addresses, contact emails and all secret values stay out of the repository; `.env.example` holds
+  names and placeholders only.
+- Egress rules (`ops/egress/`) and XFS volume quota: `docs/runbook-egress.md`, `docs/egress-host-notes.md`,
+  `docs/disk-quota-host-notes.md`.
 
 ## Architecture (the parts that span files)
 
@@ -104,9 +128,11 @@ and `pnpm test` 676 passed, 2 skipped (56 files; unit and Docker/Postgres/Redis 
   next start/restart (user or reconciler) recreate the container. Nothing under `src/http` may import
   `secrets/secret-store` (test-enforced). Control-plane calls to Telegram and provider URLs use `safeFetch`
   (https, no redirects, public pinned address). Secrets are purged only after `runtime.remove` succeeds.
-- **Billing** (`src/modules/billing`, `src/http/billing-routes.ts`, `src/http/duitku-callback.ts`): Duitku POP, only when
-  `DUITKU_MERCHANT_CODE`, `DUITKU_API_KEY` and `DUITKU_CALLBACK_URL` are set (`DUITKU_ENV` `sandbox` default; `production`
-  needs `NODE_ENV=production`). One `Subscription` per instance; the instance is created after the first verified payment.
+- **Billing** (`src/modules/billing`, `src/http/billing-routes.ts`, `src/http/sumopod-callback.ts`, `src/http/duitku-callback.ts`):
+  `BILLING_GATEWAY` picks `sumopod` (default), `duitku` or `both`. SumoPod is configured by `SUMOPOD_API_KEY`, `SUMOPOD_WEBHOOK_TOKEN` and
+  `SUMOPOD_CALLBACK_URL` (`SUMOPOD_ENV` `sandbox` default; details in `src/config/env.ts`); its webhook `POST /api/v1/billing/sumopod/webhook` is checked by that
+  token. Duitku POP needs `DUITKU_MERCHANT_CODE`, `DUITKU_API_KEY` and `DUITKU_CALLBACK_URL` (`DUITKU_ENV` `sandbox` default;
+  `production` needs `NODE_ENV=production`). One `Subscription` per instance; the instance is created after the first verified payment.
   The public callback (`POST /api/v1/billing/duitku/callback`) is authenticated by its HMAC signature only, checked before
   any database access, and is idempotent through `PaymentEvent`'s unique key. A billing tick (inside the locked maintenance
   job) handles reminders, 3-day grace, suspension (instance stopped, start answers `subscription_suspended`), 30-day

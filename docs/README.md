@@ -11,18 +11,21 @@ real tool output win, then CURRENT_STATE, then everything else.
 | [CURRENT_STATE.md](CURRENT_STATE.md) | Verified status: commits, what was tested and where, known issues, open decisions. |
 | [HANDOFF.md](HANDOFF.md) | Single-page handoff for a new person or session: architecture, repo map, deploy, env names, status per PR, working rules, prioritised to-do (2026-11-17). |
 | [START_PROMPT.md](START_PROMPT.md) | Paste-ready opening prompt (Indonesian) for a new session. |
-| [architecture.md](architecture.md) | What the backend builds today, the hardening table, the image contract, known gaps. |
+| [architecture.md](architecture.md) | What the backend builds today, the hardening table, the image contract, known gaps (refreshed 2026-11-18). |
+| [capacity.md](capacity.md) | Per-container RAM/CPU usage log and when the VPS must grow. |
 | [setup.md](setup.md) | Prerequisites, first run, commands, configuration variables, operator API usage. |
 | [milestone-2-runtime-security.md](milestone-2-runtime-security.md) | Milestone 2.2 runtime-security evidence. A partial reconstruction; each result is tagged re-run or reported. |
 | [disk-quota-host-notes.md](disk-quota-host-notes.md) | What was and was not verified about Docker volume quotas on a real host. |
-| [egress-host-notes.md](egress-host-notes.md) | What was and was not verified about the egress ruleset, bridge names and the canary. Nothing has seen tenant traffic yet. |
+| [egress-host-notes.md](egress-host-notes.md) | What was and was not verified about the egress ruleset, bridge names and the canary. Its "no tenant traffic yet" notes are superseded by the VPS checks in CURRENT_STATE. |
 | [runbook-egress.md](runbook-egress.md) | Operator runbook: check the rules, add an exception, what to do when the canary or `network_policy_missing` fails. |
 | [../deploy/README.md](../deploy/README.md) | Single-VPS production deployment (Compose, Caddy, XFS quota, egress): order of work, what was verified on a real host and what was not. |
 | [adr/](adr) | Architecture decision records: [0001](adr/0001-docker-direct-no-orchestrator.md), [0002](adr/0002-hardened-container-baseline.md), [0003](adr/0003-hermes-config-delivery.md). |
 
-Also outside `docs/`: [../AGENTS.md](../AGENTS.md) (agent instructions), [../DESIGN.md](../DESIGN.md)
-(design tokens and rules), [../design-preview.html](../design-preview.html) (specimen sheet for
-DESIGN.md), [../apps/web/README.md](../apps/web/README.md) (dashboard).
+Also outside `docs/`: [../AGENTS.md](../AGENTS.md) (agent instructions shared by every coding agent;
+`CLAUDE.md` only loads it), [../DESIGN.md](../DESIGN.md) (design tokens and rules),
+[../design-preview.html](../design-preview.html) (specimen sheet for DESIGN.md), and the package READMEs:
+[dashboard](../apps/web/README.md), [docs site](../apps/docs/README.md), [landing](../apps/landing/README.md),
+[e2e](../e2e/README.md).
 
 ## Historical records (do not update; kept for traceability)
 

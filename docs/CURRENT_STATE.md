@@ -1,10 +1,26 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-18 (anti-slop fixes on three branches, see the first section). Earlier entries below keep their own dates, and
+Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries below keep their own dates, and
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
-## Anti-slop fixes for dashboard, landing and docs (2026-11-18, three branches from `main` at `9922356`, not merged)
+## Docs refresh for the next handoff (2026-11-18, from `main` at `84a6dbe`, docs only)
+
+- **Agent instructions in one place.** `AGENTS.md` now lists all five packages with their commands, the document precedence,
+  the Next.js 16 note, deployment and host-control pointers; `CLAUDE.md` only loads it. The stale "last verified 2026-11-13" test
+  counts were removed from `AGENTS.md` (test results belong here). `apps/docs/AGENTS.md` and `apps/landing/AGENTS.md` are the block
+  `next dev` writes, committed as generated.
+- **Known gaps refreshed** (`architecture.md`): entries 1-5, 7-9, 9a, 9b and 12 now match what this file and HANDOFF.md section 7
+  record as verified on the VPS (XFS quota, egress rules, `runsc` with DNS, TLS through Caddy, SumoPod sandbox payment, DB backup and
+  restore drill, NibieRouter keys for free instances). Gaps still open for the security audit: no audit trail for customer
+  actions, the backend trusts the Supabase `email` claim without enforcing confirmation, one shared operator token, no `runsc` escape
+  testing, the egress rate cap is unmeasured.
+- **Root `README.md` and `docs/README.md`** describe the five packages and the free-beta status.
+- **Not verified:** whether the tenant volume backup timer (PR #39) runs on the VPS (`systemctl list-timers | grep hermes-tenant`).
+- **Billing paragraph in `AGENTS.md`** now names SumoPod as the default gateway (`BILLING_GATEWAY`), Duitku optional.
+- No code changed, so no tests were run.
+
+## Anti-slop fixes for dashboard, landing and docs (2026-11-18, merged as PRs #57, #58 and #59)
 
 Audit of the three apps in anti-slop mode AFTER; finding numbers are D (dashboard), L (landing), X (docs). One PR per branch.
 
