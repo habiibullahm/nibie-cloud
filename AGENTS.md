@@ -117,7 +117,8 @@ and `pnpm test` 676 passed, 2 skipped (56 files; unit and Docker/Postgres/Redis 
 - **NibieRouter provisioning** (`src/modules/nibierouter`): only when `NIBIEROUTER_ADMIN_KEY` and `NIBIEROUTER_DEFAULT_MODEL` are set
   (and `SECRETS_KEK`). After a paid instance is created, `RouterProvisioner` makes one router user per tenant, one key per instance
   (attached through `ProviderService.attachNibieRouter`, then the instance restarts) and, for a plan with `includedCreditNano`, a
-  one-time credit guarded by the unique `CreditGrant` row (the router has no idempotency). Rows live in `RouterProvisioning`, the
+  one-time credit guarded by the unique `CreditGrant` row (the router has no idempotency). Free-plan instances that are `ACTIVE` with
+  no provider get a key too (no credit), picked up by the billing tick's `runPending`. Rows live in `RouterProvisioning`, the
   billing tick retries them, and a failure never touches the payment. Not verified against the real router: see
   `docs/architecture.md`, "Known gaps" 9b, and run `test/validation/nibierouter-live.ts` first.
 - **Disk quota and egress** (`runtime/volume-quota.ts`, `runtime/egress-canary.ts`, `ops/egress/`):

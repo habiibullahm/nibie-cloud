@@ -49,7 +49,10 @@ export class RouterProvisioner {
     return this.run(input.instanceId);
   }
 
-  /** The tick's entry point: rows that were never created (a crash after the instance was linked) and rows still pending. */
+  /**
+   * The tick's entry point: rows that were never created (a crash after the instance was linked), free instances that
+   * have no provider yet, and rows still pending.
+   */
   async runPending(limit = 20): Promise<number> {
     const missing = await this.d.prisma.subscription.findMany({
       where: {
@@ -70,6 +73,7 @@ export class RouterProvisioner {
         }
       }
     }
+    await this.recordFreeInstances();
     const rows = await this.d.prisma.routerProvisioning.findMany({
       where: { status: 'PENDING', attempts: { lt: MAX_ATTEMPTS } },
       orderBy: { updatedAt: 'asc' },
@@ -78,6 +82,30 @@ export class RouterProvisioner {
     let done = 0;
     for (const r of rows) if ((await this.run(r.instanceId)) !== 'pending') done += 1;
     return done;
+  }
+
+  /**
+   * NibieRouter is the default provider for free beta instances too (owner decision, 2026-11-17). An instance on a plan
+   * without a price that is ACTIVE and has no provider gets a row (no subscription, so no credit); `run` then attaches a
+   * key with the default model and restarts it. Only ACTIVE ones: a restart is what applies the key, and an instance that
+   * is still provisioning would refuse it. A row is made once per instance, so a provider the customer removes later is
+   * not put back.
+   */
+  private async recordFreeInstances(): Promise<void> {
+    const free = await this.d.prisma.instance.findMany({
+      where: { status: 'ACTIVE', plan: { monthlyPriceIdr: null }, provider: { is: null } },
+      select: { id: true, tenantId: true },
+      take: 200,
+    });
+    if (free.length === 0) return;
+    const have = new Set(
+      (await this.d.prisma.routerProvisioning.findMany({ where: { instanceId: { in: free.map((f) => f.id) } }, select: { instanceId: true } })).map((r) => r.instanceId),
+    );
+    for (const f of free) {
+      if (!have.has(f.id)) {
+        await this.d.prisma.routerProvisioning.create({ data: { instanceId: f.id, tenantId: f.tenantId, subscriptionId: null } }).catch(() => undefined);
+      }
+    }
   }
 
   async run(instanceId: string): Promise<RunOutcome> {

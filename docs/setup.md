@@ -301,6 +301,13 @@ customer never signs in there), (b) creates one API key per instance and attache
 stays `PENDING` with a short code (`router_unreachable`, `router_rejected`, `router_unexpected`, `orphan_key`) and the
 billing tick retries every 5 minutes, up to 24 attempts.
 
+**Free beta instances get it too** (owner decision, 2026-11-17: NibieRouter is the default provider). The same tick finds
+instances on a plan without a price that are `ACTIVE` and have no provider, records a row without a subscription and runs
+(a) and (b) with `NIBIEROUTER_DEFAULT_MODEL`; there is no credit, because there is no payment. So a new free instance has
+its key and is restarted within about 5 minutes of becoming `ACTIVE`. A provider the customer set is never replaced, and
+a row is made once per instance, so a provider removed later is not put back. This needs the billing tick, so a gateway
+must be configured; the default model must be one a router user with no balance can call, or free agents get errors.
+
 - **Turn it on:** put `NIBIEROUTER_ADMIN_KEY` and `NIBIEROUTER_DEFAULT_MODEL` in the backend environment on the host
   (the admin key is created in the NibieRouter admin dashboard, kept in the password
   manager). Without them nothing changes. `SECRETS_KEK` must be set too.
