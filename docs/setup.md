@@ -312,3 +312,24 @@ billing tick retries every 5 minutes, up to 24 attempts.
   second grant.
 - **Not covered yet:** instances created through the beta path (no payment) get no router key; usage is not shown in the
   dashboard; a customer who already has their own provider keeps it (the credit is still granted to their router user).
+
+## Operator setup of one instance (provider and Telegram, before the dashboard form is wired)
+
+`scripts/setup-instance-integrations.ts` sets an instance's AI provider and Telegram bot through the same services the
+customer API uses, then restarts the instance. Use it only while the dashboard Configuration page is not connected to
+those routes. Secrets travel in environment variables of a root-only file, never in arguments or in the chat.
+
+1. On the VPS create `/etc/hermes-cloud/instance-setup.env` (mode 600, owner root) with these names, no quotes, no spaces:
+   `SETUP_INSTANCE_NAME`, `SETUP_PROVIDER_BASE_URL`, `SETUP_PROVIDER_MODEL`, `SETUP_PROVIDER_API_KEY`,
+   `SETUP_TELEGRAM_TOKEN`, `SETUP_TELEGRAM_USER_IDS` (comma-separated numeric ids). An empty provider key or Telegram
+   token skips that section.
+2. Run it inside the backend image (same database and `SECRETS_KEK` as production):
+
+   ```bash
+   sudo bash -c 'set -a; . /etc/hermes-cloud/instance-setup.env; set +a
+   docker compose --env-file /etc/hermes-cloud/backend.env -f /opt/hermes-cloud/deploy/compose.prod.yaml run --rm --no-deps      -v /opt/hermes-cloud/scripts:/app/scripts:ro      -e SETUP_INSTANCE_NAME -e SETUP_PROVIDER_BASE_URL -e SETUP_PROVIDER_MODEL -e SETUP_PROVIDER_API_KEY      -e SETUP_TELEGRAM_TOKEN -e SETUP_TELEGRAM_USER_IDS      backend node_modules/.bin/tsx scripts/setup-instance-integrations.ts'
+   ```
+3. Delete the file afterwards: `sudo shred -u /etc/hermes-cloud/instance-setup.env`.
+
+It prints the instance id, the provider test result and the Telegram verification result (the bot sends one test message to
+the first allowed user), never a secret. `SETUP_NO_RESTART=1` skips the restart.
