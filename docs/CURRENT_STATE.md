@@ -7,14 +7,30 @@ several still describe branches as "not committed" or billing as "OFF" that have
 ## Latest status (2026-11-17, read from `origin/main` at `1584e35` and the GitHub PR list)
 
 - **Git.** `main` contains PRs #22 to #50 (merged: #49 and #50 at 05:15 UTC). One PR is open: **#51, automatic waiting list**
-  (`WaitlistEntry`, `POST /api/v1/public/waitlist`, inviter in the maintenance tick, read-only admin page); it was stacked on #49 and #50, GitHub
-  reports conflicts, it is not deployed and needs the owner's approval before merge. Status per PR: [HANDOFF.md](HANDOFF.md), section 6.
+  (`WaitlistEntry`, `POST /api/v1/public/waitlist`, inviter in the maintenance tick, read-only admin page). Re-checked later on 2026-11-17: its
+  branch already holds a merge of `main` at `1584e35` (head `701fc66`); `main` has changed only in `docs/` since, GitHub reports it `MERGEABLE`
+  / `CLEAN`, CI 5 passed and 2 skipped. Run locally on Windows against its head: backend `tsc` clean, unit tests 507 passed and 2 failed (both in
+  `test/unit/egress-canary.test.ts`, which fails the same way on `main` on this workstation and is untouched by the PR), integration tests on a
+  local Postgres `hermes_test` (waitlist 28, api and customer-api 31, admin and billing 101, all passed), landing typecheck, lint, 47 tests and
+  build, dashboard typecheck, lint and 116 tests. It is not deployed and needs the owner's approval before merge. It also fixes two things
+  seen on production: the public rate limit is keyed on `req.ip`, which is `127.0.0.1` for every visitor because Caddy and the backend both use
+  host networking (one shared bucket of 60 a minute), and the landing fetches the counter three times per view.
+  Status per PR: [HANDOFF.md](HANDOFF.md), section 6.
 - **Free beta (PRs #46 to #50).** The unpriced plan is listed only to invited accounts (`BETA_ALLOWED_EMAILS`) unless `FREE_BETA_SLOTS` is above 0, in
   which case any signed-in user may create one free instance, first come first served; a full beta answers 409 `beta_full`. `GET
   /api/v1/public/beta-slots` returns `{ total, remaining }` for the landing counter. `PAID_CHECKOUT_OPEN=false` hides the priced plans and refuses
   checkout for everyone but invited accounts. `MAX_TOTAL_INSTANCES` (20 on the VPS) caps the whole server. The landing page has a "Daftar beta gratis"
   mode (`NEXT_PUBLIC_FREE_BETA_OPEN`, `NEXT_PUBLIC_API_URL`; rebuild needed).
-  **Deployment of #49 and #50 and the live landing mode were reported by the go-live work on 2026-11-17 and were not re-checked from this repository.**
+  **Checked from the internet on 2026-11-17 (later the same day, from a workstation, real command output):** `GET
+  https://api.cloud.nibie.app/api/v1/public/beta-slots` answers 200 `{"total":10,"remaining":10}` with `cache-control: public, max-age=15`
+  and `access-control-allow-origin: https://cloud.nibie.app` for that origin, so the backend runs #49 with `FREE_BETA_SLOTS=10`.
+  `POST /api/v1/public/waitlist` answers 404 (PR #51 is not deployed), operator routes 404, `/api/v1/plans` 401 without a token,
+  `/healthz` 200. The landing page `https://cloud.nibie.app/` was rendered in headless Chromium at 1440 and 390 px: badge "Beta gratis ·
+  sisa 10 slot", buttons "Daftar beta gratis" linking to `/dashboard/register` (200), line "Sisa 10 dari 10 slot gratis, siapa cepat dia
+  dapat.", three 200 responses from `beta-slots`, no console errors, no horizontal overflow; the bundle holds `https://api.cloud.nibie.app`,
+  so the Worker was built with `NEXT_PUBLIC_FREE_BETA_OPEN=true` and `NEXT_PUBLIC_API_URL`. **Not checked from outside:**
+  `PAID_CHECKOUT_OPEN=false` (the plan list needs a signed-in user), the image tag on the VPS, an actual free sign-up taking a slot.
+  Each landing view fetches `beta-slots` three times (one per component using the hook), harmless at 60 requests a minute per address.
   Known risks: fake accounts can take free slots; the slot check is not atomic (the total cap bounds it).
 - **Billing.** SumoPod is the gateway; a sandbox payment reached `PAID` and an `ACTIVE` instance (above). Production keys were reported installed and
   the webhook reported verified; **the real Rp 25.000 payment test has not been done**, so paid checkout stays closed.
