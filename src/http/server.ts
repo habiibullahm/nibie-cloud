@@ -51,10 +51,11 @@ export function buildServer(deps: {
   const commands = deps.commands ?? new InstanceCommands({ service, queue: null, logger });
   const app = Fastify({ loggerInstance: logger as unknown as FastifyBaseLogger });
 
-  // Bearer tokens only (no cookies), so the allowlist is the dashboard's exact origin and nothing else.
-  if (config.dashboardOrigin) {
+  // Bearer tokens only (no cookies). Production allows only the dashboard origin; CORS_EXTRA_ORIGINS adds local dev origins.
+  const origins = [...(config.dashboardOrigin ? [config.dashboardOrigin] : []), ...(config.corsExtraOrigins ?? [])];
+  if (origins.length > 0) {
     app.register(cors, {
-      origin: [config.dashboardOrigin],
+      origin: origins,
       credentials: false,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['authorization', 'content-type', 'idempotency-key'],

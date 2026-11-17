@@ -58,6 +58,7 @@ export function DeployForm() {
     }
     create.mutate(
       { input: { name: name.trim(), planId: plan.id }, idempotencyKey },
+      // The overview shows provisioning live; its Health card then points to the next step, connecting Telegram.
       { onSuccess: (instance) => router.push(`/instances/${instance.id}`) }
     )
   }
@@ -131,6 +132,18 @@ export function DeployForm() {
             </SectionTitle>
             {!plans.data ? (
               <QueryFallback what="plans" queries={[plans]} className="h-40" />
+            ) : plans.data.length === 0 ? (
+              <Alert>
+                <Info aria-hidden="true" />
+                <AlertTitle>No plan is open for your account</AlertTitle>
+                <AlertDescription>
+                  All free beta slots are taken right now. Join the waiting list on{" "}
+                  <a href="https://cloud.nibie.app" className="text-foreground underline underline-offset-4">
+                    cloud.nibie.app
+                  </a>{" "}
+                  and we will email you when a slot opens.
+                </AlertDescription>
+              </Alert>
             ) : (
               <RadioGroup value={plan?.id} onValueChange={setPlanId} aria-label="Plan" className="grid gap-3 md:grid-cols-3">
                 {plans.data?.map((p) => (
@@ -219,15 +232,17 @@ export function DeployForm() {
                 : []),
             ]}
           />
-          <Alert>
-            <Info aria-hidden="true" />
-            <AlertTitle>{priced ? "Pay with Duitku" : "No payment for this plan"}</AlertTitle>
-            <AlertDescription>
-              {priced
-                ? "You pay by virtual account or QRIS on the Duitku page. Your instance is created after the payment is confirmed, usually within a minute."
-                : "This plan has no price yet, so deploying skips payment and starts provisioning directly."}
-            </AlertDescription>
-          </Alert>
+          {plan ? (
+            <Alert>
+              <Info aria-hidden="true" />
+              <AlertTitle>{priced ? "Pay with Duitku" : "No payment for this plan"}</AlertTitle>
+              <AlertDescription>
+                {priced
+                  ? "You pay by virtual account or QRIS on the Duitku page. Your instance is created after the payment is confirmed, usually within a minute."
+                  : "This plan has no price yet, so deploying skips payment and starts provisioning directly."}
+              </AlertDescription>
+            </Alert>
+          ) : null}
           {failure ? (
             <Alert variant="destructive" role="alert">
               <AlertTitle>{priced ? "Could not start the payment" : "Deployment failed"}</AlertTitle>

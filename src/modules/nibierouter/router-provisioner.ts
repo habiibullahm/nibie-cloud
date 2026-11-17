@@ -85,27 +85,50 @@ export class RouterProvisioner {
   }
 
   /**
+   * Fast path for free instances that just became ACTIVE, meant for every maintenance run (15 s) rather than the 5-minute
+   * billing tick, so a new free agent has its key within seconds. Each new row is tried once here; a failure stays PENDING
+   * and is retried by `runPending` at the slower pace, so a router outage does not use up the attempts. Never throws.
+   */
+  async runNewFree(): Promise<number> {
+    let created: string[];
+    try {
+      created = await this.recordFreeInstances();
+    } catch (e) {
+      this.d.logger.error({ errName: (e as Error).name }, 'free instances could not be listed for router provisioning');
+      return 0;
+    }
+    let done = 0;
+    for (const id of created) if ((await this.run(id)) !== 'pending') done += 1;
+    return done;
+  }
+
+  /**
    * NibieRouter is the default provider for free beta instances too (owner decision, 2026-11-17). An instance on a plan
    * without a price that is ACTIVE and has no provider gets a row (no subscription, so no credit); `run` then attaches a
    * key with the default model and restarts it. Only ACTIVE ones: a restart is what applies the key, and an instance that
    * is still provisioning would refuse it. A row is made once per instance, so a provider the customer removes later is
-   * not put back.
+   * not put back. Returns the instance ids that got a new row.
    */
-  private async recordFreeInstances(): Promise<void> {
+  private async recordFreeInstances(): Promise<string[]> {
     const free = await this.d.prisma.instance.findMany({
       where: { status: 'ACTIVE', plan: { monthlyPriceIdr: null }, provider: { is: null } },
       select: { id: true, tenantId: true },
       take: 200,
     });
-    if (free.length === 0) return;
+    if (free.length === 0) return [];
     const have = new Set(
       (await this.d.prisma.routerProvisioning.findMany({ where: { instanceId: { in: free.map((f) => f.id) } }, select: { instanceId: true } })).map((r) => r.instanceId),
     );
+    const created: string[] = [];
     for (const f of free) {
       if (!have.has(f.id)) {
-        await this.d.prisma.routerProvisioning.create({ data: { instanceId: f.id, tenantId: f.tenantId, subscriptionId: null } }).catch(() => undefined);
+        const ok = await this.d.prisma.routerProvisioning
+          .create({ data: { instanceId: f.id, tenantId: f.tenantId, subscriptionId: null } })
+          .then(() => true, () => false);
+        if (ok) created.push(f.id);
       }
     }
+    return created;
   }
 
   async run(instanceId: string): Promise<RunOutcome> {

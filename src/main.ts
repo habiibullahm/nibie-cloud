@@ -175,9 +175,11 @@ if (config.redisUrl && queue) {
   // Returns at once: if Redis is down at boot the API still starts, the schedule registers when Redis
   // returns, and until then this process reconciles on its own timer.
   // The billing tick rides on the same locked maintenance run (it throttles itself to once per 5 minutes).
+  // New free instances get their NibieRouter key on every run, so they do not wait for the billing tick.
   const maintenance = {
     reconcileAll: async () => {
       await reconciler.reconcileAll();
+      await router?.runNewFree();
       await billingTick?.run();
       await waitlistInviter?.run();
       await alertScanner.run();
@@ -196,7 +198,10 @@ if (config.redisUrl && queue) {
   waitlistTimer?.unref();
   const alertTimer = setInterval(() => void alertScanner.run(), 60_000);
   alertTimer.unref();
+  const routerTimer = router ? setInterval(() => void router.runNewFree(), 15_000) : null;
+  routerTimer?.unref();
   stopReconciler = () => {
+    if (routerTimer) clearInterval(routerTimer);
     if (billingTimer) clearInterval(billingTimer);
     if (waitlistTimer) clearInterval(waitlistTimer);
     clearInterval(alertTimer);

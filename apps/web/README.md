@@ -97,7 +97,8 @@ Written down so each choice has a reason (antislop R-31, R-37). The full review 
 ## Layout
 
 ```
-src/app/(auth)/            sign-in, register, set-password, auth/confirm (email link landing; real when Supabase is configured)
+src/app/(auth)/            sign-in, register (email code + Google + Turnstile), set-password, auth/confirm (email link
+                           landing for invites and resets), auth/callback (Google return); real when Supabase is configured
 src/app/(app)/instances/   list, and [id]/ with overview, access, monitor, logs, configuration,
                            files, console, backups, billing (Upgrade & Renew), domain
 src/app/(app)/deploy/      deployment page (PRD §4.2)
@@ -126,6 +127,28 @@ Workers Builds settings, or your shell for `cf:deploy`). Set `NEXT_PUBLIC_SUPABA
 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`; the publishable key is public, never use a secret key.
 The Worker must be routed to `cloud.nibie.app/dashboard*` (Workers & Pages, the Worker, Settings,
 Domains & Routes). Verified locally with `wrangler dev`; not yet deployed to a real account.
+
+## Sign-up and sign-in
+
+With the Supabase variables set, `src/app/(auth)/auth-card.tsx` is real:
+
+- **Email.** Register sends Supabase's "Confirm signup" email; the person types the code from it and `verifyOtp` signs
+  them in, then `/deploy`. The field takes exactly `NEXT_PUBLIC_EMAIL_CODE_LENGTH` digits (default 6), which must match
+  the project's "Email OTP length" in Supabase. Signing in with an email
+  that was never confirmed opens the same code step. "Send a new code" waits 60 seconds. The email template must contain
+  `{{ .Token }}`. Error texts come from `src/lib/auth/signup.ts`, never from Supabase's own wording.
+- **Google.** `signInWithOAuth` with PKCE returns to `/dashboard/auth/callback`, which exchanges the code and opens
+  `/deploy` for an account created in the last two minutes, `/instances` otherwise. Supabase's Redirect URLs must allow
+  `https://cloud.nibie.app/**` and, for local work, `http://localhost:3500/**`. On register the terms box (first on the
+  card) must be ticked before either button works.
+- **Turnstile.** With `NEXT_PUBLIC_TURNSTILE_SITE_KEY` every email call carries a token
+  (`src/components/auth/turnstile.tsx`, no npm package). Supabase enforces it only after "Enable Captcha protection" is
+  switched on there; do that after this dashboard is live, or every older client is refused.
+
+After a deploy the dashboard opens the instance overview, where provisioning is shown live. NibieRouter is attached by
+the backend within about 30 seconds (the AI provider tab says so and refreshes by itself), so the bot token is the one
+thing left to add: "Connect Telegram" is the overview's primary button until a bot is set, and Telegram is the first
+Configuration tab.
 
 ## Customer API mode
 

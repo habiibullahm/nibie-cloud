@@ -6,6 +6,7 @@ const DIGEST_PINNED = /^[^\s@]+@sha256:[0-9a-f]{64}$/;
 
 /** An unset variable and an empty one (`VAR=` in a .env file) both mean "not configured". */
 const emptyToUndefined = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? undefined : v);
+const splitList = (v: string): string[] => v.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
 
 function parseOrigin(v: string, opts: { httpsOnly: boolean; allowTrailingSlash: boolean }): string | null {
   const raw = opts.allowTrailingSlash ? v.replace(/\/$/, '') : v;
@@ -83,6 +84,11 @@ const schema = z.object({
   SUPABASE_URL: supabaseUrl,
   /** Exact browser origin of the dashboard (no path). Unset sends no CORS headers. */
   DASHBOARD_ORIGIN: dashboardOrigin,
+  /**
+   * Development only: more exact origins (comma-separated, no path) that get CORS, e.g. the landing page on another local
+   * port. Refused when NODE_ENV=production, where the landing and the dashboard share one origin.
+   */
+  CORS_EXTRA_ORIGINS: z.preprocess(emptyToUndefined, z.string().optional()),
   /** Comma-separated emails allowed to create instances until payments exist. Empty: nobody. */
   BETA_ALLOWED_EMAILS: z.string().optional(),
   /**
@@ -199,6 +205,13 @@ const schema = z.object({
   if (e.SECRETS_KEK_PREVIOUS && (e.SECRETS_KEK_PREVIOUS_VERSION === undefined || e.SECRETS_KEK_PREVIOUS_VERSION === (e.SECRETS_KEK_VERSION ?? 1))) {
     ctx.addIssue({ code: 'custom', path: ['SECRETS_KEK_PREVIOUS_VERSION'], message: 'required and must differ from SECRETS_KEK_VERSION' });
   }
+  if (e.CORS_EXTRA_ORIGINS !== undefined) {
+    if (e.NODE_ENV === 'production') {
+      ctx.addIssue({ code: 'custom', path: ['CORS_EXTRA_ORIGINS'], message: 'is for development only and must be unset in production' });
+    } else if (splitList(e.CORS_EXTRA_ORIGINS).some((o) => parseOrigin(o, { httpsOnly: false, allowTrailingSlash: false }) === null)) {
+      ctx.addIssue({ code: 'custom', path: ['CORS_EXTRA_ORIGINS'], message: 'must be comma-separated origins without a path' });
+    }
+  }
   // A half-filled mail block would only fail later, when the first email is sent.
   const mailKeys = ['SUMOPOD_SMTP_HOST', 'SUMOPOD_SMTP_PORT', 'SUMOPOD_SMTP_USER', 'SUMOPOD_SMTP_PASS', 'MAIL_FROM'] as const;
   if (mailKeys.some((k) => e[k] !== undefined)) {
@@ -285,6 +298,8 @@ export interface Config {
   /** Origin without a trailing slash, or null when the customer API is disabled. */
   supabaseUrl: string | null;
   dashboardOrigin: string | null;
+  /** Development only (never set in production): more origins that get CORS. Absent or empty: none. */
+  corsExtraOrigins?: string[];
   /** Lowercased, trimmed. Empty means nobody may provision (fail closed). */
   betaAllowedEmails: string[];
   /** Lowercased, trimmed. Empty means nobody may use the admin API (fail closed). */
@@ -342,6 +357,7 @@ export function loadConfig(env: NodeJS.ProcessEnv | Record<string, string | unde
     dnsResolvers: (e.HERMES_DNS_RESOLVERS ?? '').split(/[,\s]+/).map((s) => s.trim()).filter((s) => s.length > 0),
     supabaseUrl: e.SUPABASE_URL ? e.SUPABASE_URL.replace(/\/$/, '') : null,
     dashboardOrigin: e.DASHBOARD_ORIGIN ?? null,
+    corsExtraOrigins: e.CORS_EXTRA_ORIGINS ? splitList(e.CORS_EXTRA_ORIGINS) : [],
     betaAllowedEmails: (e.BETA_ALLOWED_EMAILS ?? '')
       .split(',')
       .map((s) => s.trim().toLowerCase())

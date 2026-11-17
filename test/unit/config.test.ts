@@ -206,6 +206,14 @@ describe('loadConfig: customer API settings', () => {
     expect(message).not.toContain('secret-project-ref');
   });
 
+  it('CORS_EXTRA_ORIGINS: a list of bare origins in development, refused with a path or in production', () => {
+    expect(loadConfig({ ...base }).corsExtraOrigins).toEqual([]);
+    expect(loadConfig({ ...base, CORS_EXTRA_ORIGINS: ' http://localhost:3300 , http://127.0.0.1:3300 ' }).corsExtraOrigins)
+      .toEqual(['http://localhost:3300', 'http://127.0.0.1:3300']);
+    expect(() => loadConfig({ ...base, CORS_EXTRA_ORIGINS: 'http://localhost:3300/landing' })).toThrow('CORS_EXTRA_ORIGINS');
+    expect(() => loadConfig({ ...base, NODE_ENV: 'production', CORS_EXTRA_ORIGINS: 'http://localhost:3300' })).toThrow('CORS_EXTRA_ORIGINS');
+  });
+
   it('accepts a bare origin for DASHBOARD_ORIGIN and rejects a path', () => {
     expect(loadConfig({ ...base, DASHBOARD_ORIGIN: 'https://cloud.nibie.app' }).dashboardOrigin).toBe('https://cloud.nibie.app');
     expect(() => loadConfig({ ...base, DASHBOARD_ORIGIN: 'https://cloud.nibie.app/dashboard' })).toThrow('DASHBOARD_ORIGIN');

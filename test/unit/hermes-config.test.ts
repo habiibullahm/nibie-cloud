@@ -8,7 +8,17 @@ const model = { default: 'gpt-x', baseUrl: 'https://llm.example.com/v1', keyEnv:
 describe('applyModelBlock', () => {
   it('creates a minimal file when none exists', () => {
     const out = applyModelBlock(null, model)!;
-    expect(parse(out)).toEqual({ model: { default: 'gpt-x', provider: 'custom', base_url: 'https://llm.example.com/v1', key_env: 'HERMES_PROVIDER_API_KEY' } });
+    expect(parse(out)).toEqual({
+      model: { default: 'gpt-x', provider: 'custom', base_url: 'https://llm.example.com/v1', key_env: 'HERMES_PROVIDER_API_KEY' },
+      sessions: { auto_prune: true },
+    });
+  });
+
+  it('answers the auto-prune question once and never overrides a choice already in the file', () => {
+    expect(parse(applyModelBlock('terminal:\n  backend: local\n', null)!)).toEqual({ terminal: { backend: 'local' }, sessions: { auto_prune: true } });
+    expect(parse(applyModelBlock('sessions:\n  keep_days: 30\n', null)!).sessions).toEqual({ keep_days: 30, auto_prune: true });
+    expect(applyModelBlock('sessions:\n  auto_prune: false\n', null)).toBeNull();
+    expect(applyModelBlock('sessions: off\n', null)).toBeNull();
   });
 
   it('writes nothing when there is no file and no model', () => {
@@ -39,8 +49,8 @@ describe('applyModelBlock', () => {
   it('removes only a block it manages when the provider is removed', () => {
     const managed = applyModelBlock('terminal:\n  backend: local\n', model)!;
     const out = applyModelBlock(managed, null)!;
-    expect(parse(out)).toEqual({ terminal: { backend: 'local' } });
-    const customers = 'model:\n  default: mine\n  provider: custom\n  base_url: https://mine.example/v1\n  key_env: MY_OWN_KEY\n';
+    expect(parse(out)).toEqual({ terminal: { backend: 'local' }, sessions: { auto_prune: true } });
+    const customers = 'model:\n  default: mine\n  provider: custom\n  base_url: https://mine.example/v1\n  key_env: MY_OWN_KEY\nsessions:\n  auto_prune: false\n';
     expect(applyModelBlock(customers, null)).toBeNull();
   });
 

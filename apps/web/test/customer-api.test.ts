@@ -17,7 +17,10 @@ function setup(token: string | null = "tok") {
   return { api, fetchMock }
 }
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
 
 describe("customer API client", () => {
   it("sends the Supabase token as a bearer header to /api/v1", async () => {
@@ -56,6 +59,26 @@ describe("customer API client", () => {
     const err = await api.instances.create({ name: "a", planId: ID }, "k").catch((e) => e)
     expect(err).toBeInstanceOf(ApiError)
     expect(err).toMatchObject({ status: 403, code: "provisioning_not_enabled" })
+  })
+
+  it("turns a request that got no answer (down, unreachable, CORS) into network_error naming the API host", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {})
+    const { api, fetchMock } = setup("secret-token")
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"))
+    const err = await api.instances.list().catch((e) => e)
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err).toMatchObject({ status: 0, code: "network_error" })
+    expect(err.message).toContain("api.example.test")
+    // The log names the call, never the token.
+    expect(log).toHaveBeenCalledWith("[nibie-api] GET /instances failed: 0 network_error")
+    expect(JSON.stringify(log.mock.calls)).not.toContain("secret-token")
+  })
+
+  it("treats a 2xx answer that is not JSON as invalid_response instead of crashing the page", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {})
+    const { api, fetchMock } = setup()
+    fetchMock.mockResolvedValue(new Response("<html>proxy page</html>", { status: 200 }))
+    await expect(api.instances.list()).rejects.toMatchObject({ code: "invalid_response" })
   })
 
   it("reads plans from the API without inventing backups or domain flags", async () => {

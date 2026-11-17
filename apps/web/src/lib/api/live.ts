@@ -6,22 +6,48 @@ const BASE = (process.env.NEXT_PUBLIC_BASE_PATH ?? "") + "/api/hermes"
 /** One JSON request against a base URL; `headers` is awaited so a caller can add a fresh token. */
 export type Call = <T>(path: string, init?: RequestInit) => Promise<T>
 
+/** Host of the API base, for messages; the base itself when it is not an absolute URL (the dev bridge). */
+function hostOf(base: string): string {
+  try {
+    return new URL(base).host
+  } catch {
+    return base
+  }
+}
+
+/** Logs what failed (method, path, status, code; never headers or bodies) so a support question has something to go on. */
+function fail(err: ApiError, method: string, path: string): ApiError {
+  console.error(`[nibie-api] ${method} ${path} failed: ${err.status} ${err.code}`)
+  return err
+}
+
 export function makeCall(base: string, extraHeaders?: () => Promise<Record<string, string>>): Call {
   return async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
-    const res = await fetch(base + path, {
-      ...init,
-      headers: { accept: "application/json", ...((await extraHeaders?.()) ?? {}), ...(init.headers ?? {}) },
-      cache: "no-store",
-    })
+    const method = (init.method ?? "GET").toUpperCase()
+    const headers = { accept: "application/json", ...((await extraHeaders?.()) ?? {}), ...(init.headers ?? {}) }
+    let res: Response
+    try {
+      res = await fetch(base + path, { ...init, headers, cache: "no-store" })
+    } catch {
+      // No answer at all: the API is down, unreachable, or refused this page's origin (CORS).
+      throw fail(
+        new ApiError(0, "network_error", `Could not reach the API at ${hostOf(base)}. Check your connection and try again.`),
+        method,
+        path
+      )
+    }
     const data = (await res.json().catch(() => null)) as
       | (T & { error?: { code: string; message: string } })
       | null
     if (!res.ok) {
-      throw new ApiError(
-        res.status,
-        data?.error?.code ?? "http_error",
-        data?.error?.message ?? `Request failed (${res.status})`
+      throw fail(
+        new ApiError(res.status, data?.error?.code ?? "http_error", data?.error?.message ?? `Request failed (${res.status})`),
+        method,
+        path
       )
+    }
+    if (data === null && res.status !== 204) {
+      throw fail(new ApiError(res.status, "invalid_response", "The API sent an unexpected answer. Try again."), method, path)
     }
     return data as T
   }

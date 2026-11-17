@@ -60,6 +60,13 @@ without a number. Both variables are
 inlined at build time, so a rebuild is needed in both directions. Without `NEXT_PUBLIC_FREE_BETA_OPEN`, the closed copy and the
 access-request email are shown as before. The number of free slots itself is the backend setting `FREE_BETA_SLOTS`.
 
+## Dashboard address: `NEXT_PUBLIC_DASHBOARD_URL`
+
+The "Daftar" and "Masuk" links go to `/dashboard/register` and `/dashboard/sign-in` on the same origin, which is right in
+production. For local development, where the dashboard runs on its own port, set `NEXT_PUBLIC_DASHBOARD_URL=http://localhost:3500/dashboard`
+(`dashboardBase` in `src/lib/site.ts`; anything that is not an http(s) URL falls back to `/dashboard`). The local backend then
+also needs `CORS_EXTRA_ORIGINS=http://localhost:3300` for the counter (`docs/setup.md`).
+
 ## Deploy: Cloudflare Worker `nibie-cloud-landing`
 
 Static assets only (`wrangler.jsonc`, no `main`). The Worker name in the dashboard must equal `name` there.

@@ -1,6 +1,20 @@
 import { describe, expect, it } from "vitest"
 import { BETA_USERS, PLANS, discountPercent, formatIdr } from "@/lib/plans"
-import { ACCESS_REQUEST_BODY, betaAccessHref, betaSlotsUrl, freeBetaOpen, parseBetaSlots, contactEmail, ctaHref, signupOpen, SITE } from "@/lib/site"
+import { ACCESS_REQUEST_BODY, betaAccessHref, betaSlotsUrl, dashboardBase, freeBetaOpen, parseBetaSlots, contactEmail, ctaHref, signupOpen, SITE } from "@/lib/site"
+
+describe("dashboardBase", () => {
+  it("stays relative by default, as in production", () => {
+    expect(dashboardBase(undefined)).toBe("/dashboard")
+    expect(SITE.signInUrl).toBe("/dashboard/sign-in")
+  })
+  it("takes an absolute http(s) URL for local development, without a trailing slash", () => {
+    expect(dashboardBase("http://localhost:3500/dashboard/")).toBe("http://localhost:3500/dashboard")
+    expect(dashboardBase(" https://cloud.nibie.app/dashboard ")).toBe("https://cloud.nibie.app/dashboard")
+  })
+  it.each(["", "   ", "/dashboard", "javascript:alert(1)", "ftp://x/dashboard", "http://"])("ignores %j", (raw) => {
+    expect(dashboardBase(raw)).toBe("/dashboard")
+  })
+})
 
 describe("formatIdr", () => {
   it("groups thousands with dots", () => {

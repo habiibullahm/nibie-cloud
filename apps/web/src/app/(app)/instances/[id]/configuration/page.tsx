@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { Suspense, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { Check, CircleX, PlugZap, RotateCw, Send, TriangleAlert } from "lucide-react"
 import { toast } from "sonner"
@@ -36,12 +37,22 @@ import { cn } from "@/lib/utils"
 import { useInstanceId } from "../instance-frame"
 
 export default function ConfigurationPage() {
-  const id = useInstanceId()
   return (
-    <Tabs defaultValue="provider">
+    <Suspense fallback={null}>
+      <ConfigurationTabs />
+    </Suspense>
+  )
+}
+
+/** Telegram comes first: NibieRouter is attached by Nibie Cloud, so the bot token is the one thing a new customer must add. */
+function ConfigurationTabs() {
+  const id = useInstanceId()
+  const tab = useSearchParams().get("tab")
+  return (
+    <Tabs defaultValue={tab === "provider" || tab === "runtime" ? tab : "telegram"}>
       <TabsList aria-label="Configuration">
-        <TabsTrigger value="provider">AI provider</TabsTrigger>
         <TabsTrigger value="telegram">Telegram</TabsTrigger>
+        <TabsTrigger value="provider">AI provider</TabsTrigger>
         <TabsTrigger value="runtime">Runtime</TabsTrigger>
       </TabsList>
       <TabsContent value="provider">
@@ -127,6 +138,11 @@ function ProviderSection({ id }: { id: string }) {
 function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
   const qc = useQueryClient()
   const mode = useApiMode()
+  const meta = useInstanceMeta(id)
+  const plans = usePlans()
+  // A free instance gets its NibieRouter key from the backend shortly after it becomes active.
+  const routerComing =
+    mode === "customer" && !cfg.configured && plans.data?.find((p) => p.id === meta.data?.planId)?.monthlyPriceIdr === null
   // Only the in-browser mock can switch to NibieRouter; on the real API that key is attached by Nibie Cloud.
   const routerLocked = mode !== "mock"
   const [kind, setKind] = useState<ProviderKind>(cfg.configured ? cfg.kind : "byok")
@@ -205,6 +221,12 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
                   <p className="text-muted-foreground">Last tested {formatRelative(cfg.lastTestedAt)}</p>
                 ) : null}
               </>
+            ) : routerComing ? (
+              <p className="text-muted-foreground">
+                Nibie Cloud is connecting NibieRouter. This usually takes under a minute and this page updates on its own.
+                Meanwhile, add your bot in the Telegram tab. If it is still not connected after a few minutes, add your own key
+                below.
+              </p>
             ) : (
               <p className="text-muted-foreground">No AI provider yet. Add your own key below so Hermes can answer.</p>
             )}

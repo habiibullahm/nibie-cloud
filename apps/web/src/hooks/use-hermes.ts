@@ -28,7 +28,9 @@ export const keys = {
 
 export function errorMessage(e: unknown): string {
   if (e instanceof ApiError) return e.message
-  return "Something went wrong. Try again."
+  // Not from the API client (a bug in the page, or the sign-in library): name the error so support can tell them apart.
+  const name = e instanceof Error && e.name !== "Error" ? ` (${e.name})` : ""
+  return `Something went wrong${name}. Try again.`
 }
 
 export function useApiMode() {
@@ -135,7 +137,8 @@ export function useProvider(id: string) {
   return useQuery({
     queryKey: keys.provider(id),
     queryFn: () => getApi().preview.provider(id),
-    refetchInterval: (q) => (q.state.data?.restartRequired ? POLL_MS * 3 : false),
+    // Also while no provider is set: a free instance gets its NibieRouter key from the backend shortly after it starts.
+    refetchInterval: (q) => (q.state.data?.restartRequired || q.state.data?.configured === false ? POLL_MS * 3 : false),
   })
 }
 

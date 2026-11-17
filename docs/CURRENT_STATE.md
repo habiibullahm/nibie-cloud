@@ -4,6 +4,60 @@ Last updated: 2026-11-17 (evening: free beta slots and landing counter merged, s
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Branch `claude/free-signup-flow`: free beta sign-up flow, tested end to end on localhost (2026-11-17, not merged or deployed)
+
+From `main` at `f8f035f`. Committed as `83fb915`, PR #56 (open, not merged or deployed); the anti-slop audit fixes follow on the same branch.
+
+- **Dashboard sign-up.**
+  - Email registration is confirmed with the code from the email. The field takes exactly the project's length: 6 by default, matching Supabase's "Email OTP length", which the owner changed from 8 to 6 on 2026-11-17. `NEXT_PUBLIC_EMAIL_CODE_LENGTH` overrides it. A wrong or expired code gives one clear message, and "Send a new code" has a 60 s wait.
+  - "Continue with Google" uses Supabase OAuth with PKCE and returns through `/dashboard/auth/callback`.
+  - A Cloudflare Turnstile widget is included; Supabase does not enforce it yet.
+  - The terms box is now first on the register card.
+  - The Google "G" is an approved exception in `DESIGN.md`.
+- **After deploy.**
+  - A deploy still opens the instance overview, so provisioning is visible. Its Health card makes "Connect Telegram" the primary button until a bot is set, and the provider row says "Not set up yet" instead of "Not tested". Telegram is now the first tab of Configuration.
+  - The AI provider tab says NibieRouter is being set up and refreshes by itself.
+  - The deploy page explains an empty plan list instead of "No payment for this plan".
+- **Errors.** An unreachable API now says "Could not reach the API at <host>" instead of "Something went wrong" (`apps/web/src/lib/api/live.ts`).
+- **Backend.**
+  - `CORS_EXTRA_ORIGINS`: development only, refused in production.
+  - New free instances get their NibieRouter key on every 15 s maintenance run (`RouterProvisioner.runNewFree`) instead of waiting up to 5 minutes; failures still retry on the billing tick.
+- **Landing.** `NEXT_PUBLIC_DASHBOARD_URL` lets the local landing link to the dashboard on its own port. The price section now says 5 GB storage.
+- **Storage 1 GB to 5 GB** (owner decision, 2026-11-17).
+  - Why: Hermes sends "Low disk space" to the customer's chat whenever its disk has less than 2 GiB free, so every 1 GB instance got it. The smallest competing plans carry 8 to 10 GB (Agent37 Basic 8 GB, OpenClaw Launch Lite 10 GB; from web search results on 2026-11-17, not checked on their own pages).
+  - `deploy/sql/2026-11-17-storage-5gb.sql` raises `hosting` and `hosting-kredit` to 5120 MB. It is **not run**; it runs on Supabase only with the owner's approval.
+  - Existing volumes keep their size. The draft host steps to grow them are in `docs/disk-quota-host-notes.md`, not verified.
+  - The seeded `config.yaml` now also sets `sessions.auto_prune: true` unless the file already has a value (`src/modules/runtime/hermes-config.ts`). Hermes then never asks the customer, and deletes ended sessions idle for more than 90 days.
+- **Checks run.**
+  - Dashboard: typecheck, lint, 132 tests.
+  - Landing: typecheck, lint, 60 tests, build.
+  - Backend:
+    - `tsc` clean.
+    - Unit tests: 508 passed, 2 failed. Both failures are in `test/unit/egress-canary.test.ts`, which fails the same way on `main` on this Windows workstation.
+    - Router provisioner integration tests: 19 passed, on local `hermes_test`.
+  - Not run: the other integration tests and the `@google/design.md` lint (no local copy of the CLI).
+- **Local end-to-end run** (backend :3400, dashboard :3500, landing :3300; real Supabase Auth of the production project, local Postgres, stub image), steps done by the owner in their own browser:
+  - landing counter, then register with an alias and the 8-digit code (before the switch to 6; the 6-digit flow and "Send a new code" were not re-tested);
+  - wrong code message;
+  - free deploy reaching `ACTIVE` with the counter going from 10 to 9;
+  - Google sign-in;
+  - NibieRouter attached 28 s after `ACTIVE` with the provider test OK;
+  - Telegram test message received;
+  - the "Could not reach the API" text with the backend stopped.
+- **Outside the repository** (Supabase project `nibie-cloud-sgp`, changed through the owner's browser with their approval):
+  - Redirect URL `http://localhost:3500/**` added;
+  - "Confirm signup" template shows `{{ .Token }}` above the existing link;
+  - Google provider enabled with an OAuth client made in Google Cloud;
+  - a Turnstile widget made in Cloudflare for `cloud.nibie.app` and `localhost`.
+  - Captcha is **off** in Supabase.
+- **Production rollout, in order, each step on the owner's word:**
+  1. Merge and deploy the dashboard, landing and backend.
+  2. Switch on Supabase captcha with a freshly rotated Turnstile secret.
+  3. Test sign-up on `cloud.nibie.app`.
+  4. Remove the link from the email template.
+  5. Delete the test accounts: the alias accounts in Supabase Auth, and their router users.
+- **Local database note.** The local database had no free plan; `free-beta-local` was inserted by hand there only. Production plans are in `deploy/sql/2026-11-17-production-plans.sql`.
+
 ## Deployed: waiting list with email confirmation (2026-11-17, VPS image `db46806`)
 
 - **Git.** PRs #53 (docs) and #51 (waiting list with double opt-in) were merged on 2026-11-17 with the owner's approval; `main` at `db46806`.

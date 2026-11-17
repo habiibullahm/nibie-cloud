@@ -252,3 +252,4 @@ Corner radius scale:
 - Don't use the terracotta or destructive colors for body text, links or backgrounds of large surfaces.
 - Don't invent hex values outside the semantic token set; extend tokens instead of hard-coding.
 - Don't use color alone to convey instance state; pair badges with text (active, degraded, stopped, failed).
+- Exception (approved 2026-11-17): the "Continue with Google" button carries Google's own four-color "G" mark, because Google's sign-in branding requires it. It is the only third-party logo and the only non-Lucide icon; it sits inside an outline button that otherwise follows these tokens, and its colors are not tokens for any other use.
