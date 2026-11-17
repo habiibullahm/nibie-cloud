@@ -24,6 +24,13 @@ Everything here was checked with real command output or a real page on 2026-11-1
   with a wrong or missing one. **Not verified:** a real invoice reaching `PAID` (the SumoPod sandbox cannot simulate payment), the receipt
   email, the NibieRouter credit after a payment. Neither gateway has KYC, so no real payment can happen and sign-up stays closed. The checkout
   fix (return the payment row that has `paymentUrl`) is in PR #34 and not on `main` until merged. Runbook: [billing-go-live.md](billing-go-live.md).
+- **Sandbox payment verified end to end on the VPS (2026-11-17, owner's test account, plan `hosting`, Rp 25.000).** After the owner fixed the webhook URL in
+  the SumoPod dashboard: the webhook arrived and was processed as `activated`, the payment became `PAID`, the subscription `ACTIVE` (30 days), and the
+  instance was created and reached `ACTIVE`. The first attempt failed for two reasons worth keeping: the dashboard still pointed the webhook at an old URL, so no
+  delivery reached the VPS and the payment stayed `PENDING`; and a pending invoice (valid 60 minutes) counts against `MAX_INSTANCES_PER_TENANT` (1), so a new
+  checkout answers 409 `instance_limit_reached` until the invoice expires (the test invoice was marked `EXPIRED` by hand). **Not verified:** the receipt email
+  (no send error in the log, inbox not checked), the `hosting-kredit` plan and its US$2 router credit, any real-money payment (needs KYC). To fix before opening
+  sign-up: a customer who abandons checkout is locked out for an hour.
 - **Backups.** Daily local `pg_dump` (19:00 UTC, newest 14 kept). New on 2026-11-17: `hermes-db-offsite` (19:30 UTC) copies the newest dump into the
   existing restic repository on Cloudflare R2 (tag `nibie-cloud-db`, same credentials as the older `hermes-r2-backup.sh`, which only covers
   `/opt/hermes`), and `hermes-restore-drill --from-r2` (Sundays 20:00 UTC) restores the newest snapshot into a throwaway Postgres with no network. Proven
