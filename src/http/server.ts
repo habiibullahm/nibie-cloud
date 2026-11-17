@@ -14,6 +14,7 @@ import { registerSumoPodWebhook } from './sumopod-callback.js';
 import { registerCustomerRoutes, type CustomerDeps } from './customer-routes.js';
 import { registerOperatorRoutes } from './operator-routes.js';
 import { registerAdminRoutes, type AdminDeps } from './admin-routes.js';
+import { registerPublicRoutes } from './public-routes.js';
 import { registerReadyz, type ReadinessCheck } from './readyz.js';
 import { AppError, NotFoundError } from '../shared/errors.js';
 import type { Logger } from '../shared/logger.js';
@@ -86,6 +87,7 @@ export function buildServer(deps: {
 
   registerOperatorRoutes(app, { service, commands, queue: deps.queue ?? null, config, integrations });
   const billing = deps.billing ?? null;
+  if (customer) registerPublicRoutes(app, { prisma: customer.prisma, config });
   if (customer) registerCustomerRoutes(app, { customer, service, commands, config, integrations, logs: deps.logs ?? null, billing });
   if (deps.admin) registerAdminRoutes(app, { admin: deps.admin, config });
   if (billing) {

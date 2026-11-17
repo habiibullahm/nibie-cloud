@@ -36,7 +36,7 @@ export function testConfig(image: string, masterKey: string, o: Partial<Config> 
     nodeEnv: 'test', databaseUrl: 'x', hermesImage: image, port: 0, adminToken: TEST_ADMIN_TOKEN,
     dockerSocketPath: '', masterKey, runtime: 'runc',
     diskQuota: 'off', diskCheckIntervalMs: 300_000, egressPolicy: 'off', canaryImage: undefined, canaryPrivateIp: undefined, dnsResolvers: [],
-    supabaseUrl: TEST_SUPABASE_URL, dashboardOrigin: DASHBOARD_ORIGIN, betaAllowedEmails: [], adminEmails: [], maxInstancesPerTenant: 1, maxTotalInstances: null, redisUrl: null, secrets: null, mail: null, billing: null, router: null,
+    supabaseUrl: TEST_SUPABASE_URL, dashboardOrigin: DASHBOARD_ORIGIN, betaAllowedEmails: [], adminEmails: [], maxInstancesPerTenant: 1, maxTotalInstances: null, freeBetaSlots: 0, paidCheckoutOpen: true, redisUrl: null, secrets: null, mail: null, billing: null, router: null,
     ...o,
   };
 }

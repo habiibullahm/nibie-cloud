@@ -1,18 +1,20 @@
 import rateLimit from '@fastify/rate-limit';
 import type { FastifyInstance } from 'fastify';
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import type { Config } from '../config/env.js';
 import type { InstanceCommands } from '../modules/instances/instance-commands.js';
 import type { InstanceService } from '../modules/instances/instance-service.js';
-import { CapacityFullError, ForbiddenError } from '../shared/errors.js';
+import { BetaFullError, CapacityFullError, ForbiddenError } from '../shared/errors.js';
 import type { LogService } from '../modules/integrations/log-service.js';
 import type { Integrations } from '../modules/integrations/types.js';
 import { registerCustomerIntegrationRoutes } from './integration-routes.js';
 import { createBody, idempotencyKey } from './operator-routes.js';
 import { totalLoad } from '../modules/instances/capacity.js';
+import { freeBetaRemaining } from '../modules/instances/free-beta.js';
 import { registerBillingRoutes } from './billing-routes.js';
 import type { BillingService } from '../modules/billing/billing-service.js';
 import { AppError } from '../shared/errors.js';
+import { isUuid } from '../shared/uuid.js';
 import { principalOf, registerCustomerAuth, type CustomerAuthDeps } from './customer-auth.js';
 
 export interface CustomerDeps extends CustomerAuthDeps {
@@ -49,10 +51,16 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
 
     // Resource limits, plus the monthly price once the operator has set one (null: not for sale, PRD 5.2).
     api.get('/plans', async (req) => {
-      // A plan without a price is the free beta preview plan: only invited accounts can use it, so only they see it.
+      // A plan without a price is the free beta preview plan. Invited accounts always see it; everyone else only while free
+      // slots remain. Priced plans are shown to everyone unless the launch switch (PAID_CHECKOUT_OPEN) is off.
       const invited = allowed.has(principalOf(req).email.toLowerCase());
+      const showFree = invited || (config.freeBetaSlots > 0 && (await freeBetaRemaining(prisma, config.freeBetaSlots)) > 0);
+      const showPaid = invited || config.paidCheckoutOpen;
+      const kinds: Prisma.PlanWhereInput[] = [];
+      if (showFree) kinds.push({ monthlyPriceIdr: null });
+      if (showPaid) kinds.push({ monthlyPriceIdr: { not: null } });
       const rows = await prisma.plan.findMany({
-        where: invited ? { active: true } : { active: true, monthlyPriceIdr: { not: null } },
+        where: { active: true, OR: kinds },
         orderBy: [{ cpuMillis: 'asc' }, { slug: 'asc' }],
       });
       return {
@@ -69,12 +77,18 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
 
     api.post('/instances', { config: { rateLimit: { max: 5, timeWindow: '10 minutes' } } }, async (req, reply) => {
       const p = principalOf(req);
-      // Until payments exist, only invited beta users may create containers. Empty list: nobody.
-      if (!allowed.has(p.email.toLowerCase())) {
-        throw new ForbiddenError('Instance creation is not enabled for this account yet', 'provisioning_not_enabled');
-      }
       const key = idempotencyKey.parse(req.headers['idempotency-key']);
       const body = createBody.parse(req.body);
+      // Invited accounts may create anything. Everyone else may take only the free plan, and only while free slots remain;
+      // paid instances are created by the billing flow after a verified payment, never through this route.
+      if (!allowed.has(p.email.toLowerCase())) {
+        const plan = isUuid(body.planId) ? await prisma.plan.findUnique({ where: { id: body.planId } }) : null;
+        if (!plan || plan.monthlyPriceIdr !== null || config.freeBetaSlots <= 0) {
+          throw new ForbiddenError('Instance creation is not enabled for this account yet', 'provisioning_not_enabled');
+        }
+        const replay = await prisma.instance.findFirst({ where: { tenantId: p.tenantId, idempotencyKey: key }, select: { id: true } });
+        if (!replay && (await freeBetaRemaining(prisma, config.freeBetaSlots)) <= 0) throw new BetaFullError();
+      }
       // Whole-server cap. A replay of a creation that already exists is not a new instance and is never refused.
       if (config.maxTotalInstances !== null) {
         const replay = await prisma.instance.findFirst({ where: { tenantId: p.tenantId, idempotencyKey: key }, select: { id: true } });
@@ -127,7 +141,7 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
       const cfg = config.billing;
       const sandboxOnly = config.nodeEnv === 'production' && cfg !== null && [cfg.duitku, cfg.sumopod].every((g) => g === null || g.env === 'sandbox');
       registerBillingRoutes(api, deps.billing, (email) => {
-        if (sandboxOnly && !allowed.has(email.toLowerCase())) throw new ForbiddenError('Payments are not open yet', 'billing_not_open');
+        if ((sandboxOnly || !config.paidCheckoutOpen) && !allowed.has(email.toLowerCase())) throw new ForbiddenError('Payments are not open yet', 'billing_not_open');
       });
     }
     registerCustomerIntegrationRoutes(api, deps.integrations, deps.logs);
