@@ -1,8 +1,23 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-17 (evening: free beta slots and landing counter merged, see the first section). Earlier entries below keep their own dates, and
+Last updated: 2026-11-17 (evening: free beta live on `f8f035f` with NibieRouter for free instances, see the first section). Earlier entries below keep their own dates, and
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
+
+## Free beta live: NibieRouter for free instances (2026-11-17, VPS image `f8f035f`)
+
+- **Git.** PR #54 (NibieRouter as the default provider for free instances) merged with the owner's approval; `main` at `f8f035f`.
+- **Host env.** `NIBIEROUTER_ADMIN_KEY` and `NIBIEROUTER_DEFAULT_MODEL` were empty on the VPS, so the router was off for every plan, paid ones
+  included. The owner added them (same values as the owner's local `.env`: model `nibierouter-free`, `https://router.nibie.app`, email domain
+  `cloud.nibie.app`; values never shown in a chat or log).
+- **Deploy** (owner, `bash /opt/hermes-cloud/ops/host/deploy.sh`): "backend f8f035f is ready (previous tag was db46806, kept on disk for a manual
+  rollback)". Startup log pasted by the owner: `"router":true` (nibierouter), `"waitlist":true,"mail":true` (waiting list).
+- **End to end, free plan** (owner's test account, not an invited one): the instance reached `ACTIVE` in 18 seconds, then received a NibieRouter key
+  automatically and the agent answered on Telegram (owner report: "langsung bisa chat"). So a router user with no balance can call `nibierouter-free`.
+- **Counter afterwards** (from the internet): `{"total":10,"remaining":9}`, the one used slot being that test instance.
+- **Still open before announcing:** delivery of the waiting-list and Supabase emails (inbox or spam; SPF/DKIM/DMARC not set), the RLS query on
+  `WaitlistEntry`, VPS auto-renew (plan ends 2026-12-11). Paid checkout stays closed until the real Rp 25.000 payment and the Hosting + Kredit AI
+  plan (US$2 credit, router now on) are tested.
 
 ## Deployed: waiting list with email confirmation (2026-11-17, VPS image `db46806`)
 
@@ -18,8 +33,8 @@ several still describe branches as "not committed" or billing as "OFF" that have
   Once confirmed and invited, that address holds one free slot for 48 hours.
 - **Free plan test (owner):** a free instance reached `ACTIVE` in 18 seconds (events pasted by the owner) but had no provider: until now NibieRouter was
   attached only after a payment. Branch `claude/nibierouter-default-free` makes it the default for free instances too (see `setup.md`, "NibieRouter key
-  and credit"); not merged or deployed yet.
-- **Not checked:** the RLS query on `WaitlistEntry` on Supabase and the backend startup lines for `waiting list` and `nibierouter` (owner steps).
+  and credit"); merged as PR #54 and deployed, see the section above.
+- **Not checked:** the RLS query on `WaitlistEntry` on Supabase (owner step). The startup lines were checked after the next deploy (above).
 
 ## Latest status (2026-11-17, read from `origin/main` at `1584e35` and the GitHub PR list)
 

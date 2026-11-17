@@ -114,7 +114,10 @@ Merged on 2026-11-17:
 | **#49** | **automatic free slots (`FREE_BETA_SLOTS`), `GET /api/v1/public/beta-slots`, `PAID_CHECKOUT_OPEN`** | **merged 05:15 UTC; the go-live work reported the backend deployed; not independently verified** |
 | **#50** | **landing "Daftar beta gratis" mode with a live counter** | **merged 05:15 UTC; off in the code by default; reported live with `NEXT_PUBLIC_FREE_BETA_OPEN=true`; not independently verified** |
 
-Open: **#51 automatic waiting list** (table `WaitlistEntry`, `POST /api/v1/public/waitlist`, inviter in the maintenance tick,
+Merged later on 2026-11-17 and deployed (VPS image `f8f035f`): **#51** (waiting list, email confirmation added in review), **#53** (docs), **#54**
+(NibieRouter as the default provider for free instances; the router env was empty on the VPS until then). Details: [CURRENT_STATE.md](CURRENT_STATE.md).
+
+Earlier note: **#51 automatic waiting list** (table `WaitlistEntry`, `POST /api/v1/public/waitlist`, inviter in the maintenance tick,
 48 hour claim window, read-only admin page). Its branch already merged `main` at `1584e35`; GitHub reported it `MERGEABLE` later on
 2026-11-17 (checks and review findings: [CURRENT_STATE.md](CURRENT_STATE.md)). Not deployed. Owner approval is required before it is merged.
 
