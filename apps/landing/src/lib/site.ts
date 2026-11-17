@@ -34,6 +34,34 @@ export function signupOpen(raw: string | undefined = process.env.NEXT_PUBLIC_SIG
   return raw?.trim().toLowerCase() !== "false"
 }
 
+/**
+ * Free beta preview mode: the main buttons send visitors to the dashboard registration and a counter shows how many free
+ * slots are left. Build variable NEXT_PUBLIC_FREE_BETA_OPEN=true; needs NEXT_PUBLIC_API_URL for the counter.
+ */
+export function freeBetaOpen(raw: string | undefined = process.env.NEXT_PUBLIC_FREE_BETA_OPEN): boolean {
+  return raw?.trim().toLowerCase() === "true"
+}
+
+/** Public counter endpoint, or null when the API address is not configured (the page then shows no number). */
+export function betaSlotsUrl(raw: string | undefined = process.env.NEXT_PUBLIC_API_URL): string | null {
+  const base = raw?.trim().replace(/\/+$/, "") ?? ""
+  return /^https?:\/\/[^\s]+$/.test(base) ? `${base}/api/v1/public/beta-slots` : null
+}
+
+export interface BetaSlots {
+  total: number
+  remaining: number
+}
+
+/** Accepts only the exact shape the API sends; anything else is "unknown". */
+export function parseBetaSlots(body: unknown): BetaSlots | null {
+  if (typeof body !== "object" || body === null) return null
+  const { total, remaining } = body as Record<string, unknown>
+  if (typeof total !== "number" || typeof remaining !== "number") return null
+  if (!Number.isInteger(total) || !Number.isInteger(remaining) || total < 0 || remaining < 0 || remaining > total) return null
+  return { total, remaining }
+}
+
 /** Pre-filled email body for an access request, so the owner gets what is needed to pick the free beta users. */
 export const ACCESS_REQUEST_BODY = [
   "Halo Nibie Cloud, saya mau ikut beta preview gratis.",

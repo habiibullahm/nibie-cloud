@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { BETA_USERS, PLANS, discountPercent, formatIdr } from "@/lib/plans"
-import { ACCESS_REQUEST_BODY, betaAccessHref, contactEmail, ctaHref, signupOpen, SITE } from "@/lib/site"
+import { ACCESS_REQUEST_BODY, betaAccessHref, betaSlotsUrl, freeBetaOpen, parseBetaSlots, contactEmail, ctaHref, signupOpen, SITE } from "@/lib/site"
 
 describe("formatIdr", () => {
   it("groups thousands with dots", () => {
@@ -67,5 +67,27 @@ describe("sign-up switch", () => {
   it("keeps the invite request when closed", () => {
     expect(ctaHref("Halo", false, "hello@example.com")).toBe(`mailto:hello@example.com?subject=Halo&body=${encodeURIComponent(ACCESS_REQUEST_BODY)}`)
     expect(ctaHref("Halo", false, null)).toBe(SITE.telegramUrl)
+  })
+})
+
+describe("free beta mode", () => {
+  it("is on only for the exact value true", () => {
+    expect(freeBetaOpen("true")).toBe(true)
+    expect(freeBetaOpen(" TRUE ")).toBe(true)
+    for (const v of [undefined, "", "false", "1", "yes"]) expect(freeBetaOpen(v)).toBe(false)
+  })
+
+  it("builds the counter address from the API address, or nothing", () => {
+    expect(betaSlotsUrl("https://api.example.test")).toBe("https://api.example.test/api/v1/public/beta-slots")
+    expect(betaSlotsUrl("https://api.example.test///")).toBe("https://api.example.test/api/v1/public/beta-slots")
+    for (const v of [undefined, "", "api.example.test", "javascript:alert(1)", "https://a b"]) expect(betaSlotsUrl(v)).toBeNull()
+  })
+
+  it("accepts only the exact counter shape", () => {
+    expect(parseBetaSlots({ total: 10, remaining: 7 })).toEqual({ total: 10, remaining: 7 })
+    expect(parseBetaSlots({ total: 10, remaining: 0 })).toEqual({ total: 10, remaining: 0 })
+    for (const body of [null, 5, "x", {}, { total: 10 }, { total: "10", remaining: 3 }, { total: 10, remaining: 11 }, { total: 10, remaining: -1 }, { total: 1.5, remaining: 1 }]) {
+      expect(parseBetaSlots(body)).toBeNull()
+    }
   })
 })
