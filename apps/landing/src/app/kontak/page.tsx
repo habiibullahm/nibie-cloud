@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   alternates: { canonical: "/kontak" },
 }
 
+// At least 44x44px on touch (hit-area) and the button focus ring, without changing how the link reads in the row.
+const linkClass =
+  "hit-area relative rounded-sm text-foreground underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+
 export default function KontakPage() {
   const email = contactEmail()
   return (
@@ -15,19 +19,19 @@ export default function KontakPage() {
       <dl className="grid max-w-[620px] gap-4">
         {email ? (
           <Row label="Email">
-            <a href={`mailto:${email}`} className="text-foreground underline underline-offset-4">
+            <a href={`mailto:${email}`} className={linkClass}>
               {email}
             </a>
           </Row>
         ) : null}
         <Row label="Telegram">
-          <a href={SITE.telegramUrl} rel="noopener noreferrer" className="text-foreground underline underline-offset-4">
+          <a href={SITE.telegramUrl} rel="noopener noreferrer" className={linkClass}>
             {SITE.telegramHandle}
           </a>
         </Row>
         <Row label="Penyelenggara">{SITE.operator}</Row>
         <Row label="Layanan">
-          {SITE.name} (<a href={SITE.url} className="text-foreground underline underline-offset-4">cloud.nibie.app</a>)
+          {SITE.name} (<a href={SITE.url} className={linkClass}>cloud.nibie.app</a>)
         </Row>
       </dl>
       <p className="max-w-[62ch] text-muted-foreground">

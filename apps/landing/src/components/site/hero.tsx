@@ -6,6 +6,11 @@ import { FreeBetaBadgeText, FreeBetaCta } from "@/components/site/free-beta"
 export function Hero() {
   const open = signupOpen()
   const freeBeta = freeBetaOpen() && !open
+  const docsButton = (
+    <Button asChild variant="outline">
+      <a href={SITE.docsUrl}>Baca dokumentasi</a>
+    </Button>
+  )
   return (
     <section className="relative overflow-hidden">
       <div aria-hidden className="hero-grid-bg pointer-events-none absolute inset-x-0 top-0 h-[760px]" />
@@ -13,7 +18,7 @@ export function Hero() {
         <div className="min-w-0">
           <Badge className="hc-rise">
             <span aria-hidden className="size-1.5 rounded-full bg-foreground" />
-            {open ? "Beta terbuka" : freeBeta ? <FreeBetaBadgeText /> : "Beta gratis · 10 slot"}
+            {open ? "Beta terbuka" : freeBeta ? <FreeBetaBadgeText /> : "Beta gratis · slot terbatas"}
           </Badge>
           <h1 className="type-display hc-rise hc-rise-1 mt-4">Agent <span className="whitespace-nowrap">Hermes-mu</span> aktif 24 jam, tanpa kamu mengurus server.</h1>
           <p className="type-lead hc-rise hc-rise-2 mt-6 max-w-[52ch] text-muted-foreground">
@@ -22,15 +27,15 @@ export function Hero() {
           </p>
           <div className="hc-rise hc-rise-3 mt-8 flex flex-wrap gap-3">
             {freeBeta ? (
-              <FreeBetaCta />
+              <FreeBetaCta>{docsButton}</FreeBetaCta>
             ) : (
-              <Button asChild>
-                <a href={ctaHref("Minta akses beta Nibie Cloud", open)}>{open ? "Daftar dan pilih paket" : "Minta akses beta"}</a>
-              </Button>
+              <>
+                <Button asChild>
+                  <a href={ctaHref("Minta akses beta Nibie Cloud", open)}>{open ? "Daftar dan pilih paket" : "Minta akses beta"}</a>
+                </Button>
+                {docsButton}
+              </>
             )}
-            <Button asChild variant="outline">
-              <a href={SITE.docsUrl}>Baca dokumentasi</a>
-            </Button>
           </div>
           <ul className="hc-rise hc-rise-4 mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[0.8125rem] text-muted-foreground">
             <li>1 container per pelanggan</li>

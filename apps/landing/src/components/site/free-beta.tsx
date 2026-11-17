@@ -13,8 +13,11 @@ export function FreeBetaBadgeText() {
   return <>Beta gratis · slot terbatas</>
 }
 
-/** Main call to action in free beta mode: register while slots remain, join the waiting list when they are gone. */
-export function FreeBetaCta() {
+/**
+ * Main call to action in free beta mode: register while slots remain, join the waiting list when they are gone.
+ * `children` (other buttons) render right after the main button, so the slot note comes after every button.
+ */
+export function FreeBetaCta({ children }: { children?: React.ReactNode }) {
   const slots = useBetaSlots()
   const full = slots !== null && slots.remaining === 0
   // With the API configured the waiting list is a form on this page; without it the old access-request email remains.
@@ -28,6 +31,7 @@ export function FreeBetaCta() {
           <a href={SITE.registerUrl}>Daftar beta gratis</a>
         )}
       </Button>
+      {children}
       {slots ? (
         <p className="basis-full text-[0.8125rem] text-muted-foreground" aria-live="polite">
           {full

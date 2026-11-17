@@ -14,7 +14,7 @@ export function ClosingCta() {
             ? `${SITE.name} sedang beta. Daftar, pilih paket, bayar, dan instance-mu aktif setelah pembayaran terverifikasi.`
             : (freeBeta
               ? `${SITE.name} sedang beta preview gratis dengan slot terbatas. Daftar sekarang, siapa cepat dia dapat; kalau slot habis kamu bisa masuk daftar tunggu.`
-              : `${SITE.name} sedang beta preview gratis untuk 10 pengguna pertama. Minta akses dan kami kabari lewat email saat slotmu siap.`)}
+              : `${SITE.name} sedang beta preview gratis dengan slot terbatas. Minta akses dan kami kabari lewat email saat slotmu siap.`)}
         </p>
         {freeBeta ? (
           <div className="flex flex-wrap gap-3">
