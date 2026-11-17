@@ -19,6 +19,8 @@ export interface AdminSystem {
   mail: boolean
   redis: boolean
   customerApi: boolean
+  /** `FREE_BETA_SLOTS`: 0 means the free beta (and its waiting list) is off. */
+  freeBetaSlots: number
   adminEmails: number
 }
 
@@ -190,3 +192,27 @@ export interface AdminPage<T> {
 
 /** A page of one of the paged collections, normalized to the same shape. */
 export type AdminPageKey = "customers" | "instances" | "subscriptions" | "payments"
+
+export interface AdminWaitlistEntry {
+  id: string
+  name: string
+  email: string
+  useCase: string
+  /** UNCONFIRMED: joined, email not confirmed yet; not in the queue and deleted after 24 hours. */
+  status: "UNCONFIRMED" | "WAITING" | "INVITED" | "REGISTERED"
+  createdAt: string
+  confirmedAt: string | null
+  invitedAt: string | null
+  inviteExpiresAt: string | null
+  inviteFailures: number
+  registeredAt: string | null
+  /** INVITED and the claim window has passed without a registration. */
+  lapsed: boolean
+}
+
+export interface AdminWaitlist {
+  counts: { unconfirmed: number; waiting: number; invited: number; lapsed: number; registered: number }
+  freeBetaSlots: number
+  /** Oldest first: the order in which free slots are offered. */
+  entries: AdminWaitlistEntry[]
+}

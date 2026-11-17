@@ -410,3 +410,38 @@ model OperatorAlert {
 
   @@index([resolvedAt])
 }
+
+enum WaitlistStatus {
+  /// Joined from the website, email not confirmed yet: not in the queue, not counted, never invited.
+  UNCONFIRMED
+  WAITING
+  INVITED
+  REGISTERED
+}
+
+/// Beta waiting list, filled from the public website when the free slots are used. A new entry is UNCONFIRMED until the
+/// person clicks the confirmation link sent to that address (double opt-in); only then is it WAITING and counted. The
+/// platform invites the oldest WAITING entry by email whenever a free slot opens (no manual step). An INVITED entry holds one slot until
+/// `inviteExpiresAt`; after that it holds nothing and is not invited again (the person may still take a free slot
+/// like anyone else). `email` is stored lowercase, trimmed and unique. Row level security is enabled on this table
+/// (the backend connects as the table owner; nothing else may read it, and the Supabase Data API must not expose it).
+model WaitlistEntry {
+  id               String         @id @default(uuid()) @db.Uuid
+  email            String         @unique
+  name             String
+  useCase          String
+  status           WaitlistStatus @default(UNCONFIRMED)
+  createdAt        DateTime       @default(now()) @db.Timestamptz(3)
+  /// SHA-256 (hex) of the confirmation token; the token itself is only in the email. Never selected for display.
+  confirmTokenHash String?        @unique
+  confirmSentAt    DateTime?      @db.Timestamptz(3)
+  confirmExpiresAt DateTime?      @db.Timestamptz(3)
+  confirmedAt      DateTime?      @db.Timestamptz(3)
+  invitedAt        DateTime?      @db.Timestamptz(3)
+  inviteExpiresAt  DateTime?      @db.Timestamptz(3)
+  /// Invitation emails that failed to send; at 3 the entry is skipped (an unreachable address must not block the queue).
+  inviteFailures   Int            @default(0)
+  registeredAt     DateTime?      @db.Timestamptz(3)
+
+  @@index([status, createdAt])
+}

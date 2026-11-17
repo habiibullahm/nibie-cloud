@@ -101,13 +101,62 @@ function copyFor(kind: EmailKind, c: EmailContext): Copy {
 
 /** Indonesian transactional email, same look as the Nibie Cloud auth emails. Every dynamic value is escaped. */
 export function renderEmail(kind: EmailKind, ctx: EmailContext): RenderedEmail {
-  const c = copyFor(kind, ctx);
+  return layout(copyFor(kind, ctx), ctx.dashboardUrl);
+}
+
+export interface WaitlistInviteContext {
+  /** What the person typed on the waiting-list form; shown escaped in the greeting only. */
+  name: string;
+  /** End of the claim window. */
+  claimUntil: Date;
+  /** Where to register, e.g. `https://cloud.nibie.app/dashboard/register`. */
+  registerUrl: string;
+}
+
+export interface WaitlistConfirmContext {
+  /** What the person typed on the waiting-list form; shown escaped in the greeting only. */
+  name: string;
+  /** The confirmation page with the token in the fragment, e.g. `https://cloud.nibie.app/daftar-tunggu/konfirmasi#t=...`. */
+  confirmUrl: string;
+  /** End of the link's validity. */
+  validUntil: Date;
+}
+
+/** The double opt-in email: the entry joins the queue only after the person opens this link and confirms. */
+export function renderWaitlistConfirm(ctx: WaitlistConfirmContext): RenderedEmail {
+  return layout({
+    subject: 'Konfirmasi email daftar tunggu - Nibie Cloud', heading: 'Konfirmasi email Anda', tag: 'BETA',
+    paragraphs: [
+      `Halo ${ctx.name},`,
+      'Seseorang (semoga Anda) memasukkan alamat email ini ke daftar tunggu beta gratis Nibie Cloud.',
+      `Buka tautan di bawah dan tekan "Konfirmasi" sebelum ${fmtDate(ctx.validUntil)}. Tanpa konfirmasi, alamat ini tidak masuk antrean dan datanya kami hapus.`,
+      'Kalau Anda tidak merasa mendaftar, abaikan email ini.',
+    ],
+    button: 'Buka halaman konfirmasi',
+  }, ctx.confirmUrl);
+}
+
+/** The invitation sent when a free beta slot is reserved for a waiting-list entry. */
+export function renderWaitlistInvite(ctx: WaitlistInviteContext): RenderedEmail {
+  return layout({
+    subject: 'Slot beta gratis Anda sudah siap - Nibie Cloud', heading: 'Slot beta gratis Anda sudah siap', tag: 'BETA',
+    paragraphs: [
+      `Halo ${ctx.name},`,
+      'Satu slot beta gratis Nibie Cloud sekarang kosong dan kami simpan untuk Anda.',
+      `Daftar dengan alamat email ini sebelum ${fmtDate(ctx.claimUntil)}. Setelah itu slot diberikan ke orang berikutnya di daftar tunggu.`,
+      'Setelah masuk, buat instance Hermes Anda dengan paket Beta Preview (gratis).',
+    ],
+    button: 'Daftar sekarang',
+  }, ctx.registerUrl);
+}
+
+function layout(c: Copy, buttonUrl: string): RenderedEmail {
   const font = "font-family:'Segoe UI',Arial,Helvetica,sans-serif;";
   const paras = c.paragraphs
     .map((p) => `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#4b5563;${font}">${escapeHtml(p)}</p>`)
     .join('\n');
   const button = c.button
-    ? `<p style="margin:8px 0 24px;"><a href="${escapeHtml(ctx.dashboardUrl)}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:13px 22px;border-radius:10px;${font}">${escapeHtml(c.button)}</a></p>`
+    ? `<p style="margin:8px 0 24px;"><a href="${escapeHtml(buttonUrl)}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:13px 22px;border-radius:10px;${font}">${escapeHtml(c.button)}</a></p>`
     : '';
   const html = `<div style="margin:0;padding:24px 12px;background:#f3f4f6;${font}">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;border-collapse:collapse;">
@@ -121,6 +170,6 @@ export function renderEmail(kind: EmailKind, ctx: EmailContext): RenderedEmail {
 ${paras}
 ${button}<p style="margin:0;font-size:12px;color:#6b7280;${font}">Nibie Cloud &middot; https://cloud.nibie.app</p>
 </td></tr></table></div>`;
-  const text = [c.heading, '', ...c.paragraphs, ...(c.button ? ['', `${c.button}: ${ctx.dashboardUrl}`] : []), '', 'Nibie Cloud - https://cloud.nibie.app'].join('\n');
+  const text = [c.heading, '', ...c.paragraphs, ...(c.button ? ['', `${c.button}: ${buttonUrl}`] : []), '', 'Nibie Cloud - https://cloud.nibie.app'].join('\n');
   return { subject: c.subject, text, html };
 }

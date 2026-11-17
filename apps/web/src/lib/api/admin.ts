@@ -14,6 +14,7 @@ import type {
   AdminPlan,
   AdminSubscription,
   AdminSystem,
+  AdminWaitlist,
 } from "./admin-types"
 
 export interface AdminFailedJob {
@@ -39,6 +40,8 @@ export interface AdminApi {
   subscriptions(cursor?: string): Promise<AdminPage<AdminSubscription>>
   payments(cursor?: string): Promise<AdminPage<AdminPayment>>
   audit(cursor?: string): Promise<AdminPage<AdminAuditEntry>>
+  /** Read only: the platform invites people by itself. */
+  waitlist(): Promise<AdminWaitlist>
   /** Answers 503 `queue_unavailable` when the backend runs without Redis. */
   jobsFailed(): Promise<{ jobs: AdminFailedJob[] }>
 }
@@ -92,6 +95,7 @@ export function createAdminApi(opts: {
     subscriptions: async (cursor) => toPage(await call<Paged<"subscriptions", AdminSubscription>>(`/subscriptions${qs({ cursor })}`), "subscriptions"),
     payments: async (cursor) => toPage(await call<Paged<"payments", AdminPayment>>(`/payments${qs({ cursor })}`), "payments"),
     audit: async (cursor) => toPage(await call<Paged<"entries", AdminAuditEntry>>(`/audit${qs({ cursor })}`), "entries"),
+    waitlist: () => call<AdminWaitlist>("/waitlist"),
     jobsFailed: () => call<{ jobs: AdminFailedJob[] }>("/jobs/failed"),
   }
 }

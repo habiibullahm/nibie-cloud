@@ -29,6 +29,7 @@ import { createDuitkuClient } from './modules/billing/duitku-client.js';
 import { createSumoPodClient } from './modules/billing/sumopod-client.js';
 import type { PaymentClient } from './modules/billing/payment-client.js';
 import { createMailer } from './modules/billing/mailer.js';
+import { WaitlistInviter } from './modules/waitlist/waitlist-inviter.js';
 import { Reconciler } from './modules/instances/reconciler.js';
 import { AlertScanner } from './modules/ops/alert-scanner.js';
 import { PrismaAlertStore } from './modules/ops/alert-store.js';
@@ -140,6 +141,11 @@ const billing = config.billing && config.dashboardOrigin
     })()
   : null;
 const billingTick = billing ? new BillingTick({ prisma, billing, commands, mailer, logger, ...(router ? { router } : {}) }) : null;
+// Automatic waiting list: invites the oldest waiting entry whenever a free beta slot opens. Needs the free slots and email.
+const waitlistInviter = customer && config.freeBetaSlots > 0
+  ? new WaitlistInviter({ prisma, mailer, logger, slots: config.freeBetaSlots, registerUrl: `${config.dashboardOrigin ?? 'https://cloud.nibie.app'}/dashboard/register` })
+  : null;
+logger.info({ waitlist: waitlistInviter !== null, mail: mailer.enabled }, 'waiting list');
 logger.info({ billing: billing !== null, billingGateway: config.billing?.gateway ?? null, mail: mailer.enabled }, 'billing');
 // The admin API exists only when a Supabase project is configured: it authenticates the same tokens
 // the customer API does. An empty ADMIN_EMAILS opens it to nobody (fail closed).
@@ -159,7 +165,7 @@ const readiness = {
   docker: async () => { await docker.ping(); },
   ...(readyRedis ? { redis: async () => { if (readyRedis.status === 'wait') await readyRedis.connect(); await readyRedis.ping(); } } : {}),
 };
-const app = buildServer({ service, commands, queue, config, logger, integrations, logs: logService, billing, readiness, ...(customer ? { customer } : {}), ...(admin ? { admin } : {}) });
+const app = buildServer({ service, commands, queue, config, logger, integrations, logs: logService, billing, readiness, mailer, ...(customer ? { customer } : {}), ...(admin ? { admin } : {}) });
 
 let stopReconciler: () => void | Promise<void> = () => undefined;
 let stopWorker: (() => Promise<void>) | undefined;
@@ -173,6 +179,7 @@ if (config.redisUrl && queue) {
     reconcileAll: async () => {
       await reconciler.reconcileAll();
       await billingTick?.run();
+      await waitlistInviter?.run();
       await alertScanner.run();
     },
   };
@@ -185,10 +192,13 @@ if (config.redisUrl && queue) {
   const stopRec = reconciler.start(15_000);
   const billingTimer = billingTick ? setInterval(() => void billingTick.run(), 60_000) : null;
   billingTimer?.unref();
+  const waitlistTimer = waitlistInviter ? setInterval(() => void waitlistInviter.run(), 60_000) : null;
+  waitlistTimer?.unref();
   const alertTimer = setInterval(() => void alertScanner.run(), 60_000);
   alertTimer.unref();
   stopReconciler = () => {
     if (billingTimer) clearInterval(billingTimer);
+    if (waitlistTimer) clearInterval(waitlistTimer);
     clearInterval(alertTimer);
     return stopRec();
   };

@@ -41,6 +41,31 @@ several still describe branches as "not committed" or billing as "OFF" that have
   provider and Telegram (#42), usage log and `docs/capacity.md` (#45), abandoned-invoice fix (#37).
 - **Owner to-do and open engineering work:** [HANDOFF.md](HANDOFF.md), section 9.
 
+## Automatic waiting list for the free beta (2026-11-17, branch `claude/project-thread-cs6oyk`, on top of PRs #49 and #50)
+
+**Email confirmation added (2026-11-17, owner decision in the review of PR #51: add it before merging).** A new entry is `UNCONFIRMED` and counts for
+nothing until the person opens the emailed link (`/daftar-tunggu/konfirmasi#t=<token>`, 24 hours, only the SHA-256 is stored) and clicks
+"Konfirmasi", which posts to `POST /api/v1/public/waitlist/confirm`. This closes the review finding that unverified addresses could pin the public
+counter at 0 and send invitations to strangers. Without SMTP the form answers `503 waitlist_unavailable`. New migrations
+`20261117120000_waitlist_unconfirmed_status` and `20261117120100_waitlist_confirmation` (columns only, RLS unchanged); `prisma migrate diff`
+from the migrations to `schema.prisma` reports no difference. Run on a Windows workstation (local Postgres `hermes_test`): backend `tsc`;
+`test/integration/waitlist.test.ts` 39 passed (11 new); landing typecheck, lint, 52 tests, build, and the confirmation page and form driven in
+headless Chromium at 1440 and 390 px against a fake API (confirm, expired link, link without a token, joining shows "cek emailmu", no horizontal
+scroll); dashboard typecheck, lint, 116 tests. **Not verified:** a real confirmation email through SumoPod, Supabase's "Confirm email" setting
+(the reserved slot trusts the email in the Supabase token, so that setting must be on).
+
+When the free slots are used, the landing page shows a form (name, email, use case) instead of the access-request email. The backend keeps the
+list (`WaitlistEntry`, migration `20261117050000_add_waitlist`, row level security enabled in the migration) and invites the oldest waiting
+person by email whenever a slot opens, with a 48 hour window and no manual step. An open invitation reserves its slot, so a visitor cannot take
+it. The admin panel has a read-only "Daftar tunggu" page. Details and limits: [setup.md](setup.md#waiting-list-automatic-beta-invitations).
+
+Verified in a cloud sandbox: `tsc`; backend unit tests (509) and the new integration file `test/integration/waitlist.test.ts` (28 tests, local Postgres,
+fake runtime and fake mailer) plus `customer-api`, `admin-api`, `billing-api`, `billing-tick` and `schema` integration tests; `apps/web` typecheck, lint and 116
+tests; `apps/landing` typecheck, lint, 47 tests and a build checked in a browser against a fake API (form, validation message, success state, no horizontal
+scroll at 390 px). **Not verified:** a real invitation email arriving (needs SumoPod SMTP on the VPS), the form against the production API and CORS, and
+the migration on Supabase. Before it works in production: merge #49 and #50 and this change, apply the migration (then check RLS, see setup.md), set
+`FREE_BETA_SLOTS=10` and the SMTP variables, recreate the backend, and rebuild the Worker with `NEXT_PUBLIC_FREE_BETA_OPEN=true` and `NEXT_PUBLIC_API_URL`.
+
 ## Dashboard: Hermes configuration wired to the backend (2026-11-17, branch `claude/project-thread-aeigzy`)
 
 In `customer` mode `apps/web` now calls the real provider, Telegram and logs routes of `src/http/integration-routes.ts`

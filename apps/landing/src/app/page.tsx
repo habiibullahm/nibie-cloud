@@ -4,6 +4,7 @@ import { Features } from "@/components/site/features"
 import { Hero } from "@/components/site/hero"
 import { HowItWorks } from "@/components/site/how-it-works"
 import { Pricing } from "@/components/site/pricing"
+import { WaitlistSection } from "@/components/site/waitlist-form"
 
 export default function HomePage() {
   return (
@@ -13,6 +14,7 @@ export default function HomePage() {
       <HowItWorks />
       <Pricing />
       <Faq />
+      <WaitlistSection />
       <ClosingCta />
     </>
   )

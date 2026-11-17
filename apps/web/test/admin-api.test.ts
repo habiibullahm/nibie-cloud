@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import { createAdminApi, toPage } from "../src/lib/api/admin"
+import { waitlistStatusLabel } from "../src/lib/admin-waitlist"
 
 const BASE = "https://api.cloud.nibie.app"
 
@@ -78,6 +79,25 @@ describe("admin client", () => {
     expect(plans).toEqual([{ slug: "p" }])
     const nodes = await client((async () => jsonResponse({ nodes: [{ name: "local" }] })) as unknown as typeof fetch).nodes()
     expect(nodes).toEqual([{ name: "local" }])
+  })
+})
+
+describe("waiting list", () => {
+  it("reads the whole body from /waitlist without a write route", async () => {
+    const body = { counts: { unconfirmed: 2, waiting: 1, invited: 0, lapsed: 0, registered: 0 }, freeBetaSlots: 10, entries: [] }
+    const fetchImpl = vi.fn(async () => jsonResponse(body))
+    expect(await client(fetchImpl as unknown as typeof fetch).waitlist()).toEqual(body)
+    const [url, init] = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit]
+    expect(url).toBe(`${BASE}/api/v1/admin/waitlist`)
+    expect(init.method).toBeUndefined()
+  })
+
+  it("names a lapsed invitation by text", () => {
+    expect(waitlistStatusLabel({ status: "WAITING", lapsed: false })).toBe("Menunggu")
+    expect(waitlistStatusLabel({ status: "INVITED", lapsed: false })).toBe("Diundang")
+    expect(waitlistStatusLabel({ status: "INVITED", lapsed: true })).toBe("Kedaluwarsa")
+    expect(waitlistStatusLabel({ status: "REGISTERED", lapsed: false })).toBe("Sudah daftar")
+    expect(waitlistStatusLabel({ status: "UNCONFIRMED", lapsed: false })).toBe("Belum konfirmasi")
   })
 })
 

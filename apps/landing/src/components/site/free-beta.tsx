@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { betaAccessHref, SITE } from "@/lib/site"
+import { waitlistUrl } from "@/lib/waitlist"
 import { useBetaSlots } from "@/lib/use-beta-slots"
 
 /** Badge text for the hero in free beta mode: a live count when known, a static label otherwise. */
@@ -16,11 +17,13 @@ export function FreeBetaBadgeText() {
 export function FreeBetaCta() {
   const slots = useBetaSlots()
   const full = slots !== null && slots.remaining === 0
+  // With the API configured the waiting list is a form on this page; without it the old access-request email remains.
+  const waitlistHref = waitlistUrl() ? "#daftar-tunggu" : betaAccessHref("Daftar tunggu beta Nibie Cloud")
   return (
     <>
       <Button asChild>
         {full ? (
-          <a href={betaAccessHref("Daftar tunggu beta Nibie Cloud")}>Masuk daftar tunggu</a>
+          <a href={waitlistHref}>Masuk daftar tunggu</a>
         ) : (
           <a href={SITE.registerUrl}>Daftar beta gratis</a>
         )}
