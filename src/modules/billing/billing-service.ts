@@ -150,6 +150,13 @@ export class BillingService {
         const payment = await tx.payment.create({ data: this.newPayment(existing.id, 'NEW', price, now) });
         return { subscription: existing, payment, needsInvoice: true };
       }
+      // Starting a new checkout means the customer walked away from any earlier unpaid one: release its slot now,
+      // instead of locking them out until the 60 minute invoice expires. If that old invoice is paid after all, the
+      // verified payment is still honored (see the "paid after expiry" path), so no money is lost.
+      await tx.payment.updateMany({
+        where: { status: 'PENDING', subscription: { tenantId: i.tenantId, status: 'PENDING_PAYMENT', instanceId: null } },
+        data: { status: 'EXPIRED' },
+      });
       await this.assertCapacity(tx, i.tenantId, now);
       const subscription = await tx.subscription.create({
         data: { tenantId: i.tenantId, planId: plan.id, intendedName: i.name, idempotencyKey: i.idempotencyKey },

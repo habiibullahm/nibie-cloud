@@ -87,9 +87,26 @@ describe('BillingService', () => {
       expect(env.duitku.invoices).toHaveLength(0);
     });
 
-    it('applies the per-tenant instance cap to purchases in progress', async () => {
-      await checkout();
+    it('a new checkout releases the slot of an earlier unpaid one instead of waiting for it to expire', async () => {
+      const first = await checkout();
+      const second = await checkout();
+      expect(second.payment.id).not.toBe(first.payment.id);
+      expect((await prisma.payment.findUniqueOrThrow({ where: { id: first.payment.id } })).status).toBe('EXPIRED');
+      expect((await prisma.payment.findUniqueOrThrow({ where: { id: second.payment.id } })).status).toBe('PENDING');
+    });
+
+    it('still applies the per-tenant instance cap to a paid purchase', async () => {
+      const { payment } = await checkout();
+      await pay(await orderIdOf(payment.id));
       await expect(checkout()).rejects.toBeInstanceOf(InstanceLimitError);
+    });
+
+    it('an old invoice that is paid after a newer checkout started is still honored', async () => {
+      const first = await checkout();
+      await checkout();
+      const r = await pay(await orderIdOf(first.payment.id));
+      expect((await prisma.payment.findUniqueOrThrow({ where: { id: first.payment.id } })).status).toBe('PAID');
+      expect(r).toBeDefined();
     });
 
     it('a Duitku outage answers 503, marks the attempt failed and a retry works', async () => {
