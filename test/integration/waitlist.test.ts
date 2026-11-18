@@ -492,8 +492,8 @@ describe('waiting list', () => {
       expect((await create(a, stranger)).json().error.code).toBe('beta_full');
 
       const invitee = await userHeaders('P1@Example.test');
-      const plans = (await a.inject({ method: 'GET', url: '/api/v1/plans', headers: invitee })).json().plans as Array<{ slug: string }>;
-      expect(plans.map((p) => p.slug)).toEqual(['test-small']);
+      const plans = (await a.inject({ method: 'GET', url: '/api/v1/plans', headers: invitee })).json().plans as Array<{ slug: string; available: boolean }>;
+      expect(plans.filter((p) => p.available).map((p) => p.slug)).toEqual(['test-small']);
       const made = await create(a, invitee);
       expect(made.statusCode).toBe(202);
       expect(await status(1)).toBe('REGISTERED');

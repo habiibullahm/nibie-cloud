@@ -1,6 +1,6 @@
 import rateLimit from '@fastify/rate-limit';
 import type { FastifyInstance } from 'fastify';
-import type { Prisma, PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 import type { Config } from '../config/env.js';
 import type { InstanceCommands } from '../modules/instances/instance-commands.js';
 import type { InstanceService } from '../modules/instances/instance-service.js';
@@ -31,6 +31,7 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
   const { service, commands, config } = deps;
   const { prisma } = deps.customer;
   const allowed = new Set(config.betaAllowedEmails);
+  const admins = new Set(config.adminEmails);
   // Invited means listed in BETA_ALLOWED_EMAILS or holding an active BetaInvite row.
   const isInvitedEmail = async (email: string): Promise<boolean> => allowed.has(email.toLowerCase()) || (await isInvited(prisma, email));
   // With email configured the platform invites people already waiting, so a freed slot is theirs before a visitor's.
@@ -57,18 +58,17 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
 
     // Resource limits, plus the monthly price once the operator has set one (null: not for sale, PRD 5.2).
     api.get('/plans', async (req) => {
-      // A plan without a price is the free beta preview plan. Invited accounts always see it; everyone else only while free
-      // slots remain. Priced plans are shown to everyone unless the launch switch (PAID_CHECKOUT_OPEN) is off.
+      // Every active plan is listed for everyone; `available` says whether this account can take it now (the dashboard
+      // shows the others as out of stock). A plan without a price is the free beta preview plan: available to invited
+      // accounts, and to everyone else only while free slots remain. Priced plans are available to everyone unless the
+      // launch switch (PAID_CHECKOUT_OPEN) is off. POST /instances and checkout enforce the same rules.
       const email = principalOf(req).email;
       const invited = await isInvitedEmail(email);
-      const showFree = invited || (config.freeBetaSlots > 0
+      const freeOpen = invited || (config.freeBetaSlots > 0
         && ((await freeBetaRemaining(prisma, config.freeBetaSlots, { queueFirst })) > 0 || (await hasActiveInvite(prisma, email, new Date()))));
-      const showPaid = invited || config.paidCheckoutOpen;
-      const kinds: Prisma.PlanWhereInput[] = [];
-      if (showFree) kinds.push({ monthlyPriceIdr: null });
-      if (showPaid) kinds.push({ monthlyPriceIdr: { not: null } });
+      const paidOpen = invited || config.paidCheckoutOpen;
       const rows = await prisma.plan.findMany({
-        where: { active: true, OR: kinds },
+        where: { active: true },
         orderBy: [{ cpuMillis: 'asc' }, { slug: 'asc' }],
       });
       return {
@@ -77,6 +77,7 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
           storageMb: p.storageMb, pids: p.pids, monthlyPriceIdr: p.monthlyPriceIdr,
           // One-time AI credit that comes with the first payment, in US$ (null: none).
           includedCreditUsd: p.includedCreditNano ? Number(p.includedCreditNano) / 1e9 : null,
+          available: p.monthlyPriceIdr === null ? freeOpen : paidOpen,
         })),
       };
     });
@@ -87,11 +88,15 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
       const p = principalOf(req);
       const key = idempotencyKey.parse(req.headers['idempotency-key']);
       const body = createBody.parse(req.body);
-      // Invited accounts may create anything. Everyone else may take only the free plan, and only while free slots remain;
-      // paid instances are created by the billing flow after a verified payment, never through this route.
+      // Paid instances are created by the billing flow after a verified payment. Only an admin (ADMIN_EMAILS) may create one
+      // here directly, for testing; an invited account may not, or it would get a paid plan without paying.
+      const plan = isUuid(body.planId) ? await prisma.plan.findUnique({ where: { id: body.planId } }) : null;
+      if (plan && plan.monthlyPriceIdr !== null && !admins.has(p.email.toLowerCase())) {
+        throw new ForbiddenError('Paid plans are created through checkout', 'provisioning_not_enabled');
+      }
+      // Invited accounts skip the free slots. Everyone else may take only the free plan, and only while free slots remain.
       if (!(await isInvitedEmail(p.email))) {
-        const plan = isUuid(body.planId) ? await prisma.plan.findUnique({ where: { id: body.planId } }) : null;
-        if (!plan || plan.monthlyPriceIdr !== null || config.freeBetaSlots <= 0) {
+        if (!plan || config.freeBetaSlots <= 0) {
           throw new ForbiddenError('Instance creation is not enabled for this account yet', 'provisioning_not_enabled');
         }
         const replay = await prisma.instance.findFirst({ where: { tenantId: p.tenantId, idempotencyKey: key }, select: { id: true } });

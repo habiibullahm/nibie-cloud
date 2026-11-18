@@ -25,13 +25,14 @@ ruang milikmu tempat instance disimpan.
 
 ## GET /plans
 
-Mengembalikan paket yang bisa kamu pilih saat ini, beserta batas sumber dayanya. Isinya bergantung pada akunmu:
+Mengembalikan semua paket yang aktif, beserta batas sumber dayanya. Field `available` menunjukkan apakah akunmu bisa
+memilih paket itu sekarang:
 
-- Paket beta gratis (tanpa harga) muncul selama slot gratis masih ada, atau bila kamu punya undangan dari daftar
-  tunggu yang masih berlaku.
-- Paket berbayar muncul setelah pembayaran dibuka.
+- Paket beta gratis (tanpa harga) tersedia bila akunmu sudah diundang ke beta, selama slot gratis masih ada, atau bila
+  kamu punya undangan dari daftar tunggu yang masih berlaku.
+- Paket berbayar tersedia setelah pembayaran dibuka.
 
-Daftar kosong berarti belum ada paket yang terbuka untukmu.
+Paket dengan `available: false` tampil di dasbor dengan tanda "Stock 0" dan tidak bisa dipilih.
 
 ```json
 {
@@ -45,7 +46,8 @@ Daftar kosong berarti belum ada paket yang terbuka untukmu.
       "storageMb": 5120,
       "pids": 256,
       "monthlyPriceIdr": null,
-      "includedCreditUsd": null
+      "includedCreditUsd": null,
+      "available": true
     }
   ]
 }
@@ -59,5 +61,6 @@ Daftar kosong berarti belum ada paket yang terbuka untukmu.
 | `pids` | Batas jumlah proses. |
 | `monthlyPriceIdr` | Harga bulanan dalam rupiah. `null` berarti paket tanpa harga, yaitu paket beta gratis. |
 | `includedCreditUsd` | Kredit NibieRouter dalam US$ yang diberikan satu kali bersama pembayaran pertama, atau `null` bila tidak ada. |
+| `available` | `true` bila akunmu bisa memilih paket ini sekarang; `false` berarti stoknya habis untukmu. |
 
 Angka pada contoh hanya menunjukkan bentuk respons.

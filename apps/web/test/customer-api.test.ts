@@ -112,6 +112,9 @@ describe("customer API client", () => {
     expect(toPlan({ id: ID, slug: "s", name: "S", cpuMillis: 1, memoryMb: 2, storageMb: 3, pids: 4, monthlyPriceIdr: null }).pids).toBe(4)
     expect(toPlan({ id: ID, slug: "s", name: "S", cpuMillis: 1, memoryMb: 2, storageMb: 3, pids: 4, monthlyPriceIdr: 50000, includedCreditUsd: 2 }).includedCreditUsd).toBe(2)
     expect(toPlan({ id: ID, slug: "s", name: "S", cpuMillis: 1, memoryMb: 2, storageMb: 3, pids: 4, monthlyPriceIdr: null }).includedCreditUsd).toBeNull()
+    expect(toPlan({ id: ID, slug: "s", name: "S", cpuMillis: 1, memoryMb: 2, storageMb: 3, pids: 4, monthlyPriceIdr: null, available: false }).available).toBe(false)
+    // An older backend sends no flag and lists only plans the account may take.
+    expect(toPlan({ id: ID, slug: "s", name: "S", cpuMillis: 1, memoryMb: 2, storageMb: 3, pids: 4, monthlyPriceIdr: null }).available).toBe(true)
   })
 })
 

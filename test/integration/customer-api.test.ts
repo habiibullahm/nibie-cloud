@@ -48,8 +48,15 @@ describe('customer API', () => {
     const res = await app().inject({ method: 'GET', url: '/api/v1/plans', headers: await user(ALICE) });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
-      plans: [{ id: s.plan.id, slug: 'test-small', name: 'Test small', cpuMillis: 500, memoryMb: 256, storageMb: 1024, pids: 128, monthlyPriceIdr: null, includedCreditUsd: null }],
+      plans: [{ id: s.plan.id, slug: 'test-small', name: 'Test small', cpuMillis: 500, memoryMb: 256, storageMb: 1024, pids: 128, monthlyPriceIdr: null, includedCreditUsd: null, available: true }],
     });
+  });
+
+  it('lists every active plan to a stranger, marking the ones they cannot take as unavailable', async () => {
+    await prisma.plan.create({ data: { slug: 'paid', name: 'Paid', cpuMillis: 1000, memoryMb: 1024, pids: 256, storageMb: 1024, monthlyPriceIdr: 25_000 } });
+    // No free slots and checkout closed: the stranger sees both plans, neither available.
+    const res = await app({ freeBetaSlots: 0, paidCheckoutOpen: false }).inject({ method: 'GET', url: '/api/v1/plans', headers: await user('stranger@example.test') });
+    expect((res.json().plans as Array<{ slug: string; available: boolean }>).map((p) => [p.slug, p.available])).toEqual([['test-small', false], ['paid', false]]);
   });
 
   it('refuses a new instance at the whole-server cap, but never a replay and never after one is deleted', async () => {
@@ -73,7 +80,7 @@ describe('customer API', () => {
     const STRANGER1 = 'stranger1@example.test';
     const STRANGER2 = 'stranger2@example.test';
     const plansFor = async (a: ReturnType<typeof app>, email: string) =>
-      ((await a.inject({ method: 'GET', url: '/api/v1/plans', headers: await user(email) })).json().plans as Array<{ slug: string }>).map((p) => p.slug).sort();
+      ((await a.inject({ method: 'GET', url: '/api/v1/plans', headers: await user(email) })).json().plans as Array<{ slug: string; available: boolean }>).filter((p) => p.available).map((p) => p.slug).sort();
 
     it('gives the free plan to the first strangers until the slots are used, then hides it and answers beta_full', async () => {
       await prisma.plan.create({ data: { slug: 'paid', name: 'Paid', cpuMillis: 1000, memoryMb: 1024, pids: 256, storageMb: 1024, monthlyPriceIdr: 25_000 } });
@@ -138,7 +145,7 @@ describe('customer API', () => {
     await prisma.plan.create({ data: { slug: 'paid', name: 'Paid', cpuMillis: 1000, memoryMb: 1024, pids: 256, storageMb: 1024, monthlyPriceIdr: 25_000 } });
     const slugs = async (email: string) => {
       const res = await app().inject({ method: 'GET', url: '/api/v1/plans', headers: await user(email) });
-      return (res.json().plans as Array<{ slug: string }>).map((p) => p.slug).sort();
+      return (res.json().plans as Array<{ slug: string; available: boolean }>).filter((p) => p.available).map((p) => p.slug).sort();
     };
     expect(await slugs(ALICE)).toEqual(['paid', 'test-small']);
     expect(await slugs('stranger@example.test')).toEqual(['paid']);

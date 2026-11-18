@@ -75,6 +75,8 @@ export interface Plan {
   monthlyPriceIdr: number | null
   /** One-time AI credit (US$) that comes with the first payment; null when the plan has none. */
   includedCreditUsd: number | null
+  /** Whether this account can take the plan now; the deploy page shows the others as out of stock. */
+  available: boolean
 }
 
 export interface Region {

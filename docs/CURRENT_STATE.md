@@ -4,6 +4,53 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Free beta is invite-only (2026-11-18)
+
+**Live change, on the owner's word ("go"), 15:24 UTC:**
+- `FREE_BETA_SLOTS=0` on the VPS (was 10). The env file was backed up next to itself in `/etc/hermes-cloud/` first, then the backend
+  was recreated with `--force-recreate`; it came back healthy, and `GET /api/v1/public/beta-slots` answers `{"total":0,"remaining":0}`.
+  `BETA_ALLOWED_EMAILS` is unchanged.
+- From now on, only invited accounts can deploy: emails in `BETA_ALLOWED_EMAILS` or with an active invite on the admin page
+  "Undangan beta". Anyone else gets `403 provisioning_not_enabled`. This refusal was not tried live.
+- The owner turned Supabase "Allow new users to sign up" back on (checked: `/auth/v1/settings` reports `disable_signup: false`).
+  Strangers can register, but they cannot deploy.
+- The owner removed `NEXT_PUBLIC_FREE_BETA_OPEN` from the landing Worker and retried its build. This was not verified yet: right
+  after, `https://cloud.nibie.app/` still showed "Daftar beta gratis".
+- The existing free instance was kept on the owner's choice; 7 tenant containers kept running through the recreate.
+- Waiting-list invitations stop while the slots are 0.
+
+**Code fix, branch `claude/invited-free-plan-only` (not committed, not deployed):**
+- **Problem:** an invited account could `POST /api/v1/instances` with a priced plan and get it without paying. The dashboard never
+  does this, because it sends priced plans to checkout, but the API allowed it.
+- **Fix:** `customer-routes.ts` now refuses a priced plan on that route (`403 provisioning_not_enabled`, "Paid plans are created through
+  checkout") unless the email is in `ADMIN_EMAILS`. An admin still has to be invited to pass the invite gate. Checkout for invited
+  accounts is unchanged; production uses SumoPod with `SUMOPOD_ENV=production`, so they pay real money.
+- **Test:** new test in `beta-invites.test.ts`: env-invited and table-invited accounts get 403 on a priced plan, an invited admin gets 202.
+  It failed before the fix.
+- **Checks** (Windows, local Docker Postgres `hermes_test`):
+  - `tsc` clean.
+  - Unit tests: 535 passed, 2 failed; the 2 are the known Windows-only `egress-canary` shell tests.
+  - Integration: `customer-api`, `waitlist`, `admin-api`, `admin-auth`, `instance-commands`, `integration-routes`, `beta-invites`
+    and `admin-beta-invites`, 125 of 125.
+  - `billing-api` 26 of 26, run alone twice. In a 4-file run, 3 of its callback tests failed on the fixed 150 ms `settle()` wait;
+    this is the same flake as the PR #62 entry below.
+
+**Every plan is shown to every user, same branch (owner request):**
+- **Before:** `GET /api/v1/plans` hid the plans an account could not take. With 0 slots and `PAID_CHECKOUT_OPEN=false`, a
+  non-invited user saw an empty list.
+- **Now:** it lists every active plan with a new field `available` (free plan: invited, free slots left, or an open waiting-list
+  invitation; priced plans: invited or `PAID_CHECKOUT_OPEN`). `POST /instances` and checkout enforce the same rules as before.
+- **Dashboard deploy page:** plans with `available: false` show a "Stock 0" badge and a disabled radio, and the default selection
+  skips them. When none is open, an alert asks the person to request beta access on cloud.nibie.app; this replaces the
+  waiting-list text.
+- A missing `available` (older backend) counts as `true`, so the dashboard and backend can be deployed in either order.
+- API reference updated (`apps/docs/.../akun-dan-paket.mdx`).
+- **Checks:**
+  - Backend `tsc` clean; `customer-api`, `waitlist`, `beta-invites`, `admin-beta-invites` 82 of 82; `billing-api` 26 of 26.
+  - `apps/web`: typecheck and lint clean.
+  - The deploy page was rendered in mock mode with one plan temporarily out of stock, in headless Chromium at 1280 px and 400 px.
+    It showed the badge, the radio was disabled, a click did not select it, and there were no console errors.
+
 ## Security hardening after an OWASP Top 10 review (2026-11-18, branch `claude/owasp-hardening`, draft PR)
 
 The full review was given to the owner privately; it is not kept in this public repository. Changes:
