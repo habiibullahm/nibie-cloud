@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -50,7 +51,7 @@ func appliedVersions(ctx context.Context, t *testing.T, pool *pgxpool.Pool) []in
 	return out
 }
 
-// simulatePrisma builds what Prisma Migrate leaves behind: the 16 migrations applied and a
+// simulatePrisma builds what Prisma Migrate leaves behind: the Prisma migrations applied and a
 // _prisma_migrations table that lists them, finished and not rolled back. No goose table.
 func simulatePrisma(ctx context.Context, t *testing.T, pool *pgxpool.Pool, sqlDB *sql.DB) {
 	t.Helper()
@@ -140,7 +141,7 @@ func baselineThenUp(ctx context.Context, t *testing.T, pool *pgxpool.Pool, sqlDB
 	if err := Up(ctx, sqlDB, &out); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "17") || strings.Contains(out.String(), "00001") {
+	if !strings.Contains(out.String(), fmt.Sprintf("%05d", migrations.RiverVersion)) || strings.Contains(out.String(), "00001") {
 		t.Fatalf("up after baseline must apply only the River migration:\n%s", out.String())
 	}
 	after, err := schemadump.Dump(ctx, pool, "public")
@@ -152,7 +153,7 @@ func baselineThenUp(ctx context.Context, t *testing.T, pool *pgxpool.Pool, sqlDB
 	}
 }
 
-// TestBaselineRefuses: anything but "exactly the 16 Prisma migrations, all finished, and no goose rows" is
+// TestBaselineRefuses: anything but "exactly the Prisma migrations, all finished, and no goose rows" is
 // refused, with nothing changed (Review Focus 2).
 func TestBaselineRefuses(t *testing.T) {
 	names, err := migrations.PrismaNames()
@@ -222,7 +223,7 @@ func TestBaselineAfterStatusOrFailedUp(t *testing.T) {
 				t.Fatalf("after baseline: versions %v, want 0..%d once each", got, migrations.PrismaMigrations)
 			}
 			out.Reset()
-			if err := Up(ctx, sqlDB, &out); err != nil || !strings.Contains(out.String(), "00017") {
+			if err := Up(ctx, sqlDB, &out); err != nil || !strings.Contains(out.String(), fmt.Sprintf("%05d", migrations.RiverVersion)) {
 				t.Fatalf("up after baseline: %v\n%s", err, out.String())
 			}
 		})

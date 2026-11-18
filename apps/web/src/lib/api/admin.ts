@@ -40,6 +40,8 @@ export interface AdminApi {
   instances(status: string | undefined, cursor?: string): Promise<AdminPage<AdminInstance>>
   instance(id: string): Promise<{ instance: AdminInstanceDetail; events: { id: string; type: string; message: string; createdAt: string }[] }>
   plans(): Promise<AdminPlan[]>
+  /** Changes data: sets a priced plan's stock (null: no limit). Answers 409 `free_plan_stock` for the free plan. */
+  setPlanStock(id: string, stockLimit: number | null, reason: string): Promise<Pick<AdminPlan, "id" | "slug" | "stockLimit">>
   nodes(): Promise<AdminNode[]>
   subscriptions(cursor?: string): Promise<AdminPage<AdminSubscription>>
   payments(cursor?: string): Promise<AdminPage<AdminPayment>>
@@ -109,6 +111,8 @@ export function createAdminApi(opts: {
     instances: async (status, cursor) => toPage(await call<Paged<"instances", AdminInstance>>(`/instances${qs({ status, cursor })}`), "instances"),
     instance: (id) => call(`/instances/${encodeURIComponent(id)}`),
     plans: async () => (await call<{ plans: AdminPlan[] }>("/plans")).plans,
+    setPlanStock: async (id, stockLimit, reason) =>
+      (await call<{ plan: Pick<AdminPlan, "id" | "slug" | "stockLimit"> }>(`/plans/${encodeURIComponent(id)}/stock`, { stockLimit, reason })).plan,
     nodes: async () => (await call<{ nodes: AdminNode[] }>("/nodes")).nodes,
     subscriptions: async (cursor) => toPage(await call<Paged<"subscriptions", AdminSubscription>>(`/subscriptions${qs({ cursor })}`), "subscriptions"),
     payments: async (cursor) => toPage(await call<Paged<"payments", AdminPayment>>(`/payments${qs({ cursor })}`), "payments"),

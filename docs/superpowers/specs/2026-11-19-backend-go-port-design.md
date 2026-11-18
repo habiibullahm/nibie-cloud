@@ -82,8 +82,8 @@ Every dependency is pinned in `go.sum`. Adding a dependency beyond this table ne
 
 The same Supabase database and the same `hermes` schema are used, and no data is migrated. Table, column and enum names stay exactly as Prisma created them (quoted CamelCase).
 
-- **goose replaces Prisma Migrate.** The 15 existing `prisma/migrations/*/migration.sql` files are copied verbatim as goose migrations `00001`–`00015`, so a database built from scratch is identical. Migration `00016` adds River's tables in the `hermes` schema.
-- **Production baseline:** a one-time `hermes-cloud migrate baseline` writes goose version rows `00001`–`00015` without running them, then `migrate up` applies `00016`. Both steps are additive, so the Node backend keeps working.
+- **goose replaces Prisma Migrate.** Every `prisma/migrations/*/migration.sql` file is copied verbatim as one goose migration, in order (`00001`–`00017` on 2026-11-19; a new Prisma migration on `main` gets its copy before M8), so a database built from scratch is identical. The next version (`PrismaMigrations + 1`) adds River's tables in the `hermes` schema.
+- **Production baseline:** a one-time `hermes-cloud migrate baseline` writes goose version rows for the Prisma copies without running them, then `migrate up` applies River's version. Both steps are additive, so the Node backend keeps working.
 - `_prisma_migrations` stays until M9 so a Node rollback still works.
 - **Connection:** `DATABASE_URL` ends in Prisma's `?schema=hermes`. `internal/db` rewrites that to `search_path=hermes` for pgx, so the env file is unchanged. The production connection is Supabase's session pooler, so LISTEN/NOTIFY works.
 - **Pool sizing:** explicit `MaxConns` for the API pool and River (River's listener needs one dedicated connection). If the pooler's connection limit is a problem in M0 testing, run River in poll-only mode.
@@ -179,7 +179,7 @@ Each milestone is one PR, merged to `main` and not deployed until M8. The Node b
 
 | # | Scope | Gate |
 | --- | --- | --- |
-| M0 | Module, config parity, logger + redaction, pgx pool + schema rewrite, `sqlc`, goose `00001`–`00016`, `migrate`/`healthcheck` subcommands, `/healthz` `/readyz`, `Dockerfile.go`, CI job (`go vet`, `staticcheck`, `go test`), golden-fixture generator | Config tests accept and refuse the same env as `test/unit/config.test.ts`. The goose-built `hermes_test` schema diffs clean against the Prisma-built one (`pg_dump --schema-only`). River starts on a session-mode connection. |
+| M0 | Module, config parity, logger + redaction, pgx pool + schema rewrite, `sqlc`, goose copies of every Prisma migration plus River, `migrate`/`healthcheck` subcommands, `/healthz` `/readyz`, `Dockerfile.go`, CI job (`go vet`, `staticcheck`, `go test`), golden-fixture generator | Config tests accept and refuse the same env as `test/unit/config.test.ts`. The goose-built `hermes_test` schema diffs clean against the Prisma-built one (`pg_dump --schema-only`). River starts on a session-mode connection. |
 | M1 | `internal/runtime`: Docker manager, hardening, API key, image policy, volume quota, network policy, egress canary, DNS, runtime availability, health | Create-spec and HMAC goldens match. The `runtime-manager-live` port passes. |
 | M2 | `internal/instances` + `internal/jobs`: state machine, lease and fencing, service, commands, River worker, periodic maintenance, sweeper, reconciler, disk monitor; operator routes; `cmd/demo` | Concurrency (409), recovery and reaper tests pass on a real daemon. The demo runs provision → restart → kill → recover. |
 | M3 | `internal/auth`, customer routes, public routes, beta gate, waitlist (Turnstile, double opt-in, rate caps, inviter), free beta | Customer, auth and waitlist tests mapped and green |

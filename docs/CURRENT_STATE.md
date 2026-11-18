@@ -4,7 +4,7 @@ Last updated: 2026-11-19 (Go port M0, see the first section). Earlier entries be
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
-## Go port of the backend, milestone M0 (2026-11-19, branch `claude/go-port-m0`, committed locally, NOT pushed, NOT deployed)
+## Go port of the backend, milestone M0 (2026-11-19, PR #71 from `claude/go-port-m0`, NOT merged, NOT deployed)
 
 On the owner's decision to move the backend from Node.js to Go (reason: memory and margin; Rust and PHP ruled out):
 - **Measured first** (VPS, read only, 2026-11-19): Node backend 113 MB RAM after 24 h, steady; 2 tenant containers 620 MB; host
@@ -13,17 +13,53 @@ On the owner's decision to move the backend from Node.js to Go (reason: memory a
 - **Spec:** [superpowers/specs/2026-11-19-backend-go-port-design.md](superpowers/specs/2026-11-19-backend-go-port-design.md): Go built in
   parallel in `server/`, same `/api/v1` contract and database, River (Postgres) replaces BullMQ/Redis, one cutover deploy (M8) with a
   Node rollback, milestones M0–M9. **Plan M0:** [superpowers/plans/2026-11-19-go-port-m0-foundation.md](superpowers/plans/2026-11-19-go-port-m0-foundation.md).
-- **M0 done on the branch:** config with Node parity (207 Node-generated golden cases), JSON logger with the same redaction, pgx pool
-  that reads Prisma's `DATABASE_URL`, goose copies of the 16 Prisma migrations with a schema golden (identical to the Prisma-built schema),
-  River as migration 17, `migrate up|status|baseline` (baseline refuses anything but a clean Prisma history), `/healthz` and `/readyz`,
+- **M0 done on the branch:** config with Node parity (215 Node-generated golden cases), JSON logger with the same redaction, pgx pool
+  that reads Prisma's `DATABASE_URL`, goose copies of all 17 Prisma migrations with a schema golden (identical to the Prisma-built schema),
+  River as the version after them (18), `migrate up|status|baseline` (baseline refuses anything but a clean Prisma history), `/healthz` and `/readyz`,
   `serve` on loopback with graceful stop, `healthcheck`, a 15 MB distroless image (idle 3.4 MiB, M0 does no product work yet), CI job
-  `backend-go`, `server/TEST-MAP.md` (909 TS test cases mapped: 72 golden, 8 ported, 827 later, 2 not ported).
+  `backend-go`, `server/TEST-MAP.md` (916 TS test cases mapped: 72 golden, 8 ported, 834 later, 2 not ported).
 - **Not done / not verified:** no product route is ported (M1–M6); River on Supabase's session pooler is untested (only local Postgres);
   nothing deployed. **Merging this branch triggers an automatic redeploy of the unchanged Node backend**, because
   `ops/host/hermes-auto-deploy.sh` counts `deploy/` (which now holds `Dockerfile.go`) as a backend path.
 - **Rule while the port runs:** the Node backend takes bug and security fixes only; each one gets a row in `server/TEST-MAP.md`.
-- `main` gained admin API keys (PR #65) after the spec was written: its tests are mapped to M6 in TEST-MAP, the spec's M6 row does not
-  name them yet.
+- `main` gained admin API keys (PR #65) and plan stock (PR #73, migration `20261119200000_add_plan_stock_limit`) after the spec was
+  written: their tests are mapped to M6 in TEST-MAP, and the plan-stock migration is copied as goose 00017. Every new Prisma
+  migration on `main` before M8 needs its goose copy and a bump of `PrismaMigrations` (River follows automatically).
+
+## Plan stock managed from the admin panel (2026-11-19)
+
+**Branch `claude/plan-stock`, PR #73, not merged:**
+- **Why:** the owner asked for stock management per plan ("add management stock paket"). Decisions taken with the owner: a number per
+  plan (empty = no limit); used = instances + paid subscriptions waiting for their instance + unexpired invoices (the
+  `MAX_TOTAL_INSTANCES` count, per plan); the free plan stays on `FREE_BETA_SLOTS`; the number is changed from the panel.
+- **Data:** `Plan.stockLimit Int?` (migration `20261119200000_add_plan_stock_limit`, check `>= 0`). Null: no limit.
+- **Backend:** `totalLoad(db, now, planId?)`, `hasStock`, `stockLeft` in `src/modules/instances/capacity.ts`. Checkout refuses a new
+  purchase with `409 plan_sold_out` (`PlanSoldOutError`) once the stock is used, under a per-plan advisory lock taken after the tenant
+  lock, so two buyers cannot both take the last unit. Renewals and paying customers are never blocked. Customer `GET /plans` marks a
+  sold-out priced plan `available: false` for everyone, invited accounts included (the dashboard already shows "Stock 0"). Admin
+  `GET /plans` adds `stockUsed` and `stockLeft`; `POST /api/v1/admin/plans/:planId/stock` (`stockLimit` 0..100000 or null, reason)
+  writes one audit row (`detail.from`/`to`) per real change, refuses the free plan (`409 free_plan_stock`). MCP tool `set_plan_stock`.
+- **Dashboard:** admin Plan page gets a Stok column ("Sisa 3 dari 5", "Habis (3/2)", "Tanpa batas", "Slot beta") and an "Ubah stok"
+  dialog with a reason (`src/lib/admin-plans.ts`).
+- **Not covered:** an admin creating a paid instance directly through `POST /instances` (testing path) skips the stock. Lowering the
+  stock below what is used only stops new purchases.
+- **Checks** (Windows, local Docker Postgres `hermes_test`, a heavily loaded machine):
+  - Backend `tsc` clean. Unit tests 544 passed, 2 failed (the known Windows-only `egress-canary` tests).
+  - Integration: `admin-plan-stock` (new, 5), `billing-service` (2 new: sold out, race for the last unit), `customer-api`,
+    `admin-api`, `admin-api-keys`: all pass. `billing-api`: 3 failures on the first run (one deadlock in `resetDb`), 1 different
+    failure on a solo run (`replay is 200 and changes nothing`, a fixed 150 ms wait for the email on a machine where one test took
+    15-65 s). Both runs failed different tests, and that file never sets a stock, so they look like timing flakes; not re-run on `main`
+    to compare.
+  - Dashboard: typecheck, lint, 170 of 170 tests (new `test/admin-plans.test.ts`). `next build` not run.
+
+## Payment return page said "Payment not completed" after a successful payment (2026-11-19, branch `claude/payment-return-fix`)
+
+Bug: on `/dashboard/instances?payment=...` the dashboard showed "Payment not completed" right after a PAID purchase (the owner's
+instance was created and chat worked end to end), because `evaluateReturn` (`apps/web/src/lib/billing.ts`) returned `failed` when
+*any* older abandoned purchase had an EXPIRED invoice. Now it judges only the most recently issued invoice (latest `expiresAt`; the
+customer API does not expose the merchant order id in `?payment=`). Older expired purchases still appear under "Awaiting payment"
+as expired. Dashboard only, no backend change. Checked: web `test/billing.test.ts` (14 pass, new regression case), `typecheck`,
+`lint`. Not checked in a browser. Goes live through Cloudflare Workers Builds once merged to `main`.
 
 ## Automatic backend deploy from main (2026-11-19)
 

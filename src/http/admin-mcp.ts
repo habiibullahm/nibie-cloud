@@ -81,8 +81,13 @@ function buildServer(api: FastifyInstance, authorization: string): McpServer {
     inputSchema: { inviteId: z.string().uuid(), reason },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
   }, (a) => call('POST', `/beta-invites/${encodeURIComponent(a.inviteId)}/revoke`, { reason: a.reason }));
-  server.registerTool('list_plans', { description: 'All plans, including inactive ones and ones not for sale.', annotations: ro },
+  server.registerTool('list_plans', { description: 'All plans, including inactive ones and ones not for sale, with stock limit, used and left.', annotations: ro },
     () => call('GET', '/plans'));
+  server.registerTool('set_plan_stock', {
+    description: 'Set the stock of a priced plan: how many instances plus open purchases it may have; null removes the limit. The free plan is limited by FREE_BETA_SLOTS and is refused. Changes data: confirm with the human first.',
+    inputSchema: { planId: z.string().uuid(), stockLimit: z.number().int().min(0).max(100000).nullable(), reason },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  }, (a) => call('POST', `/plans/${encodeURIComponent(a.planId)}/stock`, { stockLimit: a.stockLimit, reason: a.reason }));
   server.registerTool('list_nodes', { description: 'Runtime nodes with their instance counts.', annotations: ro },
     () => call('GET', '/nodes'));
   server.registerTool('list_failed_jobs', { description: 'Background jobs that exhausted their retries.', annotations: ro },

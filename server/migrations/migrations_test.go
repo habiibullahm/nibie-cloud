@@ -22,7 +22,7 @@ func TestPrismaNames(t *testing.T) {
 	if !slices.IsSorted(names) {
 		t.Fatalf("names are not in order: %v", names)
 	}
-	if names[0] != "20261111144544_init" || names[len(names)-1] != "20261119100000_add_admin_api_key" {
+	if names[0] != "20261111144544_init" || names[len(names)-1] != "20261119200000_add_plan_stock_limit" {
 		t.Fatalf("first/last = %s / %s", names[0], names[len(names)-1])
 	}
 	// The repository's Prisma folder (still present until milestone M9) has exactly these migrations.

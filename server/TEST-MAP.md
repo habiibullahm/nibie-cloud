@@ -7,7 +7,7 @@ milestone that will port it, or why it is not ported. A milestone's PR fills in 
 Status: `golden` (covered by a Node-generated golden fixture), `ported`, `later: M<n>`, `not ported: <reason>`.
 One row per `it(`, `test(` or `it.each(` line; an `it.each` row stands for all of its cases.
 
-Rows: 909 (golden 72, ported 8, later 827, not ported 2).
+Rows: 916 (golden 72, ported 8, later 834, not ported 2).
 
 | TS file | TS test | Go test | Status |
 | --- | --- | --- | --- |
@@ -439,6 +439,11 @@ Rows: 909 (golden 72, ported 8, later 827, not ported 2).
 | `test/integration/admin-beta-invites.test.ts` | inviting the same address again keeps one row |  | later: M6 |
 | `test/integration/admin-beta-invites.test.ts` | revokes an invite, records it once, and a second revoke changes and records nothing |  | later: M6 |
 | `test/integration/admin-beta-invites.test.ts` | takes effect for customers at once: an added email can deploy, a revoked one can not |  | later: M6 |
+| `test/integration/admin-plan-stock.test.ts` | refuses everyone but an allowlisted admin with a second factor |  | later: M6 |
+| `test/integration/admin-plan-stock.test.ts` | sets, keeps and clears the stock with one audit entry per real change |  | later: M6 |
+| `test/integration/admin-plan-stock.test.ts` | refuses the free plan, an unknown plan and invalid bodies |  | later: M6 |
+| `test/integration/admin-plan-stock.test.ts` | lists stock used and left; the free plan has no stock |  | later: M6 |
+| `test/integration/admin-plan-stock.test.ts` | a sold-out plan shows as unavailable to customers, invited or not, and opens again when stock is added |  | later: M6 |
 | `test/integration/alert-scanner.test.ts` | stays silent on a healthy platform and sends no summary before 09:00 WIB |  | later: M6 |
 | `test/integration/alert-scanner.test.ts` | alerts when recovery is exhausted only after 10 minutes, once, and says when it recovered |  | later: M6 |
 | `test/integration/alert-scanner.test.ts` | treats a FAILED instance with a running paid subscription as critical, an unpaid one as a warning |  | later: M6 |
@@ -508,6 +513,8 @@ Rows: 909 (golden 72, ported 8, later 827, not ported 2).
 | `test/integration/billing-service.test.ts` | still applies the per-tenant instance cap to a paid purchase |  | later: M5 |
 | `test/integration/billing-service.test.ts` | an old invoice that is paid after a newer checkout started is still honored |  | later: M5 |
 | `test/integration/billing-service.test.ts` | refuses a new purchase at the whole-server cap before any invoice exists, and never blocks a paying customer |  | later: M5 |
+| `test/integration/billing-service.test.ts` | refuses a new purchase once the plan stock is used, counting open invoices, and never blocks the paying customer |  | later: M5 |
+| `test/integration/billing-service.test.ts` | two buyers racing for the last unit: exactly one gets an invoice |  | later: M5 |
 | `test/integration/billing-service.test.ts` | a Duitku outage answers 503, marks the attempt failed and a retry works |  | later: M5 |
 | `test/integration/billing-service.test.ts` | first payment: payment PAID, subscription ACTIVE for 30 days, instance created and ACTIVE, one receipt |  | later: M5 |
 | `test/integration/billing-service.test.ts` | hands the new instance to the router provisioner once, and a router that throws never undoes the payment |  | later: M5 |

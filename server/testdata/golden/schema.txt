@@ -171,7 +171,9 @@ table Plan rls=false force_rls=false
   column name text not null
   column monthlyPriceIdr integer
   column includedCreditNano bigint
+  column stockLimit integer
   constraint Plan_pkey PRIMARY KEY (id)
+  constraint Plan_stockLimit_nonnegative CHECK ((("stockLimit" IS NULL) OR ("stockLimit" >= 0)))
   index CREATE UNIQUE INDEX "Plan_pkey" ON "Plan" USING btree (id)
   index CREATE UNIQUE INDEX "Plan_slug_key" ON "Plan" USING btree (slug)
 table ProviderConfig rls=false force_rls=false

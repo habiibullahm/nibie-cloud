@@ -21,7 +21,7 @@ deployed.
 | `internal/db/schemadump` | Schema as deterministic text, to compare Prisma and goose |
 | `internal/jobs` | River client (job queue in Postgres) |
 | `internal/http` | `/healthz`, `/readyz` |
-| `migrations` | 00001–00016: verbatim copies of `prisma/migrations`; 00017: River's tables |
+| `migrations` | 00001–00017: verbatim copies of `prisma/migrations` (one per Prisma migration); the next version (00018): River's tables (`river.go`) |
 | `testdata/golden` | Fixtures generated from the Node code; see its README |
 | `TEST-MAP.md` | Every TypeScript test case and its Go counterpart or milestone |
 
@@ -51,12 +51,12 @@ go test -tags integration -p 1 ./...                           # integration tes
 
 ```bash
 DATABASE_URL=... hermes-cloud migrate status
-DATABASE_URL=... hermes-cloud migrate up         # a new database: applies 1-17
-DATABASE_URL=... hermes-cloud migrate baseline   # a Prisma-built database, once: records 1-16 as applied, then run `up`
+DATABASE_URL=... hermes-cloud migrate up         # a new database: applies 1-18
+DATABASE_URL=... hermes-cloud migrate baseline   # a Prisma-built database, once: records 1-17 as applied, then run `up`
 ```
 
-`baseline` changes nothing and exits 1 unless `_prisma_migrations` lists exactly the 16 expected migrations, all finished and none rolled
-back, and `goose_db_version` is absent or empty. Never edit a migration that has run in production.
+`baseline` changes nothing and exits 1 unless `_prisma_migrations` lists exactly the 17 expected migrations, all finished and none rolled
+back, and `goose_db_version` records no migration (goose's own version-0 row is fine, e.g. after `migrate status`). Never edit a migration that has run in production.
 
 ## Image
 

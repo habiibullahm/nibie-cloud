@@ -1,8 +1,8 @@
 // Package migrations holds the database schema as goose migrations, embedded in the binary.
 //
-//   - 00001–00016 are verbatim copies of prisma/migrations (one file per Prisma migration, in order), so a
+//   - 00001–000NN are verbatim copies of prisma/migrations (one file per Prisma migration, in order), so a
 //     database built by goose is identical to one built by Prisma (checked against testdata/golden/schema.txt).
-//   - 00017 adds River's job queue tables (00017_river.go).
+//   - version PrismaMigrations+1 adds River's job queue tables (river.go, a Go migration).
 //
 // Never edit a migration that has run in production; add a new one.
 package migrations
@@ -21,8 +21,9 @@ import (
 //go:embed *.sql
 var FS embed.FS
 
-// PrismaMigrations is how many Prisma migrations the goose files 00001–00016 copy.
-const PrismaMigrations = 16
+// PrismaMigrations is how many Prisma migrations the goose files copy (TestPrismaNames checks it against
+// prisma/migrations).
+const PrismaMigrations = 17
 
 // NewProvider returns a goose provider over the embedded SQL migrations plus the River migration, recording
 // versions in goose_db_version in the connection's search_path schema.

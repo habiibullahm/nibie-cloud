@@ -10,8 +10,9 @@ import (
 	"github.com/riverqueue/river/rivermigrate"
 )
 
-// RiverVersion is the goose version that installs River's tables.
-const RiverVersion int64 = 17
+// RiverVersion is the goose version that installs River's tables: the one right after the Prisma copies, so a
+// new Prisma migration only needs its copy and a bump of PrismaMigrations.
+const RiverVersion int64 = PrismaMigrations + 1
 
 // RiverMigrationTarget is the River schema version this migration installs: the latest one shipped by the
 // River release pinned in go.mod. A River upgrade that adds migrations fails TestRiverTargetIsLatest

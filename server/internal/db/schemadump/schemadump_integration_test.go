@@ -17,9 +17,6 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 )
 
-// PrismaMigrations is the number of Prisma migrations the goose files copy (spec section 3).
-const PrismaMigrations = 16
-
 func golden(t *testing.T) string {
 	t.Helper()
 	b, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "golden", "schema.txt"))
@@ -84,7 +81,7 @@ func applyPrismaCopies(ctx context.Context, t *testing.T, sqlDB *sql.DB) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := p.UpTo(ctx, PrismaMigrations); err != nil {
+	if _, err := p.UpTo(ctx, migrations.PrismaMigrations); err != nil {
 		t.Fatal(err)
 	}
 }

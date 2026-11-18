@@ -58,9 +58,9 @@ func label(p string) string {
 	return path.Base(p)
 }
 
-// Baseline adopts a database that Prisma Migrate built: it records goose versions 0–16 as applied without
+// Baseline adopts a database that Prisma Migrate built: it records goose versions 0..PrismaMigrations as applied without
 // running them, so `up` then applies only what came after Prisma (River). It runs in one transaction and
-// refuses, changing nothing, unless _prisma_migrations lists exactly the 16 expected migrations, each
+// refuses, changing nothing, unless _prisma_migrations lists exactly the expected Prisma migrations, each
 // finished and none rolled back, and goose_db_version records no migration (goose's own version-0 row is fine).
 func Baseline(ctx context.Context, db *sql.DB, w io.Writer) error {
 	want, err := migrations.PrismaNames()

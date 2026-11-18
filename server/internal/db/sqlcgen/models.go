@@ -628,6 +628,7 @@ type Plan struct {
 	Name               string
 	MonthlyPriceIdr    pgtype.Int4
 	IncludedCreditNano pgtype.Int8
+	StockLimit         pgtype.Int4
 }
 
 type ProviderConfig struct {
