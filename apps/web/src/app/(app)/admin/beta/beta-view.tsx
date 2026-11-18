@@ -47,7 +47,8 @@ export function AdminBetaView() {
       { email: email.trim(), ...(note.trim() ? { note: note.trim() } : {}), reason: reason.trim() },
       {
         onSuccess: (invite) => {
-          toast.success(`${invite.email} sekarang diundang.`)
+          if (invite.emailSent) toast.success(`${invite.email} sekarang diundang. Email undangan terkirim.`)
+          else toast.warning(`${invite.email} sekarang diundang, tapi email undangan tidak terkirim. Kabari orangnya lewat jalur lain.`)
           setEmail("")
           setNote("")
           setReason("")

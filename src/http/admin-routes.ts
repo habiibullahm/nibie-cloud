@@ -6,6 +6,8 @@ import type { Config } from '../config/env.js';
 import type { AuthClaims } from '../modules/auth/token-verifier.js';
 import type { AuditService } from '../modules/admin/audit-service.js';
 import type { JobQueue } from '../modules/jobs/types.js';
+import type { Mailer } from '../modules/billing/mailer.js';
+import { renderBetaInvite } from '../modules/billing/email-templates.js';
 import { addInvite, INVITE_SELECT, listInvites, normalizeEmail } from '../modules/beta/invites.js';
 import { AuthUnavailableError, ForbiddenError, NotFoundError, QueueUnavailableError, UnauthorizedError } from '../shared/errors.js';
 
@@ -72,8 +74,9 @@ const statusQuery = pageQuery.extend({
  * the client side guards the data. Nothing under `src/http` may import the secret store; the admin
  * routes read only columns that carry no credentials (see `test/unit/secrets-boundary.test.ts`).
  */
-export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDeps; config: Config }): void {
+export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDeps; config: Config; mailer?: Mailer | null }): void {
   const { config } = deps;
+  const mailer = deps.mailer ?? null;
   const { prisma, audit } = deps.admin;
   const queue = deps.admin.queue ?? null;
   // Empty list means nobody: a missing or misspelled variable must never open the panel.
@@ -358,7 +361,16 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
         }, tx);
         return row;
       });
-      return reply.status(201).send({ invite });
+      // The invite is already saved and audited. The email is best effort: `emailSent` tells the panel whether it went out,
+      // so a failed send never undoes the invite and an admin can tell the person by other means.
+      let emailSent = false;
+      if (mailer?.enabled) {
+        try {
+          await mailer.send({ to: invite.email, ...renderBetaInvite({ registerUrl: `${config.dashboardOrigin ?? 'https://cloud.nibie.app'}/dashboard/register` }) });
+          emailSent = true;
+        } catch { /* the mailer already logged the failure by class name */ }
+      }
+      return reply.status(201).send({ invite, emailSent });
     });
 
     api.post<{ Params: { inviteId: string } }>('/beta-invites/:inviteId/revoke', async (req) => {

@@ -24,9 +24,9 @@ describe("admin beta invite client", () => {
   })
 
   it("adds an invite with a JSON POST carrying the token, and returns the row", async () => {
-    const f = vi.fn(async () => jsonResponse({ invite: INVITE }, 201))
+    const f = vi.fn(async () => jsonResponse({ invite: INVITE, emailSent: true }, 201))
     const out = await client(f as unknown as typeof fetch).addBetaInvite({ email: "a@example.test", note: "friend", reason: "asked" })
-    expect(out).toEqual(INVITE)
+    expect(out).toEqual({ ...INVITE, emailSent: true })
     const [url, init] = lastCall(f)
     expect(url).toBe(`${BASE}/api/v1/admin/beta-invites`)
     expect(init.method).toBe("POST")

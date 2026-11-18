@@ -6,6 +6,7 @@ import { buildServer } from '../../src/http/server.js';
 import { AuditService } from '../../src/modules/admin/audit-service.js';
 import { IdentityService } from '../../src/modules/auth/identity-service.js';
 import { InstanceService } from '../../src/modules/instances/instance-service.js';
+import type { Mailer, MailMessage } from '../../src/modules/billing/mailer.js';
 import { createTestAuth, testConfig } from '../helpers/auth.js';
 import { resetDb } from '../helpers/db.js';
 import { FakeRuntime } from '../helpers/fake-runtime.js';
@@ -19,13 +20,14 @@ const GUEST = 'guest@example.test';
 
 let auth: Awaited<ReturnType<typeof createTestAuth>>;
 
-function app(cfg: Partial<Config> = {}) {
+function app(cfg: Partial<Config> = {}, mailer: Mailer | null = null) {
   const service = new InstanceService({ prisma, runtime: new FakeRuntime(), image: IMAGE, production: false, logger: silentLogger, masterKey: TEST_MASTER_KEY, diskQuota: 'off', egressPolicy: 'off' });
   return buildServer({
     service, logger: silentLogger,
     config: testConfig(IMAGE, TEST_MASTER_KEY, { adminEmails: [BOSS], betaAllowedEmails: [ENV_INVITED], freeBetaSlots: 0, ...cfg }),
     customer: { verify: auth.verify, identity: new IdentityService({ prisma }), prisma },
     admin: { verify: auth.verify, prisma, audit: new AuditService({ prisma }) },
+    mailer,
   });
 }
 
@@ -75,6 +77,29 @@ describe('admin beta invites', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ actorEmail: BOSS, action: 'POST /beta-invites', reason: 'asked on telegram', targetId: res.json().invite.id });
     expect(rows[0]!.detail).toEqual({ email: 'new.person@example.test' });
+  });
+
+  it('emails the invited address and reports it; a failed or missing mailer still saves the invite', async () => {
+    const sent: MailMessage[] = [];
+    const ok: Mailer = { enabled: true, send: async (m) => { sent.push(m); } };
+    const res = await invite(app({}, ok), await as(BOSS), { email: 'mail-me@example.test', note: 'secret note', reason: 'asked on telegram' });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().emailSent).toBe(true);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.to).toBe('mail-me@example.test');
+    expect(sent[0]!.html).toContain('/dashboard/register');
+    expect(sent[0]!.text).not.toContain('secret note');
+    expect(sent[0]!.text).not.toContain('asked on telegram');
+
+    const broken: Mailer = { enabled: true, send: async () => { throw new Error('smtp down'); } };
+    const failed = await invite(app({}, broken), await as(BOSS), { email: 'smtp-down@example.test', reason: 'asked on telegram' });
+    expect(failed.statusCode).toBe(201);
+    expect(failed.json().emailSent).toBe(false);
+
+    const none = await invite(app(), await as(BOSS), { email: 'no-mailer@example.test', reason: 'asked on telegram' });
+    expect(none.statusCode).toBe(201);
+    expect(none.json().emailSent).toBe(false);
+    expect(await prisma.betaInvite.count()).toBe(3);
   });
 
   it('rejects a bad email, a missing or short reason and unknown fields, and writes nothing', async () => {
