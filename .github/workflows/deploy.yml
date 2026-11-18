@@ -1,0 +1,37 @@
+# Deploys the backend to the VPS after `ci` passes on a push to main. The dashboard, landing and docs deploy from main
+# through Cloudflare Workers Builds and are not handled here.
+# The key in DEPLOY_SSH_KEY is locked on the VPS to `restrict,command=` hermes-auto-deploy, so this job can only ask for a
+# deploy of origin/main (database dump, build, migrate, recreate, readiness wait, rollback: ops/host/deploy.sh).
+# Secrets: DEPLOY_SSH_KEY (private key), DEPLOY_HOST (address), DEPLOY_KNOWN_HOSTS (the host's public key line).
+name: deploy
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  backend:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Deploy origin/main over ssh
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy
+          chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy -o BatchMode=yes -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes "ubuntu@$DEPLOY_HOST" deploy
