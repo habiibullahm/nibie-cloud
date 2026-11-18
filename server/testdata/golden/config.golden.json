@@ -1,0 +1,3482 @@
+{
+  "missing-DATABASE_URL": {
+    "ok": false,
+    "keys": [
+      "DATABASE_URL"
+    ]
+  },
+  "missing-HERMES_IMAGE": {
+    "ok": false,
+    "keys": [
+      "HERMES_IMAGE"
+    ]
+  },
+  "missing-ADMIN_TOKEN": {
+    "ok": false,
+    "keys": [
+      "ADMIN_TOKEN"
+    ]
+  },
+  "missing-HERMES_MASTER_KEY": {
+    "ok": false,
+    "keys": [
+      "HERMES_MASTER_KEY"
+    ]
+  },
+  "admin-token-short": {
+    "ok": false,
+    "keys": [
+      "ADMIN_TOKEN"
+    ]
+  },
+  "base": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "admin-token-secret-not-echoed": {
+    "ok": false,
+    "keys": [
+      "ADMIN_TOKEN"
+    ]
+  },
+  "master-key-31": {
+    "ok": false,
+    "keys": [
+      "HERMES_MASTER_KEY"
+    ]
+  },
+  "master-key-32": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "master-key-not-echoed": {
+    "ok": false,
+    "keys": [
+      "HERMES_MASTER_KEY"
+    ]
+  },
+  "runtime-runsc-with-dns": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [
+        "192.0.2.53"
+      ],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runsc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "runtime-unknown": {
+    "ok": false,
+    "keys": [
+      "HERMES_RUNTIME"
+    ]
+  },
+  "disk-quota-off-production": {
+    "ok": false,
+    "keys": [
+      "HERMES_DISK_QUOTA",
+      "HERMES_RUNTIME",
+      "REDIS_URL",
+      "SECRETS_KEK"
+    ]
+  },
+  "disk-quota-off-development": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "off",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "disk-quota-off-test": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "off",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "test",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "disk-quota-unknown": {
+    "ok": false,
+    "keys": [
+      "HERMES_DISK_QUOTA"
+    ]
+  },
+  "disk-interval-60000": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 60000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "disk-interval-fraction": {
+    "ok": false,
+    "keys": [
+      "HERMES_DISK_CHECK_INTERVAL_MS"
+    ]
+  },
+  "disk-interval-below-min": {
+    "ok": false,
+    "keys": [
+      "HERMES_DISK_CHECK_INTERVAL_MS"
+    ]
+  },
+  "egress-off-production": {
+    "ok": false,
+    "keys": [
+      "HERMES_EGRESS_POLICY",
+      "HERMES_RUNTIME",
+      "REDIS_URL",
+      "SECRETS_KEK"
+    ]
+  },
+  "production-default-runtime": {
+    "ok": false,
+    "keys": [
+      "HERMES_RUNTIME",
+      "REDIS_URL",
+      "SECRETS_KEK"
+    ]
+  },
+  "production-runtime-runc": {
+    "ok": false,
+    "keys": [
+      "HERMES_RUNTIME",
+      "REDIS_URL",
+      "SECRETS_KEK"
+    ]
+  },
+  "production-runtime-runsc": {
+    "ok": false,
+    "keys": [
+      "REDIS_URL",
+      "SECRETS_KEK"
+    ]
+  },
+  "egress-unknown": {
+    "ok": false,
+    "keys": [
+      "HERMES_EGRESS_POLICY"
+    ]
+  },
+  "egress-off-no-canary": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "off",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "enforce-no-canary": {
+    "ok": false,
+    "keys": [
+      "HERMES_CANARY_IMAGE"
+    ]
+  },
+  "runsc-egress-off-no-canary": {
+    "ok": false,
+    "keys": [
+      "HERMES_CANARY_IMAGE"
+    ]
+  },
+  "runsc-egress-off-canary": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [
+        "192.0.2.53"
+      ],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "off",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runsc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "canary-tag-only": {
+    "ok": false,
+    "keys": [
+      "HERMES_CANARY_IMAGE"
+    ]
+  },
+  "canary-short-digest": {
+    "ok": false,
+    "keys": [
+      "HERMES_CANARY_IMAGE"
+    ]
+  },
+  "canary-uppercase-digest": {
+    "ok": false,
+    "keys": [
+      "HERMES_CANARY_IMAGE"
+    ]
+  },
+  "canary-not-echoed": {
+    "ok": false,
+    "keys": [
+      "HERMES_CANARY_IMAGE"
+    ]
+  },
+  "canary-private-ip": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "canaryPrivateIp": "192.0.2.10",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "canary-private-ip-empty": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "canary-private-ip-bad-0": {
+    "ok": false,
+    "keys": [
+      "HERMES_CANARY_PRIVATE_IP"
+    ]
+  },
+  "canary-private-ip-bad-1": {
+    "ok": false,
+    "keys": [
+      "HERMES_CANARY_PRIVATE_IP"
+    ]
+  },
+  "canary-private-ip-bad-2": {
+    "ok": false,
+    "keys": [
+      "HERMES_CANARY_PRIVATE_IP"
+    ]
+  },
+  "canary-private-ip-bad-3": {
+    "ok": false,
+    "keys": [
+      "HERMES_CANARY_PRIVATE_IP"
+    ]
+  },
+  "canary-private-ip-bad-4": {
+    "ok": false,
+    "keys": [
+      "HERMES_CANARY_PRIVATE_IP"
+    ]
+  },
+  "canary-private-ip-bad-5": {
+    "ok": false,
+    "keys": [
+      "HERMES_CANARY_PRIVATE_IP"
+    ]
+  },
+  "dns-space": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [
+        "192.0.2.1",
+        "198.51.100.1"
+      ],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "dns-comma-space": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [
+        "192.0.2.1",
+        "198.51.100.1"
+      ],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "dns-mixed": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [
+        "192.0.2.1",
+        "192.0.2.2",
+        "198.51.100.1"
+      ],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "dns-not-ip": {
+    "ok": false,
+    "keys": [
+      "HERMES_DNS_RESOLVERS"
+    ]
+  },
+  "dns-ipv6": {
+    "ok": false,
+    "keys": [
+      "HERMES_DNS_RESOLVERS"
+    ]
+  },
+  "dns-leading-zero": {
+    "ok": false,
+    "keys": [
+      "HERMES_DNS_RESOLVERS"
+    ]
+  },
+  "runsc-without-dns": {
+    "ok": false,
+    "keys": [
+      "HERMES_DNS_RESOLVERS"
+    ]
+  },
+  "runsc-blank-dns": {
+    "ok": false,
+    "keys": [
+      "HERMES_DNS_RESOLVERS"
+    ]
+  },
+  "port-space": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "port-hex": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 16,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "port-exp": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 1000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "port-fraction": {
+    "ok": false,
+    "keys": [
+      "PORT"
+    ]
+  },
+  "port-empty": {
+    "ok": false,
+    "keys": [
+      "PORT"
+    ]
+  },
+  "port-plus": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 80,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "port-zero": {
+    "ok": false,
+    "keys": [
+      "PORT"
+    ]
+  },
+  "port-big": {
+    "ok": false,
+    "keys": [
+      "PORT"
+    ]
+  },
+  "port-word": {
+    "ok": false,
+    "keys": [
+      "PORT"
+    ]
+  },
+  "port-octal": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 15,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "port-bin": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "port-tab": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 81,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "node-env-unknown": {
+    "ok": false,
+    "keys": [
+      "NODE_ENV"
+    ]
+  },
+  "node-env-empty": {
+    "ok": false,
+    "keys": [
+      "NODE_ENV"
+    ]
+  },
+  "socket-path": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "supabase-trailing-slash": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": "https://abcd.supabase.co",
+      "turnstileSecret": null
+    }
+  },
+  "supabase-http": {
+    "ok": false,
+    "keys": [
+      "SUPABASE_URL"
+    ]
+  },
+  "supabase-not-url": {
+    "ok": false,
+    "keys": [
+      "SUPABASE_URL"
+    ]
+  },
+  "supabase-path": {
+    "ok": false,
+    "keys": [
+      "SUPABASE_URL"
+    ]
+  },
+  "supabase-upper": {
+    "ok": false,
+    "keys": [
+      "SUPABASE_URL"
+    ]
+  },
+  "supabase-default-port": {
+    "ok": false,
+    "keys": [
+      "SUPABASE_URL"
+    ]
+  },
+  "supabase-other-port": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": "https://abcd.supabase.co:8443",
+      "turnstileSecret": null
+    }
+  },
+  "supabase-userinfo": {
+    "ok": false,
+    "keys": [
+      "SUPABASE_URL"
+    ]
+  },
+  "supabase-query": {
+    "ok": false,
+    "keys": [
+      "SUPABASE_URL"
+    ]
+  },
+  "supabase-two-slashes": {
+    "ok": false,
+    "keys": [
+      "SUPABASE_URL"
+    ]
+  },
+  "supabase-empty": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "supabase-not-echoed": {
+    "ok": false,
+    "keys": [
+      "SUPABASE_URL"
+    ]
+  },
+  "cors-extra-list": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [
+        "http://localhost:3300",
+        "http://127.0.0.1:3300"
+      ],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "cors-extra-path": {
+    "ok": false,
+    "keys": [
+      "CORS_EXTRA_ORIGINS"
+    ]
+  },
+  "cors-extra-production": {
+    "ok": false,
+    "keys": [
+      "CORS_EXTRA_ORIGINS",
+      "HERMES_RUNTIME",
+      "REDIS_URL",
+      "SECRETS_KEK"
+    ]
+  },
+  "cors-extra-empty-items": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [
+        "http://localhost:3300"
+      ],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "dashboard-origin-bare": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": "https://cloud.example.test",
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "dashboard-origin-path": {
+    "ok": false,
+    "keys": [
+      "DASHBOARD_ORIGIN"
+    ]
+  },
+  "dashboard-origin-trailing-slash": {
+    "ok": false,
+    "keys": [
+      "DASHBOARD_ORIGIN"
+    ]
+  },
+  "dashboard-origin-query": {
+    "ok": false,
+    "keys": [
+      "DASHBOARD_ORIGIN"
+    ]
+  },
+  "dashboard-origin-fragment": {
+    "ok": false,
+    "keys": [
+      "DASHBOARD_ORIGIN"
+    ]
+  },
+  "dashboard-origin-http": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": "http://localhost:3100",
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "dashboard-origin-upper": {
+    "ok": false,
+    "keys": [
+      "DASHBOARD_ORIGIN"
+    ]
+  },
+  "dashboard-origin-default-port": {
+    "ok": false,
+    "keys": [
+      "DASHBOARD_ORIGIN"
+    ]
+  },
+  "dashboard-origin-ftp": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": "ftp://cloud.example.test",
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "beta-emails": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [
+        "a@x.example",
+        "b@x.example"
+      ],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "beta-emails-empty": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "max-instances-three": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 3,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "max-instances-zero": {
+    "ok": false,
+    "keys": [
+      "MAX_INSTANCES_PER_TENANT"
+    ]
+  },
+  "max-instances-word": {
+    "ok": false,
+    "keys": [
+      "MAX_INSTANCES_PER_TENANT"
+    ]
+  },
+  "max-instances-empty": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "max-instances-max": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1000,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "max-instances-over": {
+    "ok": false,
+    "keys": [
+      "MAX_INSTANCES_PER_TENANT"
+    ]
+  },
+  "max-total-set": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": 50,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "max-total-zero": {
+    "ok": false,
+    "keys": [
+      "MAX_TOTAL_INSTANCES"
+    ]
+  },
+  "max-total-empty": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "free-beta-ten": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 10,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "free-beta-negative": {
+    "ok": false,
+    "keys": [
+      "FREE_BETA_SLOTS"
+    ]
+  },
+  "free-beta-empty": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "paid-checkout-false": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": false,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "paid-checkout-true": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "paid-checkout-yes": {
+    "ok": false,
+    "keys": [
+      "PAID_CHECKOUT_OPEN"
+    ]
+  },
+  "paid-checkout-empty": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "admin-emails-empty": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "admin-emails-blank-items": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "admin-emails": {
+    "ok": true,
+    "config": {
+      "adminEmails": [
+        "boss@example.test",
+        "ops@example.test"
+      ],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "admin-emails-trailing-comma": {
+    "ok": true,
+    "config": {
+      "adminEmails": [
+        "a@example.test",
+        "b@example.test"
+      ],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "admin-emails-malformed": {
+    "ok": false,
+    "keys": [
+      "ADMIN_EMAILS"
+    ]
+  },
+  "admin-emails-one-bad": {
+    "ok": false,
+    "keys": [
+      "ADMIN_EMAILS"
+    ]
+  },
+  "redis-empty": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "redis-url": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": "redis://:pw@127.0.0.1:6379",
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "rediss-url": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": "rediss://:pw@cache.example.test:6380",
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "redis-url-not-redis": {
+    "ok": false,
+    "keys": [
+      "REDIS_URL"
+    ]
+  },
+  "production-without-redis": {
+    "ok": false,
+    "keys": [
+      "REDIS_URL"
+    ]
+  },
+  "production-core": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [
+        "192.0.2.53"
+      ],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "h@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "production",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": "redis://127.0.0.1:6380",
+      "router": null,
+      "runtime": "runsc",
+      "secrets": {
+        "current": {
+          "key": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
+          "version": 1
+        },
+        "previous": null
+      },
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "kek": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": {
+        "current": {
+          "key": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
+          "version": 1
+        },
+        "previous": null
+      },
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "kek-unpadded": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": {
+        "current": {
+          "key": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
+          "version": 1
+        },
+        "previous": null
+      },
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "kek-rotation": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": {
+        "current": {
+          "key": "CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk=",
+          "version": 2
+        },
+        "previous": {
+          "key": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
+          "version": 1
+        }
+      },
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "kek-16-bytes": {
+    "ok": false,
+    "keys": [
+      "SECRETS_KEK"
+    ]
+  },
+  "kek-31-bytes": {
+    "ok": false,
+    "keys": [
+      "SECRETS_KEK"
+    ]
+  },
+  "kek-33-bytes": {
+    "ok": false,
+    "keys": [
+      "SECRETS_KEK"
+    ]
+  },
+  "kek-urlsafe": {
+    "ok": false,
+    "keys": [
+      "SECRETS_KEK"
+    ]
+  },
+  "kek-same-version": {
+    "ok": false,
+    "keys": [
+      "SECRETS_KEK_PREVIOUS_VERSION"
+    ]
+  },
+  "kek-previous-without-current": {
+    "ok": false,
+    "keys": [
+      "SECRETS_KEK_PREVIOUS",
+      "SECRETS_KEK_PREVIOUS_VERSION"
+    ]
+  },
+  "kek-version-zero": {
+    "ok": false,
+    "keys": [
+      "SECRETS_KEK_VERSION"
+    ]
+  },
+  "kek-production-missing": {
+    "ok": false,
+    "keys": [
+      "HERMES_RUNTIME",
+      "SECRETS_KEK"
+    ]
+  },
+  "mail-empty-values": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "mail": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": {
+        "from": "no-reply@example.test",
+        "host": "smtp.example.test",
+        "pass": "smtp-pass-value",
+        "port": 465,
+        "user": "user"
+      },
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "mail-without-SUMOPOD_SMTP_HOST": {
+    "ok": false,
+    "keys": [
+      "SUMOPOD_SMTP_HOST"
+    ]
+  },
+  "mail-without-SUMOPOD_SMTP_PORT": {
+    "ok": false,
+    "keys": [
+      "SUMOPOD_SMTP_PORT"
+    ]
+  },
+  "mail-without-SUMOPOD_SMTP_USER": {
+    "ok": false,
+    "keys": [
+      "SUMOPOD_SMTP_USER"
+    ]
+  },
+  "mail-without-SUMOPOD_SMTP_PASS": {
+    "ok": false,
+    "keys": [
+      "SUMOPOD_SMTP_PASS"
+    ]
+  },
+  "mail-without-MAIL_FROM": {
+    "ok": false,
+    "keys": [
+      "MAIL_FROM"
+    ]
+  },
+  "mail-bad-port": {
+    "ok": false,
+    "keys": [
+      "SUMOPOD_SMTP_PORT"
+    ]
+  },
+  "mail-bad-from": {
+    "ok": false,
+    "keys": [
+      "MAIL_FROM"
+    ]
+  },
+  "mail-from-display-name": {
+    "ok": false,
+    "keys": [
+      "MAIL_FROM"
+    ]
+  },
+  "duitku-without-dashboard": {
+    "ok": false,
+    "keys": [
+      "DASHBOARD_ORIGIN"
+    ]
+  },
+  "duitku-empty-values": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "duitku": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": {
+        "duitku": {
+          "apiKey": "duitku-api-key-value",
+          "callbackUrl": "https://api.example.test/api/v1/billing/duitku/callback",
+          "env": "sandbox",
+          "merchantCode": "DS00000"
+        },
+        "gateway": "duitku",
+        "sumopod": null
+      },
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": "https://cloud.example.test",
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "duitku-without-DUITKU_MERCHANT_CODE": {
+    "ok": false,
+    "keys": [
+      "DUITKU_MERCHANT_CODE"
+    ]
+  },
+  "duitku-without-DUITKU_API_KEY": {
+    "ok": false,
+    "keys": [
+      "DUITKU_API_KEY"
+    ]
+  },
+  "duitku-without-DUITKU_CALLBACK_URL": {
+    "ok": false,
+    "keys": [
+      "DUITKU_CALLBACK_URL"
+    ]
+  },
+  "duitku-env-unknown": {
+    "ok": false,
+    "keys": [
+      "DUITKU_ENV"
+    ]
+  },
+  "duitku-callback-http": {
+    "ok": false,
+    "keys": [
+      "DUITKU_CALLBACK_URL"
+    ]
+  },
+  "duitku-callback-long": {
+    "ok": false,
+    "keys": [
+      "DUITKU_CALLBACK_URL"
+    ]
+  },
+  "duitku-env-production-dev": {
+    "ok": false,
+    "keys": [
+      "DUITKU_ENV"
+    ]
+  },
+  "duitku-gateway-sumopod-default": {
+    "ok": false,
+    "keys": [
+      "BILLING_GATEWAY"
+    ]
+  },
+  "sumopod": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": {
+        "duitku": null,
+        "gateway": "sumopod",
+        "sumopod": {
+          "apiKey": "sk_test_value",
+          "callbackUrl": "https://api.example.test/api/v1/billing/sumopod/webhook",
+          "env": "sandbox",
+          "webhookSecret": null,
+          "webhookToken": "whtok_test_value"
+        }
+      },
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "sumopod-secret": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": {
+        "duitku": null,
+        "gateway": "sumopod",
+        "sumopod": {
+          "apiKey": "sk_test_value",
+          "callbackUrl": "https://api.example.test/api/v1/billing/sumopod/webhook",
+          "env": "sandbox",
+          "webhookSecret": "whsec_BQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUF",
+          "webhookToken": "whtok_test_value"
+        }
+      },
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "sumopod-production-no-secret": {
+    "ok": false,
+    "keys": [
+      "SUMOPOD_WEBHOOK_SECRET"
+    ]
+  },
+  "sumopod-production-secret": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": {
+        "duitku": null,
+        "gateway": "sumopod",
+        "sumopod": {
+          "apiKey": "sk_test_value",
+          "callbackUrl": "https://api.example.test/api/v1/billing/sumopod/webhook",
+          "env": "sandbox",
+          "webhookSecret": "whsec_BQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUF",
+          "webhookToken": "whtok_test_value"
+        }
+      },
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [
+        "192.0.2.53"
+      ],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "h@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "production",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": "redis://127.0.0.1:6380",
+      "router": null,
+      "runtime": "runsc",
+      "secrets": {
+        "current": {
+          "key": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
+          "version": 1
+        },
+        "previous": null
+      },
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "sumopod-secret-bad": {
+    "ok": false,
+    "keys": [
+      "SUMOPOD_WEBHOOK_SECRET"
+    ]
+  },
+  "sumopod-without-SUMOPOD_API_KEY": {
+    "ok": false,
+    "keys": [
+      "BILLING_GATEWAY",
+      "SUMOPOD_API_KEY"
+    ]
+  },
+  "sumopod-without-SUMOPOD_WEBHOOK_TOKEN": {
+    "ok": false,
+    "keys": [
+      "SUMOPOD_WEBHOOK_TOKEN"
+    ]
+  },
+  "sumopod-without-SUMOPOD_CALLBACK_URL": {
+    "ok": false,
+    "keys": [
+      "SUMOPOD_CALLBACK_URL"
+    ]
+  },
+  "sumopod-env-production-dev": {
+    "ok": false,
+    "keys": [
+      "SUMOPOD_ENV"
+    ]
+  },
+  "gateway-both": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": {
+        "duitku": {
+          "apiKey": "duitku-api-key-value",
+          "callbackUrl": "https://api.example.test/api/v1/billing/duitku/callback",
+          "env": "sandbox",
+          "merchantCode": "DS00000"
+        },
+        "gateway": "both",
+        "sumopod": {
+          "apiKey": "sk_test_value",
+          "callbackUrl": "https://api.example.test/api/v1/billing/sumopod/webhook",
+          "env": "sandbox",
+          "webhookSecret": null,
+          "webhookToken": "whtok_test_value"
+        }
+      },
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": "https://cloud.example.test",
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "gateway-both-missing-sumopod": {
+    "ok": false,
+    "keys": [
+      "BILLING_GATEWAY"
+    ]
+  },
+  "gateway-sumopod-only-duitku": {
+    "ok": false,
+    "keys": [
+      "BILLING_GATEWAY"
+    ]
+  },
+  "gateway-duitku-only-sumopod": {
+    "ok": false,
+    "keys": [
+      "BILLING_GATEWAY"
+    ]
+  },
+  "gateway-unknown": {
+    "ok": false,
+    "keys": [
+      "BILLING_GATEWAY"
+    ]
+  },
+  "gateway-token-only": {
+    "ok": false,
+    "keys": [
+      "BILLING_GATEWAY",
+      "SUMOPOD_API_KEY",
+      "SUMOPOD_CALLBACK_URL"
+    ]
+  },
+  "turnstile-production-missing": {
+    "ok": false,
+    "keys": [
+      "TURNSTILE_SECRET_KEY"
+    ]
+  },
+  "turnstile-production-set": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [
+        "192.0.2.53"
+      ],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 10,
+      "hermesImage": "h@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "mail": {
+        "from": "no-reply@example.test",
+        "host": "smtp.example.test",
+        "pass": "p",
+        "port": 465,
+        "user": "u"
+      },
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "production",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": "redis://127.0.0.1:6380",
+      "router": null,
+      "runtime": "runsc",
+      "secrets": {
+        "current": {
+          "key": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
+          "version": 1
+        },
+        "previous": null
+      },
+      "supabaseUrl": null,
+      "turnstileSecret": "ts-secret"
+    }
+  },
+  "turnstile-production-no-slots": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [
+        "192.0.2.53"
+      ],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "h@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "mail": {
+        "from": "no-reply@example.test",
+        "host": "smtp.example.test",
+        "pass": "p",
+        "port": 465,
+        "user": "u"
+      },
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "production",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": "redis://127.0.0.1:6380",
+      "router": null,
+      "runtime": "runsc",
+      "secrets": {
+        "current": {
+          "key": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
+          "version": 1
+        },
+        "previous": null
+      },
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "turnstile-development": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 10,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": {
+        "from": "no-reply@example.test",
+        "host": "smtp.example.test",
+        "pass": "p",
+        "port": 465,
+        "user": "u"
+      },
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "turnstile-too-long": {
+    "ok": false,
+    "keys": [
+      "TURNSTILE_SECRET_KEY"
+    ]
+  },
+  "router": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": {
+        "adminKey": "sk-admin-test-0123456789",
+        "apiUrl": "https://router.nibie.app",
+        "defaultModel": "some-model",
+        "emailDomain": "cloud.nibie.app"
+      },
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "router-only-key": {
+    "ok": false,
+    "keys": [
+      "NIBIEROUTER_ADMIN_KEY"
+    ]
+  },
+  "router-only-model": {
+    "ok": false,
+    "keys": [
+      "NIBIEROUTER_ADMIN_KEY"
+    ]
+  },
+  "router-url-bad-0": {
+    "ok": false,
+    "keys": [
+      "NIBIEROUTER_API_URL"
+    ]
+  },
+  "router-url-bad-1": {
+    "ok": false,
+    "keys": [
+      "NIBIEROUTER_API_URL"
+    ]
+  },
+  "router-url-bad-2": {
+    "ok": false,
+    "keys": [
+      "NIBIEROUTER_API_URL"
+    ]
+  },
+  "router-url-bad-3": {
+    "ok": false,
+    "keys": [
+      "NIBIEROUTER_API_URL"
+    ]
+  },
+  "router-url-trailing-slash": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": {
+        "adminKey": "k",
+        "apiUrl": "https://router.example.test/",
+        "defaultModel": "m",
+        "emailDomain": "cloud.nibie.app"
+      },
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "router-url-no-slash": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": {
+        "adminKey": "k",
+        "apiUrl": "https://router.example.test",
+        "defaultModel": "m",
+        "emailDomain": "cloud.nibie.app"
+      },
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "router-url-fragment": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "router-email-domain": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": {
+        "adminKey": "k",
+        "apiUrl": "https://router.nibie.app",
+        "defaultModel": "m",
+        "emailDomain": "tenants.example.test"
+      },
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "router-email-domain-bad": {
+    "ok": false,
+    "keys": [
+      "NIBIEROUTER_USER_EMAIL_DOMAIN"
+    ]
+  },
+  "router-key-not-echoed": {
+    "ok": false,
+    "keys": [
+      "NIBIEROUTER_ADMIN_KEY"
+    ]
+  },
+  "ops-telegram": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": {
+          "botToken": "123456:test-bot-token-000000000000000000",
+          "chatId": "-1001234567890"
+        }
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "ops-only-token": {
+    "ok": false,
+    "keys": [
+      "OPS_TELEGRAM_BOT_TOKEN"
+    ]
+  },
+  "ops-only-chat": {
+    "ok": false,
+    "keys": [
+      "OPS_TELEGRAM_BOT_TOKEN"
+    ]
+  },
+  "ops-bad-token": {
+    "ok": false,
+    "keys": [
+      "OPS_TELEGRAM_BOT_TOKEN"
+    ]
+  },
+  "ops-bad-chat": {
+    "ok": false,
+    "keys": [
+      "OPS_TELEGRAM_CHAT_ID"
+    ]
+  },
+  "production-full": {
+    "ok": true,
+    "config": {
+      "adminEmails": [
+        "ops@example.test"
+      ],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [
+        "a@example.test"
+      ],
+      "billing": {
+        "duitku": {
+          "apiKey": "duitku-api-key-value",
+          "callbackUrl": "https://api.example.test/api/v1/billing/duitku/callback",
+          "env": "production",
+          "merchantCode": "DS00000"
+        },
+        "gateway": "both",
+        "sumopod": {
+          "apiKey": "sk_test_value",
+          "callbackUrl": "https://api.example.test/api/v1/billing/sumopod/webhook",
+          "env": "production",
+          "webhookSecret": "whsec_BQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUF",
+          "webhookToken": "whtok_test_value"
+        }
+      },
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "canaryPrivateIp": "192.0.2.10",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": "https://cloud.example.test",
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 300000,
+      "diskQuota": "enforce",
+      "dnsResolvers": [
+        "192.0.2.53"
+      ],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 5,
+      "hermesImage": "h@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "mail": {
+        "from": "no-reply@example.test",
+        "host": "smtp.example.test",
+        "pass": "smtp-pass-value",
+        "port": 465,
+        "user": "user"
+      },
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": 40,
+      "nodeEnv": "production",
+      "ops": {
+        "telegram": {
+          "botToken": "123456:test-bot-token-000000000000000000",
+          "chatId": "-1001234567890"
+        }
+      },
+      "paidCheckoutOpen": false,
+      "port": 3000,
+      "redisUrl": "redis://127.0.0.1:6380",
+      "router": {
+        "adminKey": "sk-admin-test-0123456789",
+        "apiUrl": "https://router.nibie.app",
+        "defaultModel": "some-model",
+        "emailDomain": "cloud.nibie.app"
+      },
+      "runtime": "runsc",
+      "secrets": {
+        "current": {
+          "key": "CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk=",
+          "version": 2
+        },
+        "previous": {
+          "key": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
+          "version": 1
+        }
+      },
+      "supabaseUrl": "https://abcd.supabase.co",
+      "turnstileSecret": "ts-secret-value"
+    }
+  }
+}
