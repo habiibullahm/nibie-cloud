@@ -1,6 +1,8 @@
 import type { ApiError } from "./client"
 import type {
   AdminAuditEntry,
+  AdminBetaInvite,
+  AdminBetaInvites,
   AdminCustomer,
   AdminCustomerDetail,
   AdminCustomerInstance,
@@ -44,6 +46,10 @@ export interface AdminApi {
   waitlist(): Promise<AdminWaitlist>
   /** Answers 503 `queue_unavailable` when the backend runs without Redis. */
   jobsFailed(): Promise<{ jobs: AdminFailedJob[] }>
+  betaInvites(): Promise<AdminBetaInvites>
+  /** Changes data: the backend needs a second factor and keeps `reason` in the audit trail. */
+  addBetaInvite(input: { email: string; note?: string; reason: string }): Promise<AdminBetaInvite>
+  revokeBetaInvite(id: string, reason: string): Promise<AdminBetaInvite>
 }
 
 /** Shape of every paged admin response: one named array plus a cursor. */
@@ -63,11 +69,16 @@ export function createAdminApi(opts: {
   const base = opts.baseUrl.replace(/\/+$/, "") + "/api/v1/admin"
   const doFetch = opts.fetchImpl ?? fetch
 
-  async function call<T>(path: string): Promise<T> {
+  async function call<T>(path: string, post?: unknown): Promise<T> {
     const token = await opts.getToken()
     if (!token) throw adminError(401, "unauthorized", "Sign in to continue.")
     const res = await doFetch(base + path, {
-      headers: { accept: "application/json", authorization: `Bearer ${token}` },
+      ...(post === undefined ? {} : { method: "POST", body: JSON.stringify(post) }),
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${token}`,
+        ...(post === undefined ? {} : { "content-type": "application/json" }),
+      },
       cache: "no-store",
     })
     const data = (await res.json().catch(() => null)) as (T & { error?: { code: string; message: string } }) | null
@@ -97,6 +108,10 @@ export function createAdminApi(opts: {
     audit: async (cursor) => toPage(await call<Paged<"entries", AdminAuditEntry>>(`/audit${qs({ cursor })}`), "entries"),
     waitlist: () => call<AdminWaitlist>("/waitlist"),
     jobsFailed: () => call<{ jobs: AdminFailedJob[] }>("/jobs/failed"),
+    betaInvites: () => call<AdminBetaInvites>("/beta-invites"),
+    addBetaInvite: async (input) => (await call<{ invite: AdminBetaInvite }>("/beta-invites", input)).invite,
+    revokeBetaInvite: async (id, reason) =>
+      (await call<{ invite: AdminBetaInvite }>(`/beta-invites/${encodeURIComponent(id)}/revoke`, { reason })).invite,
   }
 }
 

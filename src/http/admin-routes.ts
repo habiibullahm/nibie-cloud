@@ -6,6 +6,7 @@ import type { Config } from '../config/env.js';
 import type { AuthClaims } from '../modules/auth/token-verifier.js';
 import type { AuditService } from '../modules/admin/audit-service.js';
 import type { JobQueue } from '../modules/jobs/types.js';
+import { addInvite, listInvites, normalizeEmail } from '../modules/beta/invites.js';
 import { AuthUnavailableError, ForbiddenError, NotFoundError, QueueUnavailableError, UnauthorizedError } from '../shared/errors.js';
 
 declare module 'fastify' {
@@ -48,6 +49,14 @@ export function assertAdminAllowed(claims: AuthClaims, _method: string, allowed:
 }
 
 const uuid = z.string().uuid();
+/** Every change an admin makes carries a reason, kept in the audit trail. */
+const reason = z.string().trim().min(3).max(500);
+const inviteBody = z.object({
+  email: z.string().trim().toLowerCase().email().max(254),
+  note: z.string().trim().max(200).optional(),
+  reason,
+}).strict();
+const revokeBody = z.object({ reason }).strict();
 const pageQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
   cursor: z.string().max(200).optional(),
@@ -323,6 +332,52 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
         freeBetaSlots: config.freeBetaSlots,
         entries,
       };
+    });
+
+    /**
+     * Beta invites. An account is invited when its email is in `BETA_ALLOWED_EMAILS` (read only, set on the host) or has an
+     * active row here. Revoked rows stay for the history. A change applies to the next request, with no restart.
+     */
+    api.get('/beta-invites', async () => {
+      const rows = await listInvites(prisma, { includeRevoked: true });
+      return {
+        invites: rows.slice(0, 500),
+        fromEnv: config.betaAllowedEmails,
+        freeBetaSlots: config.freeBetaSlots,
+      };
+    });
+
+    api.post('/beta-invites', async (req, reply) => {
+      const admin = req.admin!;
+      const body = inviteBody.parse(req.body);
+      const invite = await prisma.$transaction(async (tx) => {
+        const row = await addInvite(tx, { email: body.email, note: body.note ?? null, addedBy: admin.email });
+        await audit.record({
+          actorEmail: admin.email, action: 'POST /beta-invites', targetType: 'beta_invite', targetId: row.id,
+          reason: body.reason, detail: { email: row.email },
+        }, tx);
+        return row;
+      });
+      return reply.status(201).send({ invite });
+    });
+
+    api.post<{ Params: { inviteId: string } }>('/beta-invites/:inviteId/revoke', async (req) => {
+      const admin = req.admin!;
+      const id = uuid.parse(req.params.inviteId);
+      const body = revokeBody.parse(req.body);
+      const invite = await prisma.$transaction(async (tx) => {
+        const existing = await tx.betaInvite.findUnique({ where: { id } });
+        if (!existing) throw new NotFoundError('Invite not found');
+        // Revoking an already revoked invite changes nothing, so it is not recorded as a change.
+        if (existing.revokedAt) return existing;
+        const row = await tx.betaInvite.update({ where: { id }, data: { revokedAt: new Date() } });
+        await audit.record({
+          actorEmail: admin.email, action: 'POST /beta-invites/:inviteId/revoke', targetType: 'beta_invite', targetId: id,
+          reason: body.reason, detail: { email: normalizeEmail(row.email) },
+        }, tx);
+        return row;
+      });
+      return { invite };
     });
 
     api.get('/nodes', async () => {

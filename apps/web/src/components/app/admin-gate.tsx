@@ -19,6 +19,7 @@ const ADMIN_NAV = [
   { href: "/admin/instance", label: "Instance" },
   { href: "/admin/langganan", label: "Langganan" },
   { href: "/admin/daftar-tunggu", label: "Daftar tunggu" },
+  { href: "/admin/beta", label: "Undangan beta" },
   { href: "/admin/plan", label: "Plan" },
   { href: "/admin/node", label: "Node" },
   { href: "/admin/job", label: "Job gagal" },

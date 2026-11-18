@@ -12,6 +12,7 @@ import { createBody, idempotencyKey } from './operator-routes.js';
 import { totalLoad } from '../modules/instances/capacity.js';
 import { freeBetaRemaining, hasActiveInvite } from '../modules/instances/free-beta.js';
 import { markWaitlistRegistered } from '../modules/waitlist/waitlist.js';
+import { isInvited } from '../modules/beta/invites.js';
 import { registerBillingRoutes } from './billing-routes.js';
 import type { BillingService } from '../modules/billing/billing-service.js';
 import { AppError } from '../shared/errors.js';
@@ -30,6 +31,8 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
   const { service, commands, config } = deps;
   const { prisma } = deps.customer;
   const allowed = new Set(config.betaAllowedEmails);
+  // Invited means listed in BETA_ALLOWED_EMAILS or holding an active BetaInvite row.
+  const isInvitedEmail = async (email: string): Promise<boolean> => allowed.has(email.toLowerCase()) || (await isInvited(prisma, email));
   // With email configured the platform invites people already waiting, so a freed slot is theirs before a visitor's.
   const queueFirst = config.mail !== null;
   app.register(async (api) => {
@@ -56,8 +59,8 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
     api.get('/plans', async (req) => {
       // A plan without a price is the free beta preview plan. Invited accounts always see it; everyone else only while free
       // slots remain. Priced plans are shown to everyone unless the launch switch (PAID_CHECKOUT_OPEN) is off.
-      const invited = allowed.has(principalOf(req).email.toLowerCase());
       const email = principalOf(req).email;
+      const invited = await isInvitedEmail(email);
       const showFree = invited || (config.freeBetaSlots > 0
         && ((await freeBetaRemaining(prisma, config.freeBetaSlots, { queueFirst })) > 0 || (await hasActiveInvite(prisma, email, new Date()))));
       const showPaid = invited || config.paidCheckoutOpen;
@@ -86,7 +89,7 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
       const body = createBody.parse(req.body);
       // Invited accounts may create anything. Everyone else may take only the free plan, and only while free slots remain;
       // paid instances are created by the billing flow after a verified payment, never through this route.
-      if (!allowed.has(p.email.toLowerCase())) {
+      if (!(await isInvitedEmail(p.email))) {
         const plan = isUuid(body.planId) ? await prisma.plan.findUnique({ where: { id: body.planId } }) : null;
         if (!plan || plan.monthlyPriceIdr !== null || config.freeBetaSlots <= 0) {
           throw new ForbiddenError('Instance creation is not enabled for this account yet', 'provisioning_not_enabled');
@@ -148,8 +151,8 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
       // free instance. Until a production gateway is configured, only invited beta users may start a purchase.
       const cfg = config.billing;
       const sandboxOnly = config.nodeEnv === 'production' && cfg !== null && [cfg.duitku, cfg.sumopod].every((g) => g === null || g.env === 'sandbox');
-      registerBillingRoutes(api, deps.billing, (email) => {
-        if ((sandboxOnly || !config.paidCheckoutOpen) && !allowed.has(email.toLowerCase())) throw new ForbiddenError('Payments are not open yet', 'billing_not_open');
+      registerBillingRoutes(api, deps.billing, async (email) => {
+        if ((sandboxOnly || !config.paidCheckoutOpen) && !(await isInvitedEmail(email))) throw new ForbiddenError('Payments are not open yet', 'billing_not_open');
       });
     }
     registerCustomerIntegrationRoutes(api, deps.integrations, deps.logs);

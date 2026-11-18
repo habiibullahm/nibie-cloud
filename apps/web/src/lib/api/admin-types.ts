@@ -210,6 +210,25 @@ export interface AdminWaitlistEntry {
   lapsed: boolean
 }
 
+export interface AdminBetaInvite {
+  id: string
+  email: string
+  note: string | null
+  /** Admin who added it; null for a row made by hand. */
+  addedBy: string | null
+  createdAt: string
+  /** Set once revoked; the row stays for the history. */
+  revokedAt: string | null
+}
+
+export interface AdminBetaInvites {
+  /** Newest first, revoked ones included. */
+  invites: AdminBetaInvite[]
+  /** Set in `BETA_ALLOWED_EMAILS` on the host; read only here. */
+  fromEnv: string[]
+  freeBetaSlots: number
+}
+
 export interface AdminWaitlist {
   counts: { unconfirmed: number; waiting: number; invited: number; lapsed: number; registered: number }
   freeBetaSlots: number

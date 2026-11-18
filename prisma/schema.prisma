@@ -447,3 +447,17 @@ model WaitlistEntry {
 
   @@index([status, createdAt])
 }
+
+/// Accounts the operator has invited to the beta, next to the `BETA_ALLOWED_EMAILS` env list (an email in either place
+/// counts). `email` is stored lowercase, trimmed and unique. A revoked invite keeps its row (`revokedAt` set) so the
+/// history stays; inviting the address again clears it. Row level security is enabled on this table (the backend
+/// connects as the table owner; nothing else may read it, and the Supabase Data API must not expose it).
+model BetaInvite {
+  id        String    @id @default(uuid()) @db.Uuid
+  email     String    @unique
+  note      String?
+  /// Admin who added it (Supabase email from the verified token); null for rows made by hand.
+  addedBy   String?
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  revokedAt DateTime? @db.Timestamptz(3)
+}

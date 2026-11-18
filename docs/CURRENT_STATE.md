@@ -81,6 +81,43 @@ The full review was given to the owner privately; it is not kept in this public 
   - Not verified: the headers on the deployed Cloudflare Workers, a real SumoPod signed webhook, a real Turnstile token, and
     the MFA enrolment against the real Supabase project.
 
+## Beta invite list in the database (2026-11-18, branch `claude/beta-invite-list`, on `origin/main` at `6da2ef5` after the OWASP merge, NOT committed, NOT deployed)
+
+Until now the invite list was only the `BETA_ALLOWED_EMAILS` env value, so every invite meant editing the VPS env file and
+recreating the backend. The owner can now add and revoke invites from the admin panel (page "Undangan beta"); an invite takes
+effect on the next request.
+
+- **What changed:**
+  - New table `BetaInvite` (email unique, lowercase; `note`, `addedBy`, `createdAt`, `revokedAt`), migration
+    `20261118100000_add_beta_invite` with row level security enabled.
+  - New `src/modules/beta/invites.ts`: `isInvited`, `addInvite` (idempotent, clears a revocation), `revokeInvite`, `listInvites`.
+  - `src/http/customer-routes.ts`: an account counts as invited if its email is in `BETA_ALLOWED_EMAILS` OR has an active
+    `BetaInvite` row. This applies to `GET /plans`, `POST /instances` and the billing gate. The env list works as before, and a
+    change takes effect on the next request, with no restart.
+  - `src/http/billing-routes.ts`: the gate may be async.
+  - `test/helpers/db.ts`: `resetDb` also truncates `BetaInvite`.
+  - Admin API (`src/http/admin-routes.ts`), the first routes that change data: `GET /api/v1/admin/beta-invites` (database rows,
+    revoked ones included, plus the `BETA_ALLOWED_EMAILS` list read only), `POST /api/v1/admin/beta-invites` (email, optional note,
+    required reason of 3 to 500 characters) and `POST /api/v1/admin/beta-invites/:inviteId/revoke` (reason). Like every admin route
+    they need `ADMIN_EMAILS` and `aal2`. Each change and its `AuditLog` row (target `beta_invite`, reason, `detail.email`) are written in
+    one transaction (`AuditService.record` takes an optional transaction client); revoking an already revoked invite changes and
+    records nothing.
+  - Dashboard (`apps/web`): page `/admin/beta` ("Undangan beta", in the admin nav) with an add form, the server list, the table and a
+    revoke dialog that asks for a reason; client calls in `lib/api/admin.ts`, form rules in `lib/admin-beta.ts`.
+- **Not built yet:** removing an address that comes from `BETA_ALLOWED_EMAILS` (host env only), and audit entries for customer actions.
+- **Checks run (Windows, local Docker Postgres `hermes_test`):**
+  - Backend `tsc` clean; unit tests 535 passed, 2 failed (the two shell-script tests in `egress-canary.test.ts` that fail on this Windows
+    host on `main` too).
+  - Integration, 88 of 89 on the first run: `beta-invites` (9), `admin-beta-invites` (7), `admin-api`, `admin-auth`, `audit-service`,
+    `customer-api`, `billing-api` (1 new). One `billing-api` test ("a suspended instance cannot be started or restarted") failed once while
+    the seven files ran together and passed when run alone and in a full re-run of its file (26 of 26); not investigated further.
+  - `apps/web`: typecheck and lint clean; `admin-beta` (new), `admin-api` and `admin-gate` tests 25 of 25. The full dashboard test suite and
+    `next build` were not run.
+  - `prisma migrate diff` from the migrations to `schema.prisma`: no difference. `relrowsecurity` is true on `BetaInvite`.
+  - Not verified: the page in a browser, the add and revoke calls against a real Supabase login with MFA.
+- **To deploy:** run `prisma migrate deploy` before starting the new image (`ops/host/deploy.sh` does this), then confirm RLS on Supabase
+  (`select relrowsecurity from pg_class where relname = 'BetaInvite'`). Not verified: the migration on Supabase.
+
 ## Docs refresh for the next handoff (2026-11-18, from `main` at `84a6dbe`, docs only)
 
 - **Agent instructions in one place.** `AGENTS.md` now lists all five packages with their commands, the document precedence,

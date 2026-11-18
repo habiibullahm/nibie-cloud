@@ -46,9 +46,13 @@ export class AuditService {
     this.prisma = deps.prisma;
   }
 
-  async record(input: AuditInput): Promise<void> {
+  /**
+   * `db` lets a data-changing action write its audit row in the same transaction as the change, so a change never
+   * exists without its entry and an entry never describes a change that rolled back.
+   */
+  async record(input: AuditInput, db: PrismaClient | Prisma.TransactionClient = this.prisma): Promise<void> {
     // Prisma wants an explicit sentinel for a JSON null rather than JS null.
-    await this.prisma.auditLog.create({ data: { ...input, detail: input.detail ?? Prisma.JsonNull } });
+    await db.auditLog.create({ data: { ...input, detail: input.detail ?? Prisma.JsonNull } });
   }
 
   async list(query: AuditQuery): Promise<AuditPage> {
