@@ -4,9 +4,22 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Automatic backend deploy from main (2026-11-19)
+
+On the owner's word ("set auto deployment on main for all services"):
+- `.github/workflows/deploy.yml` deploys the backend after `ci` passes on a push to `main`, through a key locked on the VPS to
+  `/usr/local/sbin/hermes-auto-deploy` (copy of `ops/host/hermes-auto-deploy.sh`), which runs `deploy.sh origin/main` only when backend
+  paths changed. Details and how to stop it: [../deploy/README.md](../deploy/README.md), "Automatic deploy from main".
+- Done on the VPS: wrapper installed (root, 755); the key line added to `~ubuntu/.ssh/authorized_keys` (backup
+  `authorized_keys.bak-autodeploy-*` next to it). Done on GitHub: secrets `DEPLOY_SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_KNOWN_HOSTS`. The
+  private key exists only in the GitHub secret.
+- Dashboard, landing and docs already deployed from `main` through Cloudflare Workers Builds; unchanged.
+- PR #65 (admin Pengaturan, keys, MCP) merged as `ef22712` before this; its migration `20261119100000_add_admin_api_key` goes out
+  with the first automatic deploy.
+- Not tested before merging: a dry run of the wrapper on the host (blocked in this session); the first workflow run is the test.
 ## Admin Pengaturan page, admin keys and admin MCP (2026-11-19)
 
-**PR #65, branch `claude/admin-settings-mcp` (not deployed; migration applied only to local `hermes_test`):**
+**PR #65, merged as `ef22712`; goes live with the first automatic deploy (migration `20261119100000_add_admin_api_key`):**
 - **Why:** the owner asked for an admin settings page like NibieRouter's, plus admin keys and an admin MCP server so Claude Code
   can do the panel's work.
 - **Pengaturan page** (`/dashboard/admin/pengaturan`): read only. Cards Penagihan, Email, Masuk & beta, AI / NibieRouter from the new
