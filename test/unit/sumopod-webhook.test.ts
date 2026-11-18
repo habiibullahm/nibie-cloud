@@ -28,6 +28,13 @@ describe('SumoPod webhook', () => {
     expect(r.accepted).toBe(false);
   });
 
+  it('rejects an empty token, a prefix of the token and the token with extra characters', async () => {
+    for (const t of ['', TOKEN.slice(0, -1), `${TOKEN}x`]) {
+      const r = await service().handleSumoPodWebhook(t, { event_type: 'payment.test', data: {} });
+      expect(r.accepted).toBe(false);
+    }
+  });
+
   it('acknowledges payment.test without touching an order', async () => {
     const r = await service().handleSumoPodWebhook(TOKEN, {
       event_type: 'payment.test',

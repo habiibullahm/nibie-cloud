@@ -4,6 +4,42 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Security hardening after an OWASP Top 10 review (2026-11-18, branch `claude/owasp-hardening`, draft PR)
+
+The full review was given to the owner privately; it is not kept in this public repository. Changes:
+
+- **Billing webhook:** the SumoPod `X-Webhook-Token` is now compared in constant time, and an empty token is refused
+  (`billing-service.ts`).
+- **Public rate limits:** IPv6 visitors are keyed by their /64 network instead of the full address (`rateLimitKey` in
+  `public-routes.ts`).
+- **Waiting-list confirmation email:** carries no text typed on the form until the address is confirmed. The invitation email
+  still greets by name.
+- **Admin audit:** a failed write of an admin read-audit entry is now logged (error class only) instead of silently dropped.
+- **Browser headers:** the dashboard (`next.config.ts` `headers()`) and the landing page (`public/_headers`) now send
+  `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `Referrer-Policy`, `nosniff` and `Permissions-Policy`. A full CSP is
+  not set yet.
+- **`.mcp.json` is gitignored** (local agent tooling config).
+- **Owner confirmations (2026-11-18, not checked from this repo):**
+  - Production takes payments through SumoPod, so the Duitku callback path is not live.
+  - RLS is enabled on the `hermes` tables in Supabase.
+- **Not done** (no minimum length for `SUMOPOD_WEBHOOK_TOKEN`): the token is issued by SumoPod and its length is not
+  documented here.
+- **Open owner decisions** from the review:
+  - Waiting list: a captcha and send caps on the waiting-list form.
+  - Admin API: MFA (`aal2`) for admin reads too.
+  - Payments: a SumoPod status check before a payment is marked paid. The same check for Duitku before it is ever enabled.
+  - Supabase: a read-only Supabase MCP for agent sessions.
+  - Images and dependencies: digest-pinned base images and a dependency audit.
+  - Templates and dev tooling: `deploy/backend.env.example` still defaults to `runc` while production runs `runsc`; remove the
+    dev-bridge production override.
+- **Checks:**
+  - Backend: `tsc` clean. Unit tests 519 passed, 2 failed; the 2 failures are shell-script tests in
+    `egress-canary.test.ts` that do not run on the Windows host used, and are unrelated to this change. Integration tests:
+    sumopod-webhook, waitlist, customer-api and admin-api, 81 of 81 passed against local Docker Postgres and Redis.
+  - `apps/web`: typecheck, lint, 137 tests and build pass.
+  - `apps/landing`: typecheck, lint, 60 tests and build pass, and `out/_headers` is exported.
+  - Not verified: that the headers are actually served by the deployed Cloudflare Workers.
+
 ## Docs refresh for the next handoff (2026-11-18, from `main` at `84a6dbe`, docs only)
 
 - **Agent instructions in one place.** `AGENTS.md` now lists all five packages with their commands, the document precedence,

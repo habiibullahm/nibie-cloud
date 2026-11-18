@@ -21,6 +21,28 @@ export function clientIp(req: FastifyRequest): string {
   return isIP(last) ? last : req.ip;
 }
 
+/** The first 64 bits of a (valid) IPv6 address, written as `a:b:c:d::/64`. */
+function ipv6Prefix64(ip: string): string {
+  const halves = ip.split('%')[0]!.toLowerCase().split('::');
+  // An embedded IPv4 tail (`::1.2.3.4`) stands for two groups; it only ever sits in the last 32 bits.
+  const groups = (s: string): string[] => (s === '' ? [] : s.split(':')).flatMap((g) => (g.includes('.') ? ['0', '0'] : [g]));
+  const head = groups(halves[0]!);
+  const tail = halves.length > 1 ? groups(halves[1]!) : [];
+  const full = halves.length > 1 ? [...head, ...new Array<string>(8 - head.length - tail.length).fill('0'), ...tail] : head;
+  return `${full.slice(0, 4).map((g) => Number.parseInt(g, 16).toString(16)).join(':')}::/64`;
+}
+
+/**
+ * Rate-limit key for public routes: the client's IPv4 address, or the /64 network of an IPv6 address. One IPv6 customer
+ * usually holds a whole /64, so keying on the full address would give them as many fresh limits as they like.
+ */
+export function rateLimitKey(req: FastifyRequest): string {
+  const ip = clientIp(req);
+  if (isIP(ip) !== 6) return ip;
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(ip);
+  return mapped ? mapped[1]! : ipv6Prefix64(ip);
+}
+
 const control = /[\u0000-\u001f\u007f]/;
 const singleLine = (max: number) => z.string().trim().min(1).max(max).refine((v) => !control.test(v), 'no control characters');
 
@@ -64,7 +86,7 @@ export function registerPublicRoutes(app: FastifyInstance, deps: { prisma: Prism
   const mailer = deps.mailer?.enabled ? deps.mailer : null;
   const confirmPage = `${config.dashboardOrigin ?? 'https://cloud.nibie.app'}/daftar-tunggu/konfirmasi`;
   app.register(async (pub) => {
-    await pub.register(rateLimit, { global: true, max: 60, timeWindow: '1 minute', keyGenerator: clientIp });
+    await pub.register(rateLimit, { global: true, max: 60, timeWindow: '1 minute', keyGenerator: rateLimitKey });
     pub.get('/api/v1/public/beta-slots', async (_req, reply) => {
       reply.header('cache-control', 'public, max-age=15');
       return {
@@ -86,7 +108,7 @@ export function registerPublicRoutes(app: FastifyInstance, deps: { prisma: Prism
         try {
           await mailer.send({
             to: body.email,
-            ...renderWaitlistConfirm({ name: result.name, confirmUrl: `${confirmPage}#t=${result.token}`, validUntil: result.expiresAt }),
+            ...renderWaitlistConfirm({ confirmUrl: `${confirmPage}#t=${result.token}`, validUntil: result.expiresAt }),
           });
         } catch {
           // Let the person ask again at once instead of waiting for the resend interval.

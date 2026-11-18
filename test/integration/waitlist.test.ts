@@ -200,7 +200,9 @@ describe('waiting list', () => {
       const m = mailer.sent[0]!;
       expect(m.subject).toBe('Konfirmasi email daftar tunggu - Nibie Cloud');
       expect(m.html).toMatch(/href="https:\/\/[^"]+\/daftar-tunggu\/konfirmasi#t=[A-Za-z0-9_-]{43}"/);
-      expect(m.html).toContain('&lt;b&gt;Siti&lt;/b&gt;');
+      // The address is not confirmed yet, so nothing typed on the form is put in the email.
+      expect(m.html).not.toContain('Siti');
+      expect(m.text).not.toContain('Siti');
       expect(m.text).toContain('WIB');
       const token = lastToken();
       // Only a hash is stored, never the token.

@@ -1,5 +1,5 @@
 import type { RouterProvisioner } from '../nibierouter/router-provisioner.js';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Payment, PaymentPurpose, PaymentStatus, Plan, Prisma, PrismaClient, Subscription, SubscriptionStatus } from '@prisma/client';
 import { AppError, CapacityFullError, ConflictError, InstanceLimitError, NotFoundError, ValidationError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
@@ -96,6 +96,13 @@ const SUMOPOD_PAID_STATUSES = new Set(['paid', 'completed', 'success', 'succeede
 const none = async (): Promise<void> => undefined;
 
 const newOrderId = (): string => `nc-${randomUUID().replaceAll('-', '')}`;
+
+const sha256 = (s: string): Buffer => createHash('sha256').update(s).digest();
+
+/** Constant-time token check: both sides are hashed to equal length first, so neither content nor length leaks. */
+function tokenMatches(given: string, expected: string): boolean {
+  return given.length > 0 && timingSafeEqual(sha256(given), sha256(expected));
+}
 
 export function paymentView(p: Payment, now: Date): PaymentView {
   const payable = p.status === 'PENDING' && p.expiresAt.getTime() > now.getTime();
@@ -279,7 +286,7 @@ export class BillingService {
    * amount, status } }`. Flat payloads are still accepted (older/manual calls).
    */
   async handleSumoPodWebhook(webhookToken: string, body: Record<string, unknown>): Promise<CallbackResult> {
-    if (!this.d.sumopodAuth || webhookToken !== this.d.sumopodAuth.webhookToken) return { accepted: false };
+    if (!this.d.sumopodAuth || !tokenMatches(webhookToken, this.d.sumopodAuth.webhookToken)) return { accepted: false };
     const envelope = (body.data && typeof body.data === 'object' ? body.data : body) as Record<string, unknown>;
     // SumoPod's "Save & Test" sends event_type payment.test with no order: acknowledge, never apply.
     if (body.event_type === 'payment.test') return { accepted: true, outcome: 'ignored_failure', postActions: none };

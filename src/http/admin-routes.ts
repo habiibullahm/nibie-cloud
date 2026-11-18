@@ -405,7 +405,8 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
           action: `${req.method} ${req.routeOptions.url ?? req.url}`,
           targetType: null, targetId: null, reason: null, detail: null,
         })
-        .catch(() => undefined);
+        // The response is already sent, so a failure cannot reach the admin; it must reach the operator instead.
+        .catch((e: unknown) => req.log.error({ errName: (e as Error).name }, 'admin audit write failed'));
     });
   }, { prefix: '/api/v1/admin' });
 }
