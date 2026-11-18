@@ -164,6 +164,23 @@ Active when `FREE_BETA_SLOTS > 0` and the customer API is on (`SUPABASE_URL`). I
 - **Row level security.** Migration `20261117050000_add_waitlist` creates `WaitlistEntry` (`20261117120000_waitlist_unconfirmed_status` and `20261117120100_waitlist_confirmation` add the confirmation; they are two files because a new enum value cannot be used in the transaction that adds it) and runs `ALTER TABLE "WaitlistEntry" ENABLE ROW LEVEL SECURITY` (no policy: only the backend's table owner reads it). Check it on Supabase after migrating: `select relrowsecurity from pg_class where oid = 'hermes."WaitlistEntry"'::regclass;` must return `true`, and Supabase's Security Advisor should not list the table.
 - **Known limits.** An email address is not verified when joining, so someone can enter other people's addresses (bounded by the rate limit and the 2000 cap) and an invitation to a fake address holds a slot for 48 hours; add a captcha or an email confirmation if it happens. An invited person who registers with a different email than the one on the list is treated as a stranger. The invitation link goes to the registration page and carries no token.
 
+## Admin keys and the admin MCP server
+
+The admin API also accepts an admin key (`Authorization: Bearer nca_...`), for scripts and for Claude Code through MCP.
+
+1. Sign in to the dashboard as an admin (with the authenticator code) and open **Admin → Pengaturan**.
+2. Under "Kunci admin & MCP", fill in a name, an expiry (30, 90 or 365 days, or none) and a reason, then press **Buat kunci**.
+3. Copy the key from the dialog. It is shown once; the backend keeps only its SHA-256 hash.
+4. Copy the Claude Code command from the same card, put the key in place of `<KUNCI>`, and run it in a terminal:
+   `claude mcp add --scope user --transport http nibiecloud-admin <API origin>/api/v1/admin/mcp --header "Authorization: Bearer <KUNCI>"`.
+   Claude Code saves the key in plain text in `~/.claude.json`; the command also lands in the shell history, so clear that line.
+5. Restart Claude Code and check with `/mcp`.
+
+Rules: a key stands for its creator at `aal2`; it stops working when revoked (same card), when it expires, or when the creator
+is removed from `ADMIN_EMAILS`. A key can read everything the panel shows and add or revoke beta invites, but it cannot list,
+create or revoke keys. Each use is in the Audit page with `via: key` and the key prefix. Migration
+`20261119100000_add_admin_api_key` creates `AdminApiKey` with row level security on; check it on Supabase like `WaitlistEntry` above.
+
 ## Disk quota host setup (XFS)
 
 Tenant volumes are size-limited with XFS project quotas, so Docker's data root (default

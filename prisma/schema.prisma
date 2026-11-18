@@ -461,3 +461,22 @@ model BetaInvite {
   createdAt DateTime  @default(now()) @db.Timestamptz(3)
   revokedAt DateTime? @db.Timestamptz(3)
 }
+
+/// Admin API keys for scripts and the admin MCP server (`/api/v1/admin/mcp`). A key skips the MFA step, so only an admin
+/// signed in at `aal2` can create or revoke one, and a key stops working when its creator leaves `ADMIN_EMAILS`. Only the
+/// SHA-256 hash is stored (the key is 32 random bytes, so no salt is needed); the plaintext is shown once at creation.
+/// Row level security is enabled (same reasoning as `BetaInvite`).
+model AdminApiKey {
+  id              String    @id @default(uuid()) @db.Uuid
+  name            String
+  /// First characters of the key, for recognising it in the list. Not enough to use it.
+  prefix          String
+  hash            String    @unique
+  createdByUserId String    @db.Uuid
+  createdByEmail  String
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+  /// Null: no expiry (until revoked).
+  expiresAt       DateTime? @db.Timestamptz(3)
+  revokedAt       DateTime? @db.Timestamptz(3)
+  lastUsedAt      DateTime? @db.Timestamptz(3)
+}

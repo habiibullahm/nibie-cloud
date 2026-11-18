@@ -7,12 +7,16 @@ import type { AuthClaims } from '../modules/auth/token-verifier.js';
 import type { AuditService } from '../modules/admin/audit-service.js';
 import type { JobQueue } from '../modules/jobs/types.js';
 import { addInvite, listInvites, normalizeEmail } from '../modules/beta/invites.js';
+import { createKey, findActiveKey, isAdminKey, KEY_EXPIRY_DAYS, listKeys, revokeKey } from '../modules/admin/api-keys.js';
 import { AuthUnavailableError, ForbiddenError, NotFoundError, QueueUnavailableError, UnauthorizedError } from '../shared/errors.js';
+import { registerAdminMcp } from './admin-mcp.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
     /** Set by the admin auth hook. Never taken from the request body, path or query. */
     admin?: AuthClaims;
+    /** Set when the request was authenticated with an admin API key instead of a Supabase session. */
+    adminKey?: { id: string; prefix: string };
   }
 }
 
@@ -57,6 +61,21 @@ const inviteBody = z.object({
   reason,
 }).strict();
 const revokeBody = z.object({ reason }).strict();
+const keyBody = z.object({
+  name: z.string().trim().min(1).max(100),
+  expiresInDays: z.union([z.literal(KEY_EXPIRY_DAYS[0]), z.literal(KEY_EXPIRY_DAYS[1]), z.literal(KEY_EXPIRY_DAYS[2]), z.null()]),
+  reason,
+}).strict();
+
+/** Audit detail that marks a request made with an admin key, so the trail tells a key from a person at the panel. */
+function via(req: { adminKey?: { prefix: string } }): Record<string, string> {
+  return req.adminKey ? { via: 'key', keyPrefix: req.adminKey.prefix } : {};
+}
+
+/** Keys are managed only from a signed-in panel session at `aal2`: a key must never mint or revoke keys. */
+function assertSession(req: { adminKey?: unknown }): void {
+  if (req.adminKey) throw new ForbiddenError('Admin keys are managed from the admin panel only', 'session_required');
+}
 const pageQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
   cursor: z.string().max(200).optional(),
@@ -82,9 +101,21 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
   app.register(async (api) => {
     // Auth first so the rate limit below can key on the admin, not on the proxy's address.
     api.decorateRequest('admin', undefined);
+    api.decorateRequest('adminKey', undefined);
     api.addHook('onRequest', async (req) => {
       const m = BEARER.exec(req.headers.authorization ?? '');
       if (!m) throw new UnauthorizedError();
+      if (isAdminKey(m[1]!)) {
+        const key = await findActiveKey(prisma, m[1]!);
+        if (!key) throw new UnauthorizedError();
+        // Creating the key needed aal2, so the key stands for that session. The allowlist is checked again on every
+        // request, so removing the creator from ADMIN_EMAILS stops their keys too.
+        const claims: AuthClaims = { userId: key.createdByUserId, email: key.createdByEmail, aal: 'aal2' };
+        assertAdminAllowed(claims, req.method, allowed);
+        req.admin = claims;
+        req.adminKey = { id: key.id, prefix: key.prefix };
+        return;
+      }
       let claims: AuthClaims;
       try {
         claims = await deps.admin.verify(m[1]!);
@@ -127,7 +158,77 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
       customerApi: config.supabaseUrl !== null,
       freeBetaSlots: config.freeBetaSlots,
       adminEmails: config.adminEmails.length,
+      // The Pengaturan page. Booleans, counts, modes and names only: never a key, token, password, URL or email list.
+      settings: {
+        billing: {
+          gateway: config.billing?.gateway ?? null,
+          paidCheckoutOpen: config.paidCheckoutOpen,
+          sumopod: config.billing?.sumopod
+            ? { env: config.billing.sumopod.env, webhookSigned: Boolean(config.billing.sumopod.webhookSecret) }
+            : null,
+          duitku: config.billing?.duitku ? { env: config.billing.duitku.env } : null,
+        },
+        email: { configured: config.mail !== null, from: config.mail?.from ?? null },
+        signIn: {
+          supabase: config.supabaseUrl !== null,
+          adminEmails: config.adminEmails.length,
+          betaAllowedEmails: config.betaAllowedEmails.length,
+          freeBetaSlots: config.freeBetaSlots,
+          turnstile: Boolean(config.turnstileSecret),
+          maxInstancesPerTenant: config.maxInstancesPerTenant,
+          maxTotalInstances: config.maxTotalInstances,
+        },
+        ai: {
+          configured: config.router !== null,
+          defaultModel: config.router?.defaultModel ?? null,
+          userEmailDomain: config.router?.emailDomain ?? null,
+        },
+        mcpPath: '/api/v1/admin/mcp',
+      },
     }));
+
+    api.get('/api-keys', async (req) => {
+      assertSession(req);
+      return { keys: await listKeys(prisma) };
+    });
+
+    /** The only response that ever carries the key itself. It is not stored, logged or audited. */
+    api.post('/api-keys', async (req, reply) => {
+      assertSession(req);
+      const admin = req.admin!;
+      const body = keyBody.parse(req.body);
+      const created = await prisma.$transaction(async (tx) => {
+        const c = await createKey(tx, { name: body.name, expiresInDays: body.expiresInDays, createdByUserId: admin.userId, createdByEmail: admin.email });
+        await audit.record({
+          actorEmail: admin.email, action: 'POST /api-keys', targetType: 'admin_api_key', targetId: c.key.id,
+          reason: body.reason, detail: { name: c.key.name, prefix: c.key.prefix, expiresInDays: body.expiresInDays },
+        }, tx);
+        return c;
+      });
+      return reply.status(201).send({ key: created.key, plaintext: created.plaintext });
+    });
+
+    api.post<{ Params: { keyId: string } }>('/api-keys/:keyId/revoke', async (req) => {
+      assertSession(req);
+      const admin = req.admin!;
+      const id = uuid.parse(req.params.keyId);
+      const body = revokeBody.parse(req.body);
+      const key = await prisma.$transaction(async (tx) => {
+        const r = await revokeKey(tx, id);
+        if (!r) throw new NotFoundError('Key not found');
+        // Revoking an already revoked key changes nothing, so it is not recorded as a change.
+        if (r.changed) {
+          await audit.record({
+            actorEmail: admin.email, action: 'POST /api-keys/:keyId/revoke', targetType: 'admin_api_key', targetId: id,
+            reason: body.reason, detail: { name: r.key.name, prefix: r.key.prefix },
+          }, tx);
+        }
+        return r.key;
+      });
+      return { key };
+    });
+
+    registerAdminMcp(api);
 
     api.get('/overview', async () => {
       const [customers, instances, subscriptions, pendingPayments, byStatus] = await Promise.all([
@@ -354,7 +455,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
         const row = await addInvite(tx, { email: body.email, note: body.note ?? null, addedBy: admin.email });
         await audit.record({
           actorEmail: admin.email, action: 'POST /beta-invites', targetType: 'beta_invite', targetId: row.id,
-          reason: body.reason, detail: { email: row.email },
+          reason: body.reason, detail: { email: row.email, ...via(req) },
         }, tx);
         return row;
       });
@@ -373,7 +474,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
         const row = await tx.betaInvite.update({ where: { id }, data: { revokedAt: new Date() } });
         await audit.record({
           actorEmail: admin.email, action: 'POST /beta-invites/:inviteId/revoke', targetType: 'beta_invite', targetId: id,
-          reason: body.reason, detail: { email: normalizeEmail(row.email) },
+          reason: body.reason, detail: { email: normalizeEmail(row.email), ...via(req) },
         }, tx);
         return row;
       });
@@ -454,11 +555,12 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
       if (!req.admin) return;
       // Only reads: a Fase B action records its own entry with a reason and a target.
       if (mutating(req.method)) return;
+      const k = via(req);
       await audit
         .record({
           actorEmail: req.admin.email,
           action: `${req.method} ${req.routeOptions.url ?? req.url}`,
-          targetType: null, targetId: null, reason: null, detail: null,
+          targetType: null, targetId: null, reason: null, detail: Object.keys(k).length > 0 ? k : null,
         })
         // The response is already sent, so a failure cannot reach the admin; it must reach the operator instead.
         .catch((e: unknown) => req.log.error({ errName: e instanceof Error ? e.name : 'unknown' }, 'admin audit write failed'));

@@ -1,5 +1,7 @@
 import type { ApiError } from "./client"
 import type {
+  AdminApiKey,
+  AdminApiKeyCreated,
   AdminAuditEntry,
   AdminBetaInvite,
   AdminBetaInvites,
@@ -50,6 +52,10 @@ export interface AdminApi {
   /** Changes data: the backend needs a second factor and keeps `reason` in the audit trail. */
   addBetaInvite(input: { email: string; note?: string; reason: string }): Promise<AdminBetaInvite>
   revokeBetaInvite(id: string, reason: string): Promise<AdminBetaInvite>
+  /** Admin keys for scripts and the admin MCP. Only a panel session can manage them, never a key. */
+  apiKeys(): Promise<AdminApiKey[]>
+  createApiKey(input: { name: string; expiresInDays: number | null; reason: string }): Promise<AdminApiKeyCreated>
+  revokeApiKey(id: string, reason: string): Promise<AdminApiKey>
 }
 
 /** Shape of every paged admin response: one named array plus a cursor. */
@@ -112,6 +118,10 @@ export function createAdminApi(opts: {
     addBetaInvite: async (input) => (await call<{ invite: AdminBetaInvite }>("/beta-invites", input)).invite,
     revokeBetaInvite: async (id, reason) =>
       (await call<{ invite: AdminBetaInvite }>(`/beta-invites/${encodeURIComponent(id)}/revoke`, { reason })).invite,
+    apiKeys: async () => (await call<{ keys: AdminApiKey[] }>("/api-keys")).keys,
+    createApiKey: (input) => call<AdminApiKeyCreated>("/api-keys", input),
+    revokeApiKey: async (id, reason) =>
+      (await call<{ key: AdminApiKey }>(`/api-keys/${encodeURIComponent(id)}/revoke`, { reason })).key,
   }
 }
 
