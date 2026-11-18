@@ -25,6 +25,7 @@ values live only in `/etc/hermes-cloud/backend.env` (mode 600) and in the gatewa
 | `SUMOPOD_ENV` | `sandbox` | `production` (needs `NODE_ENV=production`, which the VPS already has) |
 | `SUMOPOD_API_KEY` | sandbox key from the SumoPod dashboard | production key (after KYC) |
 | `SUMOPOD_WEBHOOK_TOKEN` | token shown for the sandbox webhook | token shown for the production webhook |
+| `SUMOPOD_WEBHOOK_SECRET` | "Signing Secret" (`whsec_...`) of the sandbox webhook | the production webhook's signing secret. Required when `NODE_ENV=production`; with it set, only Svix-signed webhooks are accepted |
 | `SUMOPOD_CALLBACK_URL` | `https://api.cloud.nibie.app/api/v1/billing/sumopod/webhook` | same |
 | `SUMOPOD_SMTP_*`, `MAIL_FROM` | all five or none | all five (receipts and reminders) |
 
@@ -49,7 +50,7 @@ The webhook URL is also entered in the SumoPod dashboard; the variable only has 
    check out. SumoPod's sandbox has no "simulate payment" control, so a full `PAID` path can only be proven with a
    real production payment of the smallest plan (Rp 25.000) after KYC. Until then the webhook is covered by
    `test/integration/sumopod-webhook.test.ts` (fake gateway) and SumoPod's own "Save & Test".
-2. Production: swap `SUMOPOD_ENV`, `SUMOPOD_API_KEY` and `SUMOPOD_WEBHOOK_TOKEN` for the production values, set
+2. Production: swap `SUMOPOD_ENV`, `SUMOPOD_API_KEY`, `SUMOPOD_WEBHOOK_TOKEN` and `SUMOPOD_WEBHOOK_SECRET` for the production values, set
    the same webhook URL in the production project, recreate the backend, then buy the cheapest plan once with
    your own account and check, in order: the redirect back to the dashboard, `Payment` row `PAID`, the
    subscription `ACTIVE`, the instance reaching `ACTIVE`, the receipt email, and (for `hosting-kredit`) the

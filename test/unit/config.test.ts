@@ -107,6 +107,19 @@ describe('loadConfig', () => {
     expect(message).not.toContain('off');
   });
 
+  it('requires HERMES_RUNTIME=runsc in production, and keeps runc as the default elsewhere', () => {
+    expect(() => loadConfig({ ...base, NODE_ENV: 'production' })).toThrow('HERMES_RUNTIME');
+    expect(() => loadConfig({ ...base, NODE_ENV: 'production', HERMES_RUNTIME: 'runc' })).toThrow('HERMES_RUNTIME');
+    expect(loadConfig(base).runtime).toBe('runc');
+    let message = '';
+    try {
+      loadConfig({ ...base, NODE_ENV: 'production', HERMES_RUNTIME: 'runsc', HERMES_DNS_RESOLVERS: '1.1.1.1' });
+    } catch (e) {
+      message = (e as Error).message;
+    }
+    expect(message).not.toContain('HERMES_RUNTIME');
+  });
+
   it('rejects an unknown HERMES_EGRESS_POLICY', () => {
     expect(() => loadConfig({ ...base, HERMES_EGRESS_POLICY: 'soft' })).toThrow('HERMES_EGRESS_POLICY');
   });
@@ -282,7 +295,7 @@ describe('loadConfig: Redis', () => {
   });
 
   it('requires REDIS_URL in production', () => {
-    const prod = { ...base, NODE_ENV: 'production', HERMES_DISK_QUOTA: 'enforce', HERMES_EGRESS_POLICY: 'enforce', HERMES_CANARY_IMAGE: 'busybox@sha256:' + 'a'.repeat(64), SECRETS_KEK: Buffer.alloc(32, 7).toString('base64') };
+    const prod = { ...base, NODE_ENV: 'production', HERMES_RUNTIME: 'runsc', HERMES_DNS_RESOLVERS: '1.1.1.1', HERMES_DISK_QUOTA: 'enforce', HERMES_EGRESS_POLICY: 'enforce', HERMES_CANARY_IMAGE: 'busybox@sha256:' + 'a'.repeat(64), SECRETS_KEK: Buffer.alloc(32, 7).toString('base64') };
     expect(() => loadConfig(prod)).toThrow('REDIS_URL');
     expect(loadConfig({ ...prod, REDIS_URL: 'redis://:pw@127.0.0.1:6379' }).redisUrl).not.toBeNull();
   });
@@ -432,6 +445,53 @@ describe('Duitku billing configuration', () => {
     }
     expect(message).toContain('DUITKU_ENV');
     expect(message).not.toContain('duitku-api-key-value');
+  });
+});
+
+describe('SumoPod webhook signing secret', () => {
+  const sumopod = {
+    SUMOPOD_API_KEY: 'sk_test_value', SUMOPOD_WEBHOOK_TOKEN: 'whtok_test_value', SUMOPOD_CALLBACK_URL: 'https://api.example.test/api/v1/billing/sumopod/webhook',
+  };
+  const secret = `whsec_${Buffer.alloc(24, 5).toString('base64')}`;
+  const prod = {
+    ...base, ...sumopod, NODE_ENV: 'production', HERMES_RUNTIME: 'runsc', HERMES_DNS_RESOLVERS: '1.1.1.1',
+    REDIS_URL: 'redis://127.0.0.1:6379', SECRETS_KEK: Buffer.alloc(32, 7).toString('base64'), HERMES_IMAGE: `h@sha256:${'a'.repeat(64)}`,
+  };
+
+  it('is optional outside production and passed through when set', () => {
+    expect(loadConfig({ ...base, ...sumopod }).billing?.sumopod?.webhookSecret).toBeNull();
+    expect(loadConfig({ ...base, ...sumopod, SUMOPOD_WEBHOOK_SECRET: secret }).billing?.sumopod?.webhookSecret).toBe(secret);
+  });
+
+  it('is required in production when SumoPod is configured', () => {
+    expect(() => loadConfig(prod)).toThrow('SUMOPOD_WEBHOOK_SECRET');
+    expect(loadConfig({ ...prod, SUMOPOD_WEBHOOK_SECRET: secret }).billing?.sumopod?.webhookSecret).toBe(secret);
+  });
+
+  it('rejects a value that is not whsec_ base64, without echoing it', () => {
+    let message = '';
+    try {
+      loadConfig({ ...base, ...sumopod, SUMOPOD_WEBHOOK_SECRET: 'whtok_not_a_secret' });
+    } catch (e) {
+      message = (e as Error).message;
+    }
+    expect(message).toContain('SUMOPOD_WEBHOOK_SECRET');
+    expect(message).not.toContain('whtok_not_a_secret');
+  });
+});
+
+describe('waiting-list captcha (Turnstile)', () => {
+  const mail = { SUMOPOD_SMTP_HOST: 'smtp.example.test', SUMOPOD_SMTP_PORT: '465', SUMOPOD_SMTP_USER: 'u', SUMOPOD_SMTP_PASS: 'p', MAIL_FROM: 'no-reply@example.test' };
+  const prod = {
+    ...base, ...mail, NODE_ENV: 'production', HERMES_RUNTIME: 'runsc', HERMES_DNS_RESOLVERS: '1.1.1.1', REDIS_URL: 'redis://127.0.0.1:6379',
+    SECRETS_KEK: Buffer.alloc(32, 7).toString('base64'), HERMES_IMAGE: `h@sha256:${'a'.repeat(64)}`, FREE_BETA_SLOTS: '10',
+  };
+
+  it('is required in production while the waiting list is on, and only then', () => {
+    expect(() => loadConfig(prod)).toThrow('TURNSTILE_SECRET_KEY');
+    expect(loadConfig({ ...prod, TURNSTILE_SECRET_KEY: 'ts-secret' }).turnstileSecret).toBe('ts-secret');
+    expect(loadConfig({ ...prod, FREE_BETA_SLOTS: '0' }).turnstileSecret).toBeNull();
+    expect(loadConfig({ ...base, ...mail, FREE_BETA_SLOTS: '10' }).turnstileSecret).toBeNull();
   });
 });
 

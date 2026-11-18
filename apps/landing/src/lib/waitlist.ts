@@ -31,6 +31,8 @@ export interface WaitlistInput {
   useCase: string
   /** Honeypot: a person never sees this field, so it stays empty. */
   website?: string
+  /** Cloudflare Turnstile token, when the widget is on. */
+  captchaToken?: string
 }
 
 export type WaitlistField = "name" | "email" | "useCase"
@@ -50,10 +52,11 @@ export function validateWaitlist(i: WaitlistInput): { field: WaitlistField; mess
 
 export type WaitlistResult =
   | { ok: true }
-  | { ok: false; kind: "invalid" | "rate_limited" | "full" | "unavailable"; message: string }
+  | { ok: false; kind: "invalid" | "captcha" | "rate_limited" | "full" | "unavailable"; message: string }
 
 const MESSAGES = {
   invalid: "Isianmu belum sesuai. Periksa lagi lalu kirim ulang.",
+  captcha: "Verifikasi anti-bot gagal atau kedaluwarsa. Selesaikan verifikasi lagi lalu kirim ulang.",
   rate_limited: "Terlalu banyak percobaan dari jaringan ini. Coba lagi beberapa menit lagi.",
   full: "Daftar tunggu sedang penuh. Coba lagi nanti.",
   unavailable: "Formulir belum bisa terkirim. Coba lagi sebentar lagi.",
@@ -75,11 +78,18 @@ export async function submitWaitlist(url: string, input: WaitlistInput, fetchImp
     const res = await fetchImpl(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: input.name, email: input.email, useCase: input.useCase, website: input.website ?? "" }),
+      body: JSON.stringify({
+        name: input.name, email: input.email, useCase: input.useCase, website: input.website ?? "",
+        ...(input.captchaToken ? { captchaToken: input.captchaToken } : {}),
+      }),
     })
     if (res.ok) return { ok: true }
-    const full = res.status === 503 && (await errorCode(res)) === "waitlist_full"
-    const kind = res.status === 400 ? "invalid" : res.status === 429 ? "rate_limited" : full ? "full" : "unavailable"
+    const code = res.status === 400 || res.status === 503 ? await errorCode(res) : null
+    const kind =
+      res.status === 400 ? (code === "captcha_failed" ? "captcha" : "invalid")
+      : res.status === 429 ? "rate_limited"
+      : res.status === 503 && code === "waitlist_full" ? "full"
+      : "unavailable"
     return { ok: false, kind, message: MESSAGES[kind] }
   } catch {
     return { ok: false, kind: "unavailable", message: MESSAGES.unavailable }

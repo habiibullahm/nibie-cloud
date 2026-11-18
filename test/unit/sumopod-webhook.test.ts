@@ -24,19 +24,19 @@ function service(): BillingService {
 
 describe('SumoPod webhook', () => {
   it('rejects a wrong X-Webhook-Token', async () => {
-    const r = await service().handleSumoPodWebhook('wrong', { event_type: 'payment.test', data: {} });
+    const r = await service().handleSumoPodWebhook({ token: 'wrong' }, { event_type: 'payment.test', data: {} });
     expect(r.accepted).toBe(false);
   });
 
   it('rejects an empty token, a prefix of the token and the token with extra characters', async () => {
     for (const t of ['', TOKEN.slice(0, -1), `${TOKEN}x`]) {
-      const r = await service().handleSumoPodWebhook(t, { event_type: 'payment.test', data: {} });
+      const r = await service().handleSumoPodWebhook({ token: t }, { event_type: 'payment.test', data: {} });
       expect(r.accepted).toBe(false);
     }
   });
 
   it('acknowledges payment.test without touching an order', async () => {
-    const r = await service().handleSumoPodWebhook(TOKEN, {
+    const r = await service().handleSumoPodWebhook({ token: TOKEN }, {
       event_type: 'payment.test',
       data: { message: 'This is a test webhook from SumoPod', project_id: 'p' },
     });
@@ -44,7 +44,7 @@ describe('SumoPod webhook', () => {
   });
 
   it('rejects an envelope with no order_id', async () => {
-    const r = await service().handleSumoPodWebhook(TOKEN, { event_type: 'payment.completed', data: { status: 'paid' } });
+    const r = await service().handleSumoPodWebhook({ token: TOKEN }, { event_type: 'payment.completed', data: { status: 'paid' } });
     expect(r.accepted).toBe(false);
   });
 });

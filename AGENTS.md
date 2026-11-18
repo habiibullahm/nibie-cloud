@@ -111,8 +111,8 @@ Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
 - **Per-instance API key** (`runtime/api-key.ts`): `API_SERVER_KEY` = HMAC-SHA256 of `HERMES_MASTER_KEY`
   and the instance id; never stored or logged. Readiness requires an authenticated 200 on
   `/api/sessions`; a 401 marks the instance `DEGRADED` (`auth_rejected`) without a restart.
-  `HERMES_MASTER_KEY` and `HERMES_RUNTIME` (`runc` default, `runsc` for gVisor) only apply to
-  containers created afterwards.
+  `HERMES_MASTER_KEY` and `HERMES_RUNTIME` (`runc` default, `runsc` for gVisor, required when `NODE_ENV=production`)
+  only apply to containers created afterwards.
 - **Jobs** (`src/modules/jobs`, `instance-commands.ts`): with `REDIS_URL` (required in production), HTTP
   routes call `InstanceCommands`, which validates the transition (`decideOp`) and enqueues a BullMQ job (ids
   only, id `<instanceId>_<op>`); a worker runs the same `InstanceService` methods, so leases and fencing
@@ -130,8 +130,9 @@ Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
   (https, no redirects, public pinned address). Secrets are purged only after `runtime.remove` succeeds.
 - **Billing** (`src/modules/billing`, `src/http/billing-routes.ts`, `src/http/sumopod-callback.ts`, `src/http/duitku-callback.ts`):
   `BILLING_GATEWAY` picks `sumopod` (default), `duitku` or `both`. SumoPod is configured by `SUMOPOD_API_KEY`, `SUMOPOD_WEBHOOK_TOKEN` and
-  `SUMOPOD_CALLBACK_URL` (`SUMOPOD_ENV` `sandbox` default; details in `src/config/env.ts`); its webhook `POST /api/v1/billing/sumopod/webhook` is checked by that
-  token. Duitku POP needs `DUITKU_MERCHANT_CODE`, `DUITKU_API_KEY` and `DUITKU_CALLBACK_URL` (`DUITKU_ENV` `sandbox` default;
+  `SUMOPOD_CALLBACK_URL` (`SUMOPOD_ENV` `sandbox` default; details in `src/config/env.ts`); its webhook `POST /api/v1/billing/sumopod/webhook` is checked by a
+  Svix signature over the raw body (`SUMOPOD_WEBHOOK_SECRET`, `whsec_...`, 5-minute window, required in production), or by
+  that token when no secret is set (`src/modules/billing/svix.ts`). Duitku POP needs `DUITKU_MERCHANT_CODE`, `DUITKU_API_KEY` and `DUITKU_CALLBACK_URL` (`DUITKU_ENV` `sandbox` default;
   `production` needs `NODE_ENV=production`). One `Subscription` per instance; the instance is created after the first verified payment.
   The public callback (`POST /api/v1/billing/duitku/callback`) is authenticated by its HMAC signature only, checked before
   any database access, and is idempotent through `PaymentEvent`'s unique key. A billing tick (inside the locked maintenance
@@ -139,7 +140,7 @@ Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
   retention and deletion, with Indonesian emails over SumoPod SMTP. `Plan.monthlyPriceIdr` null means not for sale; prices
   are set by `scripts/seed-sandbox-plans.ts` (sandbox) or by hand, never by a migration. Not verified against the real
   Duitku yet: see `docs/architecture.md`, "Known gaps" 9a.
-- **Free beta waiting list** (`src/modules/waitlist`, `src/modules/instances/free-beta.ts`, `POST /api/v1/public/waitlist`): active with `FREE_BETA_SLOTS` > 0. `WaitlistEntry` (email unique lowercase, `UNCONFIRMED|WAITING|INVITED|REGISTERED`, RLS on). Double opt-in: an entry counts only after `POST /api/v1/public/waitlist/confirm` with the token from the confirmation email (hash stored, 24 hours); unconfirmed entries are never invited and are deleted when their link expires. `WaitlistInviter` (inside the maintenance tick, advisory lock) invites the oldest waiting entry by email when a slot is free, 48 hour window, no manual step; an open invitation reserves its slot (`reservedInvites`), so strangers get `beta_full`. Read-only admin page. Details and limits: `docs/setup.md`, "Waiting list".
+- **Free beta waiting list** (`src/modules/waitlist`, `src/modules/instances/free-beta.ts`, `POST /api/v1/public/waitlist`): active with `FREE_BETA_SLOTS` > 0. `WaitlistEntry` (email unique lowercase, `UNCONFIRMED|WAITING|INVITED|REGISTERED`, RLS on). Double opt-in: an entry counts only after `POST /api/v1/public/waitlist/confirm` with the token from the confirmation email (hash stored, 24 hours); unconfirmed entries are never invited and are deleted when their link expires. `WaitlistInviter` (inside the maintenance tick, advisory lock) invites the oldest waiting entry by email when a slot is free, 48 hour window, no manual step; an open invitation reserves its slot (`reservedInvites`), so strangers get `beta_full`. A join needs a solved Cloudflare Turnstile captcha when `TURNSTILE_SECRET_KEY` is set (required in production while the list is on), and confirmation emails are capped at 3 per address and 100 per hour platform-wide. Read-only admin page. Details and limits: `docs/setup.md`, "Waiting list".
 - **NibieRouter provisioning** (`src/modules/nibierouter`): only when `NIBIEROUTER_ADMIN_KEY` and `NIBIEROUTER_DEFAULT_MODEL` are set
   (and `SECRETS_KEK`). After a paid instance is created, `RouterProvisioner` makes one router user per tenant, one key per instance
   (attached through `ProviderService.attachNibieRouter`, then the instance restarts) and, for a plan with `includedCreditNano`, a
@@ -168,16 +169,16 @@ Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
 - **Admin API** (`src/http/admin-routes.ts`, `src/modules/admin`): the same Supabase tokens as the
   customer API, but the email must be in `ADMIN_EMAILS` (empty = nobody, fail closed). Every route
   sets `cache-control: no-store`; the whole surface is rate-limited; each request is written to
-  `AuditLog` (`AuditService`). Reads (`me`, `overview`, `customers`, `instances`, `subscriptions`,
-  `payments`, `plans`, `nodes`, `jobs/failed`, `audit`, `system`) work at `aal1`; anything that changes
-  data requires `aal2` (MFA TOTP) and a reason, and is phase B — not implemented yet. The plugin is
+  `AuditLog` (`AuditService`). Every route, reads included, requires `aal2` (MFA TOTP): an allowlisted admin
+  at `aal1` gets `403 mfa_required` and the dashboard's `AdminMfa` screen enrols or challenges a TOTP factor through
+  Supabase Auth. Routes that change data are phase B — not implemented yet. The plugin is
   registered only when `SUPABASE_URL` is set. It must never import `secrets/secret-store` and must not
   select ciphertext or wrapped-key columns (test-enforced, like the operator/customer plugins).
 - **Dashboard data layer** (`apps/web/src/lib/api`): a typed `HermesApi` with an in-browser mock
   (default, `NEXT_PUBLIC_HERMES_API_MODE=mock`), a customer-API client (`=customer`, Supabase token to
   `NEXT_PUBLIC_HERMES_API_URL`; instances, `/me`, `/plans` are real), a dev-only live client, and an
   admin client (`admin.ts`) for `/api/v1/admin/*`. Live mode goes through the dev
-  bridge `apps/web/src/app/api/hermes/[...path]/route.ts`, which keeps `HERMES_ADMIN_TOKEN` server-side
+  bridge `apps/web/src/app/api/hermes/[...path]/route.ts` (never in a production build), which keeps `HERMES_ADMIN_TOKEN` server-side
   and forwards only the allowlisted instance endpoints in `proxy-rules.ts`. Everything without a
   backend endpoint (plans, usage, logs, files, console, backups, billing, domain, account) is mock
   data and is labelled "Preview data". Billing is a UI shell; sign-in is real only when the public Supabase variables are set (`/auth/confirm` verifies email links, `AuthGate` guards `(app)`); the app uses `basePath` `/dashboard`. Mapping details:

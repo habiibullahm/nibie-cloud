@@ -34,16 +34,16 @@ export function mutating(method: string): boolean {
 }
 
 /**
- * The two authorization rules that are not "is this token valid": the email must be on the allowlist,
- * and anything that changes data needs a second factor. Pure so both can be tested without a route —
- * Fase A is read-only, so no mutating route exists yet for an integration test to hit.
+ * The two authorization rules that are not "is this token valid": the email must be on the allowlist, and every admin
+ * route, reads included, needs a second factor (`aal2`). Pure so both can be tested without a route.
  */
-export function assertAdminAllowed(claims: AuthClaims, method: string, allowed: Set<string>): void {
+export function assertAdminAllowed(claims: AuthClaims, _method: string, allowed: Set<string>): void {
   // One message for "not an admin": the caller learns nothing about who is.
   if (!allowed.has(claims.email.toLowerCase())) throw new ForbiddenError('Forbidden');
-  // A stolen first-factor token must not be enough to change anything.
-  if (mutating(method) && claims.aal !== 'aal2') {
-    throw new ForbiddenError('Two-factor authentication is required for this action', 'mfa_required');
+  // The panel shows every customer's data, so a stolen password alone must not open it. Only an admin on the allowlist
+  // ever sees this code, which tells the dashboard to ask for the authenticator code.
+  if (claims.aal !== 'aal2') {
+    throw new ForbiddenError('Two-factor authentication is required for the admin panel', 'mfa_required');
   }
 }
 
@@ -406,7 +406,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
           targetType: null, targetId: null, reason: null, detail: null,
         })
         // The response is already sent, so a failure cannot reach the admin; it must reach the operator instead.
-        .catch((e: unknown) => req.log.error({ errName: (e as Error).name }, 'admin audit write failed'));
+        .catch((e: unknown) => req.log.error({ errName: e instanceof Error ? e.name : 'unknown' }, 'admin audit write failed'));
     });
   }, { prefix: '/api/v1/admin' });
 }

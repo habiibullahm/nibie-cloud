@@ -53,8 +53,21 @@ describe('admin API authorization', () => {
   });
 
   it('matches the allowlist case-insensitively', async () => {
-    const res = await me(app(), bearer(await auth.signToken({ email: 'Boss@Nibie.App' })));
+    const res = await me(app(), bearer(await auth.signToken({ email: 'Boss@Nibie.App', aal: 'aal2' })));
     expect(res.statusCode).toBe(200);
+  });
+
+  it('asks an allowlisted admin without a second factor for one, on /me and on data routes alike', async () => {
+    const a = app();
+    // aal1, and a token with no aal claim at all (Supabase leaves it out until a factor exists).
+    for (const aal of ['aal1', null] as const) {
+      const token = await auth.signToken({ email: BOSS, aal });
+      for (const url of ['/api/v1/admin/me', '/api/v1/admin/customers', '/api/v1/admin/waitlist']) {
+        const res = await a.inject({ method: 'GET', url, headers: bearer(token) });
+        expect(res.statusCode, `${url} ${aal}`).toBe(403);
+        expect(res.json().error.code).toBe('mfa_required');
+      }
+    }
   });
 
   it('refuses a signed-in user who is not on the allowlist, without saying whether they exist', async () => {

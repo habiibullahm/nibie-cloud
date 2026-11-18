@@ -16,29 +16,70 @@ The full review was given to the owner privately; it is not kept in this public 
   still greets by name.
 - **Admin audit:** a failed write of an admin read-audit entry is now logged (error class only) instead of silently dropped.
 - **Browser headers:** the dashboard (`next.config.ts` `headers()`) and the landing page (`public/_headers`) now send
-  `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `Referrer-Policy`, `nosniff` and `Permissions-Policy`. A full CSP is
-  not set yet.
+  `X-Frame-Options: DENY`, `Referrer-Policy`, `nosniff`, `Permissions-Policy` and a Content-Security-Policy (third round).
 - **`.mcp.json` is gitignored** (local agent tooling config).
+- **Second round, same branch:**
+  - **Runtime:** `HERMES_RUNTIME=runsc` is now required when `NODE_ENV=production`; startup fails with `runc`.
+    `deploy/backend.env.example` defaults to `runsc` with `HERMES_DNS_RESOLVERS`.
+  - **Client address:** Fastify trusts only the loopback proxy (`trustProxy: ['127.0.0.1', '::1']`), so `req.ip` and the
+    request log carry the real client address. The operator API's proxy-header guard is unchanged.
+  - **BYOK provider URL:** a provider `baseUrl` must use the standard https port; any explicit other port is refused.
+  - **Waiting-list send caps:** at most 3 confirmation emails per address while its entry lives, and at most 100 per hour
+    platform-wide. A failed send is given back. New column `WaitlistEntry.confirmSends`, migration
+    `20261118090000_waitlist_confirm_sends`.
+  - **Dev bridge:** the dashboard dev bridge never runs in a production build; `HERMES_ALLOW_DEV_BRIDGE` is gone.
+- **Third round, same branch:**
+  - **SumoPod webhook signatures:** with `SUMOPOD_WEBHOOK_SECRET` (the webhook's Svix "Signing Secret", `whsec_...`) every
+    webhook must carry a valid `svix-signature` over its raw body, id and timestamp (5-minute window); the token alone is
+    then refused (`src/modules/billing/svix.ts`, checked against Svix's published test vector). Required in production
+    when SumoPod is configured. SumoPod documents no payment-status API, so there is no status check; the signature covers
+    the status field.
+  - **Waiting-list captcha:** with `TURNSTILE_SECRET_KEY` the join needs a Cloudflare Turnstile token, checked with
+    siteverify before anything is stored (`400 captcha_failed`, `503 waitlist_unavailable` when Cloudflare cannot be
+    reached). Required in production while the list is on. The landing form shows the widget with
+    `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (the dashboard sign-up widget).
+  - **Admin MFA:** every admin route, reads included, needs `aal2`; an allowlisted admin at `aal1` gets
+    `403 mfa_required`. The dashboard's `AdminMfa` screen enrols a TOTP authenticator (QR code plus manual key) on the
+    first visit and asks for the code after that (`supabase.auth.mfa`). Also fixed: the admin gate never recognised the
+    admin client's 403 (its errors are not `ApiError` instances), so a non-admin got an error state instead of
+    "Tidak berwenang".
+  - **CSP:** Next.js's "without nonces" policy (pages are prerendered, so no nonce): scripts and frames only from the site
+    and Turnstile; `connect-src` only the site, the API, Supabase and Turnstile; `object-src 'none'`, `base-uri`,
+    `form-action`, `frame-ancestors 'none'`. Dashboard origins come from the build variables (`apps/web/src/lib/csp.ts`);
+    the landing `_headers` names `https://api.cloud.nibie.app` (edit it if `NEXT_PUBLIC_API_URL` changes).
+  - **Images:** `node`, `redis` and `caddy` pinned by multi-arch digest (tag kept for reading) in `deploy/Dockerfile` and
+    `deploy/compose.prod.yaml`. The backend image still carries devDependencies: it runs `tsx` and the Prisma CLI.
+  - **Dependency audit** (`pnpm audit --prod`, 2026-11-18): backend 1 high (`deepmerge-ts` inside the Prisma CLI config
+    loader, no user input), web 1 high and 2 moderate (`picomatch`, `glob`, `minimatch` inside OpenNext build tooling), docs 1
+    high (`picomatch` in the Fumadocs build); landing and e2e clean. All are build or CLI tooling; fixes need major bumps or
+    do not exist yet, so nothing was forced.
+- **Deploying this branch:**
+  - Run `prisma migrate deploy` before starting the new image.
+  - The VPS env must keep `HERMES_RUNTIME=runsc`, as HANDOFF.md records, and must gain `SUMOPOD_WEBHOOK_SECRET` and
+    `TURNSTILE_SECRET_KEY`; otherwise the backend refuses to start and `ops/host/deploy.sh` rolls back.
+  - Landing build variable `NEXT_PUBLIC_TURNSTILE_SITE_KEY`; the Turnstile widget must list `cloud.nibie.app`.
+  - Admins enrol an authenticator on their next visit to the panel; Supabase MFA (TOTP) must be enabled.
 - **Owner confirmations (2026-11-18, not checked from this repo):**
   - Production takes payments through SumoPod, so the Duitku callback path is not live.
   - RLS is enabled on the `hermes` tables in Supabase.
 - **Not done** (no minimum length for `SUMOPOD_WEBHOOK_TOKEN`): the token is issued by SumoPod and its length is not
   documented here.
-- **Open owner decisions** from the review:
-  - Waiting list: a captcha and send caps on the waiting-list form.
-  - Admin API: MFA (`aal2`) for admin reads too.
-  - Payments: a SumoPod status check before a payment is marked paid. The same check for Duitku before it is ever enabled.
-  - Supabase: a read-only Supabase MCP for agent sessions.
-  - Images and dependencies: digest-pinned base images and a dependency audit.
-  - Templates and dev tooling: `deploy/backend.env.example` still defaults to `runc` while production runs `runsc`; remove the
-    dev-bridge production override.
+- **Still open:** a payment-status check for Duitku before it is ever enabled (SumoPod has no documented status API);
+  a CSP without `'unsafe-inline'` (needs nonces and dynamic rendering, or the experimental SRI); the audit findings above.
+  The local `.mcp.json` (not in the repo) was switched to a read-only Supabase connection with docs, database and debugging only.
 - **Checks:**
-  - Backend: `tsc` clean. Unit tests 519 passed, 2 failed; the 2 failures are shell-script tests in
+  - Backend: `tsc` clean. Unit tests 535 passed, 2 failed; the 2 failures are shell-script tests in
     `egress-canary.test.ts` that do not run on the Windows host used, and are unrelated to this change. Integration tests:
-    sumopod-webhook, waitlist, customer-api and admin-api, 81 of 81 passed against local Docker Postgres and Redis.
-  - `apps/web`: typecheck, lint, 137 tests and build pass.
-  - `apps/landing`: typecheck, lint, 60 tests and build pass, and `out/_headers` is exported.
-  - Not verified: that the headers are actually served by the deployed Cloudflare Workers.
+    waitlist, customer-auth, provider-service, sumopod-webhook, customer-api, admin-api, admin-auth, integration-routes and
+    billing-api, 179 of 179 passed against local Docker Postgres and Redis, with the new migration applied to `hermes_test`.
+  - `apps/web`: typecheck, lint, 151 tests and build pass.
+  - `apps/landing`: typecheck, lint, 67 tests and build pass, and `out/_headers` carries the CSP.
+  - Browser: the dashboard builds (customer mode, and mock mode with `/instances`, `/deploy`, `/admin`, `/sign-in`) under
+    `next start` render in headless Chromium with no console error and no CSP violation. e2e T0 (landing export plus
+    the mock dashboard build, CSP headers on the dashboard): 53 passed, 1 skipped. Ports 3100 and 3300 must be free first;
+    Playwright reuses a running `next dev` server, which gives misleading failures.
+  - Not verified: the headers on the deployed Cloudflare Workers, a real SumoPod signed webhook, a real Turnstile token, and
+    the MFA enrolment against the real Supabase project.
 
 ## Docs refresh for the next handoff (2026-11-18, from `main` at `84a6dbe`, docs only)
 

@@ -10,6 +10,7 @@ import type { Integrations } from '../modules/integrations/types.js';
 import { isDatabaseUnavailable } from '../db/errors.js';
 import type { BillingService } from '../modules/billing/billing-service.js';
 import type { Mailer } from '../modules/billing/mailer.js';
+import type { CaptchaVerifier } from '../modules/waitlist/turnstile.js';
 import { registerDuitkuCallback } from './duitku-callback.js';
 import { registerSumoPodWebhook } from './sumopod-callback.js';
 import { registerCustomerRoutes, type CustomerDeps } from './customer-routes.js';
@@ -45,11 +46,15 @@ export function buildServer(deps: {
   readiness?: Record<string, ReadinessCheck>;
   /** Sends the waiting-list confirmation emails. Null, absent or disabled: `POST /public/waitlist` answers 503. */
   mailer?: Mailer | null;
+  /** Captcha check for the waiting-list form (Turnstile). Null or absent: no captcha is asked. */
+  captcha?: CaptchaVerifier | null;
 }): FastifyInstance {
   const { service, config, logger, customer } = deps;
   const integrations = deps.integrations ?? null;
   const commands = deps.commands ?? new InstanceCommands({ service, queue: null, logger });
-  const app = Fastify({ loggerInstance: logger as unknown as FastifyBaseLogger });
+  // Only the loopback reverse proxy (Caddy) is trusted for X-Forwarded-For, so `req.ip` and the request log carry the real
+  // client address. The operator API's proxy-header guard reads the raw headers and does not depend on this.
+  const app = Fastify({ loggerInstance: logger as unknown as FastifyBaseLogger, trustProxy: ['127.0.0.1', '::1'] });
 
   // Bearer tokens only (no cookies). Production allows only the dashboard origin; CORS_EXTRA_ORIGINS adds local dev origins.
   const origins = [...(config.dashboardOrigin ? [config.dashboardOrigin] : []), ...(config.corsExtraOrigins ?? [])];
@@ -91,7 +96,7 @@ export function buildServer(deps: {
 
   registerOperatorRoutes(app, { service, commands, queue: deps.queue ?? null, config, integrations });
   const billing = deps.billing ?? null;
-  if (customer) registerPublicRoutes(app, { prisma: customer.prisma, config, mailer: deps.mailer ?? null });
+  if (customer) registerPublicRoutes(app, { prisma: customer.prisma, config, mailer: deps.mailer ?? null, captcha: deps.captcha ?? null });
   if (customer) registerCustomerRoutes(app, { customer, service, commands, config, integrations, logs: deps.logs ?? null, billing });
   if (deps.admin) registerAdminRoutes(app, { admin: deps.admin, config });
   if (billing) {

@@ -8,6 +8,7 @@ import { freeBetaRemaining } from '../modules/instances/free-beta.js';
 import { renderWaitlistConfirm } from '../modules/billing/email-templates.js';
 import type { Mailer } from '../modules/billing/mailer.js';
 import { CONFIRM_TOKEN_PATTERN, confirmWaitlist, forgetConfirmSend, joinWaitlist } from '../modules/waitlist/waitlist.js';
+import type { CaptchaVerifier } from '../modules/waitlist/turnstile.js';
 import { AppError } from '../shared/errors.js';
 
 /**
@@ -52,6 +53,8 @@ export const waitlistBody = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
   useCase: z.string().trim().min(3).max(500),
   website: z.string().max(500).optional(),
+  /** Cloudflare Turnstile token from the form; required when the backend has a Turnstile secret. */
+  captchaToken: z.string().max(2048).optional(),
 }).strict();
 
 export const confirmBody = z.object({ token: z.string().regex(CONFIRM_TOKEN_PATTERN) }).strict();
@@ -69,6 +72,13 @@ class WaitlistUnavailableError extends AppError {
   }
 }
 
+/** The captcha was missing, wrong, expired or already used. The form shows a fresh one. */
+class CaptchaFailedError extends AppError {
+  constructor() {
+    super('The anti-bot check failed. Please try again.', 400, 'captcha_failed');
+  }
+}
+
 class ConfirmLinkInvalidError extends AppError {
   constructor() {
     super('This confirmation link is not valid or has expired.', 400, 'confirm_link_invalid');
@@ -81,8 +91,9 @@ class ConfirmLinkInvalidError extends AppError {
  * `POST /api/v1/public/waitlist` takes a name, email and use case once the free slots are used and emails a confirmation
  * link; `POST /api/v1/public/waitlist/confirm` turns the entry into a place in line (double opt-in).
  */
-export function registerPublicRoutes(app: FastifyInstance, deps: { prisma: PrismaClient; config: Config; mailer: Mailer | null }): void {
+export function registerPublicRoutes(app: FastifyInstance, deps: { prisma: PrismaClient; config: Config; mailer: Mailer | null; captcha?: CaptchaVerifier | null }): void {
   const { prisma, config } = deps;
+  const captcha = deps.captcha ?? null;
   const mailer = deps.mailer?.enabled ? deps.mailer : null;
   const confirmPage = `${config.dashboardOrigin ?? 'https://cloud.nibie.app'}/daftar-tunggu/konfirmasi`;
   app.register(async (pub) => {
@@ -101,9 +112,16 @@ export function registerPublicRoutes(app: FastifyInstance, deps: { prisma: Prism
       // A bot that fills the hidden field gets the same answer as a person, and nothing is stored.
       if (body.website !== undefined && body.website.length > 0) return { ok: true };
       if (!mailer) throw new WaitlistUnavailableError();
+      // Before anything is stored or sent: a person must have solved the captcha.
+      if (captcha) {
+        const outcome = await captcha(body.captchaToken, clientIp(req));
+        if (outcome === 'invalid') throw new CaptchaFailedError();
+        if (outcome === 'unavailable') throw new WaitlistUnavailableError();
+      }
       // A new address and one already on the list look the same from outside, so the list cannot be probed for who joined.
       const result = await joinWaitlist(prisma, { name: body.name, email: body.email, useCase: body.useCase });
       if (result.kind === 'full') throw new WaitlistFullError();
+      if (result.kind === 'busy') throw new WaitlistUnavailableError();
       if (result.kind === 'send') {
         try {
           await mailer.send({

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Section } from "@/components/site/section"
+import { Turnstile, turnstileSiteKey, type TurnstileProblem } from "@/components/site/turnstile"
 import { freeBetaOpen, signupOpen } from "@/lib/site"
 import { useBetaSlots } from "@/lib/use-beta-slots"
 import { submitWaitlist, validateWaitlist, waitlistUrl, WAITLIST_LIMITS, type WaitlistField } from "@/lib/waitlist"
@@ -41,6 +42,11 @@ function WaitlistForm({ url }: { url: string }) {
   const formRef = useRef<HTMLFormElement>(null)
   const statusRef = useRef<HTMLParagraphElement>(null)
   const doneRef = useRef<HTMLDivElement>(null)
+  // With a site key configured, every submit carries a fresh Turnstile token; a token works once.
+  const siteKey = turnstileSiteKey()
+  const [captcha, setCaptcha] = useState<string | null>(null)
+  const [captchaRound, setCaptchaRound] = useState(0)
+  const [captchaProblem, setCaptchaProblem] = useState<TurnstileProblem>(null)
 
   // The fields are disabled while sending and the form is replaced when done, so focus would fall back to the page.
   // Put it where the answer is: the invalid field, the error message, or the confirmation.
@@ -66,8 +72,18 @@ function WaitlistForm({ url }: { url: string }) {
       setState({ phase: "error", field: problem.field, message: problem.message })
       return
     }
+    if (siteKey && !captcha) {
+      setState({ phase: "error", message: "Selesaikan verifikasi anti-bot di atas tombol dulu." })
+      return
+    }
     setState({ phase: "sending" })
-    const result = await submitWaitlist(url, input)
+    const result = await submitWaitlist(url, { ...input, ...(captcha ? { captchaToken: captcha } : {}) })
+    if (siteKey) {
+      // The token has been used: show a fresh widget for any next attempt.
+      setCaptcha(null)
+      setCaptchaProblem(null)
+      setCaptchaRound((n) => n + 1)
+    }
     setState(result.ok ? { phase: "done", email: input.email.trim() } : { phase: "error", message: result.message })
   }
 
@@ -104,6 +120,18 @@ function WaitlistForm({ url }: { url: string }) {
           <input name="website" type="text" tabIndex={-1} autoComplete="off" />
         </label>
       </div>
+      {siteKey ? (
+        <div className="grid gap-2">
+          <Turnstile key={captchaRound} siteKey={siteKey} onToken={setCaptcha} onProblem={setCaptchaProblem} />
+          {captchaProblem ? (
+            <p className="text-[0.8125rem] text-muted-foreground">
+              {captchaProblem === "expired"
+                ? "Verifikasi anti-bot kedaluwarsa. Selesaikan sekali lagi."
+                : "Verifikasi anti-bot tidak bisa dimuat. Muat ulang halaman atau coba lagi nanti."}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       {/* Error text in the foreground color: the destructive token is below 4.5:1 for small text, so the icon and "Gagal:" carry the meaning. */}
       <p ref={statusRef} tabIndex={-1} id={`${id}-status`} role="alert" className="flex min-h-5 items-start gap-2 rounded-sm text-[0.8125rem] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
         {state.phase === "error" ? (

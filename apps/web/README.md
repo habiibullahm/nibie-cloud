@@ -32,9 +32,8 @@ Set `NEXT_PUBLIC_HERMES_API_MODE` in `.env.local` (see `.env.example`).
 
 The **dev bridge** (`src/app/api/hermes/[...path]/route.ts`) keeps `HERMES_ADMIN_TOKEN` on the
 server, pins one tenant from `HERMES_DEV_TENANT_ID`, and forwards only the allowlisted method/path
-pairs in `src/lib/api/proxy-rules.ts` (UUID ids only). It refuses to run in a production build
-unless `HERMES_ALLOW_DEV_BRIDGE=1`. It exists because the backend API is operator-only today; it
-must be replaced by the customer API once auth exists.
+pairs in `src/lib/api/proxy-rules.ts` (UUID ids only). It never runs in a production build: it
+holds the operator token and has no user authentication. Local development only.
 
 Sections without a backend endpoint yet (PRD §15): regions, usage, files, console, backups, custom
 domain, account (in `customer` mode provider config, Telegram and logs are real, see below). Each is marked with a

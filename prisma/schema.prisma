@@ -436,6 +436,8 @@ model WaitlistEntry {
   confirmTokenHash String?        @unique
   confirmSentAt    DateTime?      @db.Timestamptz(3)
   confirmExpiresAt DateTime?      @db.Timestamptz(3)
+  /// Confirmation emails sent for this entry; capped per address (`MAX_CONFIRM_SENDS`).
+  confirmSends     Int            @default(0)
   confirmedAt      DateTime?      @db.Timestamptz(3)
   invitedAt        DateTime?      @db.Timestamptz(3)
   inviteExpiresAt  DateTime?      @db.Timestamptz(3)

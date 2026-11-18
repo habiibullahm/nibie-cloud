@@ -11,6 +11,11 @@ export const MAX_UNCONFIRMED = 1000;
 export const CONFIRM_WINDOW_MS = 24 * 3_600_000;
 /** Joining again with an unconfirmed address sends a new link, at most this often per address. */
 export const CONFIRM_RESEND_AFTER_MS = 10 * 60_000;
+/** Confirmation emails one address can receive while its entry lives (the first link plus re-sends). */
+export const MAX_CONFIRM_SENDS = 3;
+/** Confirmation emails the whole platform sends per hour at most, whoever asks: a flood must not burn the sending domain. */
+export const MAX_CONFIRM_SENDS_PER_HOUR = 100;
+const HOUR_MS = 3_600_000;
 
 export const normalizeEmail = (email: string): string => email.trim().toLowerCase();
 
@@ -23,9 +28,11 @@ export const CONFIRM_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 export type JoinResult =
   /** Send a confirmation link carrying `token` to this address. */
   | { kind: 'send'; id: string; token: string; name: string; expiresAt: Date }
-  /** Nothing to do: the address is already confirmed, or a link was sent to it moments ago. */
+  /** Nothing to do: the address is already confirmed, a link was sent to it moments ago, or it has had all its links. */
   | { kind: 'exists' }
-  | { kind: 'full' };
+  | { kind: 'full' }
+  /** The platform-wide hourly send cap is reached; nobody gets a link until it eases. */
+  | { kind: 'busy' };
 
 /**
  * Adds a person to the waiting list as UNCONFIRMED and returns the token for the confirmation email. The same address
@@ -41,25 +48,30 @@ export async function joinWaitlist(db: Db, input: { name: string; email: string;
   ]);
   // Still no leak: a full list answers the same way for everyone, existing address or not.
   if (waiting >= MAX_WAITING || unconfirmed >= MAX_UNCONFIRMED) return { kind: 'full' };
+  // Checked before the address is looked at, so the answer is the same for everyone and reveals nothing about who joined.
+  const sentLastHour = await db.waitlistEntry.count({ where: { confirmSentAt: { gt: new Date(now.getTime() - HOUR_MS) } } });
+  if (sentLastHour >= MAX_CONFIRM_SENDS_PER_HOUR) return { kind: 'busy' };
 
   const token = randomBytes(32).toString('base64url');
   const expiresAt = new Date(now.getTime() + CONFIRM_WINDOW_MS);
   const link = { confirmTokenHash: hashConfirmToken(token), confirmSentAt: now, confirmExpiresAt: expiresAt };
 
-  const existing = await db.waitlistEntry.findUnique({ where: { email }, select: { id: true, name: true, status: true, confirmSentAt: true } });
+  const existing = await db.waitlistEntry.findUnique({ where: { email }, select: { id: true, name: true, status: true, confirmSentAt: true, confirmSends: true } });
   if (existing) {
     if (existing.status !== 'UNCONFIRMED') return { kind: 'exists' };
     if (existing.confirmSentAt && now.getTime() - existing.confirmSentAt.getTime() < CONFIRM_RESEND_AFTER_MS) return { kind: 'exists' };
+    // No more links for this address; the entry expires and is purged, after which the person may join afresh.
+    if (existing.confirmSends >= MAX_CONFIRM_SENDS) return { kind: 'exists' };
     // Compare-and-set on the previous send time, so two requests at once send one link, not two.
     const cas = await db.waitlistEntry.updateMany({
       where: { id: existing.id, status: 'UNCONFIRMED', confirmSentAt: existing.confirmSentAt },
-      data: link,
+      data: { ...link, confirmSends: { increment: 1 } },
     });
     return cas.count === 1 ? { kind: 'send', id: existing.id, token, name: existing.name, expiresAt } : { kind: 'exists' };
   }
   try {
     const name = input.name.trim();
-    const row = await db.waitlistEntry.create({ data: { email, name, useCase: input.useCase.trim(), status: 'UNCONFIRMED', ...link }, select: { id: true } });
+    const row = await db.waitlistEntry.create({ data: { email, name, useCase: input.useCase.trim(), status: 'UNCONFIRMED', ...link, confirmSends: 1 }, select: { id: true } });
     return { kind: 'send', id: row.id, token, name, expiresAt };
   } catch (e) {
     if ((e as { code?: string }).code === 'P2002') return { kind: 'exists' };
@@ -67,9 +79,15 @@ export async function joinWaitlist(db: Db, input: { name: string; email: string;
   }
 }
 
-/** A confirmation email could not be sent: clear the send time so the person can ask for a new link at once. */
+/**
+ * A confirmation email could not be sent: clear the send time and give the send back, so the person can ask for a new
+ * link at once and a failure on our side does not use up their links or the hourly budget.
+ */
 export async function forgetConfirmSend(db: Db, id: string): Promise<void> {
-  await db.waitlistEntry.updateMany({ where: { id, status: 'UNCONFIRMED' }, data: { confirmSentAt: null } });
+  await db.waitlistEntry.updateMany({
+    where: { id, status: 'UNCONFIRMED', confirmSends: { gt: 0 } },
+    data: { confirmSentAt: null, confirmSends: { decrement: 1 } },
+  });
 }
 
 export type ConfirmResult = 'confirmed' | 'invalid';

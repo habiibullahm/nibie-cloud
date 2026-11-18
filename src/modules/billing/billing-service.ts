@@ -13,6 +13,7 @@ import type { Mailer } from './mailer.js';
 import { totalLoad } from '../instances/capacity.js';
 import type { PaymentClient } from './payment-client.js';
 import type { SumoPodConfig } from './sumopod-client.js';
+import { verifySvixSignature, type SvixHeaders } from './svix.js';
 
 /** How long an invoice stays payable. QRIS allows 60 minutes at most. */
 export const INVOICE_EXPIRY_MINUTES = 60;
@@ -58,8 +59,11 @@ export interface BillingDeps {
   paymentClients?: PaymentClient[];
   /** Duitku config for signature verification, or null. */
   duitkuAuth?: Pick<DuitkuConfig, 'merchantCode' | 'apiKey'> | null;
-  /** SumoPod config for webhook token verification, or null. */
-  sumopodAuth?: { webhookToken: string } | null;
+  /**
+   * SumoPod webhook authentication, or null. With `webhookSecret` (the Svix signing secret, `whsec_...`) a valid signature
+   * over the raw body is required and the token is not consulted; without it, the `X-Webhook-Token` is checked.
+   */
+  sumopodAuth?: { webhookToken: string; webhookSecret?: string | null } | null;
   /** Active gateway selector. */
   gateway: 'sumopod' | 'duitku' | 'both';
   commands: InstanceCommands;
@@ -72,6 +76,13 @@ export interface BillingDeps {
   /** NibieRouter key and credit for a freshly created paid instance. Absent: the operator attaches a provider by hand. */
   router?: Pick<RouterProvisioner, 'begin'>;
   now?: () => Date;
+}
+
+/** What a SumoPod webhook request carries for authentication. `rawBody` is the exact body received (needed for Svix). */
+export interface SumoPodCredentials {
+  token: string;
+  svix?: SvixHeaders;
+  rawBody?: string;
 }
 
 export interface CallbackForm {
@@ -280,13 +291,25 @@ export class BillingService {
 
   // ---- SumoPod webhook ---------------------------------------------------------------------
 
+  /** True when the request is from SumoPod: a valid Svix signature when a signing secret is configured, else the token. */
+  private sumoPodAuthentic(c: SumoPodCredentials): boolean {
+    const auth = this.d.sumopodAuth;
+    if (!auth) return false;
+    if (auth.webhookSecret) {
+      // The signature covers the whole body (status and amount included) and a timestamp, so a captured or edited
+      // webhook cannot be replayed later or turned into a payment.
+      return c.svix !== undefined && c.rawBody !== undefined && verifySvixSignature(auth.webhookSecret, c.svix, c.rawBody, this.now().getTime());
+    }
+    return tokenMatches(c.token, auth.webhookToken);
+  }
+
   /**
-   * Authenticates a SumoPod webhook by the `X-Webhook-Token` header, then applies it.
-   * SumoPod wraps the event in a svix-style envelope: `{ event_type, data: { order_id, payment_id,
+   * Authenticates a SumoPod webhook (Svix signature, or the `X-Webhook-Token` header when no signing secret is set), then
+   * applies it. SumoPod wraps the event in a svix-style envelope: `{ event_type, data: { order_id, payment_id,
    * amount, status } }`. Flat payloads are still accepted (older/manual calls).
    */
-  async handleSumoPodWebhook(webhookToken: string, body: Record<string, unknown>): Promise<CallbackResult> {
-    if (!this.d.sumopodAuth || !tokenMatches(webhookToken, this.d.sumopodAuth.webhookToken)) return { accepted: false };
+  async handleSumoPodWebhook(credentials: SumoPodCredentials, body: Record<string, unknown>): Promise<CallbackResult> {
+    if (!this.sumoPodAuthentic(credentials)) return { accepted: false };
     const envelope = (body.data && typeof body.data === 'object' ? body.data : body) as Record<string, unknown>;
     // SumoPod's "Save & Test" sends event_type payment.test with no order: acknowledge, never apply.
     if (body.event_type === 'payment.test') return { accepted: true, outcome: 'ignored_failure', postActions: none };

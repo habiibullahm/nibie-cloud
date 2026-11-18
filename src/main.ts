@@ -30,6 +30,7 @@ import { createSumoPodClient } from './modules/billing/sumopod-client.js';
 import type { PaymentClient } from './modules/billing/payment-client.js';
 import { createMailer } from './modules/billing/mailer.js';
 import { WaitlistInviter } from './modules/waitlist/waitlist-inviter.js';
+import { createTurnstileVerifier } from './modules/waitlist/turnstile.js';
 import { Reconciler } from './modules/instances/reconciler.js';
 import { AlertScanner } from './modules/ops/alert-scanner.js';
 import { PrismaAlertStore } from './modules/ops/alert-store.js';
@@ -132,7 +133,9 @@ const billing = config.billing && config.dashboardOrigin
         paymentClient: paymentClient!,
         paymentClients: config.billing.gateway === 'both' && allClients.length > 1 ? allClients.filter((c) => c !== paymentClient) : undefined,
         duitkuAuth: config.billing.duitku ? { merchantCode: config.billing.duitku.merchantCode, apiKey: config.billing.duitku.apiKey } : null,
-        sumopodAuth: config.billing.sumopod ? { webhookToken: config.billing.sumopod.webhookToken } : null,
+        sumopodAuth: config.billing.sumopod
+          ? { webhookToken: config.billing.sumopod.webhookToken, webhookSecret: config.billing.sumopod.webhookSecret ?? null }
+          : null,
         gateway: config.billing.gateway,
         commands, mailer,
         dashboardOrigin: config.dashboardOrigin!, maxInstancesPerTenant: config.maxInstancesPerTenant, maxTotalInstances: config.maxTotalInstances, logger,
@@ -145,7 +148,9 @@ const billingTick = billing ? new BillingTick({ prisma, billing, commands, maile
 const waitlistInviter = customer && config.freeBetaSlots > 0
   ? new WaitlistInviter({ prisma, mailer, logger, slots: config.freeBetaSlots, registerUrl: `${config.dashboardOrigin ?? 'https://cloud.nibie.app'}/dashboard/register` })
   : null;
-logger.info({ waitlist: waitlistInviter !== null, mail: mailer.enabled }, 'waiting list');
+// Captcha on the public waiting-list form (the same Turnstile widget as the dashboard sign-up).
+const captcha = config.turnstileSecret ? createTurnstileVerifier({ secret: config.turnstileSecret }) : null;
+logger.info({ waitlist: waitlistInviter !== null, mail: mailer.enabled, captcha: captcha !== null }, 'waiting list');
 logger.info({ billing: billing !== null, billingGateway: config.billing?.gateway ?? null, mail: mailer.enabled }, 'billing');
 // The admin API exists only when a Supabase project is configured: it authenticates the same tokens
 // the customer API does. An empty ADMIN_EMAILS opens it to nobody (fail closed).
@@ -165,7 +170,7 @@ const readiness = {
   docker: async () => { await docker.ping(); },
   ...(readyRedis ? { redis: async () => { if (readyRedis.status === 'wait') await readyRedis.connect(); await readyRedis.ping(); } } : {}),
 };
-const app = buildServer({ service, commands, queue, config, logger, integrations, logs: logService, billing, readiness, mailer, ...(customer ? { customer } : {}), ...(admin ? { admin } : {}) });
+const app = buildServer({ service, commands, queue, config, logger, integrations, logs: logService, billing, readiness, mailer, captcha, ...(customer ? { customer } : {}), ...(admin ? { admin } : {}) });
 
 let stopReconciler: () => void | Promise<void> = () => undefined;
 let stopWorker: (() => Promise<void>) | undefined;

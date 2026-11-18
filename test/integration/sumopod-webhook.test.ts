@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createPrisma } from '../../src/db/client.js';
 import { buildServer } from '../../src/http/server.js';
@@ -82,6 +82,69 @@ describe('SumoPod webhook', () => {
     });
   });
   afterAll(() => prisma.$disconnect());
+
+  describe('with a Svix signing secret', () => {
+    const SECRET = `whsec_${Buffer.alloc(24, 3).toString('base64')}`;
+    function signedApp() {
+      const signed = new BillingService({
+        prisma, paymentClient: env.duitku, duitkuAuth: null,
+        sumopodAuth: { webhookToken: TOKEN, webhookSecret: SECRET }, gateway: 'sumopod',
+        commands: env.commands, mailer: env.mailer as never,
+        dashboardOrigin: 'https://cloud.example.test', maxInstancesPerTenant: 2,
+        logger: createLogger({ level: 'silent' }),
+      });
+      return buildServer({
+        service: env.service, commands: env.commands, logger: createLogger({ level: 'silent' }),
+        config: testConfig('hermes-stub:0.2.0', TEST_MASTER_KEY, {
+          billing: { gateway: 'sumopod', duitku: null, sumopod: { apiKey: 'test-key', webhookToken: TOKEN, webhookSecret: SECRET, env: 'sandbox', callbackUrl: 'https://example.test/hook' } },
+          maxInstancesPerTenant: 2,
+        }),
+        customer: { verify: auth.verify, identity: new IdentityService({ prisma }), prisma },
+        billing: signed,
+      });
+    }
+    function sign(raw: string, ts = Math.floor(Date.now() / 1000), id = `msg_${randomUUID()}`) {
+      const mac = createHmac('sha256', Buffer.from(SECRET.slice('whsec_'.length), 'base64')).update(`${id}.${ts}.${raw}`).digest('base64');
+      return { 'svix-id': id, 'svix-timestamp': String(ts), 'svix-signature': `v1,${mac}` };
+    }
+    const send = (a: ReturnType<typeof signedApp>, raw: string, headers: Record<string, string>) =>
+      a.inject({ method: 'POST', url: WEBHOOK, headers: { 'content-type': 'application/json', ...headers }, payload: raw });
+
+    it('accepts a correctly signed payment and marks it PAID', async () => {
+      const { merchantOrderId } = await pendingPayment();
+      const raw = JSON.stringify({ event_type: 'payment.completed', data: { order_id: merchantOrderId, payment_id: 'pay_s1', amount: PRICE, status: 'paid' } });
+      expect((await send(signedApp(), raw, sign(raw))).statusCode).toBe(200);
+      expect((await prisma.payment.findUniqueOrThrow({ where: { merchantOrderId } })).status).toBe('PAID');
+    });
+
+    it('no longer accepts the token alone', async () => {
+      const { merchantOrderId } = await pendingPayment();
+      const raw = JSON.stringify({ event_type: 'payment.completed', data: { order_id: merchantOrderId, payment_id: 'pay_s2', amount: PRICE, status: 'paid' } });
+      expect((await send(signedApp(), raw, { 'x-webhook-token': TOKEN })).statusCode).toBe(400);
+      expect((await prisma.payment.findUniqueOrThrow({ where: { merchantOrderId } })).status).toBe('PENDING');
+    });
+
+    it('rejects a body changed after signing, e.g. a failure turned into a payment', async () => {
+      const { merchantOrderId } = await pendingPayment();
+      const failed = JSON.stringify({ event_type: 'payment.failed', data: { order_id: merchantOrderId, payment_id: 'pay_s3', amount: PRICE, status: 'failed' } });
+      const forged = failed.replace('"failed"}', '"paid"}');
+      expect((await send(signedApp(), forged, sign(failed))).statusCode).toBe(400);
+      expect((await prisma.payment.findUniqueOrThrow({ where: { merchantOrderId } })).status).toBe('PENDING');
+    });
+
+    it('rejects a signed message replayed outside the five-minute window', async () => {
+      const { merchantOrderId } = await pendingPayment();
+      const raw = JSON.stringify({ event_type: 'payment.completed', data: { order_id: merchantOrderId, payment_id: 'pay_s4', amount: PRICE, status: 'paid' } });
+      const old = Math.floor(Date.now() / 1000) - 10 * 60;
+      expect((await send(signedApp(), raw, sign(raw, old))).statusCode).toBe(400);
+      expect((await prisma.payment.findUniqueOrThrow({ where: { merchantOrderId } })).status).toBe('PENDING');
+    });
+
+    it('answers 400 to a body that is not JSON', async () => {
+      const raw = '{not json';
+      expect((await send(signedApp(), raw, sign(raw))).statusCode).toBe(400);
+    });
+  });
 
   it('rejects a wrong or missing X-Webhook-Token', async () => {
     const a = app();

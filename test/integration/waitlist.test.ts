@@ -8,6 +8,7 @@ import { IdentityService } from '../../src/modules/auth/identity-service.js';
 import { InstanceService } from '../../src/modules/instances/instance-service.js';
 import { MAX_INVITE_FAILURES } from '../../src/modules/instances/free-beta.js';
 import { CLAIM_WINDOW_MS, WaitlistInviter } from '../../src/modules/waitlist/waitlist-inviter.js';
+import type { CaptchaOutcome, CaptchaVerifier } from '../../src/modules/waitlist/turnstile.js';
 import { createTestAuth, testConfig } from '../helpers/auth.js';
 import { FakeMailer } from '../helpers/billing-env.js';
 import { resetDb } from '../helpers/db.js';
@@ -26,7 +27,7 @@ let s: Awaited<ReturnType<typeof seed>>;
 let clock: Date;
 let mailer: FakeMailer;
 
-function app(cfg: Partial<Config> = {}) {
+function app(cfg: Partial<Config> = {}, captcha: CaptchaVerifier | null = null) {
   const service = new InstanceService({
     prisma, runtime: new FakeRuntime(), image: IMAGE, production: false, logger: silentLogger,
     masterKey: TEST_MASTER_KEY, diskQuota: 'off', egressPolicy: 'off', pollIntervalMs: 10, healthTimeoutMs: 2000,
@@ -37,6 +38,7 @@ function app(cfg: Partial<Config> = {}) {
     customer: { verify: auth.verify, identity: new IdentityService({ prisma }), prisma },
     admin: { verify: auth.verify, prisma, audit: new AuditService({ prisma }) },
     mailer,
+    captcha,
   });
 }
 const inviter = (slots = 2) => new WaitlistInviter({
@@ -171,15 +173,55 @@ describe('waiting list', () => {
       expect(await prisma.waitlistEntry.count()).toBe(0);
     });
 
+    describe('captcha', () => {
+      /** A stand-in for Turnstile: `good` passes, anything else fails, and every call is recorded. */
+      function fakeCaptcha(outcome?: CaptchaOutcome) {
+        const calls: Array<{ token: string | undefined; ip: string }> = [];
+        const verify: CaptchaVerifier = async (token, ip) => {
+          calls.push({ token, ip });
+          return outcome ?? (token === 'good' ? 'ok' : 'invalid');
+        };
+        return { verify, calls };
+      }
+
+      it('refuses a join without a solved captcha before anything is stored or sent', async () => {
+        const c = fakeCaptcha();
+        for (const extra of [{}, { captchaToken: 'bad' }]) {
+          const res = await join(app({}, c.verify), person(1, extra));
+          expect(res.statusCode).toBe(400);
+          expect(res.json().error.code).toBe('captcha_failed');
+        }
+        expect(await prisma.waitlistEntry.count()).toBe(0);
+        expect(mailer.sent).toHaveLength(0);
+      });
+
+      it('accepts a solved captcha and checks it against the visitor address', async () => {
+        const c = fakeCaptcha();
+        const res = await join(app({}, c.verify), person(1, { captchaToken: 'good' }), '198.51.100.23');
+        expect(res.statusCode).toBe(200);
+        expect(mailer.sent.map((m) => m.to)).toEqual(['p1@example.test']);
+        expect(c.calls).toEqual([{ token: 'good', ip: '198.51.100.23' }]);
+      });
+
+      it('fails closed with 503 when the captcha service cannot be reached', async () => {
+        const res = await join(app({}, fakeCaptcha('unavailable').verify), person(1, { captchaToken: 'good' }));
+        expect(res.statusCode).toBe(503);
+        expect(res.json().error.code).toBe('waitlist_unavailable');
+        expect(await prisma.waitlistEntry.count()).toBe(0);
+      });
+    });
+
     it('a failed confirmation email answers 503 and the person may ask again at once', async () => {
       const a = app();
       mailer.failNext = true;
       const res = await join(a, person(1));
       expect(res.statusCode).toBe(503);
       expect(res.json().error.code).toBe('waitlist_unavailable');
-      expect((await prisma.waitlistEntry.findUniqueOrThrow({ where: { email: 'p1@example.test' } })).confirmSentAt).toBeNull();
+      // The failed send is given back: it does not use up one of the address's links.
+      expect(await prisma.waitlistEntry.findUniqueOrThrow({ where: { email: 'p1@example.test' } })).toMatchObject({ confirmSentAt: null, confirmSends: 0 });
       expect((await join(a, person(1))).statusCode).toBe(200);
       expect(mailer.sent.map((m) => m.to)).toEqual(['p1@example.test']);
+      expect((await prisma.waitlistEntry.findUniqueOrThrow({ where: { email: 'p1@example.test' } })).confirmSends).toBe(1);
     });
 
     it('caps unconfirmed entries separately, so a flood of unconfirmed addresses does not fill the queue', async () => {
@@ -251,6 +293,39 @@ describe('waiting list', () => {
       expect((await confirm(a, fresh)).statusCode).toBe(200);
       // The first name is kept.
       expect((await prisma.waitlistEntry.findUniqueOrThrow({ where: { email: 'p1@example.test' } })).name).toBe('Orang 1');
+    });
+
+    it('stops sending links to one address after MAX_CONFIRM_SENDS, with the same answer as before', async () => {
+      const { MAX_CONFIRM_SENDS } = await import('../../src/modules/waitlist/waitlist.js');
+      const a = app();
+      for (let i = 0; i < MAX_CONFIRM_SENDS + 2; i++) {
+        const res = await join(a, person(1), `203.0.113.${10 + i}`);
+        expect(res.statusCode).toBe(200);
+        expect(res.json()).toEqual({ ok: true });
+        // Past the resend interval each time, so only the per-address cap can stop the next link.
+        await prisma.waitlistEntry.update({ where: { email: 'p1@example.test' }, data: { confirmSentAt: new Date(Date.now() - 11 * 60_000) } });
+      }
+      expect(mailer.sent).toHaveLength(MAX_CONFIRM_SENDS);
+      expect((await prisma.waitlistEntry.findUniqueOrThrow({ where: { email: 'p1@example.test' } })).confirmSends).toBe(MAX_CONFIRM_SENDS);
+    });
+
+    it('refuses every new link once the platform-wide hourly cap is reached, and only sends from the last hour count', async () => {
+      const { MAX_CONFIRM_SENDS_PER_HOUR } = await import('../../src/modules/waitlist/waitlist.js');
+      await prisma.waitlistEntry.createMany({
+        data: Array.from({ length: MAX_CONFIRM_SENDS_PER_HOUR }, (_v, i) => ({
+          email: `bulk${i}@example.test`, name: 'x', useCase: 'x', confirmSends: 1, confirmSentAt: new Date(Date.now() - 5 * 60_000),
+        })),
+      });
+      const a = app();
+      const res = await join(a, person(1));
+      expect(res.statusCode).toBe(503);
+      expect(res.json().error.code).toBe('waitlist_unavailable');
+      expect(mailer.sent).toHaveLength(0);
+      expect(await prisma.waitlistEntry.count({ where: { email: 'p1@example.test' } })).toBe(0);
+
+      await prisma.waitlistEntry.updateMany({ data: { confirmSentAt: new Date(Date.now() - 61 * 60_000) } });
+      expect((await join(a, person(1))).statusCode).toBe(200);
+      expect(mailer.sent.map((m) => m.to)).toEqual(['p1@example.test']);
     });
 
     it('an unconfirmed entry holds nothing: it is not counted, not invited, and deleted once its link expires', async () => {
@@ -443,7 +518,7 @@ describe('waiting list', () => {
   });
 
   describe('admin view', () => {
-    const adminGet = async (a: ReturnType<typeof app>, aal = 'aal1') =>
+    const adminGet = async (a: ReturnType<typeof app>, aal = 'aal2') =>
       a.inject({ method: 'GET', url: '/api/v1/admin/waitlist', headers: { authorization: `Bearer ${await auth.signToken({ email: BOSS, aal })}` } });
 
     it('lists the queue oldest first with counts, read only, for admins only', async () => {

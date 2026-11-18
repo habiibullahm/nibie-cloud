@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { SVIX_SECRET_PATTERN } from '../modules/billing/svix.js';
 import type { DiskQuotaMode, EgressPolicyMode, SupportedRuntime } from '../modules/runtime/types.js';
 import type { Kek } from '../modules/secrets/crypto.js';
 
@@ -115,6 +116,11 @@ const schema = z.object({
   MAX_TOTAL_INSTANCES: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(100000).optional()),
   /** Free beta preview: how many instances on the unpriced plan any signed-in user may take, first come first served. 0: only invited accounts. */
   FREE_BETA_SLOTS: z.preprocess(emptyToUndefined, z.coerce.number().int().min(0).max(100000).default(0)),
+  /**
+   * Cloudflare Turnstile secret key for the public waiting-list form (same widget as the dashboard sign-up). When set, a
+   * join must carry a valid `captchaToken`. Required in production while the waiting list is on (free slots and email).
+   */
+  TURNSTILE_SECRET_KEY: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
   /** `false` hides the priced plans and refuses checkout for everyone except invited accounts (a launch switch). Default: open. */
   PAID_CHECKOUT_OPEN: z.preprocess(emptyToUndefined, z.enum(['true', 'false']).default('true')),
   /** Outbound email over SumoPod SMTP. All unset: the backend sends no email. Set together or not at all. */
@@ -141,6 +147,11 @@ const schema = z.object({
   /** SumoPod Managed Payment (QRIS). All of API key, webhook token and callback URL, or none. */
   SUMOPOD_API_KEY: optionalText,
   SUMOPOD_WEBHOOK_TOKEN: optionalText,
+  /**
+   * The webhook's Svix "Signing Secret" (`whsec_...`). When set, every webhook must carry a valid Svix signature over its
+   * body and timestamp, and the token is no longer accepted on its own. Required in production when SumoPod is configured.
+   */
+  SUMOPOD_WEBHOOK_SECRET: z.preprocess(emptyToUndefined, z.string().regex(SVIX_SECRET_PATTERN).optional()),
   SUMOPOD_ENV: z.preprocess(emptyToUndefined, z.enum(['sandbox', 'production']).default('sandbox')),
   SUMOPOD_CALLBACK_URL: z.preprocess(
     emptyToUndefined,
@@ -190,6 +201,10 @@ const schema = z.object({
   // Without the host ruleset a tenant can reach the host, cloud metadata and private networks.
   if (e.NODE_ENV === 'production' && e.HERMES_EGRESS_POLICY === 'off') {
     ctx.addIssue({ code: 'custom', path: ['HERMES_EGRESS_POLICY'], message: 'must be enforce in production' });
+  }
+  // Tenants run code of their own choosing; in production that code runs in the gVisor sandbox, never directly on the host kernel.
+  if (e.NODE_ENV === 'production' && e.HERMES_RUNTIME !== 'runsc') {
+    ctx.addIssue({ code: 'custom', path: ['HERMES_RUNTIME'], message: 'must be runsc in production' });
   }
   // Without the queue a request runs the whole operation inline and a crash loses it.
   if (e.NODE_ENV === 'production' && !e.REDIS_URL) {
@@ -243,6 +258,14 @@ const schema = z.object({
   }
   if (e.SUMOPOD_ENV === 'production' && e.NODE_ENV !== 'production') {
     ctx.addIssue({ code: 'custom', path: ['SUMOPOD_ENV'], message: 'production requires NODE_ENV=production' });
+  }
+  // The waiting list mails any address typed into a public form; in production a person must have solved the captcha.
+  if (e.NODE_ENV === 'production' && e.FREE_BETA_SLOTS > 0 && e.SUMOPOD_SMTP_HOST !== undefined && e.TURNSTILE_SECRET_KEY === undefined) {
+    ctx.addIssue({ code: 'custom', path: ['TURNSTILE_SECRET_KEY'], message: 'required in production while the waiting list is on' });
+  }
+  // A static token can be replayed by anyone who ever saw one webhook; a production backend takes signed webhooks only.
+  if (e.NODE_ENV === 'production' && e.SUMOPOD_API_KEY !== undefined && e.SUMOPOD_WEBHOOK_SECRET === undefined) {
+    ctx.addIssue({ code: 'custom', path: ['SUMOPOD_WEBHOOK_SECRET'], message: 'required in production when SumoPod is configured' });
   }
   // BILLING_GATEWAY consistency: only validate when at least one gateway is partially configured.
   const duitkuFull = e.DUITKU_MERCHANT_CODE !== undefined;
@@ -311,6 +334,8 @@ export interface Config {
   freeBetaSlots: number;
   /** False: priced plans and checkout are for invited accounts only. */
   paidCheckoutOpen: boolean;
+  /** Turnstile secret for the waiting-list form, or null/absent (no captcha check). A secret: never log it. */
+  turnstileSecret?: string | null;
   /** Operator alerting. Absent or `telegram: null`: alerts are recorded but not delivered. `botToken` is a secret: never log it. */
   ops?: { telegram: { botToken: string; chatId: string } | null };
   /** Null: no job queue, operations run inline in the request. */
@@ -326,7 +351,8 @@ export interface Config {
       /** Duitku config, or null when not configured. `apiKey` is a secret: never log it. */
       duitku: { merchantCode: string; apiKey: string; env: 'sandbox' | 'production'; callbackUrl: string } | null;
       /** SumoPod config, or null when not configured. `apiKey` and `webhookToken` are secrets: never log them. */
-      sumopod: { apiKey: string; webhookToken: string; env: 'sandbox' | 'production'; callbackUrl: string } | null;
+      /** `webhookSecret` (Svix signing secret) is null when unset: then the token alone authenticates webhooks. */
+      sumopod: { apiKey: string; webhookToken: string; webhookSecret?: string | null; env: 'sandbox' | 'production'; callbackUrl: string } | null;
     } | null;
   /** Null: NibieRouter key and credit provisioning is off. `adminKey` is a secret: never log it. */
   router: { apiUrl: string; adminKey: string; defaultModel: string; emailDomain: string } | null;
@@ -370,6 +396,7 @@ export function loadConfig(env: NodeJS.ProcessEnv | Record<string, string | unde
     maxTotalInstances: e.MAX_TOTAL_INSTANCES ?? null,
     freeBetaSlots: e.FREE_BETA_SLOTS,
     paidCheckoutOpen: e.PAID_CHECKOUT_OPEN === 'true',
+    turnstileSecret: e.TURNSTILE_SECRET_KEY ?? null,
     ops: { telegram: e.OPS_TELEGRAM_BOT_TOKEN && e.OPS_TELEGRAM_CHAT_ID ? { botToken: e.OPS_TELEGRAM_BOT_TOKEN, chatId: e.OPS_TELEGRAM_CHAT_ID } : null },
     redisUrl: e.REDIS_URL ?? null,
     secrets: e.SECRETS_KEK
@@ -392,7 +419,7 @@ export function loadConfig(env: NodeJS.ProcessEnv | Record<string, string | unde
                   ? { merchantCode: e.DUITKU_MERCHANT_CODE, apiKey: e.DUITKU_API_KEY, env: e.DUITKU_ENV, callbackUrl: e.DUITKU_CALLBACK_URL }
                   : null,
                 sumopod: e.SUMOPOD_API_KEY && e.SUMOPOD_WEBHOOK_TOKEN && e.SUMOPOD_CALLBACK_URL
-                  ? { apiKey: e.SUMOPOD_API_KEY, webhookToken: e.SUMOPOD_WEBHOOK_TOKEN, env: e.SUMOPOD_ENV, callbackUrl: e.SUMOPOD_CALLBACK_URL }
+                  ? { apiKey: e.SUMOPOD_API_KEY, webhookToken: e.SUMOPOD_WEBHOOK_TOKEN, webhookSecret: e.SUMOPOD_WEBHOOK_SECRET ?? null, env: e.SUMOPOD_ENV, callbackUrl: e.SUMOPOD_CALLBACK_URL }
                   : null,
               }
             : null,

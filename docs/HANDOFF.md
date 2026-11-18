@@ -82,7 +82,7 @@ Full list with comments: `deploy/backend.env.example`. File on the host: `/etc/h
   `PAID_CHECKOUT_OPEN` (`false` hides priced plans and refuses checkout except for invited accounts).
 - Runtime: `HERMES_IMAGE` (digest-pinned), `HERMES_RUNTIME` (`runsc` in production), `HERMES_DNS_RESOLVERS`, `HERMES_DISK_QUOTA`,
   `HERMES_EGRESS_POLICY`, `HERMES_CANARY_IMAGE`.
-- Billing: `BILLING_GATEWAY`, `SUMOPOD_ENV`, `SUMOPOD_API_KEY`, `SUMOPOD_WEBHOOK_TOKEN`, `SUMOPOD_CALLBACK_URL`, `SUMOPOD_SMTP_*` +
+- Billing: `BILLING_GATEWAY`, `SUMOPOD_ENV`, `SUMOPOD_API_KEY`, `SUMOPOD_WEBHOOK_TOKEN`, `SUMOPOD_WEBHOOK_SECRET` (required in production), `SUMOPOD_CALLBACK_URL`, `SUMOPOD_SMTP_*` +
   `MAIL_FROM` (all five or none), `DUITKU_*`.
 - Router: `NIBIEROUTER_ADMIN_KEY`, `NIBIEROUTER_DEFAULT_MODEL`.
 - Alerts: `OPS_TELEGRAM_BOT_TOKEN`, `OPS_TELEGRAM_CHAT_ID` (set together; also in `/etc/hermes-cloud/ops.env` for the host watchdog).
