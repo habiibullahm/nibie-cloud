@@ -6,6 +6,7 @@ import { buildServer } from '../../src/http/server.js';
 import { AuditService } from '../../src/modules/admin/audit-service.js';
 import { IdentityService } from '../../src/modules/auth/identity-service.js';
 import { InstanceService } from '../../src/modules/instances/instance-service.js';
+import { maskEmail } from '../../src/modules/beta/invites.js';
 import type { Mailer, MailMessage } from '../../src/modules/billing/mailer.js';
 import { createTestAuth, testConfig } from '../helpers/auth.js';
 import { resetDb } from '../helpers/db.js';
@@ -61,10 +62,12 @@ describe('admin beta invites', () => {
     const res = await list(app(), await as(BOSS));
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body.fromEnv).toEqual([ENV_INVITED]);
+    expect(body.fromEnv).toEqual([maskEmail(ENV_INVITED)]);
+    expect(JSON.stringify(body)).not.toContain('a@example.test');
+    expect(JSON.stringify(body)).not.toContain(ENV_INVITED);
     expect(body.freeBetaSlots).toBe(0);
     expect(body.invites).toHaveLength(1);
-    expect(body.invites[0]).toMatchObject({ email: 'a@example.test', note: 'friend', revokedAt: null });
+    expect(body.invites[0]).toMatchObject({ email: '*@example.test', note: 'friend', revokedAt: null });
     await new Promise((r) => setTimeout(r, 100));
     expect(await prisma.auditLog.count({ where: { action: 'GET /api/v1/admin/beta-invites' } })).toBe(1);
   });
@@ -72,7 +75,8 @@ describe('admin beta invites', () => {
   it('adds an invite with the admin as author, normalizes the email and writes one audit entry with the reason', async () => {
     const res = await invite(app(), await as(BOSS), { email: '  New.Person@Example.TEST ', note: ' met at demo ', reason: 'asked on telegram' });
     expect(res.statusCode).toBe(201);
-    expect(res.json().invite).toMatchObject({ email: 'new.person@example.test', note: 'met at demo', addedBy: BOSS, revokedAt: null });
+    expect(res.json().invite).toMatchObject({ email: 'n********n@example.test', note: 'met at demo', addedBy: 'b**s@nibie.app', revokedAt: null });
+    expect(res.body).not.toContain('new.person@example.test');
     const rows = await prisma.auditLog.findMany({ where: { targetType: 'beta_invite' } });
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ actorEmail: BOSS, action: 'POST /beta-invites', reason: 'asked on telegram', targetId: res.json().invite.id });
