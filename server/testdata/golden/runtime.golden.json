@@ -1,0 +1,1614 @@
+{
+  "apiKey": [
+    {
+      "name": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+      "masterKey": "test-master-key-kkkkkkkkkkkkkkkkkkkkkkkk",
+      "instanceId": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+      "key": "e74dc1524d2067fa9620701b56458c308dd76d6b565ca11232fb136bb3058605"
+    },
+    {
+      "name": "A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D",
+      "masterKey": "test-master-key-kkkkkkkkkkkkkkkkkkkkkkkk",
+      "instanceId": "A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D",
+      "key": "7f3f9ed4666ecb16016b7b4e5d56b895aab7f8d92362ebcd6fca9f76dfe17900"
+    },
+    {
+      "name": "not-a-uuid",
+      "masterKey": "test-master-key-kkkkkkkkkkkkkkkkkkkkkkkk",
+      "instanceId": "not-a-uuid",
+      "error": "Invalid instance id"
+    }
+  ],
+  "names": [
+    {
+      "name": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+      "id": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+      "container": "hermes-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+      "volume": "hermes-data-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+      "network": "hermes-net-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+      "bridge": "hn3f1c2b4a5d6e"
+    },
+    {
+      "name": "A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D",
+      "id": "A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D",
+      "container": "hermes-a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "volume": "hermes-data-a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "network": "hermes-net-a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "bridge": "hna1b2c3d4e5f6"
+    },
+    {
+      "name": "nope",
+      "id": "nope",
+      "error": "Invalid instance id"
+    }
+  ],
+  "network": [
+    {
+      "name": "no-tenant",
+      "instanceId": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+      "options": {
+        "Name": "hermes-net-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "Options": {
+          "com.docker.network.bridge.name": "hn3f1c2b4a5d6e",
+          "com.docker.network.bridge.enable_icc": "false"
+        },
+        "Labels": {
+          "hermes.cloud/managed": "true",
+          "hermes.cloud/instance-id": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b"
+        }
+      }
+    },
+    {
+      "name": "with-tenant",
+      "instanceId": "A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D",
+      "tenantId": "9E8D7C6B-5A49-4382-A170-6F5E4D3C2B1A",
+      "options": {
+        "Name": "hermes-net-a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "Options": {
+          "com.docker.network.bridge.name": "hna1b2c3d4e5f6",
+          "com.docker.network.bridge.enable_icc": "false"
+        },
+        "Labels": {
+          "hermes.cloud/managed": "true",
+          "hermes.cloud/instance-id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+          "hermes.cloud/tenant-id": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a"
+        }
+      }
+    },
+    {
+      "name": "bad-id",
+      "instanceId": "x",
+      "error": "Invalid instance id"
+    }
+  ],
+  "container": [
+    {
+      "name": "minimal-runc",
+      "spec": {
+        "instanceId": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+        "tenantId": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a",
+        "image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "limits": {
+          "cpuMillis": 1000,
+          "memoryMb": 1024,
+          "pids": 256,
+          "storageMb": 1024
+        },
+        "diskQuota": "enforce",
+        "egressPolicy": "enforce",
+        "env": {}
+      },
+      "containerName": "hermes-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+      "body": {
+        "Image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "Cmd": [
+          "gateway",
+          "run"
+        ],
+        "Env": [
+          "API_SERVER_HOST=0.0.0.0",
+          "API_SERVER_PORT=8642"
+        ],
+        "ExposedPorts": {
+          "8642/tcp": {}
+        },
+        "Labels": {
+          "hermes.cloud/managed": "true",
+          "hermes.cloud/instance-id": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+          "hermes.cloud/tenant-id": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a"
+        },
+        "HostConfig": {
+          "Privileged": false,
+          "CapDrop": [
+            "ALL"
+          ],
+          "CapAdd": [
+            "SETUID",
+            "SETGID",
+            "CHOWN",
+            "DAC_OVERRIDE",
+            "FOWNER",
+            "KILL",
+            "AUDIT_WRITE",
+            "SETFCAP"
+          ],
+          "SecurityOpt": [
+            "no-new-privileges:true"
+          ],
+          "ReadonlyRootfs": true,
+          "Tmpfs": {
+            "/run": "rw,exec,nosuid,size=64m",
+            "/tmp": "rw,noexec,nosuid,size=64m",
+            "/var/run": "rw,exec,nosuid,size=16m"
+          },
+          "Memory": 1073741824,
+          "MemorySwap": 1073741824,
+          "NanoCpus": 1000000000,
+          "PidsLimit": 256,
+          "Init": false,
+          "RestartPolicy": {
+            "Name": "no"
+          },
+          "LogConfig": {
+            "Type": "json-file",
+            "Config": {
+              "max-size": "10m",
+              "max-file": "3"
+            }
+          },
+          "Binds": [
+            "hermes-data-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b:/opt/data"
+          ],
+          "NetworkMode": "hermes-net-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+          "PortBindings": {
+            "8642/tcp": [
+              {
+                "HostIp": "127.0.0.1",
+                "HostPort": "0"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "with-env-and-key",
+      "spec": {
+        "instanceId": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+        "tenantId": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a",
+        "image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "limits": {
+          "cpuMillis": 1000,
+          "memoryMb": 1024,
+          "pids": 256,
+          "storageMb": 1024
+        },
+        "diskQuota": "enforce",
+        "egressPolicy": "enforce",
+        "env": {
+          "HERMES_PROVIDER_API_KEY": "test-provider-key",
+          "TELEGRAM_BOT_TOKEN": "test-bot"
+        },
+        "apiServerKey": "test-api-server-key"
+      },
+      "containerName": "hermes-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+      "body": {
+        "Image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "Cmd": [
+          "gateway",
+          "run"
+        ],
+        "Env": [
+          "HERMES_PROVIDER_API_KEY=test-provider-key",
+          "TELEGRAM_BOT_TOKEN=test-bot",
+          "API_SERVER_HOST=0.0.0.0",
+          "API_SERVER_PORT=8642",
+          "API_SERVER_KEY=test-api-server-key"
+        ],
+        "ExposedPorts": {
+          "8642/tcp": {}
+        },
+        "Labels": {
+          "hermes.cloud/managed": "true",
+          "hermes.cloud/instance-id": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+          "hermes.cloud/tenant-id": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a"
+        },
+        "HostConfig": {
+          "Privileged": false,
+          "CapDrop": [
+            "ALL"
+          ],
+          "CapAdd": [
+            "SETUID",
+            "SETGID",
+            "CHOWN",
+            "DAC_OVERRIDE",
+            "FOWNER",
+            "KILL",
+            "AUDIT_WRITE",
+            "SETFCAP"
+          ],
+          "SecurityOpt": [
+            "no-new-privileges:true"
+          ],
+          "ReadonlyRootfs": true,
+          "Tmpfs": {
+            "/run": "rw,exec,nosuid,size=64m",
+            "/tmp": "rw,noexec,nosuid,size=64m",
+            "/var/run": "rw,exec,nosuid,size=16m"
+          },
+          "Memory": 1073741824,
+          "MemorySwap": 1073741824,
+          "NanoCpus": 1000000000,
+          "PidsLimit": 256,
+          "Init": false,
+          "RestartPolicy": {
+            "Name": "no"
+          },
+          "LogConfig": {
+            "Type": "json-file",
+            "Config": {
+              "max-size": "10m",
+              "max-file": "3"
+            }
+          },
+          "Binds": [
+            "hermes-data-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b:/opt/data"
+          ],
+          "NetworkMode": "hermes-net-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+          "PortBindings": {
+            "8642/tcp": [
+              {
+                "HostIp": "127.0.0.1",
+                "HostPort": "0"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "env-overrides-api-server",
+      "spec": {
+        "instanceId": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+        "tenantId": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a",
+        "image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "limits": {
+          "cpuMillis": 1000,
+          "memoryMb": 1024,
+          "pids": 256,
+          "storageMb": 1024
+        },
+        "diskQuota": "enforce",
+        "egressPolicy": "enforce",
+        "env": {
+          "API_SERVER_HOST": "127.0.0.1",
+          "API_SERVER_PORT": "9000",
+          "API_SERVER_KEY": "own-key"
+        },
+        "apiServerKey": "ignored"
+      },
+      "containerName": "hermes-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+      "body": {
+        "Image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "Cmd": [
+          "gateway",
+          "run"
+        ],
+        "Env": [
+          "API_SERVER_HOST=127.0.0.1",
+          "API_SERVER_PORT=9000",
+          "API_SERVER_KEY=own-key"
+        ],
+        "ExposedPorts": {
+          "8642/tcp": {}
+        },
+        "Labels": {
+          "hermes.cloud/managed": "true",
+          "hermes.cloud/instance-id": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+          "hermes.cloud/tenant-id": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a"
+        },
+        "HostConfig": {
+          "Privileged": false,
+          "CapDrop": [
+            "ALL"
+          ],
+          "CapAdd": [
+            "SETUID",
+            "SETGID",
+            "CHOWN",
+            "DAC_OVERRIDE",
+            "FOWNER",
+            "KILL",
+            "AUDIT_WRITE",
+            "SETFCAP"
+          ],
+          "SecurityOpt": [
+            "no-new-privileges:true"
+          ],
+          "ReadonlyRootfs": true,
+          "Tmpfs": {
+            "/run": "rw,exec,nosuid,size=64m",
+            "/tmp": "rw,noexec,nosuid,size=64m",
+            "/var/run": "rw,exec,nosuid,size=16m"
+          },
+          "Memory": 1073741824,
+          "MemorySwap": 1073741824,
+          "NanoCpus": 1000000000,
+          "PidsLimit": 256,
+          "Init": false,
+          "RestartPolicy": {
+            "Name": "no"
+          },
+          "LogConfig": {
+            "Type": "json-file",
+            "Config": {
+              "max-size": "10m",
+              "max-file": "3"
+            }
+          },
+          "Binds": [
+            "hermes-data-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b:/opt/data"
+          ],
+          "NetworkMode": "hermes-net-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+          "PortBindings": {
+            "8642/tcp": [
+              {
+                "HostIp": "127.0.0.1",
+                "HostPort": "0"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "runsc-with-dns",
+      "spec": {
+        "instanceId": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+        "tenantId": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a",
+        "image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "limits": {
+          "cpuMillis": 1000,
+          "memoryMb": 1024,
+          "pids": 256,
+          "storageMb": 1024
+        },
+        "diskQuota": "enforce",
+        "egressPolicy": "enforce",
+        "env": {
+          "HERMES_PROVIDER_API_KEY": "test-provider-key",
+          "TELEGRAM_BOT_TOKEN": "test-bot"
+        },
+        "runtime": "runsc",
+        "dns": [
+          "192.0.2.53",
+          "198.51.100.53"
+        ]
+      },
+      "containerName": "hermes-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+      "body": {
+        "Image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "Cmd": [
+          "gateway",
+          "run"
+        ],
+        "Env": [
+          "HERMES_PROVIDER_API_KEY=test-provider-key",
+          "TELEGRAM_BOT_TOKEN=test-bot",
+          "API_SERVER_HOST=0.0.0.0",
+          "API_SERVER_PORT=8642"
+        ],
+        "ExposedPorts": {
+          "8642/tcp": {}
+        },
+        "Labels": {
+          "hermes.cloud/managed": "true",
+          "hermes.cloud/instance-id": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+          "hermes.cloud/tenant-id": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a"
+        },
+        "HostConfig": {
+          "Privileged": false,
+          "CapDrop": [
+            "ALL"
+          ],
+          "CapAdd": [
+            "SETUID",
+            "SETGID",
+            "CHOWN",
+            "DAC_OVERRIDE",
+            "FOWNER",
+            "KILL",
+            "AUDIT_WRITE",
+            "SETFCAP"
+          ],
+          "SecurityOpt": [
+            "no-new-privileges:true"
+          ],
+          "ReadonlyRootfs": true,
+          "Tmpfs": {
+            "/run": "rw,exec,nosuid,size=64m",
+            "/tmp": "rw,noexec,nosuid,size=64m",
+            "/var/run": "rw,exec,nosuid,size=16m"
+          },
+          "Memory": 1073741824,
+          "MemorySwap": 1073741824,
+          "NanoCpus": 1000000000,
+          "PidsLimit": 256,
+          "Init": false,
+          "RestartPolicy": {
+            "Name": "no"
+          },
+          "LogConfig": {
+            "Type": "json-file",
+            "Config": {
+              "max-size": "10m",
+              "max-file": "3"
+            }
+          },
+          "Binds": [
+            "hermes-data-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b:/opt/data"
+          ],
+          "NetworkMode": "hermes-net-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+          "PortBindings": {
+            "8642/tcp": [
+              {
+                "HostIp": "127.0.0.1",
+                "HostPort": "0"
+              }
+            ]
+          },
+          "Runtime": "runsc",
+          "Dns": [
+            "192.0.2.53",
+            "198.51.100.53"
+          ],
+          "Mounts": [
+            {
+              "Target": "/etc/resolv.conf",
+              "Source": "hermes-dns-resolv-conf",
+              "Type": "volume",
+              "ReadOnly": true,
+              "VolumeOptions": {
+                "Subpath": "resolv.conf",
+                "NoCopy": false,
+                "Labels": {},
+                "DriverConfig": {
+                  "Name": "",
+                  "Options": {}
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "runc-explicit-with-dns",
+      "spec": {
+        "instanceId": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+        "tenantId": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a",
+        "image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "limits": {
+          "cpuMillis": 1000,
+          "memoryMb": 1024,
+          "pids": 256,
+          "storageMb": 1024
+        },
+        "diskQuota": "enforce",
+        "egressPolicy": "enforce",
+        "env": {
+          "HERMES_PROVIDER_API_KEY": "test-provider-key",
+          "TELEGRAM_BOT_TOKEN": "test-bot"
+        },
+        "runtime": "runc",
+        "dns": [
+          "192.0.2.53"
+        ]
+      },
+      "containerName": "hermes-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+      "body": {
+        "Image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "Cmd": [
+          "gateway",
+          "run"
+        ],
+        "Env": [
+          "HERMES_PROVIDER_API_KEY=test-provider-key",
+          "TELEGRAM_BOT_TOKEN=test-bot",
+          "API_SERVER_HOST=0.0.0.0",
+          "API_SERVER_PORT=8642"
+        ],
+        "ExposedPorts": {
+          "8642/tcp": {}
+        },
+        "Labels": {
+          "hermes.cloud/managed": "true",
+          "hermes.cloud/instance-id": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+          "hermes.cloud/tenant-id": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a"
+        },
+        "HostConfig": {
+          "Privileged": false,
+          "CapDrop": [
+            "ALL"
+          ],
+          "CapAdd": [
+            "SETUID",
+            "SETGID",
+            "CHOWN",
+            "DAC_OVERRIDE",
+            "FOWNER",
+            "KILL",
+            "AUDIT_WRITE",
+            "SETFCAP"
+          ],
+          "SecurityOpt": [
+            "no-new-privileges:true"
+          ],
+          "ReadonlyRootfs": true,
+          "Tmpfs": {
+            "/run": "rw,exec,nosuid,size=64m",
+            "/tmp": "rw,noexec,nosuid,size=64m",
+            "/var/run": "rw,exec,nosuid,size=16m"
+          },
+          "Memory": 1073741824,
+          "MemorySwap": 1073741824,
+          "NanoCpus": 1000000000,
+          "PidsLimit": 256,
+          "Init": false,
+          "RestartPolicy": {
+            "Name": "no"
+          },
+          "LogConfig": {
+            "Type": "json-file",
+            "Config": {
+              "max-size": "10m",
+              "max-file": "3"
+            }
+          },
+          "Binds": [
+            "hermes-data-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b:/opt/data"
+          ],
+          "NetworkMode": "hermes-net-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+          "PortBindings": {
+            "8642/tcp": [
+              {
+                "HostIp": "127.0.0.1",
+                "HostPort": "0"
+              }
+            ]
+          },
+          "Runtime": "runc",
+          "Dns": [
+            "192.0.2.53"
+          ]
+        }
+      }
+    },
+    {
+      "name": "runsc-without-dns",
+      "spec": {
+        "instanceId": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+        "tenantId": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a",
+        "image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "limits": {
+          "cpuMillis": 1000,
+          "memoryMb": 1024,
+          "pids": 256,
+          "storageMb": 1024
+        },
+        "diskQuota": "enforce",
+        "egressPolicy": "enforce",
+        "env": {
+          "HERMES_PROVIDER_API_KEY": "test-provider-key",
+          "TELEGRAM_BOT_TOKEN": "test-bot"
+        },
+        "runtime": "runsc"
+      },
+      "containerName": "hermes-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+      "body": {
+        "Image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "Cmd": [
+          "gateway",
+          "run"
+        ],
+        "Env": [
+          "HERMES_PROVIDER_API_KEY=test-provider-key",
+          "TELEGRAM_BOT_TOKEN=test-bot",
+          "API_SERVER_HOST=0.0.0.0",
+          "API_SERVER_PORT=8642"
+        ],
+        "ExposedPorts": {
+          "8642/tcp": {}
+        },
+        "Labels": {
+          "hermes.cloud/managed": "true",
+          "hermes.cloud/instance-id": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+          "hermes.cloud/tenant-id": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a"
+        },
+        "HostConfig": {
+          "Privileged": false,
+          "CapDrop": [
+            "ALL"
+          ],
+          "CapAdd": [
+            "SETUID",
+            "SETGID",
+            "CHOWN",
+            "DAC_OVERRIDE",
+            "FOWNER",
+            "KILL",
+            "AUDIT_WRITE",
+            "SETFCAP"
+          ],
+          "SecurityOpt": [
+            "no-new-privileges:true"
+          ],
+          "ReadonlyRootfs": true,
+          "Tmpfs": {
+            "/run": "rw,exec,nosuid,size=64m",
+            "/tmp": "rw,noexec,nosuid,size=64m",
+            "/var/run": "rw,exec,nosuid,size=16m"
+          },
+          "Memory": 1073741824,
+          "MemorySwap": 1073741824,
+          "NanoCpus": 1000000000,
+          "PidsLimit": 256,
+          "Init": false,
+          "RestartPolicy": {
+            "Name": "no"
+          },
+          "LogConfig": {
+            "Type": "json-file",
+            "Config": {
+              "max-size": "10m",
+              "max-file": "3"
+            }
+          },
+          "Binds": [
+            "hermes-data-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b:/opt/data"
+          ],
+          "NetworkMode": "hermes-net-3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+          "PortBindings": {
+            "8642/tcp": [
+              {
+                "HostIp": "127.0.0.1",
+                "HostPort": "0"
+              }
+            ]
+          },
+          "Runtime": "runsc"
+        }
+      }
+    },
+    {
+      "name": "upper-case-ids",
+      "spec": {
+        "instanceId": "A1B2C3D4-E5F6-4A7B-8C9D-0E1F2A3B4C5D",
+        "tenantId": "9E8D7C6B-5A49-4382-A170-6F5E4D3C2B1A",
+        "image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "limits": {
+          "cpuMillis": 1000,
+          "memoryMb": 1024,
+          "pids": 256,
+          "storageMb": 1024
+        },
+        "diskQuota": "enforce",
+        "egressPolicy": "enforce",
+        "env": {
+          "HERMES_PROVIDER_API_KEY": "test-provider-key",
+          "TELEGRAM_BOT_TOKEN": "test-bot"
+        }
+      },
+      "containerName": "hermes-a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "body": {
+        "Image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "Cmd": [
+          "gateway",
+          "run"
+        ],
+        "Env": [
+          "HERMES_PROVIDER_API_KEY=test-provider-key",
+          "TELEGRAM_BOT_TOKEN=test-bot",
+          "API_SERVER_HOST=0.0.0.0",
+          "API_SERVER_PORT=8642"
+        ],
+        "ExposedPorts": {
+          "8642/tcp": {}
+        },
+        "Labels": {
+          "hermes.cloud/managed": "true",
+          "hermes.cloud/instance-id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+          "hermes.cloud/tenant-id": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a"
+        },
+        "HostConfig": {
+          "Privileged": false,
+          "CapDrop": [
+            "ALL"
+          ],
+          "CapAdd": [
+            "SETUID",
+            "SETGID",
+            "CHOWN",
+            "DAC_OVERRIDE",
+            "FOWNER",
+            "KILL",
+            "AUDIT_WRITE",
+            "SETFCAP"
+          ],
+          "SecurityOpt": [
+            "no-new-privileges:true"
+          ],
+          "ReadonlyRootfs": true,
+          "Tmpfs": {
+            "/run": "rw,exec,nosuid,size=64m",
+            "/tmp": "rw,noexec,nosuid,size=64m",
+            "/var/run": "rw,exec,nosuid,size=16m"
+          },
+          "Memory": 1073741824,
+          "MemorySwap": 1073741824,
+          "NanoCpus": 1000000000,
+          "PidsLimit": 256,
+          "Init": false,
+          "RestartPolicy": {
+            "Name": "no"
+          },
+          "LogConfig": {
+            "Type": "json-file",
+            "Config": {
+              "max-size": "10m",
+              "max-file": "3"
+            }
+          },
+          "Binds": [
+            "hermes-data-a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d:/opt/data"
+          ],
+          "NetworkMode": "hermes-net-a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+          "PortBindings": {
+            "8642/tcp": [
+              {
+                "HostIp": "127.0.0.1",
+                "HostPort": "0"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "name": "cpu-too-low",
+      "spec": {
+        "instanceId": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+        "tenantId": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a",
+        "image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "limits": {
+          "cpuMillis": 49,
+          "memoryMb": 1024,
+          "pids": 256,
+          "storageMb": 1024
+        },
+        "diskQuota": "enforce",
+        "egressPolicy": "enforce",
+        "env": {
+          "HERMES_PROVIDER_API_KEY": "test-provider-key",
+          "TELEGRAM_BOT_TOKEN": "test-bot"
+        }
+      },
+      "error": "cpuMillis must be an integer >= 50"
+    },
+    {
+      "name": "memory-too-low",
+      "spec": {
+        "instanceId": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+        "tenantId": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a",
+        "image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "limits": {
+          "cpuMillis": 1000,
+          "memoryMb": 31,
+          "pids": 256,
+          "storageMb": 1024
+        },
+        "diskQuota": "enforce",
+        "egressPolicy": "enforce",
+        "env": {
+          "HERMES_PROVIDER_API_KEY": "test-provider-key",
+          "TELEGRAM_BOT_TOKEN": "test-bot"
+        }
+      },
+      "error": "memoryMb must be an integer >= 32"
+    },
+    {
+      "name": "pids-too-low",
+      "spec": {
+        "instanceId": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+        "tenantId": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a",
+        "image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "limits": {
+          "cpuMillis": 1000,
+          "memoryMb": 1024,
+          "pids": 7,
+          "storageMb": 1024
+        },
+        "diskQuota": "enforce",
+        "egressPolicy": "enforce",
+        "env": {
+          "HERMES_PROVIDER_API_KEY": "test-provider-key",
+          "TELEGRAM_BOT_TOKEN": "test-bot"
+        }
+      },
+      "error": "pids must be an integer >= 8"
+    },
+    {
+      "name": "storage-too-low",
+      "spec": {
+        "instanceId": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+        "tenantId": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a",
+        "image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "limits": {
+          "cpuMillis": 1000,
+          "memoryMb": 1024,
+          "pids": 256,
+          "storageMb": 63
+        },
+        "diskQuota": "enforce",
+        "egressPolicy": "enforce",
+        "env": {
+          "HERMES_PROVIDER_API_KEY": "test-provider-key",
+          "TELEGRAM_BOT_TOKEN": "test-bot"
+        }
+      },
+      "error": "storageMb must be an integer >= 64"
+    },
+    {
+      "name": "cpu-not-integer",
+      "spec": {
+        "instanceId": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+        "tenantId": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a",
+        "image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "limits": {
+          "cpuMillis": 1000.5,
+          "memoryMb": 1024,
+          "pids": 256,
+          "storageMb": 1024
+        },
+        "diskQuota": "enforce",
+        "egressPolicy": "enforce",
+        "env": {
+          "HERMES_PROVIDER_API_KEY": "test-provider-key",
+          "TELEGRAM_BOT_TOKEN": "test-bot"
+        }
+      },
+      "error": "cpuMillis must be an integer >= 50"
+    },
+    {
+      "name": "docker-env-key",
+      "spec": {
+        "instanceId": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+        "tenantId": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a",
+        "image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "limits": {
+          "cpuMillis": 1000,
+          "memoryMb": 1024,
+          "pids": 256,
+          "storageMb": 1024
+        },
+        "diskQuota": "enforce",
+        "egressPolicy": "enforce",
+        "env": {
+          "docker_host": "tcp://x"
+        }
+      },
+      "error": "Environment key not allowed"
+    },
+    {
+      "name": "bad-instance-id",
+      "spec": {
+        "instanceId": "x",
+        "tenantId": "9e8d7c6b-5a49-4382-a170-6f5e4d3c2b1a",
+        "image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "limits": {
+          "cpuMillis": 1000,
+          "memoryMb": 1024,
+          "pids": 256,
+          "storageMb": 1024
+        },
+        "diskQuota": "enforce",
+        "egressPolicy": "enforce",
+        "env": {
+          "HERMES_PROVIDER_API_KEY": "test-provider-key",
+          "TELEGRAM_BOT_TOKEN": "test-bot"
+        }
+      },
+      "error": "Invalid instance id"
+    },
+    {
+      "name": "bad-tenant-id",
+      "spec": {
+        "instanceId": "3f1c2b4a-5d6e-4f70-8a9b-0c1d2e3f4a5b",
+        "tenantId": "x",
+        "image": "nousresearch/hermes-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "limits": {
+          "cpuMillis": 1000,
+          "memoryMb": 1024,
+          "pids": 256,
+          "storageMb": 1024
+        },
+        "diskQuota": "enforce",
+        "egressPolicy": "enforce",
+        "env": {
+          "HERMES_PROVIDER_API_KEY": "test-provider-key",
+          "TELEGRAM_BOT_TOKEN": "test-bot"
+        }
+      },
+      "error": "Invalid instance id"
+    }
+  ],
+  "imagePolicy": [
+    {
+      "name": "whitespace",
+      "image": "img :1",
+      "production": false,
+      "error": "Hermes image is not pinned: empty or contains whitespace"
+    },
+    {
+      "name": "empty",
+      "image": "",
+      "production": false,
+      "error": "Hermes image is not pinned: empty or contains whitespace"
+    },
+    {
+      "name": "latest",
+      "image": "img:latest",
+      "production": false,
+      "error": "Hermes image is not pinned: tag \"latest\" is not allowed"
+    },
+    {
+      "name": "latest-upper",
+      "image": "img:LATEST",
+      "production": false,
+      "error": "Hermes image is not pinned: tag \"latest\" is not allowed"
+    },
+    {
+      "name": "empty-tag",
+      "image": "img:",
+      "production": false,
+      "error": "Hermes image is not pinned: empty tag"
+    },
+    {
+      "name": "no-tag",
+      "image": "img",
+      "production": false,
+      "error": "Hermes image is not pinned: an explicit tag or digest is required"
+    },
+    {
+      "name": "registry-port-no-tag",
+      "image": "reg.example:5000/img",
+      "production": false,
+      "error": "Hermes image is not pinned: an explicit tag or digest is required"
+    },
+    {
+      "name": "registry-port-tag",
+      "image": "reg.example:5000/img:1.2",
+      "production": false
+    },
+    {
+      "name": "tag",
+      "image": "img:0.1.0",
+      "production": false
+    },
+    {
+      "name": "bad-digest",
+      "image": "img@sha256:abc",
+      "production": false,
+      "error": "Hermes image is not pinned: malformed digest"
+    },
+    {
+      "name": "digest",
+      "image": "img@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "production": false
+    },
+    {
+      "name": "tag-and-digest",
+      "image": "img:1@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "production": true
+    },
+    {
+      "name": "production-no-digest",
+      "image": "img:0.1.0",
+      "production": true,
+      "error": "Hermes image is not pinned: production requires an @sha256 digest"
+    },
+    {
+      "name": "production-digest",
+      "image": "img@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "production": true
+    }
+  ],
+  "volumeQuota": [
+    {
+      "name": "1024m",
+      "options": {
+        "size": "1024m"
+      },
+      "mb": 1024
+    },
+    {
+      "name": "1g",
+      "options": {
+        "size": "1g"
+      },
+      "mb": 1024
+    },
+    {
+      "name": "1G",
+      "options": {
+        "size": "1G"
+      },
+      "mb": 1024
+    },
+    {
+      "name": "512k",
+      "options": {
+        "size": "512k"
+      },
+      "mb": null
+    },
+    {
+      "name": "1048576",
+      "options": {
+        "size": "1048576"
+      },
+      "mb": 1
+    },
+    {
+      "name": "10mb",
+      "options": {
+        "size": "10mb"
+      },
+      "mb": 10
+    },
+    {
+      "name": " 2g ",
+      "options": {
+        "size": " 2g "
+      },
+      "mb": 2048
+    },
+    {
+      "name": "0m",
+      "options": {
+        "size": "0m"
+      },
+      "mb": null
+    },
+    {
+      "name": "abc",
+      "options": {
+        "size": "abc"
+      },
+      "mb": null
+    },
+    {
+      "name": "2048M",
+      "options": {
+        "size": "2048M"
+      },
+      "mb": 2048
+    },
+    {
+      "name": "1t",
+      "options": {
+        "size": "1t"
+      },
+      "mb": 1048576
+    },
+    {
+      "name": "null",
+      "options": {},
+      "mb": null
+    }
+  ],
+  "sizedVolume": {
+    "size": "1024m"
+  },
+  "demux": [
+    {
+      "name": "framed",
+      "inputBase64": "AQAAAAAAAAhvbmUKdHdvCgIAAAAAAAAJZXJyIGxpbmUKAQAAAAAAAAZ0aHJlZQo=",
+      "lines": [
+        "one",
+        "two",
+        "err line",
+        "three"
+      ]
+    },
+    {
+      "name": "truncated-last-frame",
+      "inputBase64": "AQAAAAAAAAVmdWxsCgEAAAAAAAANcGFydA==",
+      "lines": [
+        "full",
+        "part"
+      ]
+    },
+    {
+      "name": "tty-plain",
+      "inputBase64": "cGxhaW4gb25lDQpwbGFpbiB0d28K",
+      "lines": [
+        "plain one",
+        "plain two"
+      ]
+    },
+    {
+      "name": "no-trailing-newline",
+      "inputBase64": "AQAAAAAAAANhCmI=",
+      "lines": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "name": "empty",
+      "inputBase64": "",
+      "lines": []
+    }
+  ],
+  "tar": [
+    {
+      "name": "config",
+      "file": "config.yaml",
+      "content": "model:\n  default: x\n",
+      "uid": 10000,
+      "gid": 10000,
+      "mode": 420,
+      "mtime": 1763500000,
+      "base64": "Y29uZmlnLnlhbWwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAwMDA2NDQAMDAyMzQyMAAwMDIzNDIwADAwMDAwMDAwMDI0ADE1MTA3MTU3NzQwADAxMDE2NgAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB1c3RhcgAwMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABtb2RlbDoKICBkZWZhdWx0OiB4CgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+    },
+    {
+      "name": "empty",
+      "file": "config.yaml",
+      "content": "",
+      "uid": 10000,
+      "gid": 10000,
+      "mode": 420,
+      "mtime": 1763500000,
+      "base64": "Y29uZmlnLnlhbWwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAwMDA2NDQAMDAyMzQyMAAwMDIzNDIwADAwMDAwMDAwMDAwADE1MTA3MTU3NzQwADAxMDE2MAAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB1c3RhcgAwMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    {
+      "name": "long",
+      "file": "big.txt",
+      "content": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "uid": 0,
+      "gid": 0,
+      "mode": 384,
+      "mtime": 1763500000,
+      "base64": "YmlnLnR4dAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAwMDA2MDAAMDAwMDAwMAAwMDAwMDAwADAwMDAwMDAyNDI0ADE1MTA3MTU3NzQwADAwNzMwNwAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB1c3RhcgAwMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    {
+      "name": "escape",
+      "file": "../x",
+      "content": "a",
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtime": 1763500000,
+      "error": "Invalid tar entry name"
+    },
+    {
+      "name": "dot",
+      "file": ".",
+      "content": "a",
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtime": 1763500000,
+      "error": "Invalid tar entry name"
+    },
+    {
+      "name": "subdir",
+      "file": "a/b",
+      "content": "a",
+      "uid": 0,
+      "gid": 0,
+      "mode": 420,
+      "mtime": 1763500000,
+      "error": "Invalid tar entry name"
+    }
+  ],
+  "readFirstFile": [
+    {
+      "name": "config",
+      "base64": "Y29uZmlnLnlhbWwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAwMDA2NDQAMDAyMzQyMAAwMDIzNDIwADAwMDAwMDAwMDI0ADE1MTA3MTU3NzQwADAxMDE2NgAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB1c3RhcgAwMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABtb2RlbDoKICBkZWZhdWx0OiB4CgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+      "content": "model:\n  default: x\n"
+    },
+    {
+      "name": "zero-block",
+      "base64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+      "content": null
+    },
+    {
+      "name": "too-short",
+      "base64": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+      "content": null
+    },
+    {
+      "name": "size-past-end",
+      "base64": "Y29uZmlnLnlhbWwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAwMDA2NDQAMDAyMzQyMAAwMDIzNDIwADAwMDAwMDAwMDI0ADE1MTA3MTU3NzQwADAxMDE2NgAgMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB1c3RhcgAwMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABtb2RlbDoKIA==",
+      "content": null
+    },
+    {
+      "name": "empty",
+      "base64": "",
+      "content": null
+    }
+  ],
+  "model": [
+    {
+      "name": "no-file",
+      "existing": null,
+      "model": {
+        "default": "gpt-x",
+        "baseUrl": "https://llm.example.test/v1",
+        "keyEnv": "HERMES_PROVIDER_API_KEY"
+      },
+      "output": "model:\n  default: gpt-x\n  provider: custom\n  base_url: https://llm.example.test/v1\n  key_env: HERMES_PROVIDER_API_KEY\nsessions:\n  auto_prune: true\n"
+    },
+    {
+      "name": "no-file-no-model",
+      "existing": null,
+      "model": null,
+      "output": null
+    },
+    {
+      "name": "prune-added",
+      "existing": "terminal:\n  backend: local\n",
+      "model": null,
+      "output": "terminal:\n  backend: local\nsessions:\n  auto_prune: true\n"
+    },
+    {
+      "name": "prune-added-to-map",
+      "existing": "sessions:\n  keep_days: 30\n",
+      "model": null,
+      "output": "sessions:\n  keep_days: 30\n  auto_prune: true\n"
+    },
+    {
+      "name": "prune-kept-false",
+      "existing": "sessions:\n  auto_prune: false\n",
+      "model": null,
+      "output": null
+    },
+    {
+      "name": "sessions-scalar",
+      "existing": "sessions: off\n",
+      "model": null,
+      "output": null
+    },
+    {
+      "name": "sessions-list",
+      "existing": "sessions:\n  - a\n",
+      "model": null,
+      "output": null
+    },
+    {
+      "name": "replace-keep-comments",
+      "existing": "# my notes\nterminal:\n  backend: local # keep\nmodel:\n  default: \"anthropic/claude-opus-4.6\"\n  provider: auto\n  context_length: 32000\n",
+      "model": {
+        "default": "gpt-x",
+        "baseUrl": "https://llm.example.test/v1",
+        "keyEnv": "HERMES_PROVIDER_API_KEY"
+      },
+      "output": "# my notes\nterminal:\n  backend: local # keep\nmodel:\n  default: \"gpt-x\"\n  provider: custom\n  context_length: 32000\n  base_url: https://llm.example.test/v1\n  key_env: HERMES_PROVIDER_API_KEY\nsessions:\n  auto_prune: true\n"
+    },
+    {
+      "name": "drop-api-key",
+      "existing": "model:\n  api_key: sk-plain-in-file\n  default: x\n",
+      "model": {
+        "default": "gpt-x",
+        "baseUrl": "https://llm.example.test/v1",
+        "keyEnv": "HERMES_PROVIDER_API_KEY"
+      },
+      "output": "model:\n  default: gpt-x\n  provider: custom\n  base_url: https://llm.example.test/v1\n  key_env: HERMES_PROVIDER_API_KEY\nsessions:\n  auto_prune: true\n"
+    },
+    {
+      "name": "already-same",
+      "existing": "model:\n  default: gpt-x\n  provider: custom\n  base_url: https://llm.example.test/v1\n  key_env: HERMES_PROVIDER_API_KEY\nsessions:\n  auto_prune: true\n",
+      "model": {
+        "default": "gpt-x",
+        "baseUrl": "https://llm.example.test/v1",
+        "keyEnv": "HERMES_PROVIDER_API_KEY"
+      },
+      "output": null
+    },
+    {
+      "name": "remove-managed",
+      "existing": "terminal:\n  backend: local\nmodel:\n  default: gpt-x\n  provider: custom\n  base_url: https://llm.example.test/v1\n  key_env: HERMES_PROVIDER_API_KEY\nsessions:\n  auto_prune: true\n",
+      "model": null,
+      "output": "terminal:\n  backend: local\nsessions:\n  auto_prune: true\n"
+    },
+    {
+      "name": "remove-keeps-customer",
+      "existing": "model:\n  default: mine\n  provider: custom\n  base_url: https://mine.example/v1\n  key_env: MY_OWN_KEY\nsessions:\n  auto_prune: false\n",
+      "model": null,
+      "output": null
+    },
+    {
+      "name": "comments-and-keys",
+      "existing": "# header comment\n# second line\nterminal:\n  backend: local\ndisplay:\n  # inner comment\n  theme: dark\n",
+      "model": {
+        "default": "gpt-x",
+        "baseUrl": "https://llm.example.test/v1",
+        "keyEnv": "HERMES_PROVIDER_API_KEY"
+      },
+      "output": "# header comment\n# second line\nterminal:\n  backend: local\ndisplay:\n  # inner comment\n  theme: dark\nmodel:\n  default: gpt-x\n  provider: custom\n  base_url: https://llm.example.test/v1\n  key_env: HERMES_PROVIDER_API_KEY\nsessions:\n  auto_prune: true\n"
+    },
+    {
+      "name": "unparseable",
+      "existing": "model: [unclosed\n  : :",
+      "model": {
+        "default": "gpt-x",
+        "baseUrl": "https://llm.example.test/v1",
+        "keyEnv": "HERMES_PROVIDER_API_KEY"
+      },
+      "error": "config_unreadable"
+    },
+    {
+      "name": "top-level-list",
+      "existing": "- a\n- b\n",
+      "model": {
+        "default": "gpt-x",
+        "baseUrl": "https://llm.example.test/v1",
+        "keyEnv": "HERMES_PROVIDER_API_KEY"
+      },
+      "error": "config_unreadable"
+    },
+    {
+      "name": "top-level-scalar",
+      "existing": "just text\n",
+      "model": {
+        "default": "gpt-x",
+        "baseUrl": "https://llm.example.test/v1",
+        "keyEnv": "HERMES_PROVIDER_API_KEY"
+      },
+      "error": "config_unreadable"
+    },
+    {
+      "name": "empty-file",
+      "existing": "",
+      "model": {
+        "default": "gpt-x",
+        "baseUrl": "https://llm.example.test/v1",
+        "keyEnv": "HERMES_PROVIDER_API_KEY"
+      },
+      "output": "model:\n  default: gpt-x\n  provider: custom\n  base_url: https://llm.example.test/v1\n  key_env: HERMES_PROVIDER_API_KEY\nsessions:\n  auto_prune: true\n"
+    }
+  ],
+  "scripts": {
+    "canary": "command -v nc >/dev/null 2>&1 || { echo error=nc_missing; exit 127; }\n( nc -l -p 47321 >/dev/null 2>&1 || nc -l 47321 >/dev/null 2>&1 ) &\nsleep 1\nnc -z -w 1 127.0.0.1 47321 >/dev/null 2>&1 || { echo error=nc_unusable; exit 126; }\nwhile [ \"$#\" -ge 3 ]; do\n  if nc -z -w 3 \"$2\" \"$3\" >/dev/null 2>&1; then echo \"$1=connected\"; else echo \"$1=blocked\"; fi\n  shift 3\ndone",
+    "dnsSeed": ": > /dns/resolv.conf\nwhile [ \"$#\" -ge 1 ]; do\n  echo \"nameserver $1\" >> /dns/resolv.conf\n  shift\ndone"
+  },
+  "canary": [
+    {
+      "name": "runc-gateway-only",
+      "runtime": "runc",
+      "network": {
+        "Name": "hermes-net-<canary-id>",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "Options": {
+          "com.docker.network.bridge.name": "hn<canary-bridge>",
+          "com.docker.network.bridge.enable_icc": "false"
+        },
+        "Labels": {
+          "hermes.cloud/managed": "true",
+          "hermes.cloud/instance-id": "<canary-id>"
+        }
+      },
+      "container": {
+        "Image": "busybox@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "Cmd": [
+          "sh",
+          "-c",
+          "command -v nc >/dev/null 2>&1 || { echo error=nc_missing; exit 127; }\n( nc -l -p 47321 >/dev/null 2>&1 || nc -l 47321 >/dev/null 2>&1 ) &\nsleep 1\nnc -z -w 1 127.0.0.1 47321 >/dev/null 2>&1 || { echo error=nc_unusable; exit 126; }\nwhile [ \"$#\" -ge 3 ]; do\n  if nc -z -w 3 \"$2\" \"$3\" >/dev/null 2>&1; then echo \"$1=connected\"; else echo \"$1=blocked\"; fi\n  shift 3\ndone",
+          "canary",
+          "gateway",
+          "172.30.0.1",
+          "40001",
+          "metadata",
+          "169.254.169.254",
+          "80"
+        ],
+        "Tty": true,
+        "NetworkDisabled": false,
+        "HostConfig": {
+          "NetworkMode": "hermes-net-<canary-id>",
+          "CapDrop": [
+            "ALL"
+          ],
+          "SecurityOpt": [
+            "no-new-privileges"
+          ],
+          "ReadonlyRootfs": true,
+          "Memory": 33554432,
+          "MemorySwap": 33554432,
+          "PidsLimit": 32,
+          "Runtime": "runc"
+        }
+      }
+    },
+    {
+      "name": "runsc-with-private",
+      "runtime": "runsc",
+      "privateIp": "10.0.0.5",
+      "network": {
+        "Name": "hermes-net-<canary-id>",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "Options": {
+          "com.docker.network.bridge.name": "hn<canary-bridge>",
+          "com.docker.network.bridge.enable_icc": "false"
+        },
+        "Labels": {
+          "hermes.cloud/managed": "true",
+          "hermes.cloud/instance-id": "<canary-id>"
+        }
+      },
+      "container": {
+        "Image": "busybox@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "Cmd": [
+          "sh",
+          "-c",
+          "command -v nc >/dev/null 2>&1 || { echo error=nc_missing; exit 127; }\n( nc -l -p 47321 >/dev/null 2>&1 || nc -l 47321 >/dev/null 2>&1 ) &\nsleep 1\nnc -z -w 1 127.0.0.1 47321 >/dev/null 2>&1 || { echo error=nc_unusable; exit 126; }\nwhile [ \"$#\" -ge 3 ]; do\n  if nc -z -w 3 \"$2\" \"$3\" >/dev/null 2>&1; then echo \"$1=connected\"; else echo \"$1=blocked\"; fi\n  shift 3\ndone",
+          "canary",
+          "gateway",
+          "172.30.0.1",
+          "40001",
+          "private",
+          "10.0.0.5",
+          "40002",
+          "metadata",
+          "169.254.169.254",
+          "80"
+        ],
+        "Tty": true,
+        "NetworkDisabled": false,
+        "HostConfig": {
+          "NetworkMode": "hermes-net-<canary-id>",
+          "CapDrop": [
+            "ALL"
+          ],
+          "SecurityOpt": [
+            "no-new-privileges"
+          ],
+          "ReadonlyRootfs": true,
+          "Memory": 33554432,
+          "MemorySwap": 33554432,
+          "PidsLimit": 256,
+          "Runtime": "runsc"
+        }
+      }
+    },
+    {
+      "name": "no-runtime",
+      "network": {
+        "Name": "hermes-net-<canary-id>",
+        "Driver": "bridge",
+        "EnableIPv6": false,
+        "Options": {
+          "com.docker.network.bridge.name": "hn<canary-bridge>",
+          "com.docker.network.bridge.enable_icc": "false"
+        },
+        "Labels": {
+          "hermes.cloud/managed": "true",
+          "hermes.cloud/instance-id": "<canary-id>"
+        }
+      },
+      "container": {
+        "Image": "busybox@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "Cmd": [
+          "sh",
+          "-c",
+          "command -v nc >/dev/null 2>&1 || { echo error=nc_missing; exit 127; }\n( nc -l -p 47321 >/dev/null 2>&1 || nc -l 47321 >/dev/null 2>&1 ) &\nsleep 1\nnc -z -w 1 127.0.0.1 47321 >/dev/null 2>&1 || { echo error=nc_unusable; exit 126; }\nwhile [ \"$#\" -ge 3 ]; do\n  if nc -z -w 3 \"$2\" \"$3\" >/dev/null 2>&1; then echo \"$1=connected\"; else echo \"$1=blocked\"; fi\n  shift 3\ndone",
+          "canary",
+          "gateway",
+          "172.30.0.1",
+          "40001",
+          "metadata",
+          "169.254.169.254",
+          "80"
+        ],
+        "Tty": true,
+        "NetworkDisabled": false,
+        "HostConfig": {
+          "NetworkMode": "hermes-net-<canary-id>",
+          "CapDrop": [
+            "ALL"
+          ],
+          "SecurityOpt": [
+            "no-new-privileges"
+          ],
+          "ReadonlyRootfs": true,
+          "Memory": 33554432,
+          "MemorySwap": 33554432,
+          "PidsLimit": 32
+        }
+      }
+    }
+  ],
+  "dnsSeed": [
+    {
+      "name": "runc",
+      "runtime": "runc",
+      "container": {
+        "Image": "busybox@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "Cmd": [
+          "sh",
+          "-c",
+          ": > /dns/resolv.conf\nwhile [ \"$#\" -ge 1 ]; do\n  echo \"nameserver $1\" >> /dns/resolv.conf\n  shift\ndone",
+          "seed",
+          "192.0.2.53",
+          "198.51.100.53"
+        ],
+        "HostConfig": {
+          "NetworkMode": "none",
+          "CapDrop": [
+            "ALL"
+          ],
+          "SecurityOpt": [
+            "no-new-privileges"
+          ],
+          "ReadonlyRootfs": true,
+          "Memory": 33554432,
+          "MemorySwap": 33554432,
+          "PidsLimit": 32,
+          "Mounts": [
+            {
+              "Target": "/dns",
+              "Source": "hermes-dns-resolv-conf",
+              "Type": "volume"
+            }
+          ],
+          "Runtime": "runc"
+        }
+      }
+    },
+    {
+      "name": "runsc",
+      "runtime": "runsc",
+      "container": {
+        "Image": "busybox@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "Cmd": [
+          "sh",
+          "-c",
+          ": > /dns/resolv.conf\nwhile [ \"$#\" -ge 1 ]; do\n  echo \"nameserver $1\" >> /dns/resolv.conf\n  shift\ndone",
+          "seed",
+          "192.0.2.53",
+          "198.51.100.53"
+        ],
+        "HostConfig": {
+          "NetworkMode": "none",
+          "CapDrop": [
+            "ALL"
+          ],
+          "SecurityOpt": [
+            "no-new-privileges"
+          ],
+          "ReadonlyRootfs": true,
+          "Memory": 33554432,
+          "MemorySwap": 33554432,
+          "PidsLimit": 256,
+          "Mounts": [
+            {
+              "Target": "/dns",
+              "Source": "hermes-dns-resolv-conf",
+              "Type": "volume"
+            }
+          ],
+          "Runtime": "runsc"
+        }
+      }
+    }
+  ]
+}

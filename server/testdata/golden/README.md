@@ -8,6 +8,7 @@ section 4).
 | --- | --- | --- |
 | `config-cases.json`, `config.golden.json` | `gen/config.ts` (Node `loadConfig`) | `internal/config/parity_test.go` |
 | `schema.txt` | `cmd/schemadump` against a Prisma-migrated database | `internal/db/schemadump` integration test |
+| `runtime.golden.json` | `gen/runtime.ts` (Node `src/modules/runtime`: names, API key, Docker request bodies, image policy, volume quota, log demux, tar, config.yaml model block, canary and DNS seed containers) | `internal/runtime` tests |
 
 ## Rules
 
@@ -37,4 +38,5 @@ From the repository root, after `pnpm install`:
 ```bash
 pnpm tsx server/testdata/golden/gen/config.ts           # write both files
 pnpm tsx server/testdata/golden/gen/config.ts --check   # exit 1 if either file is stale
+pnpm tsx server/testdata/golden/gen/runtime.ts --check  # the same for runtime.golden.json
 ```
