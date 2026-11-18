@@ -6,7 +6,7 @@ several still describe branches as "not committed" or billing as "OFF" that have
 
 ## Plan stock managed from the admin panel (2026-11-19)
 
-**Branch `claude/plan-stock`, not committed:**
+**Branch `claude/plan-stock`, PR #73, not merged:**
 - **Why:** the owner asked for stock management per plan ("add management stock paket"). Decisions taken with the owner: a number per
   plan (empty = no limit); used = instances + paid subscriptions waiting for their instance + unexpired invoices (the
   `MAX_TOTAL_INSTANCES` count, per plan); the free plan stays on `FREE_BETA_SLOTS`; the number is changed from the panel.
@@ -29,6 +29,15 @@ several still describe branches as "not committed" or billing as "OFF" that have
     15-65 s). Both runs failed different tests, and that file never sets a stock, so they look like timing flakes; not re-run on `main`
     to compare.
   - Dashboard: typecheck, lint, 170 of 170 tests (new `test/admin-plans.test.ts`). `next build` not run.
+
+## Payment return page said "Payment not completed" after a successful payment (2026-11-19, branch `claude/payment-return-fix`)
+
+Bug: on `/dashboard/instances?payment=...` the dashboard showed "Payment not completed" right after a PAID purchase (the owner's
+instance was created and chat worked end to end), because `evaluateReturn` (`apps/web/src/lib/billing.ts`) returned `failed` when
+*any* older abandoned purchase had an EXPIRED invoice. Now it judges only the most recently issued invoice (latest `expiresAt`; the
+customer API does not expose the merchant order id in `?payment=`). Older expired purchases still appear under "Awaiting payment"
+as expired. Dashboard only, no backend change. Checked: web `test/billing.test.ts` (14 pass, new regression case), `typecheck`,
+`lint`. Not checked in a browser. Goes live through Cloudflare Workers Builds once merged to `main`.
 
 ## Automatic backend deploy from main (2026-11-19)
 
