@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createPrisma } from '../../src/db/client.js';
-import { CapacityFullError, ConflictError, InstanceLimitError, NotFoundError, PaymentProviderUnavailableError } from '../../src/shared/errors.js';
+import { CapacityFullError, ConflictError, InstanceLimitError, NotFoundError, PaymentProviderUnavailableError, PlanSoldOutError } from '../../src/shared/errors.js';
 import { PlanNotForSaleError } from '../../src/modules/billing/billing-service.js';
 import { resetDb } from '../helpers/db.js';
 import { PRICE, callbackForm, makeBilling, makeClock, seedBilling } from '../helpers/billing-env.js';
@@ -120,6 +120,36 @@ describe('BillingService', () => {
       // The first customer, already counted, pays and is fulfilled even though the server is at its cap.
       await pay(await orderIdOf(first.payment.id));
       expect((await prisma.instance.count({ where: { status: 'ACTIVE' } }))).toBe(1);
+    });
+
+    it('refuses a new purchase once the plan stock is used, counting open invoices, and never blocks the paying customer', async () => {
+      await prisma.plan.update({ where: { id: s.plan.id }, data: { stockLimit: 1 } });
+      const first = await checkout();
+      const other = await prisma.tenant.create({ data: { name: 'other' } });
+      const buy = () => env.billing.checkout({ tenantId: other.id, email: 'o@example.test', planId: s.plan.id, name: 'x', idempotencyKey: randomUUID() });
+      // The open invoice holds the only unit.
+      await expect(buy()).rejects.toBeInstanceOf(PlanSoldOutError);
+      expect(env.duitku.invoices).toHaveLength(1);
+      // The holder pays and is fulfilled; the instance now holds the unit.
+      await pay(await orderIdOf(first.payment.id));
+      expect(await prisma.instance.count({ where: { status: 'ACTIVE' } })).toBe(1);
+      await expect(buy()).rejects.toBeInstanceOf(PlanSoldOutError);
+      // Raising the stock (or removing the limit) opens the plan again.
+      await prisma.plan.update({ where: { id: s.plan.id }, data: { stockLimit: 2 } });
+      await expect(buy()).resolves.toBeDefined();
+    });
+
+    it('two buyers racing for the last unit: exactly one gets an invoice', async () => {
+      await prisma.plan.update({ where: { id: s.plan.id }, data: { stockLimit: 1 } });
+      const other = await prisma.tenant.create({ data: { name: 'other' } });
+      const results = await Promise.allSettled([
+        checkout(),
+        env.billing.checkout({ tenantId: other.id, email: 'o@example.test', planId: s.plan.id, name: 'x', idempotencyKey: randomUUID() }),
+      ]);
+      expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      const refused = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
+      expect(refused.reason).toBeInstanceOf(PlanSoldOutError);
+      expect(await prisma.subscription.count()).toBe(1);
     });
 
     it('a Duitku outage answers 503, marks the attempt failed and a retry works', async () => {

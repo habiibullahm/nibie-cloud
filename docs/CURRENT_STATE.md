@@ -4,7 +4,7 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
-## Customers no longer call the admin API (2026-11-19, branch `claude/no-admin-probe-for-customers`, not committed)
+## Customers no longer call the admin API (2026-11-19, branch `claude/no-admin-probe-for-customers`, PR #74, not merged)
 
 - **Why:** the owner saw every customer's browser call `GET /api/v1/admin/me` (403 `forbidden`) from the sidebar's Admin link.
   No data leaked, but it told every customer the admin API exists.
@@ -17,6 +17,41 @@ several still describe branches as "not committed" or billing as "OFF" that have
   (plus one new console test, `customer-api.test.ts` 17 of 17).
 - **Deploy order:** a dashboard deployed before the backend hides the Admin link until the backend is live (admins can still open
   `/dashboard/admin` directly).
+
+## Plan stock managed from the admin panel (2026-11-19)
+
+**Branch `claude/plan-stock`, PR #73, not merged:**
+- **Why:** the owner asked for stock management per plan ("add management stock paket"). Decisions taken with the owner: a number per
+  plan (empty = no limit); used = instances + paid subscriptions waiting for their instance + unexpired invoices (the
+  `MAX_TOTAL_INSTANCES` count, per plan); the free plan stays on `FREE_BETA_SLOTS`; the number is changed from the panel.
+- **Data:** `Plan.stockLimit Int?` (migration `20261119200000_add_plan_stock_limit`, check `>= 0`). Null: no limit.
+- **Backend:** `totalLoad(db, now, planId?)`, `hasStock`, `stockLeft` in `src/modules/instances/capacity.ts`. Checkout refuses a new
+  purchase with `409 plan_sold_out` (`PlanSoldOutError`) once the stock is used, under a per-plan advisory lock taken after the tenant
+  lock, so two buyers cannot both take the last unit. Renewals and paying customers are never blocked. Customer `GET /plans` marks a
+  sold-out priced plan `available: false` for everyone, invited accounts included (the dashboard already shows "Stock 0"). Admin
+  `GET /plans` adds `stockUsed` and `stockLeft`; `POST /api/v1/admin/plans/:planId/stock` (`stockLimit` 0..100000 or null, reason)
+  writes one audit row (`detail.from`/`to`) per real change, refuses the free plan (`409 free_plan_stock`). MCP tool `set_plan_stock`.
+- **Dashboard:** admin Plan page gets a Stok column ("Sisa 3 dari 5", "Habis (3/2)", "Tanpa batas", "Slot beta") and an "Ubah stok"
+  dialog with a reason (`src/lib/admin-plans.ts`).
+- **Not covered:** an admin creating a paid instance directly through `POST /instances` (testing path) skips the stock. Lowering the
+  stock below what is used only stops new purchases.
+- **Checks** (Windows, local Docker Postgres `hermes_test`, a heavily loaded machine):
+  - Backend `tsc` clean. Unit tests 544 passed, 2 failed (the known Windows-only `egress-canary` tests).
+  - Integration: `admin-plan-stock` (new, 5), `billing-service` (2 new: sold out, race for the last unit), `customer-api`,
+    `admin-api`, `admin-api-keys`: all pass. `billing-api`: 3 failures on the first run (one deadlock in `resetDb`), 1 different
+    failure on a solo run (`replay is 200 and changes nothing`, a fixed 150 ms wait for the email on a machine where one test took
+    15-65 s). Both runs failed different tests, and that file never sets a stock, so they look like timing flakes; not re-run on `main`
+    to compare.
+  - Dashboard: typecheck, lint, 170 of 170 tests (new `test/admin-plans.test.ts`). `next build` not run.
+
+## Payment return page said "Payment not completed" after a successful payment (2026-11-19, branch `claude/payment-return-fix`)
+
+Bug: on `/dashboard/instances?payment=...` the dashboard showed "Payment not completed" right after a PAID purchase (the owner's
+instance was created and chat worked end to end), because `evaluateReturn` (`apps/web/src/lib/billing.ts`) returned `failed` when
+*any* older abandoned purchase had an EXPIRED invoice. Now it judges only the most recently issued invoice (latest `expiresAt`; the
+customer API does not expose the merchant order id in `?payment=`). Older expired purchases still appear under "Awaiting payment"
+as expired. Dashboard only, no backend change. Checked: web `test/billing.test.ts` (14 pass, new regression case), `typecheck`,
+`lint`. Not checked in a browser. Goes live through Cloudflare Workers Builds once merged to `main`.
 
 ## Automatic backend deploy from main (2026-11-19)
 

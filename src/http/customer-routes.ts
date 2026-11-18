@@ -9,7 +9,7 @@ import type { LogService } from '../modules/integrations/log-service.js';
 import type { Integrations } from '../modules/integrations/types.js';
 import { registerCustomerIntegrationRoutes } from './integration-routes.js';
 import { createBody, idempotencyKey } from './operator-routes.js';
-import { totalLoad } from '../modules/instances/capacity.js';
+import { stockLeft, totalLoad } from '../modules/instances/capacity.js';
 import { freeBetaRemaining, hasActiveInvite } from '../modules/instances/free-beta.js';
 import { markWaitlistRegistered } from '../modules/waitlist/waitlist.js';
 import { isInvited } from '../modules/beta/invites.js';
@@ -63,7 +63,8 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
       // Every active plan is listed for everyone; `available` says whether this account can take it now (the dashboard
       // shows the others as out of stock). A plan without a price is the free beta preview plan: available to invited
       // accounts, and to everyone else only while free slots remain. Priced plans are available to everyone unless the
-      // launch switch (PAID_CHECKOUT_OPEN) is off. POST /instances and checkout enforce the same rules.
+      // launch switch (PAID_CHECKOUT_OPEN) is off or their stock (set by an admin) is used up, for invited accounts too.
+      // POST /instances and checkout enforce the same rules.
       const email = principalOf(req).email;
       const invited = await isInvitedEmail(email);
       const freeOpen = invited || (config.freeBetaSlots > 0
@@ -73,13 +74,15 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
         where: { active: true },
         orderBy: [{ cpuMillis: 'asc' }, { slug: 'asc' }],
       });
+      const now = new Date();
+      const left = await Promise.all(rows.map((p) => stockLeft(prisma, p, now)));
       return {
-        plans: rows.map((p) => ({
+        plans: rows.map((p, i) => ({
           id: p.id, slug: p.slug, name: p.name, cpuMillis: p.cpuMillis, memoryMb: p.memoryMb,
           storageMb: p.storageMb, pids: p.pids, monthlyPriceIdr: p.monthlyPriceIdr,
           // One-time AI credit that comes with the first payment, in US$ (null: none).
           includedCreditUsd: p.includedCreditNano ? Number(p.includedCreditNano) / 1e9 : null,
-          available: p.monthlyPriceIdr === null ? freeOpen : paidOpen,
+          available: p.monthlyPriceIdr === null ? freeOpen : paidOpen && left[i] !== 0,
         })),
       };
     });

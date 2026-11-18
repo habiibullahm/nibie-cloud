@@ -174,6 +174,12 @@ export interface AdminPlan {
   monthlyPriceIdr: number | null
   includedCreditNano: string | null
   includedCreditUsd: number | null
+  /** Stock of a priced plan; null: no limit. The free plan is limited by FREE_BETA_SLOTS instead. */
+  stockLimit: number | null
+  /** Instances, paid subscriptions waiting for theirs, and unexpired invoices on this plan. */
+  stockUsed: number
+  /** Null when the stock does not apply (no limit, or the free plan). */
+  stockLeft: number | null
 }
 
 export interface AdminNode {

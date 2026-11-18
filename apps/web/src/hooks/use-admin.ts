@@ -106,6 +106,18 @@ export function useAdminAudit() {
   return useQuery({ queryKey: adminKeys.audit, queryFn: () => getAdminApi().audit(), staleTime: LONG })
 }
 
+export function useSetPlanStock() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, stockLimit, reason }: { id: string; stockLimit: number | null; reason: string }) =>
+      getAdminApi().setPlanStock(id, stockLimit, reason),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: adminKeys.plans })
+      void qc.invalidateQueries({ queryKey: adminKeys.audit })
+    },
+  })
+}
+
 export function useAdminBetaInvites() {
   return useQuery({ queryKey: adminKeys.betaInvites, queryFn: () => getAdminApi().betaInvites(), staleTime: LONG })
 }

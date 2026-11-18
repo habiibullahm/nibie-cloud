@@ -133,4 +133,10 @@ describe("evaluateReturn", () => {
     expect(evaluateReturn([pending(payment({ expiresAt: new Date(NOW - 1).toISOString() }))], NOW)).toBe("failed")
     expect(evaluateReturn([pending(null)], NOW)).toBe("failed")
   })
+  it("judges the newest invoice, not older abandoned purchases", () => {
+    const old = pending(payment({ status: "EXPIRED", expiresAt: new Date(NOW - 2 * HOUR).toISOString() }))
+    const paid = sub({ latestPayment: payment({ status: "PAID", expiresAt: new Date(NOW + HOUR).toISOString() }) })
+    expect(evaluateReturn([paid, old], NOW)).toBe("paid")
+    expect(evaluateReturn([old, pending(payment())], NOW)).toBe("waiting")
+  })
 })
