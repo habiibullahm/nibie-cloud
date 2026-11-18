@@ -48,7 +48,8 @@ export interface AdminApi {
   jobsFailed(): Promise<{ jobs: AdminFailedJob[] }>
   betaInvites(): Promise<AdminBetaInvites>
   /** Changes data: the backend needs a second factor and keeps `reason` in the audit trail. */
-  addBetaInvite(input: { email: string; note?: string; reason: string }): Promise<AdminBetaInvite>
+  /** `emailSent` is false when the backend has no mail settings or the send failed; the invite is saved either way. */
+  addBetaInvite(input: { email: string; note?: string; reason: string }): Promise<AdminBetaInvite & { emailSent: boolean }>
   revokeBetaInvite(id: string, reason: string): Promise<AdminBetaInvite>
 }
 
@@ -109,7 +110,10 @@ export function createAdminApi(opts: {
     waitlist: () => call<AdminWaitlist>("/waitlist"),
     jobsFailed: () => call<{ jobs: AdminFailedJob[] }>("/jobs/failed"),
     betaInvites: () => call<AdminBetaInvites>("/beta-invites"),
-    addBetaInvite: async (input) => (await call<{ invite: AdminBetaInvite }>("/beta-invites", input)).invite,
+    addBetaInvite: async (input) => {
+      const out = await call<{ invite: AdminBetaInvite; emailSent?: boolean }>("/beta-invites", input)
+      return { ...out.invite, emailSent: out.emailSent === true }
+    },
     revokeBetaInvite: async (id, reason) =>
       (await call<{ invite: AdminBetaInvite }>(`/beta-invites/${encodeURIComponent(id)}/revoke`, { reason })).invite,
   }

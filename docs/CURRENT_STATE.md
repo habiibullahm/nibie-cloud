@@ -4,6 +4,17 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Beta invite sends an email (2026-11-19, working tree on `main` at `37bb885`, NOT committed, NOT deployed)
+
+Bug: "Tambah undangan" in the admin panel only wrote a `BetaInvite` row; nothing emailed the person, so invited users never
+got a message. Now `POST /api/v1/admin/beta-invites` sends `renderBetaInvite` (register link, no admin-typed note or reason)
+through the existing mailer after the row and its audit entry are committed, and answers `{ invite, emailSent }`.
+A failed send or a missing mailer never undoes the invite (`emailSent: false`); the panel shows a warning toast then.
+Needs the SMTP settings on the VPS (`SUMOPOD_SMTP_*`, `MAIL_FROM`); without them nothing is sent. Auth email already lands in
+spam on Gmail (see the free beta section), so invitations may too.
+Checked: `pnpm build`, `test/integration/admin-beta-invites.test.ts` (8 pass), web `typecheck` and `test/admin-beta.test.ts`.
+Not checked: a real send over SumoPod SMTP. Web lint not run.
+
 ## Personal data audit and log masking (2026-11-18)
 
 **Branch `claude/pii-log-masking` (worktree `nibie-cloud-pii`, not committed, not deployed).** Read-only audit of every response, log line, outbound
