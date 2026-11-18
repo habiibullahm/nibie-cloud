@@ -219,6 +219,27 @@ invoice already marked expired or failed is honored; money that arrives for an e
 does not resurrect it. The instance is created only after the first verified payment, with idempotency key
 `pay-<merchantOrderId>`, and suspension is a normal `stop`, so the reconciler (which never restarts `STOPPED`) leaves it.
 
+## Personal data
+
+What the platform holds about a person, and where it goes (audit of 2026-11-18; no card, bank, phone or street address is stored):
+
+| Data | Stored in | Leaves the platform to |
+| --- | --- | --- |
+| Email, Supabase user id | `User` | Duitku (email only, to create an invoice); SumoPod SMTP (recipient of platform email) |
+| Name, email, use case | `WaitlistEntry` | SumoPod SMTP (confirmation and invitation) |
+| Invitee email, note, admin email | `BetaInvite` | none |
+| Admin email, free-text reason, invitee email | `AuditLog` (`detail.email` for invite actions) | none |
+| Telegram user ids | `TelegramConnection.allowedUserIds` | the customer's own container; Telegram (test message) |
+| Client address | not stored; Turnstile receives it as `remoteip` | Cloudflare Turnstile |
+
+- **Customer API:** each response holds only the caller's own data (`/me`, `toView`, `paymentView`). Gateway references and result codes are never returned.
+- **Public API:** answers `{ok:true}` or counts; a new address and one already on the waiting list look the same.
+- **Errors:** fixed messages only; request input and validation details are never echoed.
+- **Logs:** application log calls carry ids, codes and error class names only. The request log (`serializeRequest` in `src/shared/logger.ts`) writes the method, the path **without its query string** (the admin customer search puts an email there), and the client address cut to its network by `maskIp` (`/24` for IPv4, `/48` for IPv6); no port. Rate limiting still uses the full address in memory. Caddy writes no access log.
+- **Admin API shows personal data in full, by owner decision (2026-11-18):** emails, names and use cases are not masked in the panel. The controls are the `ADMIN_EMAILS` allowlist, `aal2` on every route, `no-store`, and an `AuditLog` row for every read. A hijacked admin session could therefore read the whole customer list; masking was offered and declined.
+- **Explicit columns:** the invite and audit queries name their columns (`INVITE_SELECT`, `AuditService.list`), so a column added later is not served until someone decides it should be.
+- **Not covered:** end-user content inside tenant containers (agent chats, Telegram messages). `GET /instances/:id/logs` redacts credentials only, not personal data in the agent's own output. There is no retention rule for logs or the audit trail, and no account deletion (gap 5).
+
 ## Known gaps and deferred security work
 
 This system is **not production-ready**. Open items as of 2026-11-18; where part of an item was verified on the

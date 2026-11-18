@@ -6,7 +6,7 @@ import type { Config } from '../config/env.js';
 import type { AuthClaims } from '../modules/auth/token-verifier.js';
 import type { AuditService } from '../modules/admin/audit-service.js';
 import type { JobQueue } from '../modules/jobs/types.js';
-import { addInvite, listInvites, normalizeEmail } from '../modules/beta/invites.js';
+import { addInvite, INVITE_SELECT, listInvites, normalizeEmail } from '../modules/beta/invites.js';
 import { AuthUnavailableError, ForbiddenError, NotFoundError, QueueUnavailableError, UnauthorizedError } from '../shared/errors.js';
 
 declare module 'fastify' {
@@ -366,11 +366,11 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
       const id = uuid.parse(req.params.inviteId);
       const body = revokeBody.parse(req.body);
       const invite = await prisma.$transaction(async (tx) => {
-        const existing = await tx.betaInvite.findUnique({ where: { id } });
+        const existing = await tx.betaInvite.findUnique({ where: { id }, select: INVITE_SELECT });
         if (!existing) throw new NotFoundError('Invite not found');
         // Revoking an already revoked invite changes nothing, so it is not recorded as a change.
         if (existing.revokedAt) return existing;
-        const row = await tx.betaInvite.update({ where: { id }, data: { revokedAt: new Date() } });
+        const row = await tx.betaInvite.update({ where: { id }, data: { revokedAt: new Date() }, select: INVITE_SELECT });
         await audit.record({
           actorEmail: admin.email, action: 'POST /beta-invites/:inviteId/revoke', targetType: 'beta_invite', targetId: id,
           reason: body.reason, detail: { email: normalizeEmail(row.email) },

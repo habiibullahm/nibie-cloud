@@ -66,6 +66,8 @@ export class AuditService {
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit + 1,
+      // Named columns, so a column added to the table later is not served until someone decides it should be.
+      select: { id: true, actorEmail: true, action: true, targetType: true, targetId: true, reason: true, detail: true, createdAt: true },
     });
     const page = rows.slice(0, limit);
     const last = page.at(-1);
