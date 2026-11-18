@@ -31,6 +31,24 @@ jobs:
       - run: pnpm build
       - run: pnpm test:unit
 
+  # The Go port of the backend (server/, docs/superpowers/specs/2026-11-19-backend-go-port-design.md).
+  # Unit tests only, like the Node job: integration tests need Postgres and Docker.
+  backend-go:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - run: go vet ./...
+      - run: go tool staticcheck ./...
+      - run: go test ./...
+
   web:
     runs-on: ubuntu-latest
     timeout-minutes: 10
