@@ -19,6 +19,7 @@ interface PlanBody {
   pids: number
   monthlyPriceIdr: number | null
   includedCreditUsd?: number | null
+  available?: boolean
 }
 
 export function toPlan(p: PlanBody): Plan {
@@ -36,6 +37,8 @@ export function toPlan(p: PlanBody): Plan {
     customDomain: null,
     monthlyPriceIdr: p.monthlyPriceIdr,
     includedCreditUsd: p.includedCreditUsd ?? null,
+    // An older backend lists only the plans the account may take and sends no flag.
+    available: p.available ?? true,
   }
 }
 

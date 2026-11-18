@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import { Info, Rocket } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -39,8 +40,10 @@ export function DeployForm() {
   const region = placeable.find((r) => r.id === (regionId || placeable[0]?.id))
   const regionReady = !showRegion || region !== undefined
   const step = (n: number) => (showRegion || n < 2 ? n : n - 1)
-  // Default to the smallest plan: no tier is promoted, and upgrading later is always possible.
-  const plan = plans.data?.find((p) => p.id === (planId || plans.data?.[0]?.id))
+  // Every plan is listed; the ones this account cannot take now are shown out of stock and cannot be chosen.
+  const openPlans = plans.data?.filter((p) => p.available) ?? []
+  // Default to the smallest open plan: no tier is promoted, and upgrading later is always possible.
+  const plan = openPlans.find((p) => p.id === (planId || openPlans[0]?.id))
   const nameError = validateInstanceName(name)
   const priced = plan !== undefined && plan.monthlyPriceIdr !== null
   const busy = create.isPending || checkout.isPending
@@ -136,23 +139,28 @@ export function DeployForm() {
             </SectionTitle>
             {!plans.data ? (
               <QueryFallback what="plans" queries={[plans]} className="h-40" />
-            ) : plans.data.length === 0 ? (
-              <Alert>
-                <Info aria-hidden="true" />
-                <AlertTitle>No plan is open for your account</AlertTitle>
-                <AlertDescription>
-                  All free beta slots are taken right now. Join the waiting list on{" "}
-                  <a href="https://cloud.nibie.app" className="text-foreground underline underline-offset-4">
-                    cloud.nibie.app
-                  </a>{" "}
-                  and we will email you when a slot opens.
-                </AlertDescription>
-              </Alert>
             ) : (
-              <RadioGroup value={plan?.id} onValueChange={setPlanId} aria-label="Plan" className="grid gap-3 md:grid-cols-3">
-                {plans.data?.map((p) => (
-                  <OptionCard key={p.id} id={`plan-${p.id}`} value={p.id} selected={plan?.id === p.id}>
-                    <span className="type-label text-foreground">{p.name}</span>
+              <>
+              {openPlans.length === 0 ? (
+                <Alert>
+                  <Info aria-hidden="true" />
+                  <AlertTitle>No plan is open for your account</AlertTitle>
+                  <AlertDescription>
+                    Every plan is out of stock for your account right now. Ask for beta access on{" "}
+                    <a href="https://cloud.nibie.app" className="text-foreground underline underline-offset-4">
+                      cloud.nibie.app
+                    </a>{" "}
+                    and we will email you when a plan opens for you.
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+              <RadioGroup value={plan?.id ?? ""} onValueChange={setPlanId} aria-label="Plan" className="grid gap-3 md:grid-cols-3">
+                {plans.data.map((p) => (
+                  <OptionCard key={p.id} id={`plan-${p.id}`} value={p.id} selected={plan?.id === p.id} disabled={!p.available}>
+                    <span className="flex items-start justify-between gap-2">
+                      <span className="type-label text-foreground">{p.name}</span>
+                      {p.available ? null : <Badge variant="outline">Stock 0</Badge>}
+                    </span>
                     <dl className="grid grid-cols-2 gap-x-3 gap-y-1 pt-2">
                       <dt className="text-muted-foreground">CPU</dt>
                       <dd className="type-mono">{formatCpu(p.cpuMillis)}</dd>
@@ -179,6 +187,7 @@ export function DeployForm() {
                   </OptionCard>
                 ))}
               </RadioGroup>
+              </>
             )}
           </section>
 
@@ -266,22 +275,25 @@ function OptionCard({
   id,
   value,
   selected,
+  disabled = false,
   children,
 }: {
   id: string
   value: string
   selected: boolean
+  disabled?: boolean
   children: React.ReactNode
 }) {
   return (
     <Label
       htmlFor={id}
       className={cn(
-        "flex cursor-pointer items-start gap-3 rounded-md border bg-card p-4 transition-colors hover:border-muted-foreground",
+        "flex items-start gap-3 rounded-md border bg-card p-4 transition-colors",
+        disabled ? "cursor-not-allowed" : "cursor-pointer hover:border-muted-foreground",
         selected && "border-foreground bg-elevated"
       )}
     >
-      <RadioGroupItem id={id} value={value} className="mt-1" />
+      <RadioGroupItem id={id} value={value} disabled={disabled} className="mt-1" />
       <span className="flex min-w-0 flex-1 flex-col gap-1">{children}</span>
     </Label>
   )

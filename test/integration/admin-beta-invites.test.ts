@@ -122,7 +122,7 @@ describe('admin beta invites', () => {
     const a = app();
     const boss = await as(BOSS);
     const guest = await as(GUEST, 'aal1');
-    const plans = async () => ((await a.inject({ method: 'GET', url: '/api/v1/plans', headers: guest })).json().plans as unknown[]).length;
+    const plans = async () => ((await a.inject({ method: 'GET', url: '/api/v1/plans', headers: guest })).json().plans as Array<{ available: boolean }>).filter((p) => p.available).length;
     expect(await plans()).toBe(0);
     const id = (await invite(a, boss, { email: GUEST, reason: 'let in' })).json().invite.id as string;
     expect(await plans()).toBe(1);

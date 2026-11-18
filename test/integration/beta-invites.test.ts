@@ -38,7 +38,7 @@ async function user(email: string) {
   return { authorization: `Bearer ${token}` };
 }
 const plansFor = async (a: ReturnType<typeof app>, headers: Record<string, string>) =>
-  ((await a.inject({ method: 'GET', url: '/api/v1/plans', headers })).json().plans as Array<{ slug: string }>).map((p) => p.slug);
+  ((await a.inject({ method: 'GET', url: '/api/v1/plans', headers })).json().plans as Array<{ slug: string; available: boolean }>).filter((p) => p.available).map((p) => p.slug);
 const create = (a: ReturnType<typeof app>, headers: Record<string, string>) =>
   a.inject({ method: 'POST', url: '/api/v1/instances', headers: { ...headers, 'idempotency-key': randomUUID() }, payload: { name: 'agent', planId: s.plan.id } });
 
@@ -122,6 +122,24 @@ describe('beta invite list', () => {
       await addInvite(prisma, { email: TABLE_ONLY });
       expect(await plansFor(a, h)).toEqual(['test-small']);
       expect((await create(a, h)).statusCode).toBe(202);
+    });
+
+    it('never lets an invited account create a priced plan through this route; only an admin may', async () => {
+      const ADMIN = 'boss@example.test';
+      const paid = await prisma.plan.create({ data: { slug: 'paid', name: 'Paid', cpuMillis: 1000, memoryMb: 1024, pids: 256, storageMb: 1024, monthlyPriceIdr: 25_000 } });
+      await addInvite(prisma, { email: TABLE_ONLY });
+      // The admin is also invited: being an admin alone does not skip the invite gate.
+      const a = app({ adminEmails: [ADMIN], betaAllowedEmails: [ENV_ONLY, ADMIN] });
+      const createPaid = (headers: Record<string, string>) =>
+        a.inject({ method: 'POST', url: '/api/v1/instances', headers: { ...headers, 'idempotency-key': randomUUID() }, payload: { name: 'agent', planId: paid.id } });
+      for (const email of [ENV_ONLY, TABLE_ONLY]) {
+        const res = await createPaid(await user(email));
+        expect(res.statusCode).toBe(403);
+        expect(res.json().error.code).toBe('provisioning_not_enabled');
+      }
+      expect(await prisma.instance.count()).toBe(0);
+      // The admin keeps direct creation for testing, matched case-insensitively.
+      expect((await createPaid(await user('Boss@Example.Test'))).statusCode).toBe(202);
     });
 
     it('takes effect without a restart: an invite added while the server runs applies to the next request', async () => {
