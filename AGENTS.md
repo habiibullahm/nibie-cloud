@@ -172,8 +172,10 @@ Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
   `AuditLog` (`AuditService`). Every route, reads included, requires `aal2` (MFA TOTP): an allowlisted admin
   at `aal1` gets `403 mfa_required` and the dashboard's `AdminMfa` screen enrols or challenges a TOTP factor through
   Supabase Auth. Beta invites (`GET/POST /beta-invites`, `POST /beta-invites/:id/revoke`, table `BetaInvite`, checked in
-  `customer-routes.ts` next to `BETA_ALLOWED_EMAILS`) and admin keys are the only routes that change data so far: each needs a reason
-  and writes its `AuditLog` row in the same transaction. The rest of phase B is not implemented yet. **Admin keys and MCP**
+  `customer-routes.ts` next to `BETA_ALLOWED_EMAILS`), admin keys and plan stock (`POST /plans/:planId/stock`, column
+  `Plan.stockLimit`, priced plans only; `capacity.ts` counts instances, unfulfilled paid subscriptions and unexpired invoices per plan;
+  checkout answers `409 plan_sold_out` under a per-plan advisory lock and customer `/plans` marks the plan unavailable) are the only
+  routes that change data so far: each needs a reason and writes its `AuditLog` row in the same transaction. The rest of phase B is not implemented yet. **Admin keys and MCP**
   (`modules/admin/api-keys.ts`, `http/admin-mcp.ts`, table `AdminApiKey`): a bearer `nca_...` key stands for its creator at `aal2`
   (SHA-256 hash stored, shown once, optional expiry, revocable, dead once the creator leaves `ADMIN_EMAILS`); `GET/POST /api-keys`
   and `POST /api-keys/:id/revoke` answer `403 session_required` to a key, so only a panel session manages keys. Key use is audited

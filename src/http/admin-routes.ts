@@ -10,7 +10,8 @@ import type { Mailer } from '../modules/billing/mailer.js';
 import { renderBetaInvite } from '../modules/billing/email-templates.js';
 import { addInvite, INVITE_SELECT, listInvites, maskEmail, maskInvite, normalizeEmail } from '../modules/beta/invites.js';
 import { createKey, findActiveKey, isAdminKey, KEY_EXPIRY_DAYS, listKeys, revokeKey } from '../modules/admin/api-keys.js';
-import { AuthUnavailableError, ForbiddenError, NotFoundError, QueueUnavailableError, UnauthorizedError } from '../shared/errors.js';
+import { hasStock, totalLoad } from '../modules/instances/capacity.js';
+import { AppError, AuthUnavailableError, ForbiddenError, NotFoundError, QueueUnavailableError, UnauthorizedError } from '../shared/errors.js';
 import { registerAdminMcp } from './admin-mcp.js';
 
 declare module 'fastify' {
@@ -63,6 +64,7 @@ const inviteBody = z.object({
   reason,
 }).strict();
 const revokeBody = z.object({ reason }).strict();
+const stockBody = z.object({ stockLimit: z.number().int().min(0).max(100000).nullable(), reason }).strict();
 const keyBody = z.object({
   name: z.string().trim().min(1).max(100),
   expiresInDays: z.union([z.literal(KEY_EXPIRY_DAYS[0]), z.literal(KEY_EXPIRY_DAYS[1]), z.literal(KEY_EXPIRY_DAYS[2]), z.null()]),
@@ -402,14 +404,46 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
 
     api.get('/plans', async () => {
       const plans = await prisma.plan.findMany({ orderBy: [{ active: 'desc' }, { slug: 'asc' }] });
+      const now = new Date();
+      // Counted the way checkout counts: instances, paid subscriptions waiting for theirs, and unexpired invoices.
+      const used = await Promise.all(plans.map((p) => totalLoad(prisma, now, p.id)));
       return {
-        plans: plans.map((p) => ({
+        plans: plans.map((p, i) => ({
           ...p,
+          stockUsed: used[i]!,
+          // Null: no limit, or the free plan (FREE_BETA_SLOTS limits that one).
+          stockLeft: hasStock(p) ? Math.max(0, p.stockLimit - used[i]!) : null,
           // BigInt does not survive JSON, and the panel shows US$ anyway.
           includedCreditNano: p.includedCreditNano?.toString() ?? null,
           includedCreditUsd: p.includedCreditNano ? Number(p.includedCreditNano) / 1e9 : null,
         })),
       };
+    });
+
+    /**
+     * Sets the stock of a priced plan (null: no limit). It applies to the next checkout, with no restart. Lowering it below
+     * what is already in use never touches existing instances or paid customers; it only stops new purchases.
+     */
+    api.post<{ Params: { planId: string } }>('/plans/:planId/stock', async (req) => {
+      const admin = req.admin!;
+      const id = uuid.parse(req.params.planId);
+      const body = stockBody.parse(req.body);
+      const plan = await prisma.$transaction(async (tx) => {
+        const existing = await tx.plan.findUnique({ where: { id } });
+        if (!existing) throw new NotFoundError('Plan not found');
+        if (existing.monthlyPriceIdr === null) {
+          throw new AppError('The free plan is limited by FREE_BETA_SLOTS, not by stock', 409, 'free_plan_stock');
+        }
+        // Setting the same value changes nothing, so it is not recorded as a change.
+        if (existing.stockLimit === body.stockLimit) return existing;
+        const row = await tx.plan.update({ where: { id }, data: { stockLimit: body.stockLimit } });
+        await audit.record({
+          actorEmail: admin.email, action: 'POST /plans/:planId/stock', targetType: 'plan', targetId: id,
+          reason: body.reason, detail: { slug: row.slug, from: existing.stockLimit, to: row.stockLimit, ...via(req) },
+        }, tx);
+        return row;
+      });
+      return { plan: { id: plan.id, slug: plan.slug, stockLimit: plan.stockLimit } };
     });
 
     /**
