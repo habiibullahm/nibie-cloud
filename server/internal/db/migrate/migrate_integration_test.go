@@ -164,7 +164,7 @@ func TestBaselineRefuses(t *testing.T) {
 		"one rolled back":    `UPDATE "_prisma_migrations" SET rolled_back_at = now() WHERE migration_name = '` + names[5] + `'`,
 		"one unfinished":     `UPDATE "_prisma_migrations" SET finished_at = NULL WHERE migration_name = '` + names[15] + `'`,
 		"an unknown row":     `INSERT INTO "_prisma_migrations" (id, checksum, finished_at, migration_name) VALUES ('x', 'x', now(), '20991231000000_future')`,
-		"goose already used": `CREATE TABLE goose_db_version (id serial PRIMARY KEY, version_id bigint NOT NULL, is_applied boolean NOT NULL, tstamp timestamp DEFAULT now()); INSERT INTO goose_db_version (version_id, is_applied) VALUES (0, true)`,
+		"goose already used": `CREATE TABLE goose_db_version (id serial PRIMARY KEY, version_id bigint NOT NULL, is_applied boolean NOT NULL, tstamp timestamp DEFAULT now()); INSERT INTO goose_db_version (version_id, is_applied) VALUES (0, true), (1, true)`,
 		"no prisma table":    `DROP TABLE "_prisma_migrations"`,
 	}
 	for name, mutate := range cases {
@@ -195,6 +195,35 @@ func TestBaselineRefuses(t *testing.T) {
 			}
 			if after := snapshot(); after != before {
 				t.Fatalf("baseline changed the database:\nbefore %s\nafter  %s", before, after)
+			}
+		})
+	}
+}
+
+// TestBaselineAfterStatusOrFailedUp: `migrate status` (or a mistaken `migrate up`, which fails on 00001
+// and rolls back) creates goose_db_version with only goose's version-0 row. Baseline must still work.
+func TestBaselineAfterStatusOrFailedUp(t *testing.T) {
+	for _, first := range []string{"status", "failed up"} {
+		t.Run(first, func(t *testing.T) {
+			ctx, pool, sqlDB := open(t, pgtest.Fresh(t, ""))
+			simulatePrisma(ctx, t, pool, sqlDB)
+			var out bytes.Buffer
+			if first == "status" {
+				if err := Status(ctx, sqlDB, &out); err != nil {
+					t.Fatal(err)
+				}
+			} else if err := Up(ctx, sqlDB, &out); err == nil {
+				t.Fatal("up on a Prisma-built database must fail (its tables already exist)")
+			}
+			if err := Baseline(ctx, sqlDB, &out); err != nil {
+				t.Fatalf("baseline after %s: %v", first, err)
+			}
+			if got := appliedVersions(ctx, t, pool); len(got) != migrations.PrismaMigrations+1 {
+				t.Fatalf("after baseline: versions %v, want 0..%d once each", got, migrations.PrismaMigrations)
+			}
+			out.Reset()
+			if err := Up(ctx, sqlDB, &out); err != nil || !strings.Contains(out.String(), "00017") {
+				t.Fatalf("up after baseline: %v\n%s", err, out.String())
 			}
 		})
 	}

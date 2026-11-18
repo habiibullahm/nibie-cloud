@@ -61,7 +61,7 @@ func label(p string) string {
 // Baseline adopts a database that Prisma Migrate built: it records goose versions 0–16 as applied without
 // running them, so `up` then applies only what came after Prisma (River). It runs in one transaction and
 // refuses, changing nothing, unless _prisma_migrations lists exactly the 16 expected migrations, each
-// finished and none rolled back, and goose_db_version is absent or empty.
+// finished and none rolled back, and goose_db_version records no migration (goose's own version-0 row is fine).
 func Baseline(ctx context.Context, db *sql.DB, w io.Writer) error {
 	want, err := migrations.PrismaNames()
 	if err != nil {
@@ -106,13 +106,19 @@ func Baseline(ctx context.Context, db *sql.DB, w io.Writer) error {
 	if !allDone {
 		return refused("_prisma_migrations has an unfinished or rolled-back migration")
 	}
+	// goose writes its own version-0 row as soon as it touches a database (`migrate status`, or an `up` that
+	// failed on 00001), so that row alone does not mean goose migrated anything.
+	first := int64(0)
 	if gooseExists {
-		var n int
-		if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM `+gooseTable).Scan(&n); err != nil {
+		var recorded, zero int
+		if err := tx.QueryRowContext(ctx, `SELECT count(*) FILTER (WHERE version_id <> 0), count(*) FILTER (WHERE version_id = 0) FROM `+gooseTable).Scan(&recorded, &zero); err != nil {
 			return err
 		}
-		if n > 0 {
-			return refused(gooseTable + " already has rows (baseline already ran, or goose was used here)")
+		if recorded > 0 {
+			return refused(gooseTable + " already records migrations (baseline already ran, or goose was used here)")
+		}
+		if zero > 0 {
+			first = 1
 		}
 	}
 
@@ -125,7 +131,7 @@ func Baseline(ctx context.Context, db *sql.DB, w io.Writer) error {
 			return err
 		}
 	}
-	for v := int64(0); v <= migrations.PrismaMigrations; v++ {
+	for v := first; v <= migrations.PrismaMigrations; v++ {
 		if err := store.Insert(ctx, tx, database.InsertRequest{Version: v}); err != nil {
 			return err
 		}
