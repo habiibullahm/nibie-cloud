@@ -298,6 +298,72 @@
       "HERMES_DISK_CHECK_INTERVAL_MS"
     ]
   },
+  "disk-interval-max-safe": {
+    "ok": true,
+    "config": {
+      "adminEmails": [],
+      "adminToken": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "betaAllowedEmails": [],
+      "billing": null,
+      "canaryImage": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "corsExtraOrigins": [],
+      "dashboardOrigin": null,
+      "databaseUrl": "postgresql://u:p@127.0.0.1:5433/db",
+      "diskCheckIntervalMs": 9007199254740991,
+      "diskQuota": "enforce",
+      "dnsResolvers": [],
+      "dockerSocketPath": "/var/run/docker.sock",
+      "egressPolicy": "enforce",
+      "freeBetaSlots": 0,
+      "hermesImage": "hermes-stub:0.1.0",
+      "mail": null,
+      "masterKey": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "maxInstancesPerTenant": 1,
+      "maxTotalInstances": null,
+      "nodeEnv": "development",
+      "ops": {
+        "telegram": null
+      },
+      "paidCheckoutOpen": true,
+      "port": 3000,
+      "redisUrl": null,
+      "router": null,
+      "runtime": "runc",
+      "secrets": null,
+      "supabaseUrl": null,
+      "turnstileSecret": null
+    }
+  },
+  "disk-interval-above-safe": {
+    "ok": false,
+    "keys": [
+      "HERMES_DISK_CHECK_INTERVAL_MS"
+    ]
+  },
+  "disk-interval-1e16": {
+    "ok": false,
+    "keys": [
+      "HERMES_DISK_CHECK_INTERVAL_MS"
+    ]
+  },
+  "disk-interval-2pow63": {
+    "ok": false,
+    "keys": [
+      "HERMES_DISK_CHECK_INTERVAL_MS"
+    ]
+  },
+  "disk-interval-1e400": {
+    "ok": false,
+    "keys": [
+      "HERMES_DISK_CHECK_INTERVAL_MS"
+    ]
+  },
+  "max-total-unsafe": {
+    "ok": false,
+    "keys": [
+      "MAX_TOTAL_INSTANCES"
+    ]
+  },
   "egress-off-production": {
     "ok": false,
     "keys": [
@@ -3418,6 +3484,26 @@
     "ok": false,
     "keys": [
       "PORT"
+    ]
+  },
+  "abort-unsafe-integer": {
+    "ok": false,
+    "keys": [
+      "HERMES_DISK_CHECK_INTERVAL_MS",
+      "HERMES_DISK_QUOTA",
+      "HERMES_RUNTIME",
+      "REDIS_URL",
+      "SECRETS_KEK"
+    ]
+  },
+  "abort-unsafe-integer-2pow63": {
+    "ok": false,
+    "keys": [
+      "HERMES_DISK_CHECK_INTERVAL_MS",
+      "HERMES_DISK_QUOTA",
+      "HERMES_RUNTIME",
+      "REDIS_URL",
+      "SECRETS_KEK"
     ]
   },
   "abort-infinity": {

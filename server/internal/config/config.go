@@ -247,11 +247,23 @@ func (p *parser) number(key string, lo, hi int, def *int, blankIsUnset bool) (in
 		p.fail(key, true)
 		return 0, false
 	}
+	// zod's .int() takes safe integers only; a bigger one fails without aborting, and the value stays (clamped
+	// here, keeping its sign, so it can never wrap around into a negative or a small number).
+	if math.Abs(f) > maxSafeInteger {
+		p.fail(key, false)
+		if f > 0 {
+			return math.MaxInt, true
+		}
+		return math.MinInt, true
+	}
 	if f < float64(lo) || f > float64(hi) {
 		p.fail(key, false)
 	}
 	return int(f), true
 }
+
+// maxSafeInteger is JavaScript's Number.MAX_SAFE_INTEGER (2^53 - 1).
+const maxSafeInteger = 1<<53 - 1
 
 // text is an emptyToUndefined string with a format check that keeps the value when it fails.
 func (p *parser) text(key string, valid func(string) bool) string {

@@ -198,6 +198,72 @@
     }
   },
   {
+    "name": "disk-interval-max-safe",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DISK_CHECK_INTERVAL_MS": "9007199254740991"
+    }
+  },
+  {
+    "name": "disk-interval-above-safe",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DISK_CHECK_INTERVAL_MS": "9007199254740993"
+    }
+  },
+  {
+    "name": "disk-interval-1e16",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DISK_CHECK_INTERVAL_MS": "1e16"
+    }
+  },
+  {
+    "name": "disk-interval-2pow63",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DISK_CHECK_INTERVAL_MS": "9223372036854775808"
+    }
+  },
+  {
+    "name": "disk-interval-1e400",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DISK_CHECK_INTERVAL_MS": "1e400"
+    }
+  },
+  {
+    "name": "max-total-unsafe",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "MAX_TOTAL_INSTANCES": "1e16"
+    }
+  },
+  {
     "name": "egress-off-production",
     "env": {
       "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
@@ -2276,6 +2342,32 @@
       "NODE_ENV": "production",
       "HERMES_DISK_QUOTA": "off",
       "PORT": "abc"
+    }
+  },
+  {
+    "name": "abort-unsafe-integer",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "HERMES_DISK_CHECK_INTERVAL_MS": "1e16"
+    }
+  },
+  {
+    "name": "abort-unsafe-integer-2pow63",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "HERMES_DISK_CHECK_INTERVAL_MS": "9223372036854775808"
     }
   },
   {

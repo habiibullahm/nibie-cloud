@@ -56,6 +56,11 @@ add('disk-quota-unknown', { ...base, HERMES_DISK_QUOTA: 'soft' });
 add('disk-interval-60000', { ...base, HERMES_DISK_CHECK_INTERVAL_MS: '60000' });
 add('disk-interval-fraction', { ...base, HERMES_DISK_CHECK_INTERVAL_MS: '1.5' });
 add('disk-interval-below-min', { ...base, HERMES_DISK_CHECK_INTERVAL_MS: '999' });
+// zod's .int() takes safe integers only (|n| <= 2^53 - 1).
+for (const [n, v] of Object.entries({ 'max-safe': '9007199254740991', 'above-safe': '9007199254740993', '1e16': '1e16', '2pow63': '9223372036854775808', '1e400': '1e400' })) {
+  add(`disk-interval-${n}`, { ...base, HERMES_DISK_CHECK_INTERVAL_MS: v });
+}
+add('max-total-unsafe', { ...base, MAX_TOTAL_INSTANCES: '1e16' });
 add('egress-off-production', { ...base, NODE_ENV: 'production', HERMES_EGRESS_POLICY: 'off' });
 add('production-default-runtime', { ...base, NODE_ENV: 'production' });
 add('production-runtime-runc', { ...base, NODE_ENV: 'production', HERMES_RUNTIME: 'runc' });
@@ -222,6 +227,7 @@ add('ops-bad-chat', { ...base, OPS_TELEGRAM_BOT_TOKEN: botToken, OPS_TELEGRAM_CH
 const refineTrigger: Env = { ...base, NODE_ENV: 'production', HERMES_DISK_QUOTA: 'off' };
 for (const [n, extra] of Object.entries({
   'not-integer': { HERMES_DISK_CHECK_INTERVAL_MS: '1.5' }, 'below-min': { PORT: '0' }, 'not-number': { PORT: 'abc' },
+  'unsafe-integer': { HERMES_DISK_CHECK_INTERVAL_MS: '1e16' }, 'unsafe-integer-2pow63': { HERMES_DISK_CHECK_INTERVAL_MS: '9223372036854775808' },
   infinity: { PORT: 'Infinity' }, 'too-short': { ADMIN_TOKEN: 'x' }, 'missing-required': { DATABASE_URL: '' },
   'not-ipv4': { HERMES_CANARY_PRIVATE_IP: 'nope' }, 'bad-regex': { MAIL_FROM: 'nope' }, 'bad-origin': { SUPABASE_URL: 'http://x.example.test' },
   'bad-kek': { SECRETS_KEK: 'abc' }, 'too-long': { TURNSTILE_SECRET_KEY: 't'.repeat(201) }, 'enum-with-default': { PAID_CHECKOUT_OPEN: 'yes' },
