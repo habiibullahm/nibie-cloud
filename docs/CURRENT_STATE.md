@@ -4,9 +4,24 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
-## Security hardening after an OWASP Top 10 review (2026-11-18, branch `claude/owasp-hardening`, draft PR)
+## Security hardening after an OWASP Top 10 review (2026-11-18, PR #61, merged as `6da2ef5` and deployed)
 
-The full review was given to the owner privately; it is not kept in this public repository. Changes:
+The full review was given to the owner privately; it is not kept in this public repository.
+
+**Live since 2026-11-18:** PR #61 merged as `6da2ef5`; backend deployed with `ops/host/deploy.sh` (dump first, migration
+`20261118090000_waitlist_confirm_sends` applied, "backend 6da2ef5 is ready"), redeployed once more at the owner's request;
+landing and dashboard rebuilt by Cloudflare from `main`. Checked from outside with curl:
+- `/healthz` 200;
+- an unsigned SumoPod webhook gets 400, and SumoPod's own "Save & Test" was accepted with 200 (signed);
+- a waiting-list join without a captcha gets `captcha_failed`;
+- the admin API without a token gets 401, and the operator API through the proxy gets 404;
+- landing and dashboard send the CSP with the production API, Supabase and Turnstile origins;
+- the backend log shows the captcha on and no errors.
+
+Not yet checked in production: admin MFA enrolment, a waiting-list join with a real captcha (the form only shows when no free
+slot is left), and a real paid webhook.
+
+Changes:
 
 - **Billing webhook:** the SumoPod `X-Webhook-Token` is now compared in constant time, and an empty token is refused
   (`billing-service.ts`).
