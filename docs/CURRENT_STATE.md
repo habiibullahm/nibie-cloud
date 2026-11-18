@@ -21,6 +21,16 @@ Deployed with `ops/host/deploy.sh` on the owner's word ("backend 536e9c4 is read
 `ec27f10` kept for rollback). After the deploy the public API answered 200 and the startup log showed `mail: true`. No invitation
 has been sent to a real inbox yet.
 
+## Email lands in spam (2026-11-19, display-name change not committed, not deployed)
+
+Gmail "Show original" of the beta invite: SPF, DKIM and DMARC all PASS, so authentication is not the cause. Checked in DNS:
+SPF `v=spf1 mx include:spf.kirim.email ~all`, DMARC `p=none` (report address is a personal Gmail), sending IP has reverse DNS
+(`ip04.s01.kirimemail.com`). Remaining causes are reputation: `nibie.app` is a new sending domain on a shared SumoPod IP.
+Changed: `From` now carries the display name "Nibie Cloud" (`MAIL_FROM_NAME` in `src/modules/billing/mailer.ts`). Checked: `pnpm build`, `test/unit/mailer.test.ts`.
+Not a code fix, owner to do (SumoPod guide "Keeping Emails Out of Spam"): warm up the domain on `noreply@nibie.app` only, 50 mails on
+day 1, 100 on day 2, 500 on day 3, rising for about 30 days; send by hand to colleagues first and have them press "Not spam" / move to Primary;
+watch the SumoPod Activity Log. Optional later: DMARC `p=quarantine` once reports are clean, and a `rua` address on the domain.
+
 ## Personal data audit and log masking (2026-11-18)
 
 **Branch `claude/pii-log-masking` (worktree `nibie-cloud-pii`, not committed, not deployed).** Read-only audit of every response, log line, outbound

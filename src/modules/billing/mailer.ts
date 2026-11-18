@@ -15,7 +15,10 @@ export interface Mailer {
   send(message: MailMessage): Promise<void>;
 }
 
-type Transport = { sendMail(message: { from: string; to: string; subject: string; text: string; html: string }): Promise<unknown> };
+/** Shown as the sender name in the inbox; a bare `noreply@` address looks like bulk mail to Gmail. */
+export const MAIL_FROM_NAME = 'Nibie Cloud';
+
+type Transport = { sendMail(message: { from: { name: string; address: string }; to: string; subject: string; text: string; html: string }): Promise<unknown> };
 
 export interface TransportFactoryInput { host: string; port: number; secure: boolean; auth: { user: string; pass: string } }
 
@@ -36,7 +39,7 @@ export function createMailer(mail: Config['mail'], logger: Logger, transportFact
     enabled: true,
     async send(m) {
       try {
-        await transport.sendMail({ from: mail.from, to: m.to, subject: m.subject, text: m.text, html: m.html });
+        await transport.sendMail({ from: { name: MAIL_FROM_NAME, address: mail.from }, to: m.to, subject: m.subject, text: m.text, html: m.html });
       } catch (e) {
         logger.warn({ errName: (e as Error).name }, 'email send failed');
         throw new MailSendError();

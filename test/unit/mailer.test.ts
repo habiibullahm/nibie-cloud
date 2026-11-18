@@ -23,10 +23,10 @@ describe('createMailer', () => {
     expect(factory.mock.calls[1]![0]).toMatchObject({ port: 587, secure: false });
   });
 
-  it('sends from MAIL_FROM', async () => {
+  it('sends from MAIL_FROM with the Nibie Cloud display name', async () => {
     const sendMail = vi.fn(async () => ({}));
     await createMailer(mail, logger, () => ({ sendMail })).send(msg);
-    expect(sendMail).toHaveBeenCalledWith({ from: 'no-reply@example.test', to: 'a@example.test', subject: 's', text: 't', html: '<p>t</p>' });
+    expect(sendMail).toHaveBeenCalledWith({ from: { name: 'Nibie Cloud', address: 'no-reply@example.test' }, to: 'a@example.test', subject: 's', text: 't', html: '<p>t</p>' });
   });
 
   it('turns an SMTP failure into MailSendError without the server text', async () => {
