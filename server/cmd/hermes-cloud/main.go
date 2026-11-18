@@ -29,7 +29,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 		switch args[1] {
 		case "up", "baseline", "status":
-			return notImplemented(stderr, "migrate "+args[1])
+			return runMigrate(args[1], stdout, stderr)
 		}
 		return badUsage(stderr)
 	case "healthcheck":

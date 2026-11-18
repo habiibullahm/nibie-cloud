@@ -16,7 +16,8 @@ func excluded(table string) bool {
 	return table == "_prisma_migrations" || table == "goose_db_version" || strings.HasPrefix(table, "river_")
 }
 
-// Dump describes the schema: enums (labels in order), sequences, then per table its row-level security
+// Dump describes the application schema (River's tables, enums and sequences and the migration tools'
+// tables are left out): enums (labels in order), sequences, then per table its row-level security
 // flags, columns (in column order), constraints, indexes and policies. The schema name is removed from
 // index definitions so a dump of one schema compares with a dump of another.
 func Dump(ctx context.Context, pool *pgxpool.Pool, schema string) (string, error) {
@@ -25,7 +26,7 @@ func Dump(ctx context.Context, pool *pgxpool.Pool, schema string) (string, error
 	rows, err := pool.Query(ctx, `
 		SELECT t.typname, string_agg(e.enumlabel, ', ' ORDER BY e.enumsortorder)
 		FROM pg_type t JOIN pg_enum e ON e.enumtypid = t.oid JOIN pg_namespace n ON n.oid = t.typnamespace
-		WHERE n.nspname = $1 GROUP BY t.typname ORDER BY t.typname`, schema)
+		WHERE n.nspname = $1 AND t.typname NOT LIKE 'river\_%' GROUP BY t.typname ORDER BY t.typname`, schema)
 	if err != nil {
 		return "", err
 	}
