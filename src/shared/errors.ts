@@ -83,6 +83,13 @@ export class CapacityFullError extends AppError {
   }
 }
 
+/** The plan's stock (set by an admin) is used up. Other plans may still be for sale. */
+export class PlanSoldOutError extends AppError {
+  constructor() {
+    super('This plan is sold out right now. Please pick another plan or try again later.', 409, 'plan_sold_out');
+  }
+}
+
 export class InstanceLimitError extends AppError {
   constructor() {
     super('Instance limit reached for this account', 409, 'instance_limit_reached');

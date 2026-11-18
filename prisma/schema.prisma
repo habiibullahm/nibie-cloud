@@ -74,6 +74,9 @@ model Plan {
   monthlyPriceIdr    Int?
   /// One-time NibieRouter credit granted with the first payment, in nano-USD (US$1 = 1_000_000_000). Null: none.
   includedCreditNano BigInt?
+  /// Stock of a priced plan, set from the admin panel: how many instances plus open purchases it may have. Null: no limit.
+  /// Ignored on the free plan, which FREE_BETA_SLOTS limits.
+  stockLimit         Int?
   instances          Instance[]
   subscriptions      Subscription[]
 }

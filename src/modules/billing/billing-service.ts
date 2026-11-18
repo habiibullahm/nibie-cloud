@@ -1,7 +1,7 @@
 import type { RouterProvisioner } from '../nibierouter/router-provisioner.js';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Payment, PaymentPurpose, PaymentStatus, Plan, Prisma, PrismaClient, Subscription, SubscriptionStatus } from '@prisma/client';
-import { AppError, CapacityFullError, ConflictError, InstanceLimitError, NotFoundError, ValidationError } from '../../shared/errors.js';
+import { AppError, CapacityFullError, ConflictError, InstanceLimitError, NotFoundError, PlanSoldOutError, ValidationError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import { isUuid } from '../../shared/uuid.js';
 import type { InstanceCommands } from '../instances/instance-commands.js';
@@ -10,7 +10,7 @@ import { DUITKU_MIN_AMOUNT_IDR, verifyCallbackSignature, type DuitkuClient, type
 import { renderEmail, type EmailKind } from './email-templates.js';
 import { periodAfterPayment } from './lifecycle.js';
 import type { Mailer } from './mailer.js';
-import { totalLoad } from '../instances/capacity.js';
+import { hasStock, stockLeft, totalLoad } from '../instances/capacity.js';
 import type { PaymentClient } from './payment-client.js';
 import type { SumoPodConfig } from './sumopod-client.js';
 import { verifySvixSignature, type SvixHeaders } from './svix.js';
@@ -181,6 +181,13 @@ export class BillingService {
       await this.assertCapacity(tx, i.tenantId, now);
       // A new purchase is refused before any invoice exists when the server is full; paying customers are never blocked here.
       if (this.d.maxTotalInstances != null && (await totalLoad(tx, now)) >= this.d.maxTotalInstances) throw new CapacityFullError();
+      // The plan's stock. Checkouts of the same plan by different tenants queue on this lock (always taken after the tenant
+      // lock, so the order is fixed), so two buyers can never both take the last unit.
+      if (hasStock(plan)) {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`plan-stock:${plan.id}`}))`;
+        const fresh = await tx.plan.findUniqueOrThrow({ where: { id: plan.id }, select: { id: true, monthlyPriceIdr: true, stockLimit: true } });
+        if ((await stockLeft(tx, fresh, now)) === 0) throw new PlanSoldOutError();
+      }
       const subscription = await tx.subscription.create({
         data: { tenantId: i.tenantId, planId: plan.id, intendedName: i.name, idempotencyKey: i.idempotencyKey },
       });
