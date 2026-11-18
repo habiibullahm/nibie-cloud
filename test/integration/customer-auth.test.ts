@@ -85,6 +85,16 @@ describe('customer authentication surface', () => {
     },
   );
 
+  it('logs the client address from X-Forwarded-For only when the request came through the loopback proxy', async () => {
+    const a = app();
+    await a.inject({ method: 'GET', url: '/healthz', remoteAddress: '127.0.0.1', headers: { 'x-forwarded-for': '203.0.113.9' } });
+    expect(logs).toContain('"remoteAddress":"203.0.113.9"');
+    logs = '';
+    await a.inject({ method: 'GET', url: '/healthz', remoteAddress: '198.51.100.1', headers: { 'x-forwarded-for': '203.0.113.9' } });
+    expect(logs).toContain('"remoteAddress":"198.51.100.1"');
+    expect(logs).not.toContain('203.0.113.9');
+  });
+
   it('answers 503 auth_unavailable and logs when the key set cannot be fetched', async () => {
     const a = app({ verify: async () => { throw new AuthUnavailableError(); } });
     const res = await a.inject({ method: 'GET', url: '/api/v1/me', headers: bearer(await auth.signToken()) });

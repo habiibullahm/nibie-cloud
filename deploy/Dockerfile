@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # Nibie Cloud backend (control plane), single-VPS deployment.
 # Build context is the repository root; deploy/Dockerfile.dockerignore limits it to an allowlist.
-FROM node:22-bookworm-slim
+FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee
 
 # openssl: needed by the Prisma engine. ca-certificates: TLS to Supabase.
 RUN apt-get update \

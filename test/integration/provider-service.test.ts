@@ -66,6 +66,8 @@ describe('ProviderService', () => {
     ['decimal loopback', 'https://2130706433/v1'],
     ['not a url', 'llm.example.com'],
     ['too long', `https://llm.example.com/${'a'.repeat(300)}`],
+    ['a non-standard port', 'https://llm.example.com:8443/v1'],
+    ['a port of another service', 'https://llm.example.com:6379/v1'],
   ])('rejects a base URL with %s', async (_n, baseUrl) => {
     const inst = await mkInstance(s.tenant.id);
     await expect(svc.put(s.tenant.id, inst.id, { baseUrl, model: 'm', apiKey: KEY })).rejects.toThrow();

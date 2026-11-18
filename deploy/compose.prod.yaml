@@ -5,7 +5,7 @@ name: hermes-cloud
 
 services:
   redis:
-    image: redis:7.4
+    image: redis:7.4@sha256:2e3eb11462c4e3759e6972678dd051d150ff54b1e60714b3c33b701260172a90
     restart: unless-stopped
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in /etc/hermes-cloud/backend.env}
@@ -59,7 +59,7 @@ services:
       options: { max-size: "10m", max-file: "5" }
 
   caddy:
-    image: caddy:2.10
+    image: caddy:2.10@sha256:c3d7ee5d2b11f9dc54f947f68a734c84e9c9666c92c88a7f30b9cba5da182adb
     restart: unless-stopped
     network_mode: host
     volumes:

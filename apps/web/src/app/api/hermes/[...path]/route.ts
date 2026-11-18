@@ -6,8 +6,7 @@ import { backendPath, isForwardable } from "@/lib/api/proxy-rules"
  *
  * The backend has no customer auth yet; it accepts one bearer ADMIN_TOKEN and tenant-scoped
  * paths. This handler keeps that token on the server, pins one tenant from env, and forwards only
- * the allowlisted instance endpoints. It is refused in production builds unless explicitly
- * enabled, and it must be replaced by the real customer API once auth exists.
+ * the allowlisted instance endpoints. It is always refused in production builds.
  */
 
 export const dynamic = "force-dynamic"
@@ -21,9 +20,9 @@ function config() {
   const url = process.env.HERMES_API_URL
   const token = process.env.HERMES_ADMIN_TOKEN
   const tenantId = process.env.HERMES_DEV_TENANT_ID
-  const allowInProd = process.env.HERMES_ALLOW_DEV_BRIDGE === "1"
   if (!enabled) return null
-  if (process.env.NODE_ENV === "production" && !allowInProd) return null
+  // Never in a production build: this route holds the operator token and has no user authentication.
+  if (process.env.NODE_ENV === "production") return null
   if (!url || !token || !tenantId) return null
   return { url: url.replace(/\/+$/, ""), token, tenantId, planId: process.env.HERMES_DEV_PLAN_ID }
 }

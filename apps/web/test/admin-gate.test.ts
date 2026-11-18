@@ -18,9 +18,15 @@ describe("admin gate decisions", () => {
     expect(decideAdminGate({ mode: "customer", pending: false, error: false, admin: null })).toBe("unauthorized")
   })
 
-  it("shows the panel for an admin, at aal1 as well (reads need no second factor)", () => {
-    expect(decideAdminGate({ mode: "customer", pending: false, error: false, admin: { email: "boss@nibie.app", aal: "aal1" } })).toBe("panel")
+  it("shows the panel once /admin/me answers (the backend only does so at aal2)", () => {
     expect(decideAdminGate({ mode: "customer", pending: false, error: false, admin: ADMIN })).toBe("panel")
+  })
+
+  it("asks for the second factor when the backend says mfa_required, never 'unauthorized'", () => {
+    expect(decideAdminGate({ mode: "customer", pending: false, error: false, admin: null, mfaRequired: true })).toBe("mfa")
+    // Still loading or an outage wins: the MFA screen appears only on a real answer.
+    expect(decideAdminGate({ mode: "customer", pending: true, error: false, admin: null, mfaRequired: true })).toBe("loading")
+    expect(decideAdminGate({ mode: "mock", pending: false, error: false, admin: null, mfaRequired: true })).toBe("needs-backend")
   })
 
   it("treats a backend outage as loading, never as unauthorized", () => {

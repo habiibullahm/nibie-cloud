@@ -11,8 +11,11 @@ describe('admin authorization rules', () => {
     for (const m of ['GET', 'HEAD', 'OPTIONS', 'get']) expect(mutating(m), m).toBe(false);
   });
 
-  it('lets an allowlisted admin read at aal1', () => {
-    expect(() => assertAdminAllowed(claims('boss@nibie.app', 'aal1'), 'GET', allowed)).not.toThrow();
+  it('lets an allowlisted admin read only at aal2; a read at aal1 is mfa_required', () => {
+    expect(() => assertAdminAllowed(claims('boss@nibie.app', 'aal2'), 'GET', allowed)).not.toThrow();
+    const err = (() => { try { assertAdminAllowed(claims('boss@nibie.app', 'aal1'), 'GET', allowed); } catch (e) { return e as ForbiddenError; } return null; })();
+    expect(err?.code).toBe('mfa_required');
+    expect(err?.status).toBe(403);
   });
 
   it('refuses an email that is not on the allowlist, for reads and writes alike', () => {
@@ -22,7 +25,7 @@ describe('admin authorization rules', () => {
   });
 
   it('matches the allowlist case-insensitively', () => {
-    expect(() => assertAdminAllowed(claims('BOSS@Nibie.App', 'aal1'), 'GET', allowed)).not.toThrow();
+    expect(() => assertAdminAllowed(claims('BOSS@Nibie.App', 'aal2'), 'GET', allowed)).not.toThrow();
   });
 
   it('refuses a write at aal1 with mfa_required, and allows it at aal2', () => {

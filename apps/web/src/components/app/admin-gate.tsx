@@ -8,6 +8,8 @@ import { EmptyState } from "@/components/app/empty-state"
 import { QueryFallback } from "@/components/app/query-fallback"
 import { apiMode } from "@/lib/api"
 import { decideAdminGate } from "@/lib/admin-gate-rules"
+import { useQueryClient } from "@tanstack/react-query"
+import { AdminMfa } from "@/components/app/admin-mfa"
 import { useAdminMe } from "@/hooks/use-admin"
 import { cn } from "@/lib/utils"
 
@@ -59,7 +61,9 @@ export function AdminGate({ children }: { children: React.ReactNode }) {
     pending: me.isPending,
     error: me.error !== null && me.error !== undefined,
     admin: me.data?.admin ?? null,
+    mfaRequired: me.data?.mfaRequired ?? false,
   })
+  const queryClient = useQueryClient()
 
   if (decision === "needs-backend") {
     return (
@@ -77,6 +81,10 @@ export function AdminGate({ children }: { children: React.ReactNode }) {
   }
 
   if (decision === "loading") return <QueryFallback what="akses admin" queries={[me]} />
+  if (decision === "mfa") {
+    // After the code is accepted the session is aal2: ask the backend again and load the panel.
+    return <AdminMfa onVerified={() => void queryClient.invalidateQueries({ queryKey: ["admin"] })} />
+  }
   if (decision === "unauthorized") {
     return (
       <EmptyState
@@ -99,8 +107,7 @@ export function AdminGate({ children }: { children: React.ReactNode }) {
       <div className="flex flex-col gap-1">
         <p className="type-label text-muted-foreground">Panel admin</p>
         <p className="type-mono text-muted-foreground">
-          {admin.email}
-          {admin.aal === "aal2" ? " · 2FA aktif" : " · 2FA belum aktif"}
+          {admin.email} · 2FA aktif
         </p>
       </div>
       <AdminNav />

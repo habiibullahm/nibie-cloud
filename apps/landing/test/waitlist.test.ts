@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import { readConfirmToken, submitConfirm, submitWaitlist, validateWaitlist, waitlistConfirmUrl, waitlistUrl } from "@/lib/waitlist"
+import { turnstileSiteKey } from "@/components/site/turnstile"
 
 const ok = { name: "Siti", email: "siti@example.com", useCase: "Asisten pribadi di Telegram" }
 
@@ -45,7 +46,15 @@ describe("submitWaitlist", () => {
     expect(JSON.parse(String(init.body))).toEqual({ ...ok, website: "" })
   })
 
+  it("sends the captcha token when there is one", async () => {
+    const f = post(200)
+    await submitWaitlist("https://api.test/p", { ...ok, captchaToken: "tok" }, f)
+    const [, init] = (f as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit]
+    expect(JSON.parse(String(init.body))).toEqual({ ...ok, website: "", captchaToken: "tok" })
+  })
+
   it.each([
+    [400, JSON.stringify({ error: { code: "captcha_failed" } }), "captcha"],
     [400, "{}", "invalid"],
     [429, "{}", "rate_limited"],
     [503, JSON.stringify({ error: { code: "waitlist_full" } }), "full"],
@@ -62,6 +71,14 @@ describe("submitWaitlist", () => {
   it("treats a network failure as unavailable", async () => {
     const f = vi.fn(async () => { throw new TypeError("offline") }) as unknown as typeof fetch
     expect(await submitWaitlist("https://api.test/p", ok, f)).toMatchObject({ ok: false, kind: "unavailable" })
+  })
+})
+
+describe("turnstileSiteKey", () => {
+  it("is null when unset or blank, and trimmed otherwise", () => {
+    expect(turnstileSiteKey(undefined)).toBeNull()
+    expect(turnstileSiteKey("  ")).toBeNull()
+    expect(turnstileSiteKey(" 0x4AAA ")).toBe("0x4AAA")
   })
 })
 

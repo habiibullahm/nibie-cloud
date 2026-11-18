@@ -8,6 +8,7 @@ import { freeBetaRemaining } from '../modules/instances/free-beta.js';
 import { renderWaitlistConfirm } from '../modules/billing/email-templates.js';
 import type { Mailer } from '../modules/billing/mailer.js';
 import { CONFIRM_TOKEN_PATTERN, confirmWaitlist, forgetConfirmSend, joinWaitlist } from '../modules/waitlist/waitlist.js';
+import type { CaptchaVerifier } from '../modules/waitlist/turnstile.js';
 import { AppError } from '../shared/errors.js';
 
 /**
@@ -21,6 +22,28 @@ export function clientIp(req: FastifyRequest): string {
   return isIP(last) ? last : req.ip;
 }
 
+/** The first 64 bits of a (valid) IPv6 address, written as `a:b:c:d::/64`. */
+function ipv6Prefix64(ip: string): string {
+  const halves = ip.split('%')[0]!.toLowerCase().split('::');
+  // An embedded IPv4 tail (`::1.2.3.4`) stands for two groups; it only ever sits in the last 32 bits.
+  const groups = (s: string): string[] => (s === '' ? [] : s.split(':')).flatMap((g) => (g.includes('.') ? ['0', '0'] : [g]));
+  const head = groups(halves[0]!);
+  const tail = halves.length > 1 ? groups(halves[1]!) : [];
+  const full = halves.length > 1 ? [...head, ...new Array<string>(8 - head.length - tail.length).fill('0'), ...tail] : head;
+  return `${full.slice(0, 4).map((g) => Number.parseInt(g, 16).toString(16)).join(':')}::/64`;
+}
+
+/**
+ * Rate-limit key for public routes: the client's IPv4 address, or the /64 network of an IPv6 address. One IPv6 customer
+ * usually holds a whole /64, so keying on the full address would give them as many fresh limits as they like.
+ */
+export function rateLimitKey(req: FastifyRequest): string {
+  const ip = clientIp(req);
+  if (isIP(ip) !== 6) return ip;
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(ip);
+  return mapped ? mapped[1]! : ipv6Prefix64(ip);
+}
+
 const control = /[\u0000-\u001f\u007f]/;
 const singleLine = (max: number) => z.string().trim().min(1).max(max).refine((v) => !control.test(v), 'no control characters');
 
@@ -30,6 +53,8 @@ export const waitlistBody = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
   useCase: z.string().trim().min(3).max(500),
   website: z.string().max(500).optional(),
+  /** Cloudflare Turnstile token from the form; required when the backend has a Turnstile secret. */
+  captchaToken: z.string().max(2048).optional(),
 }).strict();
 
 export const confirmBody = z.object({ token: z.string().regex(CONFIRM_TOKEN_PATTERN) }).strict();
@@ -47,6 +72,13 @@ class WaitlistUnavailableError extends AppError {
   }
 }
 
+/** The captcha was missing, wrong, expired or already used. The form shows a fresh one. */
+class CaptchaFailedError extends AppError {
+  constructor() {
+    super('The anti-bot check failed. Please try again.', 400, 'captcha_failed');
+  }
+}
+
 class ConfirmLinkInvalidError extends AppError {
   constructor() {
     super('This confirmation link is not valid or has expired.', 400, 'confirm_link_invalid');
@@ -59,12 +91,13 @@ class ConfirmLinkInvalidError extends AppError {
  * `POST /api/v1/public/waitlist` takes a name, email and use case once the free slots are used and emails a confirmation
  * link; `POST /api/v1/public/waitlist/confirm` turns the entry into a place in line (double opt-in).
  */
-export function registerPublicRoutes(app: FastifyInstance, deps: { prisma: PrismaClient; config: Config; mailer: Mailer | null }): void {
+export function registerPublicRoutes(app: FastifyInstance, deps: { prisma: PrismaClient; config: Config; mailer: Mailer | null; captcha?: CaptchaVerifier | null }): void {
   const { prisma, config } = deps;
+  const captcha = deps.captcha ?? null;
   const mailer = deps.mailer?.enabled ? deps.mailer : null;
   const confirmPage = `${config.dashboardOrigin ?? 'https://cloud.nibie.app'}/daftar-tunggu/konfirmasi`;
   app.register(async (pub) => {
-    await pub.register(rateLimit, { global: true, max: 60, timeWindow: '1 minute', keyGenerator: clientIp });
+    await pub.register(rateLimit, { global: true, max: 60, timeWindow: '1 minute', keyGenerator: rateLimitKey });
     pub.get('/api/v1/public/beta-slots', async (_req, reply) => {
       reply.header('cache-control', 'public, max-age=15');
       return {
@@ -79,14 +112,21 @@ export function registerPublicRoutes(app: FastifyInstance, deps: { prisma: Prism
       // A bot that fills the hidden field gets the same answer as a person, and nothing is stored.
       if (body.website !== undefined && body.website.length > 0) return { ok: true };
       if (!mailer) throw new WaitlistUnavailableError();
+      // Before anything is stored or sent: a person must have solved the captcha.
+      if (captcha) {
+        const outcome = await captcha(body.captchaToken, clientIp(req));
+        if (outcome === 'invalid') throw new CaptchaFailedError();
+        if (outcome === 'unavailable') throw new WaitlistUnavailableError();
+      }
       // A new address and one already on the list look the same from outside, so the list cannot be probed for who joined.
       const result = await joinWaitlist(prisma, { name: body.name, email: body.email, useCase: body.useCase });
       if (result.kind === 'full') throw new WaitlistFullError();
+      if (result.kind === 'busy') throw new WaitlistUnavailableError();
       if (result.kind === 'send') {
         try {
           await mailer.send({
             to: body.email,
-            ...renderWaitlistConfirm({ name: result.name, confirmUrl: `${confirmPage}#t=${result.token}`, validUntil: result.expiresAt }),
+            ...renderWaitlistConfirm({ confirmUrl: `${confirmPage}#t=${result.token}`, validUntil: result.expiresAt }),
           });
         } catch {
           // Let the person ask again at once instead of waiting for the resend interval.

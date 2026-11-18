@@ -5,3 +5,6 @@ dist
 !.env.example
 .superpowers
 *.log
+
+# Local MCP server config for agent sessions (can grant access to the Supabase project)
+.mcp.json

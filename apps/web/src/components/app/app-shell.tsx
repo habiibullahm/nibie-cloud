@@ -19,12 +19,14 @@ const NAV = [
 ]
 
 /**
- * Admin link, shown only when the backend says this account is an admin. Hiding it is convenience,
- * not protection: every `/api/v1/admin/*` call is refused server-side for anyone else.
+ * Admin link, shown only when the backend says this account is an admin, including an admin who still has to
+ * give the second factor (the backend sends `mfa_required` only to accounts on the allowlist, and the page behind
+ * the link is where the authenticator is set up). Hiding it is convenience, not protection: every
+ * `/api/v1/admin/*` call is refused server-side for anyone else.
  */
 function AdminLink({ onNavigate }: { onNavigate?: () => void }) {
   const admin = useAdminMe()
-  if (!admin.data?.admin) return null
+  if (!admin.data?.admin && !admin.data?.mfaRequired) return null
   return (
     <Link
       href="/admin"

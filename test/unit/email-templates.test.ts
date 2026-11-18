@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { escapeHtml, renderEmail, type EmailKind } from '../../src/modules/billing/email-templates.js';
+import { escapeHtml, renderEmail, renderWaitlistConfirm, type EmailKind } from '../../src/modules/billing/email-templates.js';
 
 const ctx = {
   instanceName: 'Bot <script>alert(1)</script> "x"',
@@ -45,6 +45,15 @@ describe('renderEmail', () => {
 
   it('never contains payment internals', () => {
     for (const k of KINDS) expect(JSON.stringify(renderEmail(k, ctx))).not.toMatch(/reference|merchant|signature|apiKey/i);
+  });
+});
+
+describe('renderWaitlistConfirm', () => {
+  it('links to the confirmation page and carries no text typed on the form', () => {
+    const m = renderWaitlistConfirm({ confirmUrl: 'https://cloud.example.test/daftar-tunggu/konfirmasi#t=abc', validUntil: ctx.periodEnd });
+    expect(m.html).toContain('href="https://cloud.example.test/daftar-tunggu/konfirmasi#t=abc"');
+    expect(m.text).toMatch(/^Konfirmasi email Anda\n\nHalo,\n/);
+    expect(m.text).toContain('WIB');
   });
 });
 

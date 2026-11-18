@@ -169,6 +169,8 @@ function validateBaseUrl(raw: unknown): string {
   if (u.protocol !== 'https:' || u.username !== '' || u.password !== '' || u.search !== '' || u.hash !== '') {
     throw new ValidationError('baseUrl must be an https URL without credentials, query or fragment');
   }
+  // Only the standard https port: the test call must not become a way to probe other ports of public hosts.
+  if (u.port !== '') throw new ValidationError('baseUrl must use the standard https port (443)');
   const host = u.hostname.replace(/^\[|\]$/g, '');
   if (isIP(host) !== 0 ? isForbiddenAddress(host) : !host.includes('.')) throw new OutboundBlockedError();
   return `${u.origin}${u.pathname.replace(/\/+$/, '')}`;
