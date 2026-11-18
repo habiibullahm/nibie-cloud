@@ -20,8 +20,9 @@ function apiErrorOf(e: unknown): { status: number; code: string } | null {
  * 403 (or 401) means "not an admin". Both are cached so the dashboard does not probe on every page. Any other failure is
  * surfaced as an error so a real outage is not mistaken for "no access".
  */
-export function useAdminMe() {
+export function useAdminMe(enabled = true) {
   return useQuery({
+    enabled,
     queryKey: ["admin", "me"],
     queryFn: async () => {
       try {
