@@ -217,6 +217,19 @@ add('ops-only-chat', { ...base, OPS_TELEGRAM_CHAT_ID: '42' });
 add('ops-bad-token', { ...base, OPS_TELEGRAM_BOT_TOKEN: 'not-a-token', OPS_TELEGRAM_CHAT_ID: '42' });
 add('ops-bad-chat', { ...base, OPS_TELEGRAM_BOT_TOKEN: botToken, OPS_TELEGRAM_CHAT_ID: '12a' });
 
+// --- Which field errors stop the cross-field rules (zod: an aborting issue skips superRefine) ---
+// Each case pairs one field error with production + HERMES_DISK_QUOTA=off, which the cross-field rules refuse.
+const refineTrigger: Env = { ...base, NODE_ENV: 'production', HERMES_DISK_QUOTA: 'off' };
+for (const [n, extra] of Object.entries({
+  'not-integer': { HERMES_DISK_CHECK_INTERVAL_MS: '1.5' }, 'below-min': { PORT: '0' }, 'not-number': { PORT: 'abc' },
+  infinity: { PORT: 'Infinity' }, 'too-short': { ADMIN_TOKEN: 'x' }, 'missing-required': { DATABASE_URL: '' },
+  'not-ipv4': { HERMES_CANARY_PRIVATE_IP: 'nope' }, 'bad-regex': { MAIL_FROM: 'nope' }, 'bad-origin': { SUPABASE_URL: 'http://x.example.test' },
+  'bad-kek': { SECRETS_KEK: 'abc' }, 'too-long': { TURNSTILE_SECRET_KEY: 't'.repeat(201) }, 'enum-with-default': { PAID_CHECKOUT_OPEN: 'yes' },
+  'unknown-enum': { HERMES_RUNTIME: 'kata' }, 'kek-version-zero': { SECRETS_KEK_VERSION: '0' }, 'callback-too-long': { DUITKU_CALLBACK_URL: `https://x.example.test/${'c'.repeat(250)}` },
+  'bad-email-domain': { NIBIEROUTER_USER_EMAIL_DOMAIN: 'Bad' }, 'bad-admin-emails': { ADMIN_EMAILS: 'nope' },
+})) add(`abort-${n}`, { ...refineTrigger, ...extra });
+add('abort-missing-key', without(refineTrigger, 'HERMES_IMAGE'));
+
 // --- A fully configured production env (used by the Go no-secrets-in-logs test) ---
 add('production-full', {
   ...prodCore, ...mail, ...sumopod, ...duitku, BILLING_GATEWAY: 'both', DUITKU_ENV: 'production', SUMOPOD_ENV: 'production',

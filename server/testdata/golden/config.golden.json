@@ -3398,6 +3398,167 @@
       "OPS_TELEGRAM_CHAT_ID"
     ]
   },
+  "abort-not-integer": {
+    "ok": false,
+    "keys": [
+      "HERMES_DISK_CHECK_INTERVAL_MS"
+    ]
+  },
+  "abort-below-min": {
+    "ok": false,
+    "keys": [
+      "HERMES_DISK_QUOTA",
+      "HERMES_RUNTIME",
+      "PORT",
+      "REDIS_URL",
+      "SECRETS_KEK"
+    ]
+  },
+  "abort-not-number": {
+    "ok": false,
+    "keys": [
+      "PORT"
+    ]
+  },
+  "abort-infinity": {
+    "ok": false,
+    "keys": [
+      "PORT"
+    ]
+  },
+  "abort-too-short": {
+    "ok": false,
+    "keys": [
+      "ADMIN_TOKEN",
+      "HERMES_DISK_QUOTA",
+      "HERMES_RUNTIME",
+      "REDIS_URL",
+      "SECRETS_KEK"
+    ]
+  },
+  "abort-missing-required": {
+    "ok": false,
+    "keys": [
+      "DATABASE_URL",
+      "HERMES_DISK_QUOTA",
+      "HERMES_RUNTIME",
+      "REDIS_URL",
+      "SECRETS_KEK"
+    ]
+  },
+  "abort-not-ipv4": {
+    "ok": false,
+    "keys": [
+      "HERMES_CANARY_PRIVATE_IP",
+      "HERMES_DISK_QUOTA",
+      "HERMES_RUNTIME",
+      "REDIS_URL",
+      "SECRETS_KEK"
+    ]
+  },
+  "abort-bad-regex": {
+    "ok": false,
+    "keys": [
+      "HERMES_DISK_QUOTA",
+      "HERMES_RUNTIME",
+      "MAIL_FROM",
+      "REDIS_URL",
+      "SECRETS_KEK",
+      "SUMOPOD_SMTP_HOST",
+      "SUMOPOD_SMTP_PASS",
+      "SUMOPOD_SMTP_PORT",
+      "SUMOPOD_SMTP_USER"
+    ]
+  },
+  "abort-bad-origin": {
+    "ok": false,
+    "keys": [
+      "HERMES_DISK_QUOTA",
+      "HERMES_RUNTIME",
+      "REDIS_URL",
+      "SECRETS_KEK",
+      "SUPABASE_URL"
+    ]
+  },
+  "abort-bad-kek": {
+    "ok": false,
+    "keys": [
+      "HERMES_DISK_QUOTA",
+      "HERMES_RUNTIME",
+      "REDIS_URL",
+      "SECRETS_KEK"
+    ]
+  },
+  "abort-too-long": {
+    "ok": false,
+    "keys": [
+      "HERMES_DISK_QUOTA",
+      "HERMES_RUNTIME",
+      "REDIS_URL",
+      "SECRETS_KEK",
+      "TURNSTILE_SECRET_KEY"
+    ]
+  },
+  "abort-enum-with-default": {
+    "ok": false,
+    "keys": [
+      "PAID_CHECKOUT_OPEN"
+    ]
+  },
+  "abort-unknown-enum": {
+    "ok": false,
+    "keys": [
+      "HERMES_RUNTIME"
+    ]
+  },
+  "abort-kek-version-zero": {
+    "ok": false,
+    "keys": [
+      "HERMES_DISK_QUOTA",
+      "HERMES_RUNTIME",
+      "REDIS_URL",
+      "SECRETS_KEK",
+      "SECRETS_KEK_VERSION"
+    ]
+  },
+  "abort-callback-too-long": {
+    "ok": false,
+    "keys": [
+      "DUITKU_API_KEY",
+      "DUITKU_CALLBACK_URL",
+      "DUITKU_MERCHANT_CODE",
+      "HERMES_DISK_QUOTA",
+      "HERMES_RUNTIME",
+      "REDIS_URL",
+      "SECRETS_KEK"
+    ]
+  },
+  "abort-bad-email-domain": {
+    "ok": false,
+    "keys": [
+      "HERMES_DISK_QUOTA",
+      "HERMES_RUNTIME",
+      "NIBIEROUTER_USER_EMAIL_DOMAIN",
+      "REDIS_URL",
+      "SECRETS_KEK"
+    ]
+  },
+  "abort-bad-admin-emails": {
+    "ok": false,
+    "keys": [
+      "ADMIN_EMAILS",
+      "HERMES_DISK_QUOTA",
+      "HERMES_RUNTIME",
+      "REDIS_URL",
+      "SECRETS_KEK"
+    ]
+  },
+  "abort-missing-key": {
+    "ok": false,
+    "keys": [
+      "HERMES_IMAGE"
+    ]
+  },
   "production-full": {
     "ok": true,
     "config": {

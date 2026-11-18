@@ -2240,6 +2240,236 @@
     }
   },
   {
+    "name": "abort-not-integer",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "HERMES_DISK_CHECK_INTERVAL_MS": "1.5"
+    }
+  },
+  {
+    "name": "abort-below-min",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "PORT": "0"
+    }
+  },
+  {
+    "name": "abort-not-number",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "PORT": "abc"
+    }
+  },
+  {
+    "name": "abort-infinity",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "PORT": "Infinity"
+    }
+  },
+  {
+    "name": "abort-too-short",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "x",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off"
+    }
+  },
+  {
+    "name": "abort-missing-required",
+    "env": {
+      "DATABASE_URL": "",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off"
+    }
+  },
+  {
+    "name": "abort-not-ipv4",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "HERMES_CANARY_PRIVATE_IP": "nope"
+    }
+  },
+  {
+    "name": "abort-bad-regex",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "MAIL_FROM": "nope"
+    }
+  },
+  {
+    "name": "abort-bad-origin",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "SUPABASE_URL": "http://x.example.test"
+    }
+  },
+  {
+    "name": "abort-bad-kek",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "SECRETS_KEK": "abc"
+    }
+  },
+  {
+    "name": "abort-too-long",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "TURNSTILE_SECRET_KEY": "ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt"
+    }
+  },
+  {
+    "name": "abort-enum-with-default",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "PAID_CHECKOUT_OPEN": "yes"
+    }
+  },
+  {
+    "name": "abort-unknown-enum",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "HERMES_RUNTIME": "kata"
+    }
+  },
+  {
+    "name": "abort-kek-version-zero",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "SECRETS_KEK_VERSION": "0"
+    }
+  },
+  {
+    "name": "abort-callback-too-long",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "DUITKU_CALLBACK_URL": "https://x.example.test/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  },
+  {
+    "name": "abort-bad-email-domain",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "NIBIEROUTER_USER_EMAIL_DOMAIN": "Bad"
+    }
+  },
+  {
+    "name": "abort-bad-admin-emails",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "ADMIN_EMAILS": "nope"
+    }
+  },
+  {
+    "name": "abort-missing-key",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off"
+    }
+  },
+  {
     "name": "production-full",
     "env": {
       "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
