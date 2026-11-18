@@ -80,6 +80,22 @@ describe('billing API', () => {
       expect((await checkout(a, await user('invited@example.test'))).statusCode).toBe(201);
     });
 
+    it('PAID_CHECKOUT_OPEN=false also lets an account that only has a database invite start a purchase, until it is revoked', async () => {
+      await prisma.betaInvite.create({ data: { email: 'table-invited@example.test' } });
+      const a = buildServer({
+        service: env.service, commands: env.commands, logger: silentLogger,
+        config: testConfig('hermes-stub:0.2.0', TEST_MASTER_KEY, { paidCheckoutOpen: false, billing: billingCfg, maxInstancesPerTenant: 1 }),
+        customer: { verify: auth.verify, identity: new IdentityService({ prisma }), prisma },
+        billing: env.billing,
+      });
+      expect((await checkout(a, await user('stranger@example.test'))).statusCode).toBe(403);
+      expect((await checkout(a, await user('Table-Invited@example.test'))).statusCode).toBe(201);
+      await prisma.betaInvite.updateMany({ data: { revokedAt: new Date() } });
+      const refused = await checkout(a, await user('table-invited@example.test'));
+      expect(refused.statusCode).toBe(403);
+      expect(refused.json().error.code).toBe('billing_not_open');
+    });
+
     it('is open to everyone once a production gateway is configured', async () => {
       const a = sandboxApp({ ...billingCfg, duitku: { ...billingCfg.duitku, env: 'production' } });
       expect((await checkout(a, await user('stranger@example.test'))).statusCode).toBe(201);

@@ -171,7 +171,9 @@ Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
   sets `cache-control: no-store`; the whole surface is rate-limited; each request is written to
   `AuditLog` (`AuditService`). Every route, reads included, requires `aal2` (MFA TOTP): an allowlisted admin
   at `aal1` gets `403 mfa_required` and the dashboard's `AdminMfa` screen enrols or challenges a TOTP factor through
-  Supabase Auth. Routes that change data are phase B — not implemented yet. The plugin is
+  Supabase Auth. Beta invites (`GET/POST /beta-invites`, `POST /beta-invites/:id/revoke`, table `BetaInvite`, checked in
+  `customer-routes.ts` next to `BETA_ALLOWED_EMAILS`) are the only routes that change data so far: each needs a reason and writes its
+  `AuditLog` row in the same transaction. The rest of phase B is not implemented yet. The plugin is
   registered only when `SUPABASE_URL` is set. It must never import `secrets/secret-store` and must not
   select ciphertext or wrapped-key columns (test-enforced, like the operator/customer plugins).
 - **Dashboard data layer** (`apps/web/src/lib/api`): a typed `HermesApi` with an in-browser mock
@@ -188,7 +190,7 @@ Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
   pure and tested in `apps/web/src/lib/admin-gate-rules.ts`). `AdminGate` asks `/admin/me`; a
   non-admin sees "Tidak berwenang" with no hint of who is an admin, and the sidebar link appears only
   after `/admin/me` answers. Pages: Ringkasan, Pelanggan (+detail), Instance (+detail), Langganan &
-  pembayaran, Plan, Node, Job gagal, Audit. Guarding is server-side; hiding UI is convenience only.
+  pembayaran, Daftar tunggu, Undangan beta, Plan, Node, Job gagal, Audit. Guarding is server-side; hiding UI is convenience only.
 
 ## UI and design system
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ApiError } from "@/lib/api"
 import { getAdminApi, type AdminApi } from "@/lib/api/admin"
 /**
@@ -51,6 +51,7 @@ export const adminKeys = {
   subscriptions: ["admin", "subscriptions"] as const,
   payments: ["admin", "payments"] as const,
   audit: ["admin", "audit"] as const,
+  betaInvites: ["admin", "beta-invites"] as const,
 }
 
 const LONG = 30_000
@@ -101,6 +102,35 @@ export function useAdminPayments() {
 
 export function useAdminAudit() {
   return useQuery({ queryKey: adminKeys.audit, queryFn: () => getAdminApi().audit(), staleTime: LONG })
+}
+
+export function useAdminBetaInvites() {
+  return useQuery({ queryKey: adminKeys.betaInvites, queryFn: () => getAdminApi().betaInvites(), staleTime: LONG })
+}
+
+/** A change shows in the list and in the audit trail, so both are refetched. */
+function useRefreshAfterInviteChange() {
+  const qc = useQueryClient()
+  return () => {
+    void qc.invalidateQueries({ queryKey: adminKeys.betaInvites })
+    void qc.invalidateQueries({ queryKey: adminKeys.audit })
+  }
+}
+
+export function useAddBetaInvite() {
+  const refresh = useRefreshAfterInviteChange()
+  return useMutation({
+    mutationFn: (input: { email: string; note?: string; reason: string }) => getAdminApi().addBetaInvite(input),
+    onSuccess: refresh,
+  })
+}
+
+export function useRevokeBetaInvite() {
+  const refresh = useRefreshAfterInviteChange()
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => getAdminApi().revokeBetaInvite(id, reason),
+    onSuccess: refresh,
+  })
 }
 
 export type { AdminApi }
