@@ -81,16 +81,19 @@ export function billingNotice(sub: BillingSubscription | null): BillingNotice | 
 export type ReturnState = "waiting" | "paid" | "failed"
 
 /**
- * After Duitku sends the customer back, the backend callback may still be on its way. Decide from the
- * subscription list: a purchase whose invoice is still payable or just unpaid is "waiting", one whose
- * invoice failed or expired is "failed" (offer to pay again), none left is "paid".
+ * After the gateway sends the customer back, the backend callback may still be on its way. Judge only
+ * the most recently issued invoice (the one the customer just returned from), so older abandoned
+ * purchases with expired invoices do not turn a successful payment into "failed".
+ * shortcut: "most recent" is the latest expiresAt (issue time + fixed expiry) because the customer API
+ * does not expose the merchant order id from `?payment=`; match on that id if it is ever exposed.
  */
 export function evaluateReturn(subs: BillingSubscription[], now = Date.now()): ReturnState {
-  const pending = subs.filter(isPendingPurchase)
-  if (pending.length === 0) return "paid"
-  const failed = pending.some((s) => {
-    const p = s.latestPayment
-    return !p || p.status === "FAILED" || p.status === "EXPIRED" || (p.status === "PENDING" && new Date(p.expiresAt).getTime() <= now)
-  })
-  return failed ? "failed" : "waiting"
+  const latest = subs
+    .map((s) => s.latestPayment)
+    .filter((p): p is BillingPayment => p !== null)
+    .reduce<BillingPayment | null>((a, p) => (!a || Date.parse(p.expiresAt) > Date.parse(a.expiresAt) ? p : a), null)
+  if (!latest) return subs.some(isPendingPurchase) ? "failed" : "paid"
+  if (latest.status === "PAID") return "paid"
+  if (latest.status === "PENDING" && Date.parse(latest.expiresAt) > now) return "waiting"
+  return "failed"
 }
