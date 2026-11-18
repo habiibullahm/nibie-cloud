@@ -7,7 +7,7 @@ milestone that will port it, or why it is not ported. A milestone's PR fills in 
 Status: `golden` (covered by a Node-generated golden fixture), `ported`, `later: M<n>`, `not ported: <reason>`.
 One row per `it(`, `test(` or `it.each(` line; an `it.each` row stands for all of its cases.
 
-Rows: 916 (golden 72, ported 8, later 834, not ported 2).
+Rows: 917 (golden 72, ported 8, later 835, not ported 2).
 
 | TS file | TS test | Go test | Status |
 | --- | --- | --- | --- |
@@ -588,6 +588,7 @@ Rows: 916 (golden 72, ported 8, later 834, not ported 2).
 | `test/integration/customer-api.test.ts` | validates the body, the idempotency key and the plan id |  | later: M3 |
 | `test/integration/customer-api.test.ts` | refuses an inactive plan with 404 and creates nothing |  | later: M3 |
 | `test/integration/customer-api.test.ts` | never lets one user see or act on another user\ |  | later: M3 |
+| `test/integration/customer-api.test.ts` | says on /me whether the caller is an admin, and only the caller |  | later: M3 |
 | `test/integration/customer-api.test.ts` | ignores a tenant id smuggled in the query string |  | later: M3 |
 | `test/integration/customer-auth.test.ts` | returns the opaque 401 for missing, malformed, oversized and expired credentials |  | later: M3 |
 | `test/integration/customer-auth.test.ts` | serves /api/v1/me to a valid user and creates their tenant on first use |  | later: M3 |

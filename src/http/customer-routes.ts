@@ -53,7 +53,9 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
 
     api.get('/me', async (req) => {
       const p = principalOf(req);
-      return { id: p.userId, email: p.email, tenantId: p.tenantId };
+      // `admin` tells the dashboard whether to ask the admin API at all, so a customer never calls it. It says nothing
+      // about anyone else, and the admin API still checks the allowlist and aal2 itself.
+      return { id: p.userId, email: p.email, tenantId: p.tenantId, admin: admins.has(p.email.toLowerCase()) };
     });
 
     // Resource limits, plus the monthly price once the operator has set one (null: not for sale, PRD 5.2).

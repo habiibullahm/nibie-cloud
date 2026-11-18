@@ -17,7 +17,7 @@ On the owner's decision to move the backend from Node.js to Go (reason: memory a
   that reads Prisma's `DATABASE_URL`, goose copies of all 17 Prisma migrations with a schema golden (identical to the Prisma-built schema),
   River as the version after them (18), `migrate up|status|baseline` (baseline refuses anything but a clean Prisma history), `/healthz` and `/readyz`,
   `serve` on loopback with graceful stop, `healthcheck`, a 15 MB distroless image (idle 3.4 MiB, M0 does no product work yet), CI job
-  `backend-go`, `server/TEST-MAP.md` (916 TS test cases mapped: 72 golden, 8 ported, 834 later, 2 not ported).
+  `backend-go`, `server/TEST-MAP.md` (917 TS test cases mapped: 72 golden, 8 ported, 835 later, 2 not ported).
 - **Not done / not verified:** no product route is ported (M1–M6); River on Supabase's session pooler is untested (only local Postgres);
   nothing deployed. **Merging this branch triggers an automatic redeploy of the unchanged Node backend**, because
   `ops/host/hermes-auto-deploy.sh` counts `deploy/` (which now holds `Dockerfile.go`) as a backend path.
@@ -25,6 +25,20 @@ On the owner's decision to move the backend from Node.js to Go (reason: memory a
 - `main` gained admin API keys (PR #65) and plan stock (PR #73, migration `20261119200000_add_plan_stock_limit`) after the spec was
   written: their tests are mapped to M6 in TEST-MAP, and the plan-stock migration is copied as goose 00017. Every new Prisma
   migration on `main` before M8 needs its goose copy and a bump of `PrismaMigrations` (River follows automatically).
+
+## Customers no longer call the admin API (2026-11-19, branch `claude/no-admin-probe-for-customers`, PR #74, not merged)
+
+- **Why:** the owner saw every customer's browser call `GET /api/v1/admin/me` (403 `forbidden`) from the sidebar's Admin link.
+  No data leaked, but it told every customer the admin API exists.
+- **Change:** customer `GET /api/v1/me` now also returns `admin` (true only when the caller's own email is on `ADMIN_EMAILS`).
+  The dashboard's `AdminLink` calls `/admin/me` only when that flag is true. `AdminGate` on `/admin` pages still asks `/admin/me`
+  directly. The admin API's own checks (allowlist, `aal2`) are unchanged; the flag is a hint, not protection.
+- **Quiet console:** the dashboard's `[nibie-api] ... failed` line (`apps/web/src/lib/api/live.ts`) is logged in development
+  builds only; production users see the error in the UI, not in the browser console.
+- **Checks** (Windows): backend `tsc` clean; integration `customer-api` 22 of 22 (one new test); dashboard typecheck, lint, 167 of 167
+  (plus one new console test, `customer-api.test.ts` 17 of 17).
+- **Deploy order:** a dashboard deployed before the backend hides the Admin link until the backend is live (admins can still open
+  `/dashboard/admin` directly).
 
 ## Plan stock managed from the admin panel (2026-11-19)
 
