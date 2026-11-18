@@ -4,6 +4,15 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Payment return page said "Payment not completed" after a successful payment (2026-11-19, branch `claude/payment-return-fix`)
+
+Bug: on `/dashboard/instances?payment=...` the dashboard showed "Payment not completed" right after a PAID purchase (the owner's
+instance was created and chat worked end to end), because `evaluateReturn` (`apps/web/src/lib/billing.ts`) returned `failed` when
+*any* older abandoned purchase had an EXPIRED invoice. Now it judges only the most recently issued invoice (latest `expiresAt`; the
+customer API does not expose the merchant order id in `?payment=`). Older expired purchases still appear under "Awaiting payment"
+as expired. Dashboard only, no backend change. Checked: web `test/billing.test.ts` (14 pass, new regression case), `typecheck`,
+`lint`. Not checked in a browser. Goes live through Cloudflare Workers Builds once merged to `main`.
+
 ## Automatic backend deploy from main (2026-11-19)
 
 On the owner's word ("set auto deployment on main for all services"):
