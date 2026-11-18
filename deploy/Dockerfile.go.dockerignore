@@ -1,0 +1,5 @@
+# Allowlist: only the Go module. Never copies .env, .git, src/, apps/, docs/ or test/.
+**
+!server
+# Dev tool (TypeScript golden generator), not part of the image.
+server/testdata/golden/gen
