@@ -63,12 +63,17 @@ On the owner's word ("set auto deployment on main for all services"):
   `authorized_keys.bak-autodeploy-*` next to it). Done on GitHub: secrets `DEPLOY_SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_KNOWN_HOSTS`. The
   private key exists only in the GitHub secret.
 - Dashboard, landing and docs already deployed from `main` through Cloudflare Workers Builds; unchanged.
-- PR #65 (admin Pengaturan, keys, MCP) merged as `ef22712` before this; its migration `20261119100000_add_admin_api_key` goes out
-  with the first automatic deploy.
-- Not tested before merging: a dry run of the wrapper on the host (blocked in this session); the first workflow run is the test.
+- **First run worked:** merging PR #69 (`329b90f`) ran CI, then deploy run 44376649803: dump, build `329b90f`, migrations, recreate,
+  "OK: backend 329b90f is ready (previous tag was b6d0d56)". Full log on the host in `/var/log/hermes-deploy/`. A dry run of the
+  wrapper on the host was not done (blocked in that session); this real run was the test.
+- **From now on, merging to main deploys the backend**, migrations included, whenever backend paths change.
+
 ## Admin Pengaturan page, admin keys and admin MCP (2026-11-19)
 
-**PR #65, merged as `ef22712`; goes live with the first automatic deploy (migration `20261119100000_add_admin_api_key`):**
+**PR #65, merged as `ef22712`, live since the first automatic deploy (`329b90f`, migration `20261119100000_add_admin_api_key` applied):**
+- **Checked live:** `/dashboard/admin/pengaturan` in the owner's Chrome shows all four cards with real values and no secret, and the
+  key list loads (no keys yet). From outside, `POST /api/v1/admin/mcp` answers 401 with no key and with a wrong key. No key was
+  created and no Claude Code client has connected yet.
 - **Why:** the owner asked for an admin settings page like NibieRouter's, plus admin keys and an admin MCP server so Claude Code
   can do the panel's work.
 - **Pengaturan page** (`/dashboard/admin/pengaturan`): read only. Cards Penagihan, Email, Masuk & beta, AI / NibieRouter from the new
