@@ -19,8 +19,8 @@ On the owner's decision to move the backend from Node.js to Go (reason: memory a
   `serve` on loopback with graceful stop, `healthcheck`, a 15 MB distroless image (idle 3.4 MiB, M0 does no product work yet), CI job
   `backend-go`, `server/TEST-MAP.md` (917 TS test cases mapped: 72 golden, 8 ported, 835 later, 2 not ported).
 - **Not done / not verified:** no product route is ported (M1–M6); River on Supabase's session pooler is untested (only local Postgres);
-  nothing deployed. **Merging this branch triggers an automatic redeploy of the unchanged Node backend**, because
-  `ops/host/hermes-auto-deploy.sh` counts `deploy/` (which now holds `Dockerfile.go`) as a backend path.
+  nothing deployed. Merging this branch does not redeploy production: the Go image is `server/Dockerfile`, outside the paths
+  `ops/host/hermes-auto-deploy.sh` watches (`src`, `prisma`, `package.json`, `pnpm-lock.yaml`, `tsconfig.json`, `deploy`).
 - **Rule while the port runs:** the Node backend takes bug and security fixes only; each one gets a row in `server/TEST-MAP.md`.
 - `main` gained admin API keys (PR #65) and plan stock (PR #73, migration `20261119200000_add_plan_stock_limit`) after the spec was
   written: their tests are mapped to M6 in TEST-MAP, and the plan-stock migration is copied as goose 00017. Every new Prisma

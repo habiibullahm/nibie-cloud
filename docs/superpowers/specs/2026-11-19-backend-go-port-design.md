@@ -76,7 +76,8 @@ Every dependency is pinned in `go.sum`. Adding a dependency beyond this table ne
 
 **Config:** the same variable names and the same production refusals as `src/config/env.ts`, for example `HERMES_DISK_QUOTA=off`, an unpinned image, a missing `HERMES_RUNTIME` or a missing Turnstile secret while the waiting list is on. `NODE_ENV` keeps its name so `/etc/hermes-cloud/backend.env` is reused unchanged. `REDIS_URL` is read and ignored with a warning, and it stops being required in production.
 
-**Image:** `deploy/Dockerfile.go` is a multi-stage build. The final stage is `gcr.io/distroless/static-debian12:nonroot` pinned by digest and holds one binary (`/hermes-cloud`). `group_add: DOCKER_GID`, `cap_drop: ALL`, `no-new-privileges` and `network_mode: host` stay as in `deploy/compose.prod.yaml`.
+**Image:** `server/Dockerfile` (build context `server/`) is a multi-stage build. It stays out of `deploy/` until M8, because a
+change under `deploy/` triggers the automatic production deploy. The final stage is `gcr.io/distroless/static-debian12:nonroot` pinned by digest and holds one binary (`/hermes-cloud`). `group_add: DOCKER_GID`, `cap_drop: ALL`, `no-new-privileges` and `network_mode: host` stay as in `deploy/compose.prod.yaml`.
 
 ## 3. Database and migrations
 
@@ -143,7 +144,7 @@ Each host step needs the owner's own words for that step (`approval-phrases`).
 1. M0–M7 are merged to `main`. The production compose still builds the Node image.
 2. With owner approval, run `hermes-cloud migrate baseline` and `migrate up` against production, using the Go image through `docker compose run --rm --no-deps`. Only goose's version table and River's tables are added.
 3. Prepare the cutover commit:
-   - `compose.prod.yaml` builds `deploy/Dockerfile.go`.
+   - `compose.prod.yaml` builds `server/Dockerfile` (context `server/`).
    - The healthcheck becomes `["CMD", "/hermes-cloud", "healthcheck"]`.
    - `deploy.sh` runs `/hermes-cloud migrate up` instead of `prisma migrate deploy`.
 4. Fix `deploy.sh`: its automatic rollback after a failed `/readyz` resets `BACKEND_TAG` and recreates the backend, but does not restore the git checkout. Only the migration-failure path does that today. With a cross-language rollback, the old image would run under the new compose file and its `node`-less healthcheck. The fix also checks out `$previous_tag` before recreating, which benefits normal deploys too.
@@ -179,7 +180,7 @@ Each milestone is one PR, merged to `main` and not deployed until M8. The Node b
 
 | # | Scope | Gate |
 | --- | --- | --- |
-| M0 | Module, config parity, logger + redaction, pgx pool + schema rewrite, `sqlc`, goose copies of every Prisma migration plus River, `migrate`/`healthcheck` subcommands, `/healthz` `/readyz`, `Dockerfile.go`, CI job (`go vet`, `staticcheck`, `go test`), golden-fixture generator | Config tests accept and refuse the same env as `test/unit/config.test.ts`. The goose-built `hermes_test` schema diffs clean against the Prisma-built one (`pg_dump --schema-only`). River starts on a session-mode connection. |
+| M0 | Module, config parity, logger + redaction, pgx pool + schema rewrite, `sqlc`, goose copies of every Prisma migration plus River, `migrate`/`healthcheck` subcommands, `/healthz` `/readyz`, `server/Dockerfile`, CI job (`go vet`, `staticcheck`, `go test`), golden-fixture generator | Config tests accept and refuse the same env as `test/unit/config.test.ts`. The goose-built `hermes_test` schema diffs clean against the Prisma-built one (`pg_dump --schema-only`). River starts on a session-mode connection. |
 | M1 | `internal/runtime`: Docker manager, hardening, API key, image policy, volume quota, network policy, egress canary, DNS, runtime availability, health | Create-spec and HMAC goldens match. The `runtime-manager-live` port passes. |
 | M2 | `internal/instances` + `internal/jobs`: state machine, lease and fencing, service, commands, River worker, periodic maintenance, sweeper, reconciler, disk monitor; operator routes; `cmd/demo` | Concurrency (409), recovery and reaper tests pass on a real daemon. The demo runs provision → restart → kill → recover. |
 | M3 | `internal/auth`, customer routes, public routes, beta gate, waitlist (Turnstile, double opt-in, rate caps, inviter), free beta | Customer, auth and waitlist tests mapped and green |

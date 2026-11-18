@@ -28,7 +28,7 @@ deployed.
 ## Commands
 
 Go 1.27.4 (`go.mod`). On a machine without Go, run the same commands in the pinned image (`golang:1.27.4-bookworm@sha256:4fa7c968…`, the
-digest is in `deploy/Dockerfile.go`) with the repository mounted and `-w /src/server`.
+digest is in `server/Dockerfile`) with the repository mounted and `-w /src/server`.
 
 ```bash
 cd server
@@ -61,7 +61,9 @@ back, and `goose_db_version` records no migration (goose's own version-0 row is 
 ## Image
 
 ```bash
-docker build -f deploy/Dockerfile.go -t hermes-cloud-backend-go .    # from the repository root
+docker build -t hermes-cloud-backend-go server    # from the repository root
 ```
 
 Distroless, non-root, one static binary (about 15 MB). The container healthcheck is `/hermes-cloud healthcheck`.
+The Dockerfile lives in `server/`, not `deploy/`, on purpose: a change under `deploy/` makes
+`ops/host/hermes-auto-deploy.sh` redeploy production, and the Go image must not touch production before M8.

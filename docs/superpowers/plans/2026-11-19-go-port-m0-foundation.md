@@ -273,7 +273,7 @@
 ### Task 9: Container image
 
 **Files:**
-- Create: `deploy/Dockerfile.go`, `deploy/Dockerfile.go.dockerignore`
+- Create: `deploy/Dockerfile.go`, `deploy/Dockerfile.go.dockerignore` (moved after M0 to `server/Dockerfile` and `server/.dockerignore`, so merging does not redeploy production)
 
 **Interfaces:**
 - Produces: image entrypoint `/hermes-cloud`, default command `serve`, user `nonroot`, `EXPOSE 3000`.
