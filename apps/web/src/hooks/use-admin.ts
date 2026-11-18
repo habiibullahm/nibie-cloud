@@ -52,6 +52,7 @@ export const adminKeys = {
   payments: ["admin", "payments"] as const,
   audit: ["admin", "audit"] as const,
   betaInvites: ["admin", "beta-invites"] as const,
+  apiKeys: ["admin", "api-keys"] as const,
 }
 
 const LONG = 30_000
@@ -129,6 +130,34 @@ export function useRevokeBetaInvite() {
   const refresh = useRefreshAfterInviteChange()
   return useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) => getAdminApi().revokeBetaInvite(id, reason),
+    onSuccess: refresh,
+  })
+}
+
+export function useAdminApiKeys() {
+  return useQuery({ queryKey: adminKeys.apiKeys, queryFn: () => getAdminApi().apiKeys(), staleTime: LONG })
+}
+
+function useRefreshAfterKeyChange() {
+  const qc = useQueryClient()
+  return () => {
+    void qc.invalidateQueries({ queryKey: adminKeys.apiKeys })
+    void qc.invalidateQueries({ queryKey: adminKeys.audit })
+  }
+}
+
+export function useCreateApiKey() {
+  const refresh = useRefreshAfterKeyChange()
+  return useMutation({
+    mutationFn: (input: { name: string; expiresInDays: number | null; reason: string }) => getAdminApi().createApiKey(input),
+    onSuccess: refresh,
+  })
+}
+
+export function useRevokeApiKey() {
+  const refresh = useRefreshAfterKeyChange()
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) => getAdminApi().revokeApiKey(id, reason),
     onSuccess: refresh,
   })
 }

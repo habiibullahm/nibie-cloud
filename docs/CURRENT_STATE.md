@@ -4,6 +4,31 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Admin Pengaturan page, admin keys and admin MCP (2026-11-19)
+
+**PR #65, branch `claude/admin-settings-mcp` (not deployed; migration applied only to local `hermes_test`):**
+- **Why:** the owner asked for an admin settings page like NibieRouter's, plus admin keys and an admin MCP server so Claude Code
+  can do the panel's work.
+- **Pengaturan page** (`/dashboard/admin/pengaturan`): read only. Cards Penagihan, Email, Masuk & beta, AI / NibieRouter from the new
+  `settings` object on `GET /api/v1/admin/system`. It shows modes, counts and names (gateway, sandbox/production, sender address,
+  default model); never a key, token, password, URL or email list (test-enforced). Changes still go through the server env file.
+- **Admin keys** (new table `AdminApiKey`, migration `20261119100000_add_admin_api_key`, RLS on): created on the Pengaturan page by an
+  admin at `aal2`, with a name, a reason and an expiry of 30, 90 or 365 days or none. Shown once; only the SHA-256 hash is stored. A
+  key stands for its creator at `aal2`, stops working when revoked, expired or when the creator leaves `ADMIN_EMAILS`, and cannot
+  list, create or revoke keys (`403 session_required`). Every use is audited with `detail.via = 'key'` and the key prefix.
+- **Admin MCP** (`POST /api/v1/admin/mcp`, dependency `@modelcontextprotocol/sdk` 1.32.2): 16 tools, the panel's reads plus
+  `add_beta_invite` / `revoke_beta_invite` (reason required). Each tool calls the existing admin route through `inject`, so the same
+  auth, validation, rate limit (120/min per admin; one tool call counts twice) and audit apply. Caddy already forwards
+  `/api/v1/admin/*`, so no proxy change is needed.
+- **Risk to know:** a key skips MFA. Anyone holding it reads every customer's data and can change beta invites. Keep expiries short.
+- **Checks** (Windows, local Docker Postgres `hermes_test`):
+  - Backend `tsc` clean. Unit tests 537 passed, 2 failed (the known Windows-only `egress-canary` tests).
+  - Integration: `admin-api-keys` (new, 6), `admin-api`, `admin-beta-invites`, `admin-auth`, `beta-invites`: all pass.
+  - Dashboard: typecheck, lint, 166 of 166 tests, `next build` (route `/admin/pengaturan`). The new test caught "Tanpa batas"
+    being sent as 30 days; fixed before this entry.
+  - Not done: the page was not opened in a browser, and no real Claude Code client has called the MCP endpoint yet (only the
+    JSON-RPC calls in the integration test).
+
 ## Beta invite sends an email (2026-11-19, merged as PR #66 `536e9c4`, deployed to the VPS the same day)
 
 Bug: "Tambah undangan" in the admin panel only wrote a `BetaInvite` row; nothing emailed the person, so invited users never

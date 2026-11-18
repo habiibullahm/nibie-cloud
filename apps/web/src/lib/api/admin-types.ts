@@ -22,6 +22,50 @@ export interface AdminSystem {
   /** `FREE_BETA_SLOTS`: 0 means the free beta (and its waiting list) is off. */
   freeBetaSlots: number
   adminEmails: number
+  /** The Pengaturan page: read from the server env. Modes, counts and names only, never a secret. */
+  settings: AdminSettings
+}
+
+export interface AdminSettings {
+  billing: {
+    gateway: "sumopod" | "duitku" | "both" | null
+    paidCheckoutOpen: boolean
+    sumopod: { env: "sandbox" | "production"; webhookSigned: boolean } | null
+    duitku: { env: "sandbox" | "production" } | null
+  }
+  email: { configured: boolean; from: string | null }
+  signIn: {
+    supabase: boolean
+    adminEmails: number
+    betaAllowedEmails: number
+    freeBetaSlots: number
+    turnstile: boolean
+    maxInstancesPerTenant: number
+    maxTotalInstances: number | null
+  }
+  ai: { configured: boolean; defaultModel: string | null; userEmailDomain: string | null }
+  /** Path of the admin MCP endpoint on the API origin. */
+  mcpPath: string
+}
+
+/** An admin API key as the list shows it. The key itself is only ever in `AdminApiKeyCreated`. */
+export interface AdminApiKey {
+  id: string
+  name: string
+  /** First characters of the key, to recognise it. */
+  prefix: string
+  createdByEmail: string
+  createdAt: string
+  /** Null: no expiry. */
+  expiresAt: string | null
+  revokedAt: string | null
+  lastUsedAt: string | null
+}
+
+export interface AdminApiKeyCreated {
+  key: AdminApiKey
+  /** Shown once; the backend keeps only a hash. */
+  plaintext: string
 }
 
 export interface AdminOverview {

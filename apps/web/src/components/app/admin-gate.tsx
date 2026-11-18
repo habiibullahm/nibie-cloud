@@ -24,6 +24,7 @@ const ADMIN_NAV = [
   { href: "/admin/node", label: "Node" },
   { href: "/admin/job", label: "Job gagal" },
   { href: "/admin/audit", label: "Audit" },
+  { href: "/admin/pengaturan", label: "Pengaturan" },
 ]
 
 function AdminNav() {
