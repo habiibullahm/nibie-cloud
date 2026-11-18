@@ -2,7 +2,9 @@ package config
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -82,6 +84,51 @@ func TestLogValueHasNoSecrets(t *testing.T) {
 	}
 	if s := cfg.String(); strings.Contains(s, env["ADMIN_TOKEN"]) {
 		t.Errorf("String() leaks ADMIN_TOKEN")
+	}
+}
+
+// TestNoSecretsInAnyRendering: the Config and every sub-struct that holds a secret stay safe under every
+// way Go code usually prints a value: slog, %v, %+v, %#v, %s, and JSON (which must refuse).
+func TestNoSecretsInAnyRendering(t *testing.T) {
+	env := caseEnv(t, "production-full")
+	cfg, err := Load(env)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var secrets []string
+	for _, k := range []string{
+		"ADMIN_TOKEN", "HERMES_MASTER_KEY", "SECRETS_KEK", "SECRETS_KEK_PREVIOUS", "SUMOPOD_SMTP_PASS", "DUITKU_API_KEY",
+		"SUMOPOD_API_KEY", "SUMOPOD_WEBHOOK_TOKEN", "SUMOPOD_WEBHOOK_SECRET", "NIBIEROUTER_ADMIN_KEY",
+		"OPS_TELEGRAM_BOT_TOKEN", "TURNSTILE_SECRET_KEY", "DATABASE_URL",
+	} {
+		secrets = append(secrets, env[k])
+	}
+	// The raw KEK bytes as fmt prints them (decimal list and Go-syntax hex).
+	for _, key := range [][]byte{cfg.Secrets.Current.Key, cfg.Secrets.Previous.Key} {
+		secrets = append(secrets, strings.Trim(fmt.Sprint(key[:4]), "[]"), fmt.Sprintf("%#v", key[:4])[len("[]byte{"):len(fmt.Sprintf("%#v", key[:4]))-1])
+	}
+	values := map[string]any{
+		"Config": cfg, "*Config": &cfg, "Mail": cfg.Mail, "Billing": cfg.Billing, "Duitku": cfg.Billing.Duitku,
+		"SumoPod": cfg.Billing.SumoPod, "Router": cfg.Router, "Telegram": cfg.Ops.Telegram, "Ops": cfg.Ops,
+		"Secrets": cfg.Secrets, "Kek": cfg.Secrets.Current, "*Kek": cfg.Secrets.Previous,
+	}
+	for name, v := range values {
+		var buf bytes.Buffer
+		slog.New(slog.NewJSONHandler(&buf, nil)).Info("x", "v", v)
+		renderings := map[string]string{
+			"slog": buf.String(), "%v": fmt.Sprintf("%v", v), "%+v": fmt.Sprintf("%+v", v),
+			"%#v": fmt.Sprintf("%#v", v), "%s": fmt.Sprintf("%s", v),
+		}
+		if b, err := json.Marshal(v); err == nil {
+			t.Errorf("%s: json.Marshal must refuse, got %s", name, b)
+		}
+		for how, out := range renderings {
+			for _, s := range secrets {
+				if s != "" && strings.Contains(out, s) {
+					t.Errorf("%s via %s leaks a secret: %s", name, how, out)
+				}
+			}
+		}
 	}
 }
 
