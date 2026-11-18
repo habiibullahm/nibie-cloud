@@ -4,7 +4,8 @@ Managed hosting for Hermes AI agents: one dedicated, isolated container plus one
 Product source of truth: `docs/prd.md`. **Not production-ready** (open gaps: `docs/architecture.md`,
 "Known gaps and deferred security work").
 
-Five standalone packages, no pnpm workspace; each has its own `package.json` and lockfile:
+Five standalone pnpm packages, no pnpm workspace; each has its own `package.json` and lockfile. The Go port of the
+backend is a separate Go module in `server/`:
 
 | Package | Path | What it is | Details |
 | --- | --- | --- | --- |
@@ -13,6 +14,7 @@ Five standalone packages, no pnpm workspace; each has its own `package.json` and
 | Docs `@hermes-cloud/docs` | `apps/docs/` | Customer docs site (Fumadocs, Next.js 16, static export under `/docs`, Indonesian) | `apps/docs/README.md` |
 | Landing `@hermes-cloud/landing` | `apps/landing/` | Public landing page for `cloud.nibie.app` (static export, Cloudflare Worker, Indonesian, legal pages for Duitku KYC) | `apps/landing/README.md` |
 | E2E `@hermes-cloud/e2e` | `e2e/` | Playwright tests: T0 mock, T1 full stack, T2 production smoke | `e2e/README.md` |
+| Go backend (port in progress) | `server/` | Go module that will replace the Node backend at milestone M8; M0 (foundation) only, not deployed | `server/README.md` |
 
 Next.js 16 (`apps/web`, `apps/docs`, `apps/landing`) differs from older versions: read the guide under that
 package's `node_modules/next/dist/docs/` before writing Next.js code. The `AGENTS.md` in each of those apps
@@ -74,6 +76,16 @@ Other packages (run inside the package folder after `pnpm install`):
 # apps/landing  pnpm dev -> http://localhost:3300;      checks: pnpm typecheck && pnpm lint && pnpm test && pnpm build
 # e2e           pnpm build:t0 before pnpm test:t0;      checks: pnpm typecheck
 ```
+
+Go backend (`server/`, Go 1.27.4; spec `docs/superpowers/specs/2026-11-19-backend-go-port-design.md`):
+
+```bash
+cd server
+go vet ./... && go tool staticcheck ./... && go test ./...   # unit tests (CI job backend-go)
+go test -tags integration -p 1 ./...                         # needs the compose Postgres on 127.0.0.1:5433
+```
+
+While the port runs (M0–M8) the Node backend takes bug and security fixes only, and each one gets a row in `server/TEST-MAP.md`.
 
 Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
 

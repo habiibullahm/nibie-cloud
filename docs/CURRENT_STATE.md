@@ -1,8 +1,29 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries below keep their own dates, and
+Last updated: 2026-11-19 (Go port M0, see the first section). Earlier entries below keep their own dates, and
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
+
+## Go port of the backend, milestone M0 (2026-11-19, branch `claude/go-port-m0`, committed locally, NOT pushed, NOT deployed)
+
+On the owner's decision to move the backend from Node.js to Go (reason: memory and margin; Rust and PHP ruled out):
+- **Measured first** (VPS, read only, 2026-11-19): Node backend 113 MB RAM after 24 h, steady; 2 tenant containers 620 MB; host
+  15.5 GB with 13.6 GB available. The owner was told the rewrite saves roughly 80–100 MB per host and that tenant overcommit is the
+  bigger margin lever, and chose to port anyway.
+- **Spec:** [superpowers/specs/2026-11-19-backend-go-port-design.md](superpowers/specs/2026-11-19-backend-go-port-design.md): Go built in
+  parallel in `server/`, same `/api/v1` contract and database, River (Postgres) replaces BullMQ/Redis, one cutover deploy (M8) with a
+  Node rollback, milestones M0–M9. **Plan M0:** [superpowers/plans/2026-11-19-go-port-m0-foundation.md](superpowers/plans/2026-11-19-go-port-m0-foundation.md).
+- **M0 done on the branch:** config with Node parity (207 Node-generated golden cases), JSON logger with the same redaction, pgx pool
+  that reads Prisma's `DATABASE_URL`, goose copies of the 16 Prisma migrations with a schema golden (identical to the Prisma-built schema),
+  River as migration 17, `migrate up|status|baseline` (baseline refuses anything but a clean Prisma history), `/healthz` and `/readyz`,
+  `serve` on loopback with graceful stop, `healthcheck`, a 15 MB distroless image (idle 3.4 MiB, M0 does no product work yet), CI job
+  `backend-go`, `server/TEST-MAP.md` (909 TS test cases mapped: 72 golden, 8 ported, 827 later, 2 not ported).
+- **Not done / not verified:** no product route is ported (M1–M6); River on Supabase's session pooler is untested (only local Postgres);
+  nothing deployed. **Merging this branch triggers an automatic redeploy of the unchanged Node backend**, because
+  `ops/host/hermes-auto-deploy.sh` counts `deploy/` (which now holds `Dockerfile.go`) as a backend path.
+- **Rule while the port runs:** the Node backend takes bug and security fixes only; each one gets a row in `server/TEST-MAP.md`.
+- `main` gained admin API keys (PR #65) after the spec was written: its tests are mapped to M6 in TEST-MAP, the spec's M6 row does not
+  name them yet.
 
 ## Automatic backend deploy from main (2026-11-19)
 
