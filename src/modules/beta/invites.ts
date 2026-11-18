@@ -19,6 +19,23 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+/**
+ * Hides most of an address for display: `husniattin@gmail.com` becomes `h*******n@gmail.com`. The domain stays so an admin can
+ * tell addresses apart; a one or two character local part is fully starred so nothing leaks from short names.
+ */
+export function maskEmail(email: string): string {
+  const at = email.lastIndexOf('@');
+  if (at < 1) return '***';
+  const local = email.slice(0, at);
+  const masked = local.length <= 2 ? '*'.repeat(local.length) : `${local[0]}${'*'.repeat(local.length - 2)}${local[local.length - 1]}`;
+  return `${masked}${email.slice(at)}`;
+}
+
+/** An invite as the admin API returns it: the invited address and the admin who added it are masked. */
+export function maskInvite(row: BetaInviteRow): BetaInviteRow {
+  return { ...row, email: maskEmail(row.email), addedBy: row.addedBy ? maskEmail(row.addedBy) : null };
+}
+
 /** True while the address has an invite that has not been revoked. */
 export async function isInvited(db: Db, email: string): Promise<boolean> {
   const n = await db.betaInvite.count({ where: { email: normalizeEmail(email), revokedAt: null } });

@@ -8,7 +8,7 @@ import type { AuditService } from '../modules/admin/audit-service.js';
 import type { JobQueue } from '../modules/jobs/types.js';
 import type { Mailer } from '../modules/billing/mailer.js';
 import { renderBetaInvite } from '../modules/billing/email-templates.js';
-import { addInvite, INVITE_SELECT, listInvites, normalizeEmail } from '../modules/beta/invites.js';
+import { addInvite, INVITE_SELECT, listInvites, maskEmail, maskInvite, normalizeEmail } from '../modules/beta/invites.js';
 import { createKey, findActiveKey, isAdminKey, KEY_EXPIRY_DAYS, listKeys, revokeKey } from '../modules/admin/api-keys.js';
 import { AuthUnavailableError, ForbiddenError, NotFoundError, QueueUnavailableError, UnauthorizedError } from '../shared/errors.js';
 import { registerAdminMcp } from './admin-mcp.js';
@@ -445,8 +445,8 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
     api.get('/beta-invites', async () => {
       const rows = await listInvites(prisma, { includeRevoked: true });
       return {
-        invites: rows.slice(0, 500),
-        fromEnv: config.betaAllowedEmails,
+        invites: rows.slice(0, 500).map(maskInvite),
+        fromEnv: config.betaAllowedEmails.map(maskEmail),
         freeBetaSlots: config.freeBetaSlots,
       };
     });
@@ -471,7 +471,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
           emailSent = true;
         } catch { /* the mailer already logged the failure by class name */ }
       }
-      return reply.status(201).send({ invite, emailSent });
+      return reply.status(201).send({ invite: maskInvite(invite), emailSent });
     });
 
     api.post<{ Params: { inviteId: string } }>('/beta-invites/:inviteId/revoke', async (req) => {
@@ -490,7 +490,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
         }, tx);
         return row;
       });
-      return { invite };
+      return { invite: maskInvite(invite) };
     });
 
     api.get('/nodes', async () => {

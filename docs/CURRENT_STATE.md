@@ -29,7 +29,7 @@ several still describe branches as "not committed" or billing as "OFF" that have
   - Not done: the page was not opened in a browser, and no real Claude Code client has called the MCP endpoint yet (only the
     JSON-RPC calls in the integration test).
 
-## Beta invite sends an email (2026-11-19, working tree on `main` at `37bb885`, NOT committed, NOT deployed)
+## Beta invite sends an email (2026-11-19, merged as PR #66 `536e9c4`, deployed to the VPS the same day)
 
 Bug: "Tambah undangan" in the admin panel only wrote a `BetaInvite` row; nothing emailed the person, so invited users never
 got a message. Now `POST /api/v1/admin/beta-invites` sends `renderBetaInvite` (register link, no admin-typed note or reason)
@@ -39,6 +39,12 @@ Needs the SMTP settings on the VPS (`SUMOPOD_SMTP_*`, `MAIL_FROM`); without them
 spam on Gmail (see the free beta section), so invitations may too.
 Checked: `pnpm build`, `test/integration/admin-beta-invites.test.ts` (8 pass), web `typecheck` and `test/admin-beta.test.ts`.
 Not checked: a real send over SumoPod SMTP. Web lint not run.
+Follow-up (2026-11-19, not committed, not deployed): the beta invite routes mask PII in every response. `email` and `addedBy` come
+back as `h********n@gmail.com`; `fromEnv` is masked too (`maskEmail` in `src/modules/beta/invites.ts`). The `note` is returned as typed. The
+database rows, the invitation email and the `AuditLog` detail (`{ email }`) still hold the full address.
+Deployed with `ops/host/deploy.sh` on the owner's word ("backend 536e9c4 is ready"; dump taken first, no migration; previous tag
+`ec27f10` kept for rollback). After the deploy the public API answered 200 and the startup log showed `mail: true`. No invitation
+has been sent to a real inbox yet.
 
 ## Personal data audit and log masking (2026-11-18)
 
