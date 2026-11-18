@@ -3,9 +3,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
+
+	"github.com/habiibullahm/nibie-cloud/server/internal/config"
 )
 
 const usage = "usage: hermes-cloud [serve|migrate up|migrate baseline|migrate status|healthcheck]"
@@ -22,7 +25,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	switch cmd {
 	case "serve":
-		return notImplemented(stderr, "serve")
+		cfg, err := config.FromEnviron()
+		if err != nil {
+			fmt.Fprintf(stderr, "serve: %v\n", err)
+			return 1
+		}
+		return serve(context.Background(), cfg, stdout)
 	case "migrate":
 		if len(args) != 2 {
 			return badUsage(stderr)
@@ -33,7 +41,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 		return badUsage(stderr)
 	case "healthcheck":
-		return notImplemented(stderr, "healthcheck")
+		return healthcheck(stderr)
 	}
 	return badUsage(stderr)
 }
@@ -41,9 +49,4 @@ func run(args []string, stdout, stderr io.Writer) int {
 func badUsage(stderr io.Writer) int {
 	fmt.Fprintln(stderr, usage)
 	return 2
-}
-
-func notImplemented(stderr io.Writer, what string) int {
-	fmt.Fprintf(stderr, "%s: not implemented\n", what)
-	return 1
 }
