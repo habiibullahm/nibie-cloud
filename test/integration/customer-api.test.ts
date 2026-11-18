@@ -295,6 +295,12 @@ describe('customer API', () => {
     expect((await a.inject({ method: 'GET', url: '/api/v1/instances/not-a-uuid', headers: bob })).statusCode).toBe(404);
   });
 
+  it('says on /me whether the caller is an admin, and only the caller', async () => {
+    const a = app({ adminEmails: [BOB] });
+    expect((await a.inject({ method: 'GET', url: '/api/v1/me', headers: await user(ALICE) })).json().admin).toBe(false);
+    expect((await a.inject({ method: 'GET', url: '/api/v1/me', headers: await user('Bob@Example.test') })).json().admin).toBe(true);
+  });
+
   it('ignores a tenant id smuggled in the query string', async () => {
     const a = app();
     const alice = await user(ALICE);

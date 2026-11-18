@@ -15,9 +15,12 @@ function hostOf(base: string): string {
   }
 }
 
-/** Logs what failed (method, path, status, code; never headers or bodies) so a support question has something to go on. */
+/**
+ * Logs what failed (method, path, status, code; never headers or bodies) during development only: customers see the
+ * error in the UI, not in their browser console.
+ */
 function fail(err: ApiError, method: string, path: string): ApiError {
-  console.error(`[nibie-api] ${method} ${path} failed: ${err.status} ${err.code}`)
+  if (process.env.NODE_ENV !== "production") console.error(`[nibie-api] ${method} ${path} failed: ${err.status} ${err.code}`)
   return err
 }
 

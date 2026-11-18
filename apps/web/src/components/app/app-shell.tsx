@@ -25,7 +25,9 @@ const NAV = [
  * `/api/v1/admin/*` call is refused server-side for anyone else.
  */
 function AdminLink({ onNavigate }: { onNavigate?: () => void }) {
-  const admin = useAdminMe()
+  // Ask the admin API only for an account the customer `/me` marks as admin, so customers never call it.
+  const me = useMe()
+  const admin = useAdminMe(me.data?.admin === true)
   if (!admin.data?.admin && !admin.data?.mfaRequired) return null
   return (
     <Link

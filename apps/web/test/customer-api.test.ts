@@ -74,6 +74,16 @@ describe("customer API client", () => {
     expect(JSON.stringify(log.mock.calls)).not.toContain("secret-token")
   })
 
+  it("keeps the browser console quiet in a production build", async () => {
+    vi.stubEnv("NODE_ENV", "production")
+    const log = vi.spyOn(console, "error").mockImplementation(() => {})
+    const { api, fetchMock } = setup()
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"))
+    await expect(api.instances.list()).rejects.toMatchObject({ code: "network_error" })
+    expect(log).not.toHaveBeenCalled()
+    vi.unstubAllEnvs()
+  })
+
   it("treats a 2xx answer that is not JSON as invalid_response instead of crashing the page", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {})
     const { api, fetchMock } = setup()
@@ -93,7 +103,11 @@ describe("customer API client", () => {
   it("maps /me to an account", async () => {
     const { api, fetchMock } = setup()
     fetchMock.mockResolvedValue(json({ id: "u", email: "nash@example.test", tenantId: "t" }))
-    expect(await api.preview.me()).toEqual({ name: "nash", email: "nash@example.test" })
+    expect(await api.preview.me()).toEqual({ name: "nash", email: "nash@example.test", admin: false })
+  })
+
+  it("maps the admin flag from /me", () => {
+    expect(toAccount({ id: "u", email: "a@b.c", tenantId: "t", admin: true }).admin).toBe(true)
   })
 
   it("points preview metadata at a real plan id", async () => {

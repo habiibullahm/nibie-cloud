@@ -177,6 +177,8 @@ export interface AccessInfo {
 export interface Account {
   name: string
   email: string
+  /** On the backend's admin allowlist. Only decides whether the dashboard asks `/admin/me`; the backend guards the rest. */
+  admin?: boolean
 }
 
 // ── Billing (backend milestone D: src/modules/billing, src/http/billing-routes.ts) ────────────────────

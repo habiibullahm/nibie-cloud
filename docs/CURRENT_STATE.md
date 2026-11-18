@@ -4,6 +4,20 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Customers no longer call the admin API (2026-11-19, branch `claude/no-admin-probe-for-customers`, PR #74, not merged)
+
+- **Why:** the owner saw every customer's browser call `GET /api/v1/admin/me` (403 `forbidden`) from the sidebar's Admin link.
+  No data leaked, but it told every customer the admin API exists.
+- **Change:** customer `GET /api/v1/me` now also returns `admin` (true only when the caller's own email is on `ADMIN_EMAILS`).
+  The dashboard's `AdminLink` calls `/admin/me` only when that flag is true. `AdminGate` on `/admin` pages still asks `/admin/me`
+  directly. The admin API's own checks (allowlist, `aal2`) are unchanged; the flag is a hint, not protection.
+- **Quiet console:** the dashboard's `[nibie-api] ... failed` line (`apps/web/src/lib/api/live.ts`) is logged in development
+  builds only; production users see the error in the UI, not in the browser console.
+- **Checks** (Windows): backend `tsc` clean; integration `customer-api` 22 of 22 (one new test); dashboard typecheck, lint, 167 of 167
+  (plus one new console test, `customer-api.test.ts` 17 of 17).
+- **Deploy order:** a dashboard deployed before the backend hides the Admin link until the backend is live (admins can still open
+  `/dashboard/admin` directly).
+
 ## Plan stock managed from the admin panel (2026-11-19)
 
 **Branch `claude/plan-stock`, PR #73, not merged:**

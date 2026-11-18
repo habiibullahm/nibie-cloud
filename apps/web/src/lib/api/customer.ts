@@ -8,6 +8,7 @@ interface MeBody {
   id: string
   email: string
   tenantId: string
+  admin?: boolean
 }
 interface PlanBody {
   id: string
@@ -43,7 +44,7 @@ export function toPlan(p: PlanBody): Plan {
 }
 
 export function toAccount(m: MeBody): Account {
-  return { name: m.email.split("@")[0] ?? m.email, email: m.email }
+  return { name: m.email.split("@")[0] ?? m.email, email: m.email, admin: m.admin === true }
 }
 
 /**
