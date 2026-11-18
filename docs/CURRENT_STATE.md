@@ -1,8 +1,30 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries below keep their own dates, and
+Last updated: 2026-11-19 (Go port M0, see the first section). Earlier entries below keep their own dates, and
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
+
+## Go port of the backend, milestone M0 (2026-11-19, PR #71 from `claude/go-port-m0`, NOT merged, NOT deployed)
+
+On the owner's decision to move the backend from Node.js to Go (reason: memory and margin; Rust and PHP ruled out):
+- **Measured first** (VPS, read only, 2026-11-19): Node backend 113 MB RAM after 24 h, steady; 2 tenant containers 620 MB; host
+  15.5 GB with 13.6 GB available. The owner was told the rewrite saves roughly 80–100 MB per host and that tenant overcommit is the
+  bigger margin lever, and chose to port anyway.
+- **Spec:** [superpowers/specs/2026-11-19-backend-go-port-design.md](superpowers/specs/2026-11-19-backend-go-port-design.md): Go built in
+  parallel in `server/`, same `/api/v1` contract and database, River (Postgres) replaces BullMQ/Redis, one cutover deploy (M8) with a
+  Node rollback, milestones M0–M9. **Plan M0:** [superpowers/plans/2026-11-19-go-port-m0-foundation.md](superpowers/plans/2026-11-19-go-port-m0-foundation.md).
+- **M0 done on the branch:** config with Node parity (215 Node-generated golden cases), JSON logger with the same redaction, pgx pool
+  that reads Prisma's `DATABASE_URL`, goose copies of all 17 Prisma migrations with a schema golden (identical to the Prisma-built schema),
+  River as the version after them (18), `migrate up|status|baseline` (baseline refuses anything but a clean Prisma history), `/healthz` and `/readyz`,
+  `serve` on loopback with graceful stop, `healthcheck`, a 15 MB distroless image (idle 3.4 MiB, M0 does no product work yet), CI job
+  `backend-go`, `server/TEST-MAP.md` (917 TS test cases mapped: 72 golden, 8 ported, 835 later, 2 not ported).
+- **Not done / not verified:** no product route is ported (M1–M6); River on Supabase's session pooler is untested (only local Postgres);
+  nothing deployed. Merging this branch does not redeploy production: the Go image is `server/Dockerfile`, outside the paths
+  `ops/host/hermes-auto-deploy.sh` watches (`src`, `prisma`, `package.json`, `pnpm-lock.yaml`, `tsconfig.json`, `deploy`).
+- **Rule while the port runs:** the Node backend takes bug and security fixes only; each one gets a row in `server/TEST-MAP.md`.
+- `main` gained admin API keys (PR #65) and plan stock (PR #73, migration `20261119200000_add_plan_stock_limit`) after the spec was
+  written: their tests are mapped to M6 in TEST-MAP, and the plan-stock migration is copied as goose 00017. Every new Prisma
+  migration on `main` before M8 needs its goose copy and a bump of `PrismaMigrations` (River follows automatically).
 
 ## Customers no longer call the admin API (2026-11-19, branch `claude/no-admin-probe-for-customers`, PR #74, not merged)
 

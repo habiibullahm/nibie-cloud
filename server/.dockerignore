@@ -1,0 +1,3 @@
+# Build context is server/ (docker build -t hermes-cloud-backend-go server).
+# Dev tool (TypeScript golden generator), not part of the image.
+testdata/golden/gen

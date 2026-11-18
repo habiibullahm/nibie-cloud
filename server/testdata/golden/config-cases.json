@@ -1,0 +1,2610 @@
+[
+  {
+    "name": "missing-DATABASE_URL",
+    "env": {
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "missing-HERMES_IMAGE",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "missing-ADMIN_TOKEN",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "missing-HERMES_MASTER_KEY",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "admin-token-short",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "short",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "base",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "admin-token-secret-not-echoed",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "tooshort-secret",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "master-key-31",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "master-key-32",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "master-key-not-echoed",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "short-master-secret",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "name": "runtime-runsc-with-dns",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_RUNTIME": "runsc",
+      "HERMES_DNS_RESOLVERS": "192.0.2.53"
+    }
+  },
+  {
+    "name": "runtime-unknown",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_RUNTIME": "kata"
+    }
+  },
+  {
+    "name": "disk-quota-off-production",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off"
+    }
+  },
+  {
+    "name": "disk-quota-off-development",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DISK_QUOTA": "off"
+    }
+  },
+  {
+    "name": "disk-quota-off-test",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "test",
+      "HERMES_DISK_QUOTA": "off"
+    }
+  },
+  {
+    "name": "disk-quota-unknown",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DISK_QUOTA": "soft"
+    }
+  },
+  {
+    "name": "disk-interval-60000",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DISK_CHECK_INTERVAL_MS": "60000"
+    }
+  },
+  {
+    "name": "disk-interval-fraction",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DISK_CHECK_INTERVAL_MS": "1.5"
+    }
+  },
+  {
+    "name": "disk-interval-below-min",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DISK_CHECK_INTERVAL_MS": "999"
+    }
+  },
+  {
+    "name": "disk-interval-max-safe",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DISK_CHECK_INTERVAL_MS": "9007199254740991"
+    }
+  },
+  {
+    "name": "disk-interval-above-safe",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DISK_CHECK_INTERVAL_MS": "9007199254740993"
+    }
+  },
+  {
+    "name": "disk-interval-1e16",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DISK_CHECK_INTERVAL_MS": "1e16"
+    }
+  },
+  {
+    "name": "disk-interval-2pow63",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DISK_CHECK_INTERVAL_MS": "9223372036854775808"
+    }
+  },
+  {
+    "name": "disk-interval-1e400",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DISK_CHECK_INTERVAL_MS": "1e400"
+    }
+  },
+  {
+    "name": "max-total-unsafe",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "MAX_TOTAL_INSTANCES": "1e16"
+    }
+  },
+  {
+    "name": "egress-off-production",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_EGRESS_POLICY": "off"
+    }
+  },
+  {
+    "name": "production-default-runtime",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production"
+    }
+  },
+  {
+    "name": "production-runtime-runc",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_RUNTIME": "runc"
+    }
+  },
+  {
+    "name": "production-runtime-runsc",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_RUNTIME": "runsc",
+      "HERMES_DNS_RESOLVERS": "192.0.2.53"
+    }
+  },
+  {
+    "name": "egress-unknown",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_EGRESS_POLICY": "soft"
+    }
+  },
+  {
+    "name": "egress-off-no-canary",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_EGRESS_POLICY": "off"
+    }
+  },
+  {
+    "name": "enforce-no-canary",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+    }
+  },
+  {
+    "name": "runsc-egress-off-no-canary",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_EGRESS_POLICY": "off",
+      "HERMES_RUNTIME": "runsc",
+      "HERMES_DNS_RESOLVERS": "192.0.2.53"
+    }
+  },
+  {
+    "name": "runsc-egress-off-canary",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_EGRESS_POLICY": "off",
+      "HERMES_RUNTIME": "runsc",
+      "HERMES_DNS_RESOLVERS": "192.0.2.53"
+    }
+  },
+  {
+    "name": "canary-tag-only",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine:3.20"
+    }
+  },
+  {
+    "name": "canary-short-digest",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:abc"
+    }
+  },
+  {
+    "name": "canary-uppercase-digest",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    }
+  },
+  {
+    "name": "canary-not-echoed",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "registry.example/secret-canary:latest"
+    }
+  },
+  {
+    "name": "canary-private-ip",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_CANARY_PRIVATE_IP": "192.0.2.10"
+    }
+  },
+  {
+    "name": "canary-private-ip-empty",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_CANARY_PRIVATE_IP": ""
+    }
+  },
+  {
+    "name": "canary-private-ip-bad-0",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_CANARY_PRIVATE_IP": "not-an-ip"
+    }
+  },
+  {
+    "name": "canary-private-ip-bad-1",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_CANARY_PRIVATE_IP": "2001:db8::1"
+    }
+  },
+  {
+    "name": "canary-private-ip-bad-2",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_CANARY_PRIVATE_IP": "300.1.1.1"
+    }
+  },
+  {
+    "name": "canary-private-ip-bad-3",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_CANARY_PRIVATE_IP": "10.0.0"
+    }
+  },
+  {
+    "name": "canary-private-ip-bad-4",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_CANARY_PRIVATE_IP": "01.2.3.4"
+    }
+  },
+  {
+    "name": "canary-private-ip-bad-5",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_CANARY_PRIVATE_IP": " 192.0.2.10"
+    }
+  },
+  {
+    "name": "dns-space",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DNS_RESOLVERS": "192.0.2.1 198.51.100.1"
+    }
+  },
+  {
+    "name": "dns-comma-space",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DNS_RESOLVERS": "192.0.2.1, 198.51.100.1"
+    }
+  },
+  {
+    "name": "dns-mixed",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DNS_RESOLVERS": " 192.0.2.1,, 192.0.2.2  198.51.100.1 "
+    }
+  },
+  {
+    "name": "dns-not-ip",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DNS_RESOLVERS": "192.0.2.1 not-an-ip"
+    }
+  },
+  {
+    "name": "dns-ipv6",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DNS_RESOLVERS": "2001:db8::1"
+    }
+  },
+  {
+    "name": "dns-leading-zero",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_DNS_RESOLVERS": "192.0.2.01"
+    }
+  },
+  {
+    "name": "runsc-without-dns",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_RUNTIME": "runsc"
+    }
+  },
+  {
+    "name": "runsc-blank-dns",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_RUNTIME": "runsc",
+      "HERMES_DNS_RESOLVERS": " , "
+    }
+  },
+  {
+    "name": "port-space",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "PORT": " 3000"
+    }
+  },
+  {
+    "name": "port-hex",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "PORT": "0x10"
+    }
+  },
+  {
+    "name": "port-exp",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "PORT": "1e3"
+    }
+  },
+  {
+    "name": "port-fraction",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "PORT": "3000.5"
+    }
+  },
+  {
+    "name": "port-empty",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "PORT": ""
+    }
+  },
+  {
+    "name": "port-plus",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "PORT": "+80"
+    }
+  },
+  {
+    "name": "port-zero",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "PORT": "0"
+    }
+  },
+  {
+    "name": "port-big",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "PORT": "65536"
+    }
+  },
+  {
+    "name": "port-word",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "PORT": "abc"
+    }
+  },
+  {
+    "name": "port-octal",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "PORT": "0o17"
+    }
+  },
+  {
+    "name": "port-bin",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "PORT": "0b11"
+    }
+  },
+  {
+    "name": "port-tab",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "PORT": "\t81\n"
+    }
+  },
+  {
+    "name": "node-env-unknown",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "staging"
+    }
+  },
+  {
+    "name": "node-env-empty",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": ""
+    }
+  },
+  {
+    "name": "socket-path",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "DOCKER_SOCKET_PATH": "/run/docker.sock"
+    }
+  },
+  {
+    "name": "supabase-trailing-slash",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUPABASE_URL": "https://abcd.supabase.co/"
+    }
+  },
+  {
+    "name": "supabase-http",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUPABASE_URL": "http://abcd.supabase.co"
+    }
+  },
+  {
+    "name": "supabase-not-url",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUPABASE_URL": "not a url"
+    }
+  },
+  {
+    "name": "supabase-path",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUPABASE_URL": "https://abcd.supabase.co/auth/v1"
+    }
+  },
+  {
+    "name": "supabase-upper",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUPABASE_URL": "https://ABCD.supabase.co"
+    }
+  },
+  {
+    "name": "supabase-default-port",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUPABASE_URL": "https://abcd.supabase.co:443"
+    }
+  },
+  {
+    "name": "supabase-other-port",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUPABASE_URL": "https://abcd.supabase.co:8443"
+    }
+  },
+  {
+    "name": "supabase-userinfo",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUPABASE_URL": "https://user@abcd.supabase.co"
+    }
+  },
+  {
+    "name": "supabase-query",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUPABASE_URL": "https://abcd.supabase.co?x=1"
+    }
+  },
+  {
+    "name": "supabase-two-slashes",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUPABASE_URL": "https://abcd.supabase.co//"
+    }
+  },
+  {
+    "name": "supabase-empty",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUPABASE_URL": ""
+    }
+  },
+  {
+    "name": "supabase-not-echoed",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUPABASE_URL": "http://secret-project-ref.example"
+    }
+  },
+  {
+    "name": "cors-extra-list",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "CORS_EXTRA_ORIGINS": " http://localhost:3300 , http://127.0.0.1:3300 "
+    }
+  },
+  {
+    "name": "cors-extra-path",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "CORS_EXTRA_ORIGINS": "http://localhost:3300/landing"
+    }
+  },
+  {
+    "name": "cors-extra-production",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "CORS_EXTRA_ORIGINS": "http://localhost:3300"
+    }
+  },
+  {
+    "name": "cors-extra-empty-items",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "CORS_EXTRA_ORIGINS": ",http://localhost:3300,"
+    }
+  },
+  {
+    "name": "dashboard-origin-bare",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "DASHBOARD_ORIGIN": "https://cloud.example.test"
+    }
+  },
+  {
+    "name": "dashboard-origin-path",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "DASHBOARD_ORIGIN": "https://cloud.example.test/dashboard"
+    }
+  },
+  {
+    "name": "dashboard-origin-trailing-slash",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "DASHBOARD_ORIGIN": "https://cloud.example.test/"
+    }
+  },
+  {
+    "name": "dashboard-origin-query",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "DASHBOARD_ORIGIN": "https://cloud.example.test?q"
+    }
+  },
+  {
+    "name": "dashboard-origin-fragment",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "DASHBOARD_ORIGIN": "https://cloud.example.test#f"
+    }
+  },
+  {
+    "name": "dashboard-origin-http",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "DASHBOARD_ORIGIN": "http://localhost:3100"
+    }
+  },
+  {
+    "name": "dashboard-origin-upper",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "DASHBOARD_ORIGIN": "https://Cloud.example.test"
+    }
+  },
+  {
+    "name": "dashboard-origin-default-port",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "DASHBOARD_ORIGIN": "http://localhost:80"
+    }
+  },
+  {
+    "name": "dashboard-origin-ftp",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "DASHBOARD_ORIGIN": "ftp://cloud.example.test"
+    }
+  },
+  {
+    "name": "beta-emails",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "BETA_ALLOWED_EMAILS": " A@x.example, b@x.example ,"
+    }
+  },
+  {
+    "name": "beta-emails-empty",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "BETA_ALLOWED_EMAILS": ""
+    }
+  },
+  {
+    "name": "max-instances-three",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "MAX_INSTANCES_PER_TENANT": "3"
+    }
+  },
+  {
+    "name": "max-instances-zero",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "MAX_INSTANCES_PER_TENANT": "0"
+    }
+  },
+  {
+    "name": "max-instances-word",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "MAX_INSTANCES_PER_TENANT": "abc"
+    }
+  },
+  {
+    "name": "max-instances-empty",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "MAX_INSTANCES_PER_TENANT": ""
+    }
+  },
+  {
+    "name": "max-instances-max",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "MAX_INSTANCES_PER_TENANT": "1000"
+    }
+  },
+  {
+    "name": "max-instances-over",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "MAX_INSTANCES_PER_TENANT": "1001"
+    }
+  },
+  {
+    "name": "max-total-set",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "MAX_TOTAL_INSTANCES": "50"
+    }
+  },
+  {
+    "name": "max-total-zero",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "MAX_TOTAL_INSTANCES": "0"
+    }
+  },
+  {
+    "name": "max-total-empty",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "MAX_TOTAL_INSTANCES": ""
+    }
+  },
+  {
+    "name": "free-beta-ten",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "FREE_BETA_SLOTS": "10"
+    }
+  },
+  {
+    "name": "free-beta-negative",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "FREE_BETA_SLOTS": "-1"
+    }
+  },
+  {
+    "name": "free-beta-empty",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "FREE_BETA_SLOTS": ""
+    }
+  },
+  {
+    "name": "paid-checkout-false",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "PAID_CHECKOUT_OPEN": "false"
+    }
+  },
+  {
+    "name": "paid-checkout-true",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "PAID_CHECKOUT_OPEN": "true"
+    }
+  },
+  {
+    "name": "paid-checkout-yes",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "PAID_CHECKOUT_OPEN": "yes"
+    }
+  },
+  {
+    "name": "paid-checkout-empty",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "PAID_CHECKOUT_OPEN": ""
+    }
+  },
+  {
+    "name": "admin-emails-empty",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ADMIN_EMAILS": ""
+    }
+  },
+  {
+    "name": "admin-emails-blank-items",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ADMIN_EMAILS": " , "
+    }
+  },
+  {
+    "name": "admin-emails",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ADMIN_EMAILS": " Boss@Example.Test , ops@example.test "
+    }
+  },
+  {
+    "name": "admin-emails-trailing-comma",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ADMIN_EMAILS": " A@Example.test ,b@example.test,"
+    }
+  },
+  {
+    "name": "admin-emails-malformed",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ADMIN_EMAILS": "not-an-email"
+    }
+  },
+  {
+    "name": "admin-emails-one-bad",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ADMIN_EMAILS": "a@example.test, b@example"
+    }
+  },
+  {
+    "name": "redis-empty",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "REDIS_URL": ""
+    }
+  },
+  {
+    "name": "redis-url",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "REDIS_URL": "redis://:pw@127.0.0.1:6379"
+    }
+  },
+  {
+    "name": "rediss-url",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "REDIS_URL": "rediss://:pw@cache.example.test:6380"
+    }
+  },
+  {
+    "name": "redis-url-not-redis",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "REDIS_URL": "http://:topsecretpw@127.0.0.1:6379"
+    }
+  },
+  {
+    "name": "production-without-redis",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "h@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_RUNTIME": "runsc",
+      "HERMES_DNS_RESOLVERS": "192.0.2.53",
+      "SECRETS_KEK": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc="
+    }
+  },
+  {
+    "name": "production-core",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "h@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_RUNTIME": "runsc",
+      "HERMES_DNS_RESOLVERS": "192.0.2.53",
+      "REDIS_URL": "redis://127.0.0.1:6380",
+      "SECRETS_KEK": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc="
+    }
+  },
+  {
+    "name": "kek",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SECRETS_KEK": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc="
+    }
+  },
+  {
+    "name": "kek-unpadded",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SECRETS_KEK": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc"
+    }
+  },
+  {
+    "name": "kek-rotation",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SECRETS_KEK": "CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk=",
+      "SECRETS_KEK_VERSION": "2",
+      "SECRETS_KEK_PREVIOUS": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
+      "SECRETS_KEK_PREVIOUS_VERSION": "1"
+    }
+  },
+  {
+    "name": "kek-16-bytes",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SECRETS_KEK": "AQEBAQEBAQEBAQEBAQEBAQ=="
+    }
+  },
+  {
+    "name": "kek-31-bytes",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SECRETS_KEK": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ=="
+    }
+  },
+  {
+    "name": "kek-33-bytes",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SECRETS_KEK": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB"
+    }
+  },
+  {
+    "name": "kek-urlsafe",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SECRETS_KEK": "-_v7-_v7-_v7-_v7-_v7-_v7-_v7-_v7-_v7-_v7-_s"
+    }
+  },
+  {
+    "name": "kek-same-version",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SECRETS_KEK": "CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk=",
+      "SECRETS_KEK_PREVIOUS": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc="
+    }
+  },
+  {
+    "name": "kek-previous-without-current",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SECRETS_KEK_PREVIOUS": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc="
+    }
+  },
+  {
+    "name": "kek-version-zero",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SECRETS_KEK": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
+      "SECRETS_KEK_VERSION": "0"
+    }
+  },
+  {
+    "name": "kek-production-missing",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "h@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "REDIS_URL": "redis://127.0.0.1:6379"
+    }
+  },
+  {
+    "name": "mail-empty-values",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_SMTP_HOST": "",
+      "SUMOPOD_SMTP_PASS": "",
+      "MAIL_FROM": ""
+    }
+  },
+  {
+    "name": "mail",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_SMTP_HOST": "smtp.example.test",
+      "SUMOPOD_SMTP_PORT": "465",
+      "SUMOPOD_SMTP_USER": "user",
+      "SUMOPOD_SMTP_PASS": "smtp-pass-value",
+      "MAIL_FROM": "no-reply@example.test"
+    }
+  },
+  {
+    "name": "mail-without-SUMOPOD_SMTP_HOST",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_SMTP_PORT": "465",
+      "SUMOPOD_SMTP_USER": "user",
+      "SUMOPOD_SMTP_PASS": "smtp-pass-value",
+      "MAIL_FROM": "no-reply@example.test"
+    }
+  },
+  {
+    "name": "mail-without-SUMOPOD_SMTP_PORT",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_SMTP_HOST": "smtp.example.test",
+      "SUMOPOD_SMTP_USER": "user",
+      "SUMOPOD_SMTP_PASS": "smtp-pass-value",
+      "MAIL_FROM": "no-reply@example.test"
+    }
+  },
+  {
+    "name": "mail-without-SUMOPOD_SMTP_USER",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_SMTP_HOST": "smtp.example.test",
+      "SUMOPOD_SMTP_PORT": "465",
+      "SUMOPOD_SMTP_PASS": "smtp-pass-value",
+      "MAIL_FROM": "no-reply@example.test"
+    }
+  },
+  {
+    "name": "mail-without-SUMOPOD_SMTP_PASS",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_SMTP_HOST": "smtp.example.test",
+      "SUMOPOD_SMTP_PORT": "465",
+      "SUMOPOD_SMTP_USER": "user",
+      "MAIL_FROM": "no-reply@example.test"
+    }
+  },
+  {
+    "name": "mail-without-MAIL_FROM",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_SMTP_HOST": "smtp.example.test",
+      "SUMOPOD_SMTP_PORT": "465",
+      "SUMOPOD_SMTP_USER": "user",
+      "SUMOPOD_SMTP_PASS": "smtp-pass-value"
+    }
+  },
+  {
+    "name": "mail-bad-port",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_SMTP_HOST": "smtp.example.test",
+      "SUMOPOD_SMTP_PORT": "70000",
+      "SUMOPOD_SMTP_USER": "user",
+      "SUMOPOD_SMTP_PASS": "smtp-pass-value",
+      "MAIL_FROM": "no-reply@example.test"
+    }
+  },
+  {
+    "name": "mail-bad-from",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_SMTP_HOST": "smtp.example.test",
+      "SUMOPOD_SMTP_PORT": "465",
+      "SUMOPOD_SMTP_USER": "user",
+      "SUMOPOD_SMTP_PASS": "smtp-pass-value",
+      "MAIL_FROM": "not-an-address"
+    }
+  },
+  {
+    "name": "mail-from-display-name",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_SMTP_HOST": "smtp.example.test",
+      "SUMOPOD_SMTP_PORT": "465",
+      "SUMOPOD_SMTP_USER": "user",
+      "SUMOPOD_SMTP_PASS": "smtp-pass-value",
+      "MAIL_FROM": "Nibie <no-reply@example.test>"
+    }
+  },
+  {
+    "name": "duitku-without-dashboard",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "BILLING_GATEWAY": "duitku",
+      "DUITKU_MERCHANT_CODE": "DS00000",
+      "DUITKU_API_KEY": "duitku-api-key-value",
+      "DUITKU_CALLBACK_URL": "https://api.example.test/api/v1/billing/duitku/callback"
+    }
+  },
+  {
+    "name": "duitku-empty-values",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "DUITKU_MERCHANT_CODE": "",
+      "DUITKU_API_KEY": "",
+      "DUITKU_CALLBACK_URL": ""
+    }
+  },
+  {
+    "name": "duitku",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "BILLING_GATEWAY": "duitku",
+      "DUITKU_MERCHANT_CODE": "DS00000",
+      "DUITKU_API_KEY": "duitku-api-key-value",
+      "DUITKU_CALLBACK_URL": "https://api.example.test/api/v1/billing/duitku/callback",
+      "DASHBOARD_ORIGIN": "https://cloud.example.test"
+    }
+  },
+  {
+    "name": "duitku-without-DUITKU_MERCHANT_CODE",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "BILLING_GATEWAY": "duitku",
+      "DUITKU_API_KEY": "duitku-api-key-value",
+      "DUITKU_CALLBACK_URL": "https://api.example.test/api/v1/billing/duitku/callback",
+      "DASHBOARD_ORIGIN": "https://cloud.example.test"
+    }
+  },
+  {
+    "name": "duitku-without-DUITKU_API_KEY",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "BILLING_GATEWAY": "duitku",
+      "DUITKU_MERCHANT_CODE": "DS00000",
+      "DUITKU_CALLBACK_URL": "https://api.example.test/api/v1/billing/duitku/callback",
+      "DASHBOARD_ORIGIN": "https://cloud.example.test"
+    }
+  },
+  {
+    "name": "duitku-without-DUITKU_CALLBACK_URL",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "BILLING_GATEWAY": "duitku",
+      "DUITKU_MERCHANT_CODE": "DS00000",
+      "DUITKU_API_KEY": "duitku-api-key-value",
+      "DASHBOARD_ORIGIN": "https://cloud.example.test"
+    }
+  },
+  {
+    "name": "duitku-env-unknown",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "BILLING_GATEWAY": "duitku",
+      "DUITKU_MERCHANT_CODE": "DS00000",
+      "DUITKU_API_KEY": "duitku-api-key-value",
+      "DUITKU_CALLBACK_URL": "https://api.example.test/api/v1/billing/duitku/callback",
+      "DASHBOARD_ORIGIN": "https://cloud.example.test",
+      "DUITKU_ENV": "staging"
+    }
+  },
+  {
+    "name": "duitku-callback-http",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "BILLING_GATEWAY": "duitku",
+      "DUITKU_MERCHANT_CODE": "DS00000",
+      "DUITKU_API_KEY": "duitku-api-key-value",
+      "DUITKU_CALLBACK_URL": "http://api.example.test/cb",
+      "DASHBOARD_ORIGIN": "https://cloud.example.test"
+    }
+  },
+  {
+    "name": "duitku-callback-long",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "BILLING_GATEWAY": "duitku",
+      "DUITKU_MERCHANT_CODE": "DS00000",
+      "DUITKU_API_KEY": "duitku-api-key-value",
+      "DUITKU_CALLBACK_URL": "https://api.example.test/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "DASHBOARD_ORIGIN": "https://cloud.example.test"
+    }
+  },
+  {
+    "name": "duitku-env-production-dev",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "BILLING_GATEWAY": "duitku",
+      "DUITKU_MERCHANT_CODE": "DS00000",
+      "DUITKU_API_KEY": "duitku-api-key-value",
+      "DUITKU_CALLBACK_URL": "https://api.example.test/api/v1/billing/duitku/callback",
+      "DASHBOARD_ORIGIN": "https://cloud.example.test",
+      "DUITKU_ENV": "production"
+    }
+  },
+  {
+    "name": "duitku-gateway-sumopod-default",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "DUITKU_MERCHANT_CODE": "DS00000",
+      "DUITKU_API_KEY": "duitku-api-key-value",
+      "DUITKU_CALLBACK_URL": "https://api.example.test/api/v1/billing/duitku/callback",
+      "DASHBOARD_ORIGIN": "https://cloud.example.test"
+    }
+  },
+  {
+    "name": "sumopod",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_API_KEY": "sk_test_value",
+      "SUMOPOD_WEBHOOK_TOKEN": "whtok_test_value",
+      "SUMOPOD_CALLBACK_URL": "https://api.example.test/api/v1/billing/sumopod/webhook"
+    }
+  },
+  {
+    "name": "sumopod-secret",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_API_KEY": "sk_test_value",
+      "SUMOPOD_WEBHOOK_TOKEN": "whtok_test_value",
+      "SUMOPOD_CALLBACK_URL": "https://api.example.test/api/v1/billing/sumopod/webhook",
+      "SUMOPOD_WEBHOOK_SECRET": "whsec_BQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUF"
+    }
+  },
+  {
+    "name": "sumopod-production-no-secret",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "h@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_RUNTIME": "runsc",
+      "HERMES_DNS_RESOLVERS": "192.0.2.53",
+      "REDIS_URL": "redis://127.0.0.1:6380",
+      "SECRETS_KEK": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
+      "SUMOPOD_API_KEY": "sk_test_value",
+      "SUMOPOD_WEBHOOK_TOKEN": "whtok_test_value",
+      "SUMOPOD_CALLBACK_URL": "https://api.example.test/api/v1/billing/sumopod/webhook"
+    }
+  },
+  {
+    "name": "sumopod-production-secret",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "h@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_RUNTIME": "runsc",
+      "HERMES_DNS_RESOLVERS": "192.0.2.53",
+      "REDIS_URL": "redis://127.0.0.1:6380",
+      "SECRETS_KEK": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
+      "SUMOPOD_API_KEY": "sk_test_value",
+      "SUMOPOD_WEBHOOK_TOKEN": "whtok_test_value",
+      "SUMOPOD_CALLBACK_URL": "https://api.example.test/api/v1/billing/sumopod/webhook",
+      "SUMOPOD_WEBHOOK_SECRET": "whsec_BQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUF"
+    }
+  },
+  {
+    "name": "sumopod-secret-bad",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_API_KEY": "sk_test_value",
+      "SUMOPOD_WEBHOOK_TOKEN": "whtok_test_value",
+      "SUMOPOD_CALLBACK_URL": "https://api.example.test/api/v1/billing/sumopod/webhook",
+      "SUMOPOD_WEBHOOK_SECRET": "whtok_not_a_secret"
+    }
+  },
+  {
+    "name": "sumopod-without-SUMOPOD_API_KEY",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_WEBHOOK_TOKEN": "whtok_test_value",
+      "SUMOPOD_CALLBACK_URL": "https://api.example.test/api/v1/billing/sumopod/webhook"
+    }
+  },
+  {
+    "name": "sumopod-without-SUMOPOD_WEBHOOK_TOKEN",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_API_KEY": "sk_test_value",
+      "SUMOPOD_CALLBACK_URL": "https://api.example.test/api/v1/billing/sumopod/webhook"
+    }
+  },
+  {
+    "name": "sumopod-without-SUMOPOD_CALLBACK_URL",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_API_KEY": "sk_test_value",
+      "SUMOPOD_WEBHOOK_TOKEN": "whtok_test_value"
+    }
+  },
+  {
+    "name": "sumopod-env-production-dev",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_API_KEY": "sk_test_value",
+      "SUMOPOD_WEBHOOK_TOKEN": "whtok_test_value",
+      "SUMOPOD_CALLBACK_URL": "https://api.example.test/api/v1/billing/sumopod/webhook",
+      "SUMOPOD_ENV": "production"
+    }
+  },
+  {
+    "name": "gateway-both",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "BILLING_GATEWAY": "both",
+      "DUITKU_MERCHANT_CODE": "DS00000",
+      "DUITKU_API_KEY": "duitku-api-key-value",
+      "DUITKU_CALLBACK_URL": "https://api.example.test/api/v1/billing/duitku/callback",
+      "DASHBOARD_ORIGIN": "https://cloud.example.test",
+      "SUMOPOD_API_KEY": "sk_test_value",
+      "SUMOPOD_WEBHOOK_TOKEN": "whtok_test_value",
+      "SUMOPOD_CALLBACK_URL": "https://api.example.test/api/v1/billing/sumopod/webhook"
+    }
+  },
+  {
+    "name": "gateway-both-missing-sumopod",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "BILLING_GATEWAY": "both",
+      "DUITKU_MERCHANT_CODE": "DS00000",
+      "DUITKU_API_KEY": "duitku-api-key-value",
+      "DUITKU_CALLBACK_URL": "https://api.example.test/api/v1/billing/duitku/callback",
+      "DASHBOARD_ORIGIN": "https://cloud.example.test"
+    }
+  },
+  {
+    "name": "gateway-sumopod-only-duitku",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "BILLING_GATEWAY": "sumopod",
+      "DUITKU_MERCHANT_CODE": "DS00000",
+      "DUITKU_API_KEY": "duitku-api-key-value",
+      "DUITKU_CALLBACK_URL": "https://api.example.test/api/v1/billing/duitku/callback",
+      "DASHBOARD_ORIGIN": "https://cloud.example.test"
+    }
+  },
+  {
+    "name": "gateway-duitku-only-sumopod",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_API_KEY": "sk_test_value",
+      "SUMOPOD_WEBHOOK_TOKEN": "whtok_test_value",
+      "SUMOPOD_CALLBACK_URL": "https://api.example.test/api/v1/billing/sumopod/webhook",
+      "BILLING_GATEWAY": "duitku"
+    }
+  },
+  {
+    "name": "gateway-unknown",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_API_KEY": "sk_test_value",
+      "SUMOPOD_WEBHOOK_TOKEN": "whtok_test_value",
+      "SUMOPOD_CALLBACK_URL": "https://api.example.test/api/v1/billing/sumopod/webhook",
+      "BILLING_GATEWAY": "stripe"
+    }
+  },
+  {
+    "name": "gateway-token-only",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_WEBHOOK_TOKEN": "whtok_test_value"
+    }
+  },
+  {
+    "name": "turnstile-production-missing",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "h@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_RUNTIME": "runsc",
+      "HERMES_DNS_RESOLVERS": "192.0.2.53",
+      "REDIS_URL": "redis://127.0.0.1:6380",
+      "SECRETS_KEK": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
+      "SUMOPOD_SMTP_HOST": "smtp.example.test",
+      "SUMOPOD_SMTP_PORT": "465",
+      "SUMOPOD_SMTP_USER": "u",
+      "SUMOPOD_SMTP_PASS": "p",
+      "MAIL_FROM": "no-reply@example.test",
+      "FREE_BETA_SLOTS": "10"
+    }
+  },
+  {
+    "name": "turnstile-production-set",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "h@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_RUNTIME": "runsc",
+      "HERMES_DNS_RESOLVERS": "192.0.2.53",
+      "REDIS_URL": "redis://127.0.0.1:6380",
+      "SECRETS_KEK": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
+      "SUMOPOD_SMTP_HOST": "smtp.example.test",
+      "SUMOPOD_SMTP_PORT": "465",
+      "SUMOPOD_SMTP_USER": "u",
+      "SUMOPOD_SMTP_PASS": "p",
+      "MAIL_FROM": "no-reply@example.test",
+      "FREE_BETA_SLOTS": "10",
+      "TURNSTILE_SECRET_KEY": "ts-secret"
+    }
+  },
+  {
+    "name": "turnstile-production-no-slots",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "h@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_RUNTIME": "runsc",
+      "HERMES_DNS_RESOLVERS": "192.0.2.53",
+      "REDIS_URL": "redis://127.0.0.1:6380",
+      "SECRETS_KEK": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
+      "SUMOPOD_SMTP_HOST": "smtp.example.test",
+      "SUMOPOD_SMTP_PORT": "465",
+      "SUMOPOD_SMTP_USER": "u",
+      "SUMOPOD_SMTP_PASS": "p",
+      "MAIL_FROM": "no-reply@example.test",
+      "FREE_BETA_SLOTS": "0"
+    }
+  },
+  {
+    "name": "turnstile-development",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "SUMOPOD_SMTP_HOST": "smtp.example.test",
+      "SUMOPOD_SMTP_PORT": "465",
+      "SUMOPOD_SMTP_USER": "u",
+      "SUMOPOD_SMTP_PASS": "p",
+      "MAIL_FROM": "no-reply@example.test",
+      "FREE_BETA_SLOTS": "10"
+    }
+  },
+  {
+    "name": "turnstile-too-long",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "TURNSTILE_SECRET_KEY": "ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt"
+    }
+  },
+  {
+    "name": "router",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NIBIEROUTER_ADMIN_KEY": "sk-admin-test-0123456789",
+      "NIBIEROUTER_DEFAULT_MODEL": "some-model"
+    }
+  },
+  {
+    "name": "router-only-key",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NIBIEROUTER_ADMIN_KEY": "sk-admin-test-0123456789"
+    }
+  },
+  {
+    "name": "router-only-model",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NIBIEROUTER_DEFAULT_MODEL": "some-model"
+    }
+  },
+  {
+    "name": "router-url-bad-0",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NIBIEROUTER_API_URL": "http://router.example.test"
+    }
+  },
+  {
+    "name": "router-url-bad-1",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NIBIEROUTER_API_URL": "https://router.example.test/v1"
+    }
+  },
+  {
+    "name": "router-url-bad-2",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NIBIEROUTER_API_URL": "https://router.example.test/?a=1"
+    }
+  },
+  {
+    "name": "router-url-bad-3",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NIBIEROUTER_API_URL": "not a url"
+    }
+  },
+  {
+    "name": "router-url-trailing-slash",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NIBIEROUTER_API_URL": "https://router.example.test/",
+      "NIBIEROUTER_ADMIN_KEY": "k",
+      "NIBIEROUTER_DEFAULT_MODEL": "m"
+    }
+  },
+  {
+    "name": "router-url-no-slash",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NIBIEROUTER_API_URL": "https://router.example.test",
+      "NIBIEROUTER_ADMIN_KEY": "k",
+      "NIBIEROUTER_DEFAULT_MODEL": "m"
+    }
+  },
+  {
+    "name": "router-url-fragment",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NIBIEROUTER_API_URL": "https://router.example.test/#x"
+    }
+  },
+  {
+    "name": "router-email-domain",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NIBIEROUTER_USER_EMAIL_DOMAIN": "tenants.example.test",
+      "NIBIEROUTER_ADMIN_KEY": "k",
+      "NIBIEROUTER_DEFAULT_MODEL": "m"
+    }
+  },
+  {
+    "name": "router-email-domain-bad",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NIBIEROUTER_USER_EMAIL_DOMAIN": "Example.TEST"
+    }
+  },
+  {
+    "name": "router-key-not-echoed",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NIBIEROUTER_ADMIN_KEY": "sk-admin-canary-value-123"
+    }
+  },
+  {
+    "name": "ops-telegram",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "OPS_TELEGRAM_BOT_TOKEN": "123456:test-bot-token-000000000000000000",
+      "OPS_TELEGRAM_CHAT_ID": "-1001234567890"
+    }
+  },
+  {
+    "name": "ops-only-token",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "OPS_TELEGRAM_BOT_TOKEN": "123456:test-bot-token-000000000000000000"
+    }
+  },
+  {
+    "name": "ops-only-chat",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "OPS_TELEGRAM_CHAT_ID": "42"
+    }
+  },
+  {
+    "name": "ops-bad-token",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "OPS_TELEGRAM_BOT_TOKEN": "not-a-token",
+      "OPS_TELEGRAM_CHAT_ID": "42"
+    }
+  },
+  {
+    "name": "ops-bad-chat",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "OPS_TELEGRAM_BOT_TOKEN": "123456:test-bot-token-000000000000000000",
+      "OPS_TELEGRAM_CHAT_ID": "12a"
+    }
+  },
+  {
+    "name": "abort-not-integer",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "HERMES_DISK_CHECK_INTERVAL_MS": "1.5"
+    }
+  },
+  {
+    "name": "abort-below-min",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "PORT": "0"
+    }
+  },
+  {
+    "name": "abort-not-number",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "PORT": "abc"
+    }
+  },
+  {
+    "name": "abort-unsafe-integer",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "HERMES_DISK_CHECK_INTERVAL_MS": "1e16"
+    }
+  },
+  {
+    "name": "abort-unsafe-integer-2pow63",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "HERMES_DISK_CHECK_INTERVAL_MS": "9223372036854775808"
+    }
+  },
+  {
+    "name": "abort-infinity",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "PORT": "Infinity"
+    }
+  },
+  {
+    "name": "abort-too-short",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "x",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off"
+    }
+  },
+  {
+    "name": "abort-missing-required",
+    "env": {
+      "DATABASE_URL": "",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off"
+    }
+  },
+  {
+    "name": "abort-not-ipv4",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "HERMES_CANARY_PRIVATE_IP": "nope"
+    }
+  },
+  {
+    "name": "abort-bad-regex",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "MAIL_FROM": "nope"
+    }
+  },
+  {
+    "name": "abort-bad-origin",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "SUPABASE_URL": "http://x.example.test"
+    }
+  },
+  {
+    "name": "abort-bad-kek",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "SECRETS_KEK": "abc"
+    }
+  },
+  {
+    "name": "abort-too-long",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "TURNSTILE_SECRET_KEY": "ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt"
+    }
+  },
+  {
+    "name": "abort-enum-with-default",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "PAID_CHECKOUT_OPEN": "yes"
+    }
+  },
+  {
+    "name": "abort-unknown-enum",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "HERMES_RUNTIME": "kata"
+    }
+  },
+  {
+    "name": "abort-kek-version-zero",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "SECRETS_KEK_VERSION": "0"
+    }
+  },
+  {
+    "name": "abort-callback-too-long",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "DUITKU_CALLBACK_URL": "https://x.example.test/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  },
+  {
+    "name": "abort-bad-email-domain",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "NIBIEROUTER_USER_EMAIL_DOMAIN": "Bad"
+    }
+  },
+  {
+    "name": "abort-bad-admin-emails",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "hermes-stub:0.1.0",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off",
+      "ADMIN_EMAILS": "nope"
+    }
+  },
+  {
+    "name": "abort-missing-key",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_DISK_QUOTA": "off"
+    }
+  },
+  {
+    "name": "production-full",
+    "env": {
+      "DATABASE_URL": "postgresql://u:p@127.0.0.1:5433/db",
+      "HERMES_IMAGE": "h@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "ADMIN_TOKEN": "aaaaaaaaaaaaaaaaaaaaaaaa",
+      "HERMES_MASTER_KEY": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+      "HERMES_CANARY_IMAGE": "alpine@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "NODE_ENV": "production",
+      "HERMES_RUNTIME": "runsc",
+      "HERMES_DNS_RESOLVERS": "192.0.2.53",
+      "REDIS_URL": "redis://127.0.0.1:6380",
+      "SECRETS_KEK": "CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk=",
+      "SUMOPOD_SMTP_HOST": "smtp.example.test",
+      "SUMOPOD_SMTP_PORT": "465",
+      "SUMOPOD_SMTP_USER": "user",
+      "SUMOPOD_SMTP_PASS": "smtp-pass-value",
+      "MAIL_FROM": "no-reply@example.test",
+      "SUMOPOD_API_KEY": "sk_test_value",
+      "SUMOPOD_WEBHOOK_TOKEN": "whtok_test_value",
+      "SUMOPOD_CALLBACK_URL": "https://api.example.test/api/v1/billing/sumopod/webhook",
+      "BILLING_GATEWAY": "both",
+      "DUITKU_MERCHANT_CODE": "DS00000",
+      "DUITKU_API_KEY": "duitku-api-key-value",
+      "DUITKU_CALLBACK_URL": "https://api.example.test/api/v1/billing/duitku/callback",
+      "DASHBOARD_ORIGIN": "https://cloud.example.test",
+      "DUITKU_ENV": "production",
+      "SUMOPOD_ENV": "production",
+      "SUMOPOD_WEBHOOK_SECRET": "whsec_BQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUF",
+      "SUPABASE_URL": "https://abcd.supabase.co",
+      "ADMIN_EMAILS": "ops@example.test",
+      "BETA_ALLOWED_EMAILS": "a@example.test",
+      "FREE_BETA_SLOTS": "5",
+      "TURNSTILE_SECRET_KEY": "ts-secret-value",
+      "SECRETS_KEK_VERSION": "2",
+      "SECRETS_KEK_PREVIOUS": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
+      "SECRETS_KEK_PREVIOUS_VERSION": "1",
+      "NIBIEROUTER_ADMIN_KEY": "sk-admin-test-0123456789",
+      "NIBIEROUTER_DEFAULT_MODEL": "some-model",
+      "OPS_TELEGRAM_BOT_TOKEN": "123456:test-bot-token-000000000000000000",
+      "OPS_TELEGRAM_CHAT_ID": "-1001234567890",
+      "MAX_TOTAL_INSTANCES": "40",
+      "HERMES_CANARY_PRIVATE_IP": "192.0.2.10",
+      "PAID_CHECKOUT_OPEN": "false"
+    }
+  }
+]

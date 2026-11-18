@@ -1,0 +1,13 @@
+# sqlc generates typed Go for the SQL in internal/db/queries, checked against the goose migrations.
+# sqlc needs cgo, so it runs from its pinned image (see server/README.md):
+#   docker run --rm -v "$PWD:/src" -w /src sqlc/sqlc:1.31.1@sha256:70f53171d27b2424e9358869975455a6e955a5aa8e58a998a270a6e34e525537 generate
+version: "2"
+sql:
+  - engine: postgresql
+    schema: migrations
+    queries: internal/db/queries
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/db/sqlcgen
+        sql_package: pgx/v5

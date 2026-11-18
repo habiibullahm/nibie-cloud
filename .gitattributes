@@ -1,2 +1,3 @@
 test/fixtures/hermes-stub/* text eol=lf
 ops/egress/* text eol=lf
+server/** text eol=lf
