@@ -98,7 +98,7 @@ export function buildServer(deps: {
   const billing = deps.billing ?? null;
   if (customer) registerPublicRoutes(app, { prisma: customer.prisma, config, mailer: deps.mailer ?? null, captcha: deps.captcha ?? null });
   if (customer) registerCustomerRoutes(app, { customer, service, commands, config, integrations, logs: deps.logs ?? null, billing });
-  if (deps.admin) registerAdminRoutes(app, { admin: deps.admin, config });
+  if (deps.admin) registerAdminRoutes(app, { admin: deps.admin, config, mailer: deps.mailer ?? null });
   if (billing) {
     registerDuitkuCallback(app, { billing, logger });
     registerSumoPodWebhook(app, { billing, logger });

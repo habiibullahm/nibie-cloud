@@ -11,6 +11,9 @@ export interface BetaInviteRow {
   revokedAt: Date | null;
 }
 
+/** The columns an invite row is served with. Named, so a column added later is not returned until someone decides it should be. */
+export const INVITE_SELECT = { id: true, email: true, note: true, addedBy: true, createdAt: true, revokedAt: true } as const;
+
 /** Invites are matched on the trimmed, lowercased address, the same way `BETA_ALLOWED_EMAILS` is read. */
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
@@ -31,6 +34,7 @@ export async function addInvite(db: Db, input: { email: string; note?: string | 
     where: { email },
     create: { email, note, addedBy },
     update: { revokedAt: null, note, addedBy },
+    select: INVITE_SELECT,
   });
 }
 
@@ -45,5 +49,6 @@ export async function listInvites(db: Db, o: { includeRevoked?: boolean } = {}):
   return db.betaInvite.findMany({
     where: o.includeRevoked ? {} : { revokedAt: null },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    select: INVITE_SELECT,
   });
 }

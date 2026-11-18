@@ -10,6 +10,7 @@ import type { Mailer } from '../modules/billing/mailer.js';
 import { CONFIRM_TOKEN_PATTERN, confirmWaitlist, forgetConfirmSend, joinWaitlist } from '../modules/waitlist/waitlist.js';
 import type { CaptchaVerifier } from '../modules/waitlist/turnstile.js';
 import { AppError } from '../shared/errors.js';
+import { ipv6Groups } from '../shared/ip.js';
 
 /**
  * The address of the visitor. The process listens on loopback behind Caddy, which sets `X-Forwarded-For` to the address it
@@ -24,13 +25,7 @@ export function clientIp(req: FastifyRequest): string {
 
 /** The first 64 bits of a (valid) IPv6 address, written as `a:b:c:d::/64`. */
 function ipv6Prefix64(ip: string): string {
-  const halves = ip.split('%')[0]!.toLowerCase().split('::');
-  // An embedded IPv4 tail (`::1.2.3.4`) stands for two groups; it only ever sits in the last 32 bits.
-  const groups = (s: string): string[] => (s === '' ? [] : s.split(':')).flatMap((g) => (g.includes('.') ? ['0', '0'] : [g]));
-  const head = groups(halves[0]!);
-  const tail = halves.length > 1 ? groups(halves[1]!) : [];
-  const full = halves.length > 1 ? [...head, ...new Array<string>(8 - head.length - tail.length).fill('0'), ...tail] : head;
-  return `${full.slice(0, 4).map((g) => Number.parseInt(g, 16).toString(16)).join(':')}::/64`;
+  return `${ipv6Groups(ip).slice(0, 4).join(':')}::/64`;
 }
 
 /**

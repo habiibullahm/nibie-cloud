@@ -6,7 +6,7 @@ several still describe branches as "not committed" or billing as "OFF" that have
 
 ## Admin Pengaturan page, admin keys and admin MCP (2026-11-19)
 
-**Branch `claude/admin-settings-mcp` (not committed, not deployed, migration not applied anywhere but local `hermes_test`):**
+**PR #65, branch `claude/admin-settings-mcp` (not deployed; migration applied only to local `hermes_test`):**
 - **Why:** the owner asked for an admin settings page like NibieRouter's, plus admin keys and an admin MCP server so Claude Code
   can do the panel's work.
 - **Pengaturan page** (`/dashboard/admin/pengaturan`): read only. Cards Penagihan, Email, Masuk & beta, AI / NibieRouter from the new
@@ -28,6 +28,32 @@ several still describe branches as "not committed" or billing as "OFF" that have
     being sent as 30 days; fixed before this entry.
   - Not done: the page was not opened in a browser, and no real Claude Code client has called the MCP endpoint yet (only the
     JSON-RPC calls in the integration test).
+
+## Beta invite sends an email (2026-11-19, working tree on `main` at `37bb885`, NOT committed, NOT deployed)
+
+Bug: "Tambah undangan" in the admin panel only wrote a `BetaInvite` row; nothing emailed the person, so invited users never
+got a message. Now `POST /api/v1/admin/beta-invites` sends `renderBetaInvite` (register link, no admin-typed note or reason)
+through the existing mailer after the row and its audit entry are committed, and answers `{ invite, emailSent }`.
+A failed send or a missing mailer never undoes the invite (`emailSent: false`); the panel shows a warning toast then.
+Needs the SMTP settings on the VPS (`SUMOPOD_SMTP_*`, `MAIL_FROM`); without them nothing is sent. Auth email already lands in
+spam on Gmail (see the free beta section), so invitations may too.
+Checked: `pnpm build`, `test/integration/admin-beta-invites.test.ts` (8 pass), web `typecheck` and `test/admin-beta.test.ts`.
+Not checked: a real send over SumoPod SMTP. Web lint not run.
+
+## Personal data audit and log masking (2026-11-18)
+
+**Branch `claude/pii-log-masking` (worktree `nibie-cloud-pii`, not committed, not deployed).** Read-only audit of every response, log line, outbound
+payload and admin page; the result is in [architecture.md](architecture.md), "Personal data".
+- **Found:** the request log wrote the full URL and the exact client address. `GET /api/v1/admin/customers?q=<email>` therefore put searched
+  customer emails into the container logs. Invite and audit queries returned whole rows with no `select`.
+- **Changed:** request log now writes the path without its query string and the address cut to its network (`maskIp` in `src/shared/ip.ts`,
+  `serializeRequest` in `src/shared/logger.ts`); no port. `ipv6Groups` is shared with the rate-limit key, whose output is unchanged.
+  `INVITE_SELECT` and a named column list in `AuditService.list` keep the same fields as before.
+- **Owner decisions:** admin panel stays unmasked (allowlist, `aal2`, read audit); client addresses are truncated in logs.
+- **Not changed:** a Telegram user id and any end-user text in tenant container logs; no retention rule for logs or the audit trail.
+- **Checks** (Windows, local Docker Postgres `hermes_test`): `pnpm build` clean; `pnpm test:unit` 539 passed, 2 failed (the two known
+  `egress-canary` failures on this machine); admin, audit and beta-invite integration files 44 passed. New tests in `test/unit/logger.test.ts`.
+  Not run: the rest of the integration suite and a live `pnpm dev` request.
 
 ## Free beta is invite-only (2026-11-18)
 
@@ -93,8 +119,8 @@ The full review was given to the owner privately; it is not kept in this public 
 - **Second round, same branch:**
   - **Runtime:** `HERMES_RUNTIME=runsc` is now required when `NODE_ENV=production`; startup fails with `runc`.
     `deploy/backend.env.example` defaults to `runsc` with `HERMES_DNS_RESOLVERS`.
-  - **Client address:** Fastify trusts only the loopback proxy (`trustProxy: ['127.0.0.1', '::1']`), so `req.ip` and the
-    request log carry the real client address. The operator API's proxy-header guard is unchanged.
+  - **Client address:** Fastify trusts only the loopback proxy (`trustProxy: ['127.0.0.1', '::1']`), so `req.ip` is the real client
+    address (the request log has carried only its network since the personal data audit, see the first section). The operator API's proxy-header guard is unchanged.
   - **BYOK provider URL:** a provider `baseUrl` must use the standard https port; any explicit other port is refused.
   - **Waiting-list send caps:** at most 3 confirmation emails per address while its entry lives, and at most 100 per hour
     platform-wide. A failed send is given back. New column `WaitlistEntry.confirmSends`, migration

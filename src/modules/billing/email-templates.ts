@@ -151,6 +151,25 @@ export function renderWaitlistInvite(ctx: WaitlistInviteContext): RenderedEmail 
   }, ctx.registerUrl);
 }
 
+export interface BetaInviteContext {
+  /** Where to register, e.g. `https://cloud.nibie.app/dashboard/register`. */
+  registerUrl: string;
+}
+
+/** Sent when an admin adds an address to the beta invite list. It carries no admin-typed text (note, reason). */
+export function renderBetaInvite(ctx: BetaInviteContext): RenderedEmail {
+  return layout({
+    subject: 'Anda diundang ke beta Nibie Cloud', heading: 'Anda diundang ke beta Nibie Cloud', tag: 'BETA',
+    paragraphs: [
+      'Halo,',
+      'Alamat email ini sudah kami undang untuk mencoba Nibie Cloud, hosting agen Hermes AI.',
+      'Daftar atau masuk dengan alamat email ini, lalu buat instance Hermes Anda dari dashboard.',
+      'Kalau Anda tidak merasa mengharapkan email ini, abaikan saja.',
+    ],
+    button: 'Daftar sekarang',
+  }, ctx.registerUrl);
+}
+
 function layout(c: Copy, buttonUrl: string): RenderedEmail {
   const font = "font-family:'Segoe UI',Arial,Helvetica,sans-serif;";
   const paras = c.paragraphs
