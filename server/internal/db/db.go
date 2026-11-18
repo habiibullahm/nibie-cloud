@@ -76,6 +76,9 @@ func Open(ctx context.Context, databaseURL string, maxConns int32, log *slog.Log
 	if err != nil {
 		return nil, err
 	}
+	if log == nil {
+		log = slog.New(slog.DiscardHandler)
+	}
 	if len(stripped) > 0 {
 		log.Info("db: ignored Prisma parameters", "params", stripped)
 	}

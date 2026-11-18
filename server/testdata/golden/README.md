@@ -16,6 +16,20 @@ section 4).
 - The generators under `gen/` are dev tools, not backend code. They are deleted in milestone M9, when `src/` goes away.
   The fixtures stay.
 
+## Schema
+
+`schema.txt` is the Prisma-built schema, dumped by `cmd/schemadump`. To regenerate it (dev Postgres from
+`docker compose up -d postgres`, from the repository root):
+
+```bash
+docker compose exec -T postgres psql -U hermes -d hermes -c "DROP DATABASE IF EXISTS hermes_prisma_template" -c "CREATE DATABASE hermes_prisma_template"
+DATABASE_URL=postgresql://hermes:hermes_dev_only@127.0.0.1:5433/hermes_prisma_template pnpm db:migrate
+cd server && go run ./cmd/schemadump -url postgresql://hermes:hermes_dev_only@127.0.0.1:5433/hermes_prisma_template -schema public > testdata/golden/schema.txt
+```
+
+Keep `hermes_prisma_template` afterwards: `internal/db/migrate`'s baseline test copies it when
+`HERMES_TEST_PRISMA_TEMPLATE=hermes_prisma_template` is set.
+
 ## Config cases
 
 From the repository root, after `pnpm install`:

@@ -1,0 +1,320 @@
+enum AlertSeverity: CRITICAL, WARNING, INFO
+enum CreditGrantStatus: PENDING, DONE
+enum InstanceStatus: PENDING, PROVISIONING, CONFIGURING, STARTING, ACTIVE, DEGRADED, STOPPED, FAILED, DELETING, DELETED, STOPPING
+enum IntegrationStatus: UNTESTED, OK, FAILED
+enum PaymentPurpose: NEW, RENEWAL
+enum PaymentStatus: PENDING, PAID, FAILED, EXPIRED
+enum ProviderKind: BYOK, NIBIEROUTER
+enum RouterProvisioningStatus: PENDING, DONE
+enum SubscriptionStatus: PENDING_PAYMENT, ACTIVE, GRACE, SUSPENDED, ENDED
+enum TenantRole: OWNER
+enum WaitlistStatus: UNCONFIRMED, WAITING, INVITED, REGISTERED
+table AdminApiKey rls=true force_rls=false
+  column id uuid not null
+  column name text not null
+  column prefix text not null
+  column hash text not null
+  column createdByUserId uuid not null
+  column createdByEmail text not null
+  column createdAt timestamp(3) with time zone not null default CURRENT_TIMESTAMP
+  column expiresAt timestamp(3) with time zone
+  column revokedAt timestamp(3) with time zone
+  column lastUsedAt timestamp(3) with time zone
+  constraint AdminApiKey_pkey PRIMARY KEY (id)
+  index CREATE UNIQUE INDEX "AdminApiKey_hash_key" ON "AdminApiKey" USING btree (hash)
+  index CREATE UNIQUE INDEX "AdminApiKey_pkey" ON "AdminApiKey" USING btree (id)
+table AuditLog rls=false force_rls=false
+  column id uuid not null
+  column actorEmail text not null
+  column action text not null
+  column targetType text
+  column targetId uuid
+  column reason text
+  column detail jsonb
+  column createdAt timestamp(3) with time zone not null default CURRENT_TIMESTAMP
+  constraint AuditLog_pkey PRIMARY KEY (id)
+  index CREATE INDEX "AuditLog_actorEmail_createdAt_idx" ON "AuditLog" USING btree ("actorEmail", "createdAt")
+  index CREATE INDEX "AuditLog_createdAt_idx" ON "AuditLog" USING btree ("createdAt")
+  index CREATE INDEX "AuditLog_targetId_createdAt_idx" ON "AuditLog" USING btree ("targetId", "createdAt")
+  index CREATE UNIQUE INDEX "AuditLog_pkey" ON "AuditLog" USING btree (id)
+table BetaInvite rls=true force_rls=false
+  column id uuid not null
+  column email text not null
+  column note text
+  column addedBy text
+  column createdAt timestamp(3) with time zone not null default CURRENT_TIMESTAMP
+  column revokedAt timestamp(3) with time zone
+  constraint BetaInvite_pkey PRIMARY KEY (id)
+  index CREATE UNIQUE INDEX "BetaInvite_email_key" ON "BetaInvite" USING btree (email)
+  index CREATE UNIQUE INDEX "BetaInvite_pkey" ON "BetaInvite" USING btree (id)
+table BillingNotice rls=false force_rls=false
+  column id uuid not null
+  column subscriptionId uuid not null
+  column kind text not null
+  column periodEnd timestamp(3) with time zone not null
+  column sentAt timestamp(3) with time zone not null default CURRENT_TIMESTAMP
+  constraint BillingNotice_pkey PRIMARY KEY (id)
+  constraint BillingNotice_subscriptionId_fkey FOREIGN KEY ("subscriptionId") REFERENCES "Subscription"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+  index CREATE UNIQUE INDEX "BillingNotice_pkey" ON "BillingNotice" USING btree (id)
+  index CREATE UNIQUE INDEX "BillingNotice_subscriptionId_kind_periodEnd_key" ON "BillingNotice" USING btree ("subscriptionId", kind, "periodEnd")
+table CreditGrant rls=false force_rls=false
+  column id uuid not null
+  column tenantId uuid not null
+  column subscriptionId uuid not null
+  column amountNano bigint not null
+  column note text not null
+  column status "CreditGrantStatus" not null default 'PENDING'::"CreditGrantStatus"
+  column attempts integer not null default 0
+  column balanceAfterNano bigint
+  column createdAt timestamp(3) with time zone not null default CURRENT_TIMESTAMP
+  column updatedAt timestamp(3) with time zone not null
+  constraint CreditGrant_pkey PRIMARY KEY (id)
+  constraint CreditGrant_tenantId_fkey FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+  index CREATE UNIQUE INDEX "CreditGrant_pkey" ON "CreditGrant" USING btree (id)
+  index CREATE UNIQUE INDEX "CreditGrant_subscriptionId_key" ON "CreditGrant" USING btree ("subscriptionId")
+table Instance rls=false force_rls=false
+  column id uuid not null
+  column tenantId uuid not null
+  column planId uuid not null
+  column nodeId uuid not null
+  column name text not null
+  column idempotencyKey text not null
+  column status "InstanceStatus" not null default 'PENDING'::"InstanceStatus"
+  column statusReason text
+  column image text not null
+  column hostPort integer
+  column consecutiveFailures integer not null default 0
+  column recoveryAttempts integer not null default 0
+  column nextRecoveryAt timestamp(3) with time zone
+  column lastHealthAt timestamp(3) with time zone
+  column createdAt timestamp(3) with time zone not null default CURRENT_TIMESTAMP
+  column updatedAt timestamp(3) with time zone not null
+  column deletedAt timestamp(3) with time zone
+  column leaseExpiresAt timestamp(3) with time zone
+  column operationOwner uuid
+  column diskLevel text not null default 'ok'::text
+  column diskUsedBytes bigint
+  column appliedRevision integer not null default 0
+  column configRevision integer not null default 0
+  constraint Instance_nodeId_fkey FOREIGN KEY ("nodeId") REFERENCES "RuntimeNode"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+  constraint Instance_pkey PRIMARY KEY (id)
+  constraint Instance_planId_fkey FOREIGN KEY ("planId") REFERENCES "Plan"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+  constraint Instance_tenantId_fkey FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+  index CREATE INDEX "Instance_status_idx" ON "Instance" USING btree (status)
+  index CREATE INDEX "Instance_status_leaseExpiresAt_idx" ON "Instance" USING btree (status, "leaseExpiresAt")
+  index CREATE INDEX "Instance_tenantId_idx" ON "Instance" USING btree ("tenantId")
+  index CREATE UNIQUE INDEX "Instance_pkey" ON "Instance" USING btree (id)
+  index CREATE UNIQUE INDEX "Instance_tenantId_idempotencyKey_key" ON "Instance" USING btree ("tenantId", "idempotencyKey")
+table InstanceEvent rls=false force_rls=false
+  column id uuid not null
+  column instanceId uuid not null
+  column type text not null
+  column message text not null
+  column createdAt timestamp(3) with time zone not null default CURRENT_TIMESTAMP
+  constraint InstanceEvent_instanceId_fkey FOREIGN KEY ("instanceId") REFERENCES "Instance"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+  constraint InstanceEvent_pkey PRIMARY KEY (id)
+  index CREATE INDEX "InstanceEvent_instanceId_createdAt_idx" ON "InstanceEvent" USING btree ("instanceId", "createdAt")
+  index CREATE UNIQUE INDEX "InstanceEvent_pkey" ON "InstanceEvent" USING btree (id)
+table OperatorAlert rls=false force_rls=false
+  column id uuid not null
+  column dedupeKey text not null
+  column severity "AlertSeverity" not null
+  column title text not null
+  column detail text not null default ''::text
+  column firstSeenAt timestamp(3) with time zone not null default CURRENT_TIMESTAMP
+  column lastSeenAt timestamp(3) with time zone not null default CURRENT_TIMESTAMP
+  column lastSentAt timestamp(3) with time zone
+  column sendCount integer not null default 0
+  column resolvedAt timestamp(3) with time zone
+  constraint OperatorAlert_pkey PRIMARY KEY (id)
+  index CREATE INDEX "OperatorAlert_resolvedAt_idx" ON "OperatorAlert" USING btree ("resolvedAt")
+  index CREATE UNIQUE INDEX "OperatorAlert_dedupeKey_key" ON "OperatorAlert" USING btree ("dedupeKey")
+  index CREATE UNIQUE INDEX "OperatorAlert_pkey" ON "OperatorAlert" USING btree (id)
+table Payment rls=false force_rls=false
+  column id uuid not null
+  column subscriptionId uuid not null
+  column merchantOrderId text not null
+  column amountIdr integer not null
+  column purpose "PaymentPurpose" not null
+  column status "PaymentStatus" not null default 'PENDING'::"PaymentStatus"
+  column reference text
+  column paymentUrl text
+  column resultCode text
+  column expiresAt timestamp(3) with time zone not null
+  column paidAt timestamp(3) with time zone
+  column createdAt timestamp(3) with time zone not null default CURRENT_TIMESTAMP
+  column updatedAt timestamp(3) with time zone not null
+  constraint Payment_pkey PRIMARY KEY (id)
+  constraint Payment_subscriptionId_fkey FOREIGN KEY ("subscriptionId") REFERENCES "Subscription"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+  index CREATE INDEX "Payment_status_expiresAt_idx" ON "Payment" USING btree (status, "expiresAt")
+  index CREATE UNIQUE INDEX "Payment_merchantOrderId_key" ON "Payment" USING btree ("merchantOrderId")
+  index CREATE UNIQUE INDEX "Payment_pkey" ON "Payment" USING btree (id)
+table PaymentEvent rls=false force_rls=false
+  column id uuid not null
+  column merchantOrderId text not null
+  column reference text not null
+  column resultCode text not null
+  column amountIdr integer not null
+  column outcome text not null
+  column createdAt timestamp(3) with time zone not null default CURRENT_TIMESTAMP
+  constraint PaymentEvent_pkey PRIMARY KEY (id)
+  index CREATE UNIQUE INDEX "PaymentEvent_merchantOrderId_reference_resultCode_key" ON "PaymentEvent" USING btree ("merchantOrderId", reference, "resultCode")
+  index CREATE UNIQUE INDEX "PaymentEvent_pkey" ON "PaymentEvent" USING btree (id)
+table Plan rls=false force_rls=false
+  column id uuid not null
+  column slug text not null
+  column cpuMillis integer not null
+  column memoryMb integer not null
+  column pids integer not null
+  column storageMb integer not null
+  column active boolean not null default true
+  column name text not null
+  column monthlyPriceIdr integer
+  column includedCreditNano bigint
+  constraint Plan_pkey PRIMARY KEY (id)
+  index CREATE UNIQUE INDEX "Plan_pkey" ON "Plan" USING btree (id)
+  index CREATE UNIQUE INDEX "Plan_slug_key" ON "Plan" USING btree (slug)
+table ProviderConfig rls=false force_rls=false
+  column id uuid not null
+  column instanceId uuid not null
+  column kind "ProviderKind" not null
+  column baseUrl text not null
+  column model text not null
+  column secretId uuid not null
+  column status "IntegrationStatus" not null default 'UNTESTED'::"IntegrationStatus"
+  column lastTestedAt timestamp(3) with time zone
+  column lastErrorCode text
+  column createdAt timestamp(3) with time zone not null default CURRENT_TIMESTAMP
+  column updatedAt timestamp(3) with time zone not null
+  constraint ProviderConfig_instanceId_fkey FOREIGN KEY ("instanceId") REFERENCES "Instance"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+  constraint ProviderConfig_pkey PRIMARY KEY (id)
+  constraint ProviderConfig_secretId_fkey FOREIGN KEY ("secretId") REFERENCES "Secret"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+  index CREATE UNIQUE INDEX "ProviderConfig_instanceId_key" ON "ProviderConfig" USING btree ("instanceId")
+  index CREATE UNIQUE INDEX "ProviderConfig_pkey" ON "ProviderConfig" USING btree (id)
+  index CREATE UNIQUE INDEX "ProviderConfig_secretId_key" ON "ProviderConfig" USING btree ("secretId")
+table RouterProvisioning rls=false force_rls=false
+  column instanceId uuid not null
+  column tenantId uuid not null
+  column subscriptionId uuid
+  column status "RouterProvisioningStatus" not null default 'PENDING'::"RouterProvisioningStatus"
+  column attempts integer not null default 0
+  column lastError text
+  column createdAt timestamp(3) with time zone not null default CURRENT_TIMESTAMP
+  column updatedAt timestamp(3) with time zone not null
+  constraint RouterProvisioning_pkey PRIMARY KEY ("instanceId")
+  index CREATE UNIQUE INDEX "RouterProvisioning_pkey" ON "RouterProvisioning" USING btree ("instanceId")
+table RuntimeNode rls=false force_rls=false
+  column id uuid not null
+  column name text not null
+  column region text not null
+  column schedulable boolean not null default true
+  constraint RuntimeNode_pkey PRIMARY KEY (id)
+  index CREATE UNIQUE INDEX "RuntimeNode_name_key" ON "RuntimeNode" USING btree (name)
+  index CREATE UNIQUE INDEX "RuntimeNode_pkey" ON "RuntimeNode" USING btree (id)
+table Secret rls=false force_rls=false
+  column id uuid not null
+  column tenantId uuid not null
+  column purpose text not null
+  column ciphertext text not null
+  column iv text not null
+  column tag text not null
+  column wrappedKey text not null
+  column wrapIv text not null
+  column wrapTag text not null
+  column kekVersion integer not null
+  column keyHint text not null
+  column createdAt timestamp(3) with time zone not null default CURRENT_TIMESTAMP
+  column rotatedAt timestamp(3) with time zone
+  column revokedAt timestamp(3) with time zone
+  constraint Secret_pkey PRIMARY KEY (id)
+  constraint Secret_tenantId_fkey FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+  index CREATE INDEX "Secret_kekVersion_idx" ON "Secret" USING btree ("kekVersion")
+  index CREATE INDEX "Secret_tenantId_idx" ON "Secret" USING btree ("tenantId")
+  index CREATE UNIQUE INDEX "Secret_pkey" ON "Secret" USING btree (id)
+table Subscription rls=false force_rls=false
+  column id uuid not null
+  column tenantId uuid not null
+  column planId uuid not null
+  column instanceId uuid
+  column intendedName text not null
+  column idempotencyKey text
+  column status "SubscriptionStatus" not null default 'PENDING_PAYMENT'::"SubscriptionStatus"
+  column currentPeriodEnd timestamp(3) with time zone
+  column cancelAtPeriodEnd boolean not null default false
+  column graceEndsAt timestamp(3) with time zone
+  column suspendedAt timestamp(3) with time zone
+  column retentionEndsAt timestamp(3) with time zone
+  column restartPending boolean not null default false
+  column createdAt timestamp(3) with time zone not null default CURRENT_TIMESTAMP
+  column updatedAt timestamp(3) with time zone not null
+  constraint Subscription_instanceId_fkey FOREIGN KEY ("instanceId") REFERENCES "Instance"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+  constraint Subscription_pkey PRIMARY KEY (id)
+  constraint Subscription_planId_fkey FOREIGN KEY ("planId") REFERENCES "Plan"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+  constraint Subscription_tenantId_fkey FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+  index CREATE INDEX "Subscription_status_currentPeriodEnd_idx" ON "Subscription" USING btree (status, "currentPeriodEnd")
+  index CREATE INDEX "Subscription_tenantId_idx" ON "Subscription" USING btree ("tenantId")
+  index CREATE UNIQUE INDEX "Subscription_instanceId_key" ON "Subscription" USING btree ("instanceId")
+  index CREATE UNIQUE INDEX "Subscription_pkey" ON "Subscription" USING btree (id)
+  index CREATE UNIQUE INDEX "Subscription_tenantId_idempotencyKey_key" ON "Subscription" USING btree ("tenantId", "idempotencyKey")
+table TelegramConnection rls=false force_rls=false
+  column id uuid not null
+  column instanceId uuid not null
+  column secretId uuid not null
+  column botId text not null
+  column botUsername text not null
+  column allowedUserIds text[]
+  column status "IntegrationStatus" not null default 'UNTESTED'::"IntegrationStatus"
+  column lastErrorCode text
+  column verifiedAt timestamp(3) with time zone
+  column createdAt timestamp(3) with time zone not null default CURRENT_TIMESTAMP
+  column updatedAt timestamp(3) with time zone not null
+  constraint TelegramConnection_instanceId_fkey FOREIGN KEY ("instanceId") REFERENCES "Instance"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+  constraint TelegramConnection_pkey PRIMARY KEY (id)
+  constraint TelegramConnection_secretId_fkey FOREIGN KEY ("secretId") REFERENCES "Secret"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+  index CREATE UNIQUE INDEX "TelegramConnection_botId_key" ON "TelegramConnection" USING btree ("botId")
+  index CREATE UNIQUE INDEX "TelegramConnection_instanceId_key" ON "TelegramConnection" USING btree ("instanceId")
+  index CREATE UNIQUE INDEX "TelegramConnection_pkey" ON "TelegramConnection" USING btree (id)
+  index CREATE UNIQUE INDEX "TelegramConnection_secretId_key" ON "TelegramConnection" USING btree ("secretId")
+table Tenant rls=false force_rls=false
+  column id uuid not null
+  column name text not null
+  column createdAt timestamp(3) with time zone not null default CURRENT_TIMESTAMP
+  column routerUserId text
+  constraint Tenant_pkey PRIMARY KEY (id)
+  index CREATE UNIQUE INDEX "Tenant_pkey" ON "Tenant" USING btree (id)
+table TenantMember rls=false force_rls=false
+  column tenantId uuid not null
+  column userId uuid not null
+  column role "TenantRole" not null default 'OWNER'::"TenantRole"
+  constraint TenantMember_pkey PRIMARY KEY ("tenantId", "userId")
+  constraint TenantMember_tenantId_fkey FOREIGN KEY ("tenantId") REFERENCES "Tenant"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+  constraint TenantMember_userId_fkey FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+  index CREATE UNIQUE INDEX "TenantMember_pkey" ON "TenantMember" USING btree ("tenantId", "userId")
+  index CREATE UNIQUE INDEX "TenantMember_userId_key" ON "TenantMember" USING btree ("userId")
+table User rls=false force_rls=false
+  column id uuid not null
+  column email text not null
+  column createdAt timestamp(3) with time zone not null default CURRENT_TIMESTAMP
+  constraint User_pkey PRIMARY KEY (id)
+  index CREATE UNIQUE INDEX "User_pkey" ON "User" USING btree (id)
+table WaitlistEntry rls=true force_rls=false
+  column id uuid not null
+  column email text not null
+  column name text not null
+  column useCase text not null
+  column status "WaitlistStatus" not null default 'UNCONFIRMED'::"WaitlistStatus"
+  column createdAt timestamp(3) with time zone not null default CURRENT_TIMESTAMP
+  column invitedAt timestamp(3) with time zone
+  column inviteExpiresAt timestamp(3) with time zone
+  column inviteFailures integer not null default 0
+  column registeredAt timestamp(3) with time zone
+  column confirmTokenHash text
+  column confirmSentAt timestamp(3) with time zone
+  column confirmExpiresAt timestamp(3) with time zone
+  column confirmedAt timestamp(3) with time zone
+  column confirmSends integer not null default 0
+  constraint WaitlistEntry_pkey PRIMARY KEY (id)
+  index CREATE INDEX "WaitlistEntry_status_createdAt_idx" ON "WaitlistEntry" USING btree (status, "createdAt")
+  index CREATE UNIQUE INDEX "WaitlistEntry_confirmTokenHash_key" ON "WaitlistEntry" USING btree ("confirmTokenHash")
+  index CREATE UNIQUE INDEX "WaitlistEntry_email_key" ON "WaitlistEntry" USING btree (email)
+  index CREATE UNIQUE INDEX "WaitlistEntry_pkey" ON "WaitlistEntry" USING btree (id)
