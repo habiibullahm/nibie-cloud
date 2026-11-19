@@ -154,7 +154,7 @@ describe("customer billing client", () => {
     status: "PENDING",
     purpose: "NEW",
     amountIdr: 25000,
-    paymentUrl: "https://sandbox.duitku.test/pay/abc",
+    paymentUrl: "https://sandbox.sumopod.test/pay/abc",
     expiresAt: "2026-11-15T01:00:00.000Z",
     paidAt: null,
   }
@@ -173,7 +173,7 @@ describe("customer billing client", () => {
     const { api, fetchMock } = setup()
     fetchMock.mockResolvedValue(json({ subscription, payment }, 201))
     const out = await api.billing.checkout({ name: "agent", planId: ID }, "key-9")
-    expect(out.payment.paymentUrl).toBe("https://sandbox.duitku.test/pay/abc")
+    expect(out.payment.paymentUrl).toBe("https://sandbox.sumopod.test/pay/abc")
     const [url, init] = fetchMock.mock.calls[0]!
     expect(url).toBe("https://api.example.test/api/v1/subscriptions/checkout")
     expect(init!.method).toBe("POST")

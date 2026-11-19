@@ -11,7 +11,7 @@ Five standalone packages, no pnpm workspace; each has its own `package.json` and
 | Backend `hermes-cloud` | repo root (`src/`, `test/`, `prisma/`) | Fastify APIs + Docker runtime manager + reconciler (TypeScript, ESM) | this file, `docs/` |
 | Dashboard `@hermes-cloud/web` | `apps/web/` | Next.js 16 customer dashboard and admin panel (mock data by default) | `apps/web/README.md` |
 | Docs `@hermes-cloud/docs` | `apps/docs/` | Customer docs site (Fumadocs, Next.js 16, static export under `/docs`, Indonesian) | `apps/docs/README.md` |
-| Landing `@hermes-cloud/landing` | `apps/landing/` | Public landing page for `cloud.nibie.app` (static export, Cloudflare Worker, Indonesian, legal pages for Duitku KYC) | `apps/landing/README.md` |
+| Landing `@hermes-cloud/landing` | `apps/landing/` | Public landing page for `cloud.nibie.app` (static export, Cloudflare Worker, Indonesian, legal pages for payment-provider KYC) | `apps/landing/README.md` |
 | E2E `@hermes-cloud/e2e` | `e2e/` | Playwright tests: T0 mock, T1 full stack, T2 production smoke | `e2e/README.md` |
 
 Next.js 16 (`apps/web`, `apps/docs`, `apps/landing`) differs from older versions: read the guide under that
@@ -128,18 +128,17 @@ Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
   next start/restart (user or reconciler) recreate the container. Nothing under `src/http` may import
   `secrets/secret-store` (test-enforced). Control-plane calls to Telegram and provider URLs use `safeFetch`
   (https, no redirects, public pinned address). Secrets are purged only after `runtime.remove` succeeds.
-- **Billing** (`src/modules/billing`, `src/http/billing-routes.ts`, `src/http/sumopod-callback.ts`, `src/http/duitku-callback.ts`):
-  `BILLING_GATEWAY` picks `sumopod` (default), `duitku` or `both`. SumoPod is configured by `SUMOPOD_API_KEY`, `SUMOPOD_WEBHOOK_TOKEN` and
-  `SUMOPOD_CALLBACK_URL` (`SUMOPOD_ENV` `sandbox` default; details in `src/config/env.ts`); its webhook `POST /api/v1/billing/sumopod/webhook` is checked by a
+- **Billing** (`src/modules/billing`, `src/http/billing-routes.ts`, `src/http/sumopod-callback.ts`): SumoPod Managed Payment (QRIS)
+  is the only gateway (Duitku was removed 2026-11-19). It is configured by `SUMOPOD_API_KEY`, `SUMOPOD_WEBHOOK_TOKEN` and
+  `SUMOPOD_CALLBACK_URL` plus `DASHBOARD_ORIGIN` (`SUMOPOD_ENV` `sandbox` default, `production` needs `NODE_ENV=production`; details in
+  `src/config/env.ts`). Its public webhook `POST /api/v1/billing/sumopod/webhook` is checked before any database access by a
   Svix signature over the raw body (`SUMOPOD_WEBHOOK_SECRET`, `whsec_...`, 5-minute window, required in production), or by
-  that token when no secret is set (`src/modules/billing/svix.ts`). Duitku POP needs `DUITKU_MERCHANT_CODE`, `DUITKU_API_KEY` and `DUITKU_CALLBACK_URL` (`DUITKU_ENV` `sandbox` default;
-  `production` needs `NODE_ENV=production`). One `Subscription` per instance; the instance is created after the first verified payment.
-  The public callback (`POST /api/v1/billing/duitku/callback`) is authenticated by its HMAC signature only, checked before
-  any database access, and is idempotent through `PaymentEvent`'s unique key. A billing tick (inside the locked maintenance
+  that token when no secret is set (`src/modules/billing/svix.ts`), and is idempotent through `PaymentEvent`'s unique key.
+  One `Subscription` per instance; the instance is created after the first verified payment. A billing tick (inside the locked maintenance
   job) handles reminders, 3-day grace, suspension (instance stopped, start answers `subscription_suspended`), 30-day
   retention and deletion, with Indonesian emails over SumoPod SMTP. `Plan.monthlyPriceIdr` null means not for sale; prices
-  are set by `scripts/seed-sandbox-plans.ts` (sandbox) or by hand, never by a migration. Not verified against the real
-  Duitku yet: see `docs/architecture.md`, "Known gaps" 9a.
+  are set by `scripts/seed-sandbox-plans.ts` (sandbox) or by hand, never by a migration. No real-money payment verified
+  yet: see `docs/architecture.md`, "Known gaps" 9a.
 - **Free beta waiting list** (`src/modules/waitlist`, `src/modules/instances/free-beta.ts`, `POST /api/v1/public/waitlist`): active with `FREE_BETA_SLOTS` > 0. `WaitlistEntry` (email unique lowercase, `UNCONFIRMED|WAITING|INVITED|REGISTERED`, RLS on). Double opt-in: an entry counts only after `POST /api/v1/public/waitlist/confirm` with the token from the confirmation email (hash stored, 24 hours); unconfirmed entries are never invited and are deleted when their link expires. `WaitlistInviter` (inside the maintenance tick, advisory lock) invites the oldest waiting entry by email when a slot is free, 48 hour window, no manual step; an open invitation reserves its slot (`reservedInvites`), so strangers get `beta_full`. A join needs a solved Cloudflare Turnstile captcha when `TURNSTILE_SECRET_KEY` is set (required in production while the list is on), and confirmation emails are capped at 3 per address and 100 per hour platform-wide. Read-only admin page. Details and limits: `docs/setup.md`, "Waiting list".
 - **NibieRouter provisioning** (`src/modules/nibierouter`): only when `NIBIEROUTER_ADMIN_KEY` and `NIBIEROUTER_DEFAULT_MODEL` are set
   (and `SECRETS_KEK`). After a paid instance is created, `RouterProvisioner` makes one router user per tenant, one key per instance

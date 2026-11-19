@@ -61,7 +61,7 @@ export default function KebijakanPrivasiPage() {
           <p>Kami memakai penyedia berikut untuk menjalankan layanan:</p>
           <ul>
             <li>Supabase untuk autentikasi dan basis data.</li>
-            <li>Duitku untuk pemrosesan pembayaran.</li>
+            <li>SumoPod untuk pemrosesan pembayaran (QRIS).</li>
             <li>Cloudflare untuk menyajikan situs dan dashboard.</li>
             <li>Penyedia layanan email untuk mengirim email transaksional.</li>
             <li>

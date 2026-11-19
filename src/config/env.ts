@@ -130,21 +130,7 @@ const schema = z.object({
   SUMOPOD_SMTP_PASS: optionalText,
   /** Bare sender address on the domain verified with the SMTP provider. */
   MAIL_FROM: mailAddress,
-  /** Duitku POP billing. All of merchant code, API key and callback URL, or none (billing off). */
-  DUITKU_MERCHANT_CODE: optionalText,
-  DUITKU_API_KEY: optionalText,
-  DUITKU_ENV: z.preprocess(emptyToUndefined, z.enum(['sandbox', 'production']).default('sandbox')),
-  DUITKU_CALLBACK_URL: z.preprocess(
-    emptyToUndefined,
-    z.string().max(255).refine((v) => {
-      try {
-        return new URL(v).protocol === 'https:';
-      } catch {
-        return false;
-      }
-    }).optional(),
-  ),
-  /** SumoPod Managed Payment (QRIS). All of API key, webhook token and callback URL, or none. */
+  /** SumoPod Managed Payment (QRIS), the only payment gateway. All of API key, webhook token and callback URL, or none (billing off). */
   SUMOPOD_API_KEY: optionalText,
   SUMOPOD_WEBHOOK_TOKEN: optionalText,
   /**
@@ -163,8 +149,6 @@ const schema = z.object({
       }
     }).optional(),
   ),
-  /** Select active billing gateway. 'sumopod', 'duitku', or 'both' (both activate concurrently). */
-  BILLING_GATEWAY: z.preprocess(emptyToUndefined, z.enum(['sumopod', 'duitku', 'both']).default('sumopod')),
   /** NibieRouter provisioning (a SumoRouter instance). Admin key and default model together, or none (credit and key provisioning off). */
   NIBIEROUTER_ADMIN_KEY: optionalText,
   NIBIEROUTER_DEFAULT_MODEL: optionalText,
@@ -234,28 +218,18 @@ const schema = z.object({
       if (e[k] === undefined) ctx.addIssue({ code: 'custom', path: [k], message: 'required when any mail variable is set' });
     }
   }
-  // A half-filled Duitku block would only fail when the first customer pays.
-  const duitkuKeys = ['DUITKU_MERCHANT_CODE', 'DUITKU_API_KEY', 'DUITKU_CALLBACK_URL'] as const;
-  if (duitkuKeys.some((k) => e[k] !== undefined)) {
-    for (const k of duitkuKeys) {
-      if (e[k] === undefined) ctx.addIssue({ code: 'custom', path: [k], message: 'required when any Duitku variable is set' });
-    }
-  }
-  // The invoice's return URL points back at the dashboard.
-  if (e.DUITKU_MERCHANT_CODE !== undefined && e.DASHBOARD_ORIGIN === undefined) {
-    ctx.addIssue({ code: 'custom', path: ['DASHBOARD_ORIGIN'], message: 'required when Duitku billing is configured' });
-  }
-  // Real money only from a production backend: a dev or test process must not talk to the live API.
-  if (e.DUITKU_ENV === 'production' && e.NODE_ENV !== 'production') {
-    ctx.addIssue({ code: 'custom', path: ['DUITKU_ENV'], message: 'production requires NODE_ENV=production' });
-  }
-  // A half-filled SumoPod block.
+  // A half-filled SumoPod block would only fail when the first customer pays.
   const sumopodKeys = ['SUMOPOD_API_KEY', 'SUMOPOD_WEBHOOK_TOKEN', 'SUMOPOD_CALLBACK_URL'] as const;
   if (sumopodKeys.some((k) => e[k] !== undefined)) {
     for (const k of sumopodKeys) {
       if (e[k] === undefined) ctx.addIssue({ code: 'custom', path: [k], message: 'required when any SumoPod variable is set' });
     }
   }
+  // The invoice's return URL points back at the dashboard.
+  if (e.SUMOPOD_API_KEY !== undefined && e.DASHBOARD_ORIGIN === undefined) {
+    ctx.addIssue({ code: 'custom', path: ['DASHBOARD_ORIGIN'], message: 'required when SumoPod billing is configured' });
+  }
+  // Real money only from a production backend: a dev or test process must not talk to the live API.
   if (e.SUMOPOD_ENV === 'production' && e.NODE_ENV !== 'production') {
     ctx.addIssue({ code: 'custom', path: ['SUMOPOD_ENV'], message: 'production requires NODE_ENV=production' });
   }
@@ -266,21 +240,6 @@ const schema = z.object({
   // A static token can be replayed by anyone who ever saw one webhook; a production backend takes signed webhooks only.
   if (e.NODE_ENV === 'production' && e.SUMOPOD_API_KEY !== undefined && e.SUMOPOD_WEBHOOK_SECRET === undefined) {
     ctx.addIssue({ code: 'custom', path: ['SUMOPOD_WEBHOOK_SECRET'], message: 'required in production when SumoPod is configured' });
-  }
-  // BILLING_GATEWAY consistency: only validate when at least one gateway is partially configured.
-  const duitkuFull = e.DUITKU_MERCHANT_CODE !== undefined;
-  const sumopodFull = e.SUMOPOD_API_KEY !== undefined;
-  const anyBillingKey = duitkuFull || sumopodFull || e.SUMOPOD_WEBHOOK_TOKEN !== undefined;
-  if (anyBillingKey) {
-    if (e.BILLING_GATEWAY === 'duitku' && !duitkuFull) {
-      ctx.addIssue({ code: 'custom', path: ['BILLING_GATEWAY'], message: 'set to duitku but Duitku variables are not configured' });
-    }
-    if (e.BILLING_GATEWAY === 'sumopod' && !sumopodFull) {
-      ctx.addIssue({ code: 'custom', path: ['BILLING_GATEWAY'], message: 'set to sumopod but SumoPod variables are not configured' });
-    }
-    if (e.BILLING_GATEWAY === 'both' && (!duitkuFull || !sumopodFull)) {
-      ctx.addIssue({ code: 'custom', path: ['BILLING_GATEWAY'], message: 'set to both but not all Duitku and SumoPod variables are configured' });
-    }
   }
   // The startup canary needs an image pinned by digest, like every other image. Under runsc the
   // same image also seeds the tenant resolv.conf volume (see dns-resolv-conf.ts), so it is required
@@ -346,13 +305,9 @@ export interface Config {
   mail: { host: string; port: number; user: string; pass: string; from: string } | null;
   /** Null: billing is off (checkout and callbacks answer 404). */
     billing: {
-      /** Active gateway(s): 'sumopod', 'duitku', or 'both'. */
-      gateway: 'sumopod' | 'duitku' | 'both';
-      /** Duitku config, or null when not configured. `apiKey` is a secret: never log it. */
-      duitku: { merchantCode: string; apiKey: string; env: 'sandbox' | 'production'; callbackUrl: string } | null;
-      /** SumoPod config, or null when not configured. `apiKey` and `webhookToken` are secrets: never log them. */
+      /** SumoPod config. `apiKey` and `webhookToken` are secrets: never log them. */
       /** `webhookSecret` (Svix signing secret) is null when unset: then the token alone authenticates webhooks. */
-      sumopod: { apiKey: string; webhookToken: string; webhookSecret?: string | null; env: 'sandbox' | 'production'; callbackUrl: string } | null;
+      sumopod: { apiKey: string; webhookToken: string; webhookSecret?: string | null; env: 'sandbox' | 'production'; callbackUrl: string };
     } | null;
   /** Null: NibieRouter key and credit provisioning is off. `adminKey` is a secret: never log it. */
   router: { apiUrl: string; adminKey: string; defaultModel: string; emailDomain: string } | null;
@@ -412,17 +367,9 @@ export function loadConfig(env: NodeJS.ProcessEnv | Record<string, string | unde
         ? { host: e.SUMOPOD_SMTP_HOST, port: e.SUMOPOD_SMTP_PORT, user: e.SUMOPOD_SMTP_USER, pass: e.SUMOPOD_SMTP_PASS, from: e.MAIL_FROM }
         : null,
     billing:
-          e.DUITKU_MERCHANT_CODE || e.SUMOPOD_API_KEY
-            ? {
-                gateway: e.BILLING_GATEWAY,
-                duitku: e.DUITKU_MERCHANT_CODE && e.DUITKU_API_KEY && e.DUITKU_CALLBACK_URL
-                  ? { merchantCode: e.DUITKU_MERCHANT_CODE, apiKey: e.DUITKU_API_KEY, env: e.DUITKU_ENV, callbackUrl: e.DUITKU_CALLBACK_URL }
-                  : null,
-                sumopod: e.SUMOPOD_API_KEY && e.SUMOPOD_WEBHOOK_TOKEN && e.SUMOPOD_CALLBACK_URL
-                  ? { apiKey: e.SUMOPOD_API_KEY, webhookToken: e.SUMOPOD_WEBHOOK_TOKEN, webhookSecret: e.SUMOPOD_WEBHOOK_SECRET ?? null, env: e.SUMOPOD_ENV, callbackUrl: e.SUMOPOD_CALLBACK_URL }
-                  : null,
-              }
-            : null,
+      e.SUMOPOD_API_KEY && e.SUMOPOD_WEBHOOK_TOKEN && e.SUMOPOD_CALLBACK_URL
+        ? { sumopod: { apiKey: e.SUMOPOD_API_KEY, webhookToken: e.SUMOPOD_WEBHOOK_TOKEN, webhookSecret: e.SUMOPOD_WEBHOOK_SECRET ?? null, env: e.SUMOPOD_ENV, callbackUrl: e.SUMOPOD_CALLBACK_URL } }
+        : null,
     router:
       e.NIBIEROUTER_ADMIN_KEY && e.NIBIEROUTER_DEFAULT_MODEL
         ? { apiUrl: e.NIBIEROUTER_API_URL, adminKey: e.NIBIEROUTER_ADMIN_KEY, defaultModel: e.NIBIEROUTER_DEFAULT_MODEL, emailDomain: e.NIBIEROUTER_USER_EMAIL_DOMAIN }

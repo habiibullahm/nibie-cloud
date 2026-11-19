@@ -5,7 +5,7 @@ The repository holds five standalone packages (no pnpm workspace):
 
 - **Backend** (repo root): Fastify customer, admin and operator APIs, Docker runtime manager with the
   hardening baseline for the official Hermes image, reconciler, BullMQ jobs, encrypted secrets, billing
-  (SumoPod by default, Duitku optional), NibieRouter provisioning and the free beta waiting list.
+  (SumoPod), NibieRouter provisioning and the free beta waiting list.
 - **Dashboard** ([apps/web](apps/web/README.md)): customer dashboard and admin panel (Next.js 16, shadcn/ui).
   Mock data by default; real data with `NEXT_PUBLIC_HERMES_API_MODE=customer`.
 - **Docs** ([apps/docs](apps/docs/README.md)): customer documentation site (Fumadocs, Indonesian).

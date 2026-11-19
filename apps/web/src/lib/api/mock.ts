@@ -25,7 +25,7 @@ import type {
  * backend's InstanceService so the UI behaves the same against either.
  */
 
-/** Stand-in for the Duitku invoice URL: mock mode has no payment page, the UI shows a notice instead. */
+/** Stand-in for the SumoPod invoice URL: mock mode has no payment page, the UI shows a notice instead. */
 export const MOCK_PAYMENT_URL = "mock://payment"
 
 export const MOCK_TENANT_ID = "00000000-0000-4000-8000-000000000001"

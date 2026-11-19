@@ -187,7 +187,7 @@ export type BillingStatus = "PENDING_PAYMENT" | "ACTIVE" | "GRACE" | "SUSPENDED"
 export type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "EXPIRED"
 export type PaymentPurpose = "NEW" | "RENEWAL"
 
-/** Mirrors PaymentView. `paymentUrl` is only set while the Duitku invoice can still be paid. */
+/** Mirrors PaymentView. `paymentUrl` is only set while the SumoPod invoice can still be paid. */
 export interface BillingPayment {
   id: string
   subscriptionId: string

@@ -58,7 +58,6 @@ function SettingsCards({ s }: { s: AdminSettings }) {
               { k: "Gateway", v: b.gateway ? mono(b.gateway) : "Mati" },
               { k: "Checkout berbayar", v: b.paidCheckoutOpen ? "Terbuka untuk semua" : "Hanya akun undangan" },
               { k: "SumoPod", v: b.sumopod ? `${b.sumopod.env} · webhook ${b.sumopod.webhookSigned ? "bertanda tangan (Svix)" : "token saja"}` : "Tidak diatur" },
-              { k: "Duitku", v: b.duitku ? b.duitku.env : "Tidak diatur" },
             ]}
           />
         </CardContent>

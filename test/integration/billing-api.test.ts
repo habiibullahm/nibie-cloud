@@ -6,18 +6,18 @@ import { createPrisma } from '../../src/db/client.js';
 import { buildServer } from '../../src/http/server.js';
 import { IdentityService } from '../../src/modules/auth/identity-service.js';
 import { createTestAuth, testConfig } from '../helpers/auth.js';
-import { API_KEY, MERCHANT, PRICE, callbackForm, makeBilling, sign } from '../helpers/billing-env.js';
+import { PRICE, WEBHOOK_TOKEN, makeBilling, webhookBody } from '../helpers/billing-env.js';
 import { resetDb } from '../helpers/db.js';
 import { TEST_MASTER_KEY, silentLogger } from '../helpers/service-env.js';
 import { createLogger } from '../../src/shared/logger.js';
 
 const prisma = createPrisma(process.env.DATABASE_URL!);
-const CALLBACK = '/api/v1/billing/duitku/callback';
+const WEBHOOK = '/api/v1/billing/sumopod/webhook';
 let auth: Awaited<ReturnType<typeof createTestAuth>>;
 let env: ReturnType<typeof makeBilling>;
 let planId: string;
 
-const billingCfg = { gateway: 'duitku' as const, duitku: { merchantCode: MERCHANT, apiKey: API_KEY, env: 'sandbox' as const, callbackUrl: `https://api.example.test${CALLBACK}` }, sumopod: null };
+const billingCfg = { sumopod: { apiKey: 'test-sumopod-key', webhookToken: WEBHOOK_TOKEN, webhookSecret: null, env: 'sandbox' as const, callbackUrl: `https://api.example.test${WEBHOOK}` } };
 
 function app(opts: { billingOn?: boolean } = {}) {
   const on = opts.billingOn ?? true;
@@ -32,9 +32,8 @@ function app(opts: { billingOn?: boolean } = {}) {
 async function user(email = 'owner@example.test', sub = randomUUID()) {
   return { authorization: `Bearer ${await auth.signToken({ sub, email })}` };
 }
-const form = (o: Record<string, string>) => new URLSearchParams(o).toString();
-const post = (a: ReturnType<typeof app>, body: Record<string, string>, headers: Record<string, string> = {}) =>
-  a.inject({ method: 'POST', url: CALLBACK, headers: { 'content-type': 'application/x-www-form-urlencoded', ...headers }, payload: form(body) });
+const post = (a: ReturnType<typeof app>, body: unknown, headers: Record<string, string> = {}) =>
+  a.inject({ method: 'POST', url: WEBHOOK, headers: { 'content-type': 'application/json', 'x-webhook-token': WEBHOOK_TOKEN, ...headers }, payload: JSON.stringify(body) });
 const checkout = (a: ReturnType<typeof app>, h: Record<string, string>, body: unknown = { name: 'agent', planId }, key: string = randomUUID()) =>
   a.inject({ method: 'POST', url: '/api/v1/subscriptions/checkout', headers: { ...h, 'idempotency-key': key }, payload: body as object });
 const settle = () => new Promise((r) => setTimeout(r, 150));
@@ -50,7 +49,7 @@ describe('billing API', () => {
   });
   afterAll(() => prisma.$disconnect());
 
-  describe('sandbox gateway on a production deployment', () => {
+  describe('SumoPod sandbox on a production deployment', () => {
     const sandboxApp = (billing: typeof billingCfg | Record<string, unknown>) => buildServer({
       service: env.service, commands: env.commands, logger: silentLogger,
       config: testConfig('hermes-stub:0.2.0', TEST_MASTER_KEY, { nodeEnv: 'production', betaAllowedEmails: ['invited@example.test'], billing: billing as never, maxInstancesPerTenant: 1 }),
@@ -58,7 +57,7 @@ describe('billing API', () => {
       billing: env.billing,
     });
 
-    it('lets only invited beta users start a purchase while every gateway is sandbox', async () => {
+    it('lets only invited beta users start a purchase while SumoPod is in sandbox', async () => {
       const a = sandboxApp(billingCfg);
       const refused = await checkout(a, await user('stranger@example.test'));
       expect(refused.statusCode).toBe(403);
@@ -67,7 +66,7 @@ describe('billing API', () => {
       expect((await checkout(a, await user('Invited@Example.test'))).statusCode).toBe(201);
     });
 
-    it('PAID_CHECKOUT_OPEN=false refuses everyone but invited accounts, even with a production gateway', async () => {
+    it('PAID_CHECKOUT_OPEN=false refuses everyone but invited accounts, even outside production', async () => {
       const a = buildServer({
         service: env.service, commands: env.commands, logger: silentLogger,
         config: testConfig('hermes-stub:0.2.0', TEST_MASTER_KEY, { betaAllowedEmails: ['invited@example.test'], paidCheckoutOpen: false, billing: billingCfg, maxInstancesPerTenant: 1 }),
@@ -96,8 +95,8 @@ describe('billing API', () => {
       expect(refused.json().error.code).toBe('billing_not_open');
     });
 
-    it('is open to everyone once a production gateway is configured', async () => {
-      const a = sandboxApp({ ...billingCfg, duitku: { ...billingCfg.duitku, env: 'production' } });
+    it('is open to everyone once SumoPod is in production', async () => {
+      const a = sandboxApp({ sumopod: { ...billingCfg.sumopod, env: 'production' } });
       expect((await checkout(a, await user('stranger@example.test'))).statusCode).toBe(201);
     });
   });
@@ -149,8 +148,8 @@ describe('billing API', () => {
       expect(res.json().error.code).toBe('plan_not_for_sale');
     });
 
-    it('answers 503 when Duitku is unreachable', async () => {
-      env.duitku.failNext = true;
+    it('answers 503 when SumoPod is unreachable', async () => {
+      env.sumopod.failNext = true;
       const res = await checkout(app(), await user());
       expect(res.statusCode).toBe(503);
       expect(res.json().error.code).toBe('payment_provider_unavailable');
@@ -170,12 +169,12 @@ describe('billing API', () => {
       expect((await a.inject({ method: 'GET', url: '/api/v1/subscriptions', headers: bob })).json().subscriptions).toEqual([]);
     });
 
-    it('the whole path: pay by callback, instance appears, renew, cancel', async () => {
+    it('the whole path: pay by webhook, instance appears, renew, cancel', async () => {
       const a = app();
       const h = await user();
       const { payment } = (await checkout(a, h)).json();
       const orderId = (await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).merchantOrderId;
-      const cb = await post(a, callbackForm({ orderId }));
+      const cb = await post(a, webhookBody({ orderId }));
       expect(cb.statusCode).toBe(200);
       await settle();
       const subs = (await a.inject({ method: 'GET', url: '/api/v1/subscriptions', headers: h })).json().subscriptions;
@@ -195,7 +194,7 @@ describe('billing API', () => {
       const alice = await user('alice@example.test');
       const bob = await user('bob@example.test');
       const { payment } = (await checkout(a, alice)).json();
-      await post(a, callbackForm({ orderId: (await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).merchantOrderId }));
+      await post(a, webhookBody({ orderId: (await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).merchantOrderId }));
       await settle();
       const sub = await prisma.subscription.findFirstOrThrow();
       await env.commands.stop(sub.tenantId, sub.instanceId!);
@@ -212,7 +211,7 @@ describe('billing API', () => {
       const a = app();
       const h = await user();
       const { payment } = (await checkout(a, h)).json();
-      await post(a, callbackForm({ orderId: (await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).merchantOrderId }));
+      await post(a, webhookBody({ orderId: (await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).merchantOrderId }));
       await settle();
       const sub = await prisma.subscription.findFirstOrThrow();
       const del = await a.inject({ method: 'DELETE', url: `/api/v1/instances/${sub.instanceId}`, headers: h });
@@ -221,72 +220,37 @@ describe('billing API', () => {
     });
   });
 
-  describe('Duitku callback', () => {
+  describe('SumoPod webhook route', () => {
     async function pending() {
       const a = app();
       const h = await user();
       const { payment } = (await checkout(a, h)).json();
       const orderId = (await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).merchantOrderId;
-      return { a, h, orderId, paymentId: payment.id as string };
+      return { a, h, orderId };
     }
 
-    it('needs no Authorization header and accepts a valid signed form', async () => {
+    it('needs no Authorization header and accepts an authenticated webhook', async () => {
       const { a, orderId } = await pending();
-      const res = await post(a, callbackForm({ orderId }));
-      expect(res.statusCode).toBe(200);
+      expect((await post(a, webhookBody({ orderId }))).statusCode).toBe(200);
       await settle();
       expect((await prisma.payment.findFirstOrThrow()).status).toBe('PAID');
     });
 
-    it('replay is 200 and changes nothing', async () => {
+    it('a wrong token is 400 and records nothing', async () => {
       const { a, orderId } = await pending();
-      await post(a, callbackForm({ orderId }));
-      await settle();
-      const res = await post(a, callbackForm({ orderId }));
-      expect(res.statusCode).toBe(200);
-      await settle();
-      expect(await prisma.instance.count()).toBe(1);
-      expect(env.mailer.sent).toHaveLength(1);
-    });
-
-    it('a bad signature is 400 and activates nothing', async () => {
-      const { a, orderId } = await pending();
-      const res = await post(a, callbackForm({ orderId, signature: 'f'.repeat(64) }));
+      const res = await post(a, webhookBody({ orderId }), { 'x-webhook-token': 'not-the-webhook-token' });
       expect(res.statusCode).toBe(400);
-      expect(res.json().error.code).toBe('invalid_callback');
+      expect(res.json().error.code).toBe('invalid_webhook');
       expect((await prisma.payment.findFirstOrThrow()).status).toBe('PENDING');
       expect(await prisma.paymentEvent.count()).toBe(0);
     });
 
-    it('a tampered amount is 200 without activation (valid signature for the tampered amount)', async () => {
-      const { a, orderId } = await pending();
-      const res = await post(a, { ...callbackForm({ orderId, amount: 10_000 }) });
-      expect(res.statusCode).toBe(200);
-      await settle();
-      expect((await prisma.payment.findFirstOrThrow()).status).toBe('PENDING');
-      expect(await prisma.instance.count()).toBe(0);
+    it('the removed Duitku callback route does not exist', async () => {
+      const res = await app().inject({ method: 'POST', url: '/api/v1/billing/duitku/callback', headers: { 'content-type': 'application/x-www-form-urlencoded' }, payload: 'a=1' });
+      expect(res.statusCode).toBe(404);
     });
 
-    it('a changed amount with the original signature is 400', async () => {
-      const { a, orderId } = await pending();
-      const res = await post(a, { ...callbackForm({ orderId }), amount: '1' });
-      expect(res.statusCode).toBe(400);
-    });
-
-    it('unknown order with a valid signature is 200', async () => {
-      const res = await post(app(), callbackForm({ orderId: 'nc-unknown' }));
-      expect(res.statusCode).toBe(200);
-    });
-
-    it('missing fields, array fields and an empty body are 400', async () => {
-      const a = app();
-      expect((await post(a, { merchantCode: MERCHANT })).statusCode).toBe(400);
-      expect((await a.inject({ method: 'POST', url: CALLBACK, headers: { 'content-type': 'application/x-www-form-urlencoded' }, payload: '' })).statusCode).toBe(400);
-      const dup = `merchantCode=${MERCHANT}&amount=${PRICE}&amount=1&merchantOrderId=x&resultCode=00&signature=${sign(String(PRICE), 'x')}`;
-      expect((await a.inject({ method: 'POST', url: CALLBACK, headers: { 'content-type': 'application/x-www-form-urlencoded' }, payload: dup })).statusCode).toBe(400);
-    });
-
-    it('never writes the form body, the signature or the API key to the log', async () => {
+    it('never writes the body or the webhook token to the log', async () => {
       let logs = '';
       const logger = createLogger({ level: 'debug', stream: new Writable({ write(c, _e, cb) { logs += c.toString(); cb(); } }) });
       const a = buildServer({
@@ -298,25 +262,24 @@ describe('billing API', () => {
       const h = await user();
       const { payment } = (await checkout(a, h)).json();
       const orderId = (await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).merchantOrderId;
-      const good = callbackForm({ orderId });
-      await post(a, good);
-      await post(a, { ...good, signature: 'e'.repeat(64) });
+      await post(a, webhookBody({ orderId, reference: 'pay_log_check' }));
+      await post(a, webhookBody({ orderId }), { 'x-webhook-token': 'wrong-token-in-log-check' });
       await settle();
-      expect(logs).toContain('duitku callback processed');
-      expect(logs).not.toContain(good.signature);
-      expect(logs).not.toContain('e'.repeat(64));
-      expect(logs).not.toContain(API_KEY);
+      expect(logs).toContain('sumopod webhook processed');
+      expect(logs).not.toContain(WEBHOOK_TOKEN);
+      expect(logs).not.toContain('wrong-token-in-log-check');
+      expect(logs).not.toContain('pay_log_check');
       expect(logs).not.toContain(h.authorization.slice(7));
     });
 
     it('rejects a body over 16 KB', async () => {
-      const res = await app().inject({ method: 'POST', url: CALLBACK, headers: { 'content-type': 'application/x-www-form-urlencoded' }, payload: `a=${'x'.repeat(20_000)}` });
+      const res = await post(app(), { pad: 'x'.repeat(20_000) });
       expect(res.statusCode).toBe(413);
     });
 
     it('is 404 when billing is off, and the customer billing routes do not exist either', async () => {
       const a = app({ billingOn: false });
-      expect((await post(a, callbackForm({ orderId: 'x' }))).statusCode).toBe(404);
+      expect((await post(a, webhookBody({ orderId: 'x' }))).statusCode).toBe(404);
       expect((await a.inject({ method: 'GET', url: '/api/v1/subscriptions', headers: await user() })).statusCode).toBe(404);
     });
   });
@@ -326,10 +289,11 @@ describe('deploy/Caddyfile', () => {
   const caddy = readFileSync(new URL('../../deploy/Caddyfile', import.meta.url), 'utf8');
   const matcher = /@public \{\s*path ([^\n]+)/.exec(caddy)?.[1] ?? '';
 
-  it('forwards the billing routes and the Duitku callback', () => {
-    for (const p of ['/api/v1/subscriptions', '/api/v1/subscriptions/*', '/api/v1/payments/*', '/api/v1/billing/duitku/callback']) {
+  it('forwards the billing routes and the SumoPod webhook, and no longer the Duitku callback', () => {
+    for (const p of ['/api/v1/subscriptions', '/api/v1/subscriptions/*', '/api/v1/payments/*', '/api/v1/billing/sumopod/webhook']) {
       expect(matcher.split(/\s+/)).toContain(p);
     }
+    expect(matcher).not.toContain('duitku');
   });
 
   it('forwards every public route the backend registers', () => {

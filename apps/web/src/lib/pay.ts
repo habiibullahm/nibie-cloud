@@ -2,7 +2,7 @@ import { toast } from "sonner"
 import { MOCK_PAYMENT_URL } from "./api/mock"
 
 /**
- * Sends the browser to the Duitku payment page. Returns false (and tells the customer why) when it cannot:
+ * Sends the browser to the SumoPod payment page. Returns false (and tells the customer why) when it cannot:
  * mock mode has no payment page, and anything that is not an https URL is refused instead of followed.
  */
 export function startPayment(url: string | null): boolean {
@@ -11,7 +11,7 @@ export function startPayment(url: string | null): boolean {
     return false
   }
   if (url === MOCK_PAYMENT_URL) {
-    toast.info("Preview mode has no payment page. With the real API this opens Duitku.")
+    toast.info("Preview mode has no payment page. With the real API this opens SumoPod.")
     return false
   }
   let target: URL

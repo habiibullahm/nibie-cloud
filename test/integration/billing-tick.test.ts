@@ -4,10 +4,10 @@ import { createPrisma } from '../../src/db/client.js';
 import { BillingTick } from '../../src/modules/billing/billing-tick.js';
 import { Reconciler } from '../../src/modules/instances/reconciler.js';
 import { resetDb } from '../helpers/db.js';
-import { callbackForm, makeBilling, seedBilling } from '../helpers/billing-env.js';
+import { WEBHOOK_TOKEN, makeBilling, seedBilling, webhookBody } from '../helpers/billing-env.js';
 import { TEST_MASTER_KEY } from '../helpers/service-env.js';
 
-// Needs Postgres only: runtime, Duitku and SMTP are in-memory fakes, and the clock is injected.
+// Needs Postgres only: runtime, SumoPod and SMTP are in-memory fakes, and the clock is injected.
 const prisma = createPrisma(process.env.DATABASE_URL!);
 let s: Awaited<ReturnType<typeof seedBilling>>;
 let env: ReturnType<typeof makeBilling>;
@@ -20,7 +20,7 @@ const sub = () => prisma.subscription.findFirstOrThrow({ include: { instance: tr
 async function activate() {
   const { payment } = await env.billing.checkout({ tenantId: s.tenant.id, email: s.user.email, planId: s.plan.id, name: 'agent', idempotencyKey: randomUUID() });
   const orderId = (await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).merchantOrderId;
-  const r = await env.billing.handleCallback(callbackForm({ orderId }));
+  const r = await env.billing.handleSumoPodWebhook({ token: WEBHOOK_TOKEN }, webhookBody({ orderId }));
   if (r.accepted) await r.postActions();
   env.mailer.sent.length = 0; // forget the receipt
 }
@@ -59,7 +59,7 @@ describe('BillingTick', () => {
     await at(23);
     const r = await env.billing.renew({ tenantId: s.tenant.id, email: s.user.email, subscriptionId: (await sub()).id });
     const orderId = (await prisma.payment.findUniqueOrThrow({ where: { id: r.payment.id } })).merchantOrderId;
-    const cb = await env.billing.handleCallback(callbackForm({ orderId, reference: 'REF-R' }));
+    const cb = await env.billing.handleSumoPodWebhook({ token: WEBHOOK_TOKEN }, webhookBody({ orderId, reference: 'REF-R' }));
     if (cb.accepted) await cb.postActions();
     env.mailer.sent.length = 0;
     await at(23.5); // old period would have had its 3-day reminder soon; the new one ends at day 60
@@ -193,7 +193,7 @@ describe('BillingTick', () => {
     env = makeBilling(prisma);
     tick = new BillingTick({ prisma, billing: env.billing, commands: env.commands, mailer: env.mailer, logger: env.logger, now: () => env.clock.now });
     const { payment } = await env.billing.checkout({ tenantId: s.tenant.id, email: s.user.email, planId: s.plan.id, name: 'agent', idempotencyKey: randomUUID() });
-    await env.billing.handleCallback(callbackForm({ orderId: (await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).merchantOrderId })); // postActions never run
+    await env.billing.handleSumoPodWebhook({ token: WEBHOOK_TOKEN }, webhookBody({ orderId: (await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).merchantOrderId })); // postActions never run
     expect((await sub()).instanceId).toBeNull();
     const sum = await tick.runOnce();
     expect(sum.repaired).toBe(1);
@@ -206,7 +206,7 @@ describe('BillingTick', () => {
     await at(33.1);
     expect((await sub()).instance!.status).toBe('STOPPED');
     const r = await env.billing.renew({ tenantId: s.tenant.id, email: s.user.email, subscriptionId: (await sub()).id });
-    const cb = await env.billing.handleCallback(callbackForm({ orderId: (await prisma.payment.findUniqueOrThrow({ where: { id: r.payment.id } })).merchantOrderId, reference: 'REF-R' }));
+    const cb = await env.billing.handleSumoPodWebhook({ token: WEBHOOK_TOKEN }, webhookBody({ orderId: (await prisma.payment.findUniqueOrThrow({ where: { id: r.payment.id } })).merchantOrderId, reference: 'REF-R' }));
     expect(cb).toMatchObject({ outcome: 'activated' }); // crash: postActions never run
     expect((await sub()).restartPending).toBe(true);
     await tick.runOnce();
