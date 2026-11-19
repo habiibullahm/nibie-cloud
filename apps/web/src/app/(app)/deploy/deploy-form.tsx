@@ -188,7 +188,7 @@ export function DeployForm() {
                         {t("Includes US${amount} AI credit, one-time, in NibieRouter", { amount: p.includedCreditUsd })}
                       </span>
                     ) : null}
-                    <dl className="grid grid-cols-2 gap-x-3 gap-y-1 border-t pt-2">
+                    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-t pt-2">
                       <dt className="text-muted-foreground">CPU</dt>
                       <dd className="type-mono">{formatCpu(p.cpuMillis)}</dd>
                       <dt className="text-muted-foreground">{t("Memory")}</dt>
