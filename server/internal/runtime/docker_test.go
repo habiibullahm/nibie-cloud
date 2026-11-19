@@ -463,6 +463,24 @@ func TestCheckHealth(t *testing.T) {
 	})
 }
 
+func TestWithHealthTimeout(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(300 * time.Millisecond)
+		w.WriteHeader(200)
+	}))
+	defer srv.Close()
+	_, p, _ := net.SplitHostPort(srv.Listener.Addr().String())
+	port, _ := strconv.Atoi(p)
+	f := newFake()
+	f.inspect = runningAt(port)
+	if h := NewDocker(f, quiet()).WithHealthTimeout(100*time.Millisecond).CheckHealth(context.Background(), newUUID(), "k"); h.OK || h.Detail != "timeout" {
+		t.Fatalf("short timeout: %+v", h)
+	}
+	if h := NewDocker(f, quiet()).WithHealthTimeout(2*time.Second).CheckHealth(context.Background(), newUUID(), "k"); !h.OK {
+		t.Fatalf("long timeout: %+v", h)
+	}
+}
+
 // TestDaemonStallReturnsUnavailable: a daemon that accepts the connection and never answers (Review Focus 1)
 // gives apperr.RuntimeUnavailable as soon as the caller's deadline passes, not a hang.
 func TestDaemonStallReturnsUnavailable(t *testing.T) {

@@ -69,6 +69,13 @@ func NewDocker(api DockerAPI, log *slog.Logger) *Docker {
 	return &Docker{api: api, log: log, healthTimeout: HealthTimeout, http: &http.Client{Timeout: HealthTimeout}}
 }
 
+// WithHealthTimeout changes how long one health probe may take (the live harness waits longer for the official
+// image than the backend does).
+func (d *Docker) WithHealthTimeout(t time.Duration) *Docker {
+	d.healthTimeout, d.http = t, &http.Client{Timeout: t}
+	return d
+}
+
 // translate turns an SDK error into what callers may see: a typed error passes through, an unreachable daemon is
 // apperr.RuntimeUnavailable, anything else is a fixed message with the HTTP status. Docker's own text is never
 // forwarded: it can hold env values and host paths.
