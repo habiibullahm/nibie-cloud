@@ -72,6 +72,7 @@ export class AlertScanner {
       ['router-provisioning:', () => this.routerProvisioning()],
       ['credit-grant:', () => this.creditGrants()],
       ['disk-full:', () => this.fullDisks()],
+      ['wallet-mismatch:', () => this.walletMismatches()],
       ...(this.d.failedJobs ? [['job-failed:', () => this.failedQueueJobs()] as [string, () => Promise<AlertInput[]>]] : []),
     ];
     for (const [prefix, fn] of checks) {
@@ -168,6 +169,22 @@ export class AlertScanner {
       severity: 'WARNING' as const,
       title: 'Disk agen pelanggan penuh (99% kuota)',
       detail: `Instance ${short(i.id)}, tenant ${short(i.tenantId)}. Agen bisa berhenti berfungsi. Pelanggan melihat peringatan di dashboard; tidak ada tindakan wajib.`,
+    }));
+  }
+
+  /** A wallet whose balance is not the sum of its ledger: something wrote one without the other. Never expected. */
+  private async walletMismatches(): Promise<AlertInput[]> {
+    const rows = await this.d.prisma.$queryRaw<{ tenantId: string; balanceIdr: number; ledgerIdr: bigint }[]>`
+      SELECT w."tenantId", w."balanceIdr", COALESCE(SUM(e."amountIdr"), 0)::bigint AS "ledgerIdr"
+      FROM "Wallet" w LEFT JOIN "WalletEntry" e ON e."tenantId" = w."tenantId"
+      GROUP BY w."tenantId", w."balanceIdr"
+      HAVING w."balanceIdr" <> COALESCE(SUM(e."amountIdr"), 0)
+      LIMIT 50`;
+    return rows.map((r) => ({
+      key: `wallet-mismatch:${r.tenantId}`,
+      severity: 'CRITICAL' as const,
+      title: 'Saldo pelanggan tidak cocok dengan riwayatnya',
+      detail: `Tenant ${short(r.tenantId)}: saldo Rp ${r.balanceIdr}, jumlah riwayat Rp ${Number(r.ledgerIdr)}. Tindakan: jangan ubah saldo dengan tangan; periksa WalletEntry dan log backend dulu.`,
     }));
   }
 

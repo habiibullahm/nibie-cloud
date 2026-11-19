@@ -154,6 +154,31 @@ was written for Duitku and is historical. Go-live steps: [billing-go-live.md](bi
   lifecycle and repairs a paid subscription whose instance was never created or restarted (a crash after the
   payment commit).
 
+### Wallet (top-up saldo)
+
+Off unless `WALLET_ENABLED=true` (then `GET /api/v1/wallet` and the top-up routes exist; otherwise they answer `404`).
+Plan and the two later parts (paying hosting from the wallet, auto-renew, buying AI credit):
+[superpowers/plans/2026-11-20-wallet-topup.md](superpowers/plans/2026-11-20-wallet-topup.md).
+
+- **Customer routes** (token required): `GET /wallet` (balance, limits, latest 50 entries, latest 20 top-ups),
+  `POST /wallet/topups` (`Idempotency-Key`, body `{ amountIdr }`, whole rupiah 10.000 to 2.000.000, answers `201 { topup }`
+  with the SumoPod `paymentUrl`), `GET /wallet/topups/:id`. Same gate as checkout (`billing_not_open`). A top-up that would
+  take balance plus open top-ups above Rp 5.000.000 answers `409 wallet_limit`.
+- **Webhook:** a top-up invoice has an `nw-` order id and its own table (`WalletTopup`); the same SumoPod webhook credits it
+  (outcome `topped_up`) when no hosting `Payment` has that order id. Amount mismatch and failures never credit. A paid
+  top-up is credited in full even after it expired or above the cap, so money is never lost. Receipt email
+  `topup_received`.
+- **Ledger:** every change is a `WalletEntry` with a unique `(kind, refId)` and the balance after it, written in the same
+  transaction as `Wallet.balanceIdr` under a row lock; a database CHECK keeps the balance at zero or more. The alert scanner
+  raises a critical `wallet-mismatch:` alert if a balance ever differs from the sum of its entries.
+- **Admin:** the customer detail (`GET /api/v1/admin/customers/:tenantId`, MCP `get_customer`) includes the wallet;
+  `POST /api/v1/admin/customers/:tenantId/wallet/adjust` `{ amountIdr, reason }` (MCP `adjust_wallet`) adds or takes up to
+  Rp 2.000.000, never below zero, within the cap, with an `AuditLog` row in the same transaction. The customer sees
+  "Penyesuaian admin".
+- **Not refundable:** the dashboard and the receipt say the balance is not cash and cannot be refunded or withdrawn.
+- **Before turning it on:** verify one real SumoPod payment end to end, and add the non-refundable line to the landing
+  terms page (owner wording).
+
 ## Waiting list (automatic beta invitations)
 
 Active when `FREE_BETA_SLOTS > 0` and the customer API is on (`SUPABASE_URL`). It needs email (`SUMOPOD_SMTP_*` and `MAIL_FROM`): joining sends a confirmation link and invitations go out by email. Without email `POST /api/v1/public/waitlist` answers `503 waitlist_unavailable`, nobody is invited, and a freed slot is not held back for anyone.

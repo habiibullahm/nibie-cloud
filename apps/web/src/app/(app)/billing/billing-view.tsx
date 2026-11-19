@@ -15,6 +15,7 @@ import { formatDate } from "@/lib/format"
 import { useT, type T } from "@/lib/i18n"
 import { startPayment } from "@/lib/pay"
 import { useLang, type Lang } from "@/lib/prefs"
+import { WalletCard } from "./wallet-card"
 
 function periodText(sub: BillingSubscription, t: T, lang: Lang): string {
   if (!sub.currentPeriodEnd) return "—"
@@ -65,6 +66,7 @@ export function BillingView() {
         description={t("Every subscription on your account. Hosting only: AI usage is billed by NibieRouter or your own provider.")}
         actions={mock ? <PreviewNote what="Subscriptions" reason="mock" /> : null}
       />
+      <WalletCard />
       {!subs.data ? (
         <QueryFallback what="your subscriptions" queries={[subs]} className="h-48" />
       ) : list.length === 0 ? (

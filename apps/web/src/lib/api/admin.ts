@@ -19,6 +19,7 @@ import type {
   AdminSubscription,
   AdminSystem,
   AdminWaitlist,
+  AdminWallet,
 } from "./admin-types"
 import type { TicketDetail, TicketStatus, TicketSummary } from "./tickets"
 
@@ -37,7 +38,16 @@ export interface AdminApi {
   system(): Promise<AdminSystem>
   overview(): Promise<AdminOverview>
   customers(q: string, cursor?: string): Promise<AdminPage<AdminCustomer>>
-  customer(tenantId: string): Promise<{ customer: AdminCustomerDetail; instances: AdminCustomerInstance[]; subscriptions: AdminSubscription[]; payments: AdminPayment[] }>
+  customer(tenantId: string): Promise<{
+    customer: AdminCustomerDetail
+    instances: AdminCustomerInstance[]
+    subscriptions: AdminSubscription[]
+    payments: AdminPayment[]
+    /** Absent on an older backend. */
+    wallet?: AdminWallet
+  }>
+  /** Changes data: adds (positive) or takes (negative) whole rupiah from a customer's wallet. 409 `insufficient_balance` / `wallet_limit`. */
+  adjustWallet(tenantId: string, amountIdr: number, reason: string): Promise<{ balanceIdr: number }>
   instances(status: string | undefined, cursor?: string): Promise<AdminPage<AdminInstance>>
   instance(id: string): Promise<{ instance: AdminInstanceDetail; events: { id: string; type: string; message: string; createdAt: string }[] }>
   plans(): Promise<AdminPlan[]>
@@ -117,6 +127,8 @@ export function createAdminApi(opts: {
     overview: () => call<AdminOverview>("/overview"),
     customers: async (q, cursor) => toPage(await call<Paged<"customers", AdminCustomer>>(`/customers${qs({ q, cursor })}`), "customers"),
     customer: (tenantId) => call(`/customers/${encodeURIComponent(tenantId)}`),
+    adjustWallet: async (tenantId, amountIdr, reason) =>
+      (await call<{ wallet: { balanceIdr: number } }>(`/customers/${encodeURIComponent(tenantId)}/wallet/adjust`, { amountIdr, reason })).wallet,
     instances: async (status, cursor) => toPage(await call<Paged<"instances", AdminInstance>>(`/instances${qs({ status, cursor })}`), "instances"),
     instance: (id) => call(`/instances/${encodeURIComponent(id)}`),
     plans: async () => (await call<{ plans: AdminPlan[] }>("/plans")).plans,

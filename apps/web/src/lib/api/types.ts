@@ -220,3 +220,34 @@ export interface CheckoutResult {
   subscription: BillingSubscription
   payment: BillingPayment
 }
+
+/** Mirrors TopupView: one QRIS top-up of the Nibie Cloud wallet. `paymentUrl` only while it can still be paid. */
+export interface WalletTopup {
+  id: string
+  amountIdr: number
+  status: PaymentStatus
+  paymentUrl: string | null
+  expiresAt: string
+  paidAt: string | null
+  createdAt: string
+}
+
+export type WalletEntryKind = "TOPUP" | "HOSTING" | "AUTO_RENEW" | "AI_CREDIT" | "ADMIN_CREDIT" | "ADMIN_DEBIT"
+
+/** One ledger row. `amountIdr` is signed: positive adds, negative takes. */
+export interface WalletEntry {
+  id: string
+  amountIdr: number
+  kind: WalletEntryKind
+  balanceAfterIdr: number
+  note: string | null
+  createdAt: string
+}
+
+/** Mirrors WalletView: the balance (saldo, whole rupiah), its limits, and recent history. */
+export interface Wallet {
+  balanceIdr: number
+  limits: { topupMinIdr: number; topupMaxIdr: number; maxBalanceIdr: number }
+  entries: WalletEntry[]
+  topups: WalletTopup[]
+}

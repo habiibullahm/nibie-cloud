@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createPrisma } from '../../src/db/client.js';
+import { moveWallet } from '../../src/modules/billing/wallet.js';
 import { AlertScanner } from '../../src/modules/ops/alert-scanner.js';
 import { PrismaAlertStore } from '../../src/modules/ops/alert-store.js';
 import { Alerter } from '../../src/modules/ops/alerter.js';
@@ -75,6 +76,17 @@ describe('AlertScanner', () => {
     expect(kritis[0]).toContain('KRITIS');
     expect(kritis[0]).toContain('sudah membayar');
     expect(warn[0]).toContain('PERHATIAN');
+  });
+
+  it('flags a wallet whose balance is not the sum of its ledger, and stays silent when they match', async () => {
+    await prisma.$transaction((tx) => moveWallet(tx, { tenantId: s.tenant.id, amountIdr: 20_000, kind: 'TOPUP', refId: randomUUID() }));
+    await scanner.scanOnce();
+    expect(sent).toHaveLength(0);
+    await prisma.wallet.update({ where: { tenantId: s.tenant.id }, data: { balanceIdr: 90_000 } });
+    await scanner.scanOnce();
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toContain('KRITIS');
+    expect(sent[0]).toContain(s.tenant.id);
   });
 
   it('alerts on a verified payment whose subscription still has no instance after 15 minutes', async () => {

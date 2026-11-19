@@ -30,6 +30,8 @@ export interface AdminSettings {
   billing: {
     gateway: "sumopod" | null
     paidCheckoutOpen: boolean
+    /** WALLET_ENABLED: customer top-ups and the admin wallet adjustment. Absent on an older backend. */
+    walletEnabled?: boolean
     sumopod: { env: "sandbox" | "production"; webhookSigned: boolean } | null
   }
   email: { configured: boolean; from: string | null }
@@ -99,6 +101,12 @@ export interface AdminCustomerDetail {
   email: string | null
   user: { id: string; email: string; createdAt: string } | null
   hasRouterUser: boolean
+}
+
+/** A customer's wallet (saldo, IDR) and its latest 50 entries, as the customer detail returns it. */
+export interface AdminWallet {
+  balanceIdr: number
+  entries: { id: string; amountIdr: number; kind: string; balanceAfterIdr: number; note: string | null; createdAt: string }[]
 }
 
 /** Instance row as the customer detail returns it: plan and node are nested. */

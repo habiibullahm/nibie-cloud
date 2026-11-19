@@ -123,6 +123,8 @@ const schema = z.object({
   TURNSTILE_SECRET_KEY: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
   /** `false` hides the priced plans and refuses checkout for everyone except invited accounts (a launch switch). Default: open. */
   PAID_CHECKOUT_OPEN: z.preprocess(emptyToUndefined, z.enum(['true', 'false']).default('true')),
+  /** `true` opens the customer wallet (top-up saldo) routes and the admin adjustment. Default: off (routes 404). */
+  WALLET_ENABLED: z.preprocess(emptyToUndefined, z.enum(['true', 'false']).default('false')),
   /** Outbound email over SumoPod SMTP. All unset: the backend sends no email. Set together or not at all. */
   SUMOPOD_SMTP_HOST: optionalText,
   SUMOPOD_SMTP_PORT: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1).max(65535).optional()),
@@ -293,6 +295,8 @@ export interface Config {
   freeBetaSlots: number;
   /** False: priced plans and checkout are for invited accounts only. */
   paidCheckoutOpen: boolean;
+  /** True: customer wallet routes and admin wallet adjustment exist. Absent or false: off. */
+  walletEnabled?: boolean;
   /** Turnstile secret for the waiting-list form, or null/absent (no captcha check). A secret: never log it. */
   turnstileSecret?: string | null;
   /** Operator alerting. Absent or `telegram: null`: alerts are recorded but not delivered. `botToken` is a secret: never log it. */
@@ -351,6 +355,7 @@ export function loadConfig(env: NodeJS.ProcessEnv | Record<string, string | unde
     maxTotalInstances: e.MAX_TOTAL_INSTANCES ?? null,
     freeBetaSlots: e.FREE_BETA_SLOTS,
     paidCheckoutOpen: e.PAID_CHECKOUT_OPEN === 'true',
+    walletEnabled: e.WALLET_ENABLED === 'true',
     turnstileSecret: e.TURNSTILE_SECRET_KEY ?? null,
     ops: { telegram: e.OPS_TELEGRAM_BOT_TOKEN && e.OPS_TELEGRAM_CHAT_ID ? { botToken: e.OPS_TELEGRAM_BOT_TOKEN, chatId: e.OPS_TELEGRAM_CHAT_ID } : null },
     redisUrl: e.REDIS_URL ?? null,

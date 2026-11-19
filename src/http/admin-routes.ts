@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import rateLimit from '@fastify/rate-limit';
 import type { FastifyInstance } from 'fastify';
 import type { PrismaClient } from '@prisma/client';
@@ -16,6 +17,7 @@ import { addTicketMessage, closeTicket, getTicket, listTickets, ticketMessageBod
 import { notifyCustomer } from './support-routes.js';
 import { AppError, AuthUnavailableError, ForbiddenError, NotFoundError, QueueUnavailableError, UnauthorizedError } from '../shared/errors.js';
 import { registerAdminMcp } from './admin-mcp.js';
+import { ADJUST_MAX_IDR, assertUnderCap, lockWallet, moveWallet, readWallet } from '../modules/billing/wallet.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -68,6 +70,10 @@ const inviteBody = z.object({
 }).strict();
 const revokeBody = z.object({ reason }).strict();
 const stockBody = z.object({ stockLimit: z.number().int().min(0).max(100000).nullable(), reason }).strict();
+const adjustBody = z.object({
+  amountIdr: z.number().int().min(-ADJUST_MAX_IDR).max(ADJUST_MAX_IDR).refine((n) => n !== 0, 'must not be zero'),
+  reason,
+}).strict();
 const keyBody = z.object({
   name: z.string().trim().min(1).max(100),
   expiresInDays: z.union([z.literal(KEY_EXPIRY_DAYS[0]), z.literal(KEY_EXPIRY_DAYS[1]), z.literal(KEY_EXPIRY_DAYS[2]), z.null()]),
@@ -171,6 +177,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
         billing: {
           gateway: config.billing ? 'sumopod' : null,
           paidCheckoutOpen: config.paidCheckoutOpen,
+          walletEnabled: config.walletEnabled === true,
           sumopod: config.billing
             ? { env: config.billing.sumopod.env, webhookSigned: Boolean(config.billing.sumopod.webhookSecret) }
             : null,
@@ -304,7 +311,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
         },
       });
       if (!tenant) throw new NotFoundError('Customer not found');
-      const [instances, subscriptions, payments] = await Promise.all([
+      const [instances, subscriptions, payments, wallet] = await Promise.all([
         prisma.instance.findMany({
           where: { tenantId, deletedAt: null },
           orderBy: { createdAt: 'desc' },
@@ -330,6 +337,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
             id: true, merchantOrderId: true, amountIdr: true, purpose: true, status: true, paidAt: true, expiresAt: true, createdAt: true,
           },
         }),
+        readWallet(prisma, tenantId),
       ]);
       return {
         customer: {
@@ -339,9 +347,38 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
           // Whether a router user exists, never the router key.
           hasRouterUser: tenant.routerUserId !== null,
         },
-        instances, subscriptions, payments,
+        instances, subscriptions, payments, wallet,
       };
     });
+
+    /**
+     * Adds to or takes from a customer's wallet (refund outside the platform, goodwill, correction). Positive credits,
+     * negative debits; a debit never takes the balance below zero and a credit respects the wallet cap. The reason goes to
+     * the audit trail in the same transaction; the customer sees only "Penyesuaian admin".
+     */
+    if (config.walletEnabled) {
+      api.post<{ Params: { tenantId: string } }>('/customers/:tenantId/wallet/adjust', async (req) => {
+        const admin = req.admin!;
+        const tenantId = uuid.parse(req.params.tenantId);
+        const body = adjustBody.parse(req.body);
+        const balanceIdr = await prisma.$transaction(async (tx) => {
+          if (!(await tx.tenant.findUnique({ where: { id: tenantId }, select: { id: true } }))) throw new NotFoundError('Customer not found');
+          await lockWallet(tx, tenantId);
+          if (body.amountIdr > 0) await assertUnderCap(tx, tenantId, body.amountIdr, new Date());
+          const refId = randomUUID();
+          const out = await moveWallet(tx, {
+            tenantId, amountIdr: body.amountIdr, kind: body.amountIdr > 0 ? 'ADMIN_CREDIT' : 'ADMIN_DEBIT', refId,
+            note: 'Penyesuaian admin', actorEmail: admin.email,
+          });
+          await audit.record({
+            actorEmail: admin.email, action: 'POST /customers/:tenantId/wallet/adjust', targetType: 'tenant', targetId: tenantId,
+            reason: body.reason, detail: { amountIdr: body.amountIdr, balanceAfterIdr: out.balanceIdr, entryRef: refId, ...via(req) },
+          }, tx);
+          return out.balanceIdr;
+        });
+        return { wallet: { balanceIdr } };
+      });
+    }
 
     api.get<{ Querystring: { status?: string } }>('/instances', async (req) => {
       const { limit, cursor, status } = statusQuery.parse(req.query);

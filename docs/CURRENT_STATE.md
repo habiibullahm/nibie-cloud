@@ -4,6 +4,27 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Wallet top-up saldo, part 1 of 3 (2026-11-20, branch `claude/wallet-topup`, not merged, not deployed)
+
+Owner: "add billing topup saldo for users". Owner decisions: an IDR wallet per tenant (not only AI credit), custom amount
+Rp 10.000 to 2.000.000, wallet cap Rp 5.000.000, admin adjust with reason and audit, non-refundable, auto-renew as a toggle
+default on (part 2), AI credit rate in the database (part 3). Reference model: SumoPod's own Top Up Billing and Top Up AI
+Balance. Plan: [superpowers/plans/2026-11-20-wallet-topup.md](superpowers/plans/2026-11-20-wallet-topup.md).
+- **Built (part 1):** migration `20261120100000_add_wallet` (`Wallet`, `WalletEntry`, `WalletTopup`, CHECK, RLS); `WALLET_ENABLED`
+  (default `false`); customer `GET /wallet`, `POST /wallet/topups`, `GET /wallet/topups/:id`; the SumoPod webhook credits
+  `nw-` top-ups (`topped_up`); receipt email `topup_received`; the billing tick expires top-ups; admin customer detail shows the
+  wallet, `POST /admin/customers/:tenantId/wallet/adjust` + MCP `adjust_wallet`; alert `wallet-mismatch:`; Caddy forwards
+  `/api/v1/wallet*`. Dashboard: wallet card on Billing (balance, presets + custom amount, history, pending top-ups, polling),
+  admin customer page wallet section with adjust dialog. Details: `docs/setup.md`, "Wallet (top-up saldo)".
+- **Not built:** paying hosting from the wallet and auto-renew (part 2), buying AI credit with the live NibieRouter balance
+  (part 3), a header balance chip, the landing terms line (owner wording).
+- **Before `WALLET_ENABLED=true` on production:** apply the migration, verify one real SumoPod payment end to end (the Rp
+  25.000 test), add the non-refundable line to the landing terms. Owner to check Bank Indonesia closed-loop e-money rules,
+  SumoPod merchant terms for top-ups, and PPN timing.
+- **Checks (Windows, local Postgres `hermes_test`):** backend `tsc`; integration `wallet` (new, 15), `alert-scanner`,
+  `sumopod-webhook`, `billing-service`, `billing-tick`, `billing-api`, `admin-plan-stock`, `admin-api` pass; unit tests pass
+  except the 2 known Windows-only `egress-canary` failures. Dashboard typecheck, lint, tests (203).
+
 ## Volume quota raised automatically after an upgrade (2026-11-20, branch `claude/auto-volume-quota`)
 
 Owner: "kenapa manual? make it auto update".

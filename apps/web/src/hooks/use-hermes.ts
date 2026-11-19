@@ -6,6 +6,7 @@ import { ApiError, getApi, type CreateInstanceInput, type Instance, type LogLeve
 import { isTransitional, type InstanceAction } from "@/lib/api/status"
 import { authConfigured, getSupabase } from "@/lib/auth/supabase"
 import { fetchSupportContact } from "@/lib/support"
+import { isPayable } from "@/lib/wallet"
 
 const POLL_MS = 1500
 
@@ -19,6 +20,7 @@ export const keys = {
   me: ["me"] as const,
   access: (id: string) => ["access", id] as const,
   subscriptions: ["subscriptions"] as const,
+  wallet: ["wallet"] as const,
   usage: (id: string, r: string) => ["usage", id, r] as const,
   logs: (id: string, level: string, q: string) => ["logs", id, level, q] as const,
   provider: (id: string) => ["provider", id] as const,
@@ -184,6 +186,29 @@ export function useCancelRenewal() {
       void qc.invalidateQueries({ queryKey: keys.subscriptions })
       toast.success("Renewal cancelled. Your instance keeps running until the end of the paid period.")
     },
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+}
+
+/**
+ * The Nibie Cloud wallet; `data` is null when the backend has it off. Polls while a top-up waits for its payment, so the
+ * balance updates after the customer comes back from SumoPod.
+ */
+export function useWallet() {
+  return useQuery({
+    queryKey: keys.wallet,
+    queryFn: () => getApi().billing.wallet(),
+    refetchInterval: (q) => (q.state.data?.topups.some((t) => isPayable(t)) ? 3000 : false),
+  })
+}
+
+/** Starts a top-up; the caller sends the customer to `paymentUrl`. */
+export function useTopup() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ amountIdr, idempotencyKey }: { amountIdr: number; idempotencyKey: string }) =>
+      getApi().billing.topup(amountIdr, idempotencyKey),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.wallet }),
     onError: (e) => toast.error(errorMessage(e)),
   })
 }

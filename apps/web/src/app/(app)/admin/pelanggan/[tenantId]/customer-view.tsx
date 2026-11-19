@@ -16,13 +16,14 @@ import {
   subscriptionStatusId,
 } from "@/lib/admin-format"
 import type { BackendStatus } from "@/lib/api/types"
+import { WalletSection } from "./wallet-section"
 
 export function AdminCustomerView({ tenantId }: { tenantId: string }) {
   const q = useAdminCustomer(tenantId)
 
   if (q.isPending || q.error) return <QueryFallback what="pelanggan" queries={[q]} />
 
-  const { customer, instances, subscriptions, payments } = q.data!
+  const { customer, instances, subscriptions, payments, wallet } = q.data!
 
   return (
     <div className="grid gap-8">
@@ -47,6 +48,8 @@ export function AdminCustomerView({ tenantId }: { tenantId: string }) {
           />
         </CardContent>
       </Card>
+
+      {wallet ? <WalletSection tenantId={customer.tenantId} wallet={wallet} /> : null}
 
       <section className="grid gap-3">
         <h2 className="type-label text-foreground">Instance ({instances.length})</h2>
