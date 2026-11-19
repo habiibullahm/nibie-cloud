@@ -80,6 +80,31 @@ export function billingNotice(sub: BillingSubscription | null): BillingNotice | 
 
 export type ReturnState = "waiting" | "paid" | "failed"
 
+/** The subscription with the most recently issued invoice (latest expiresAt); see evaluateReturn. */
+export function newestOrder(subs: BillingSubscription[]): (BillingSubscription & { latestPayment: BillingPayment }) | null {
+  let best: (BillingSubscription & { latestPayment: BillingPayment }) | null = null
+  for (const s of subs) {
+    const p = s.latestPayment
+    if (p && (!best || Date.parse(p.expiresAt) > Date.parse(best.latestPayment.expiresAt))) best = { ...s, latestPayment: p }
+  }
+  return best
+}
+
+/** The Deploy form prefilled with an unpaid order's name and plan, so a retry does not start from an empty form. */
+export function deployAgainHref(sub: Pick<BillingSubscription, "name" | "planId">): string {
+  return `/deploy?${new URLSearchParams({ name: sub.name, plan: sub.planId })}`
+}
+
+/** A renewal pays for an existing instance; the gateway returns to the same page for new orders and renewals. */
+export function isRenewal(order: BillingSubscription | null): boolean {
+  return order?.latestPayment?.purpose === "RENEWAL" && order.instanceId !== null
+}
+
+/** Where to try again after a payment that did not go through: a renewal on its billing page, a new order on Deploy. */
+export function retryHref(order: BillingSubscription): string {
+  return isRenewal(order) ? `/instances/${order.instanceId}/billing` : deployAgainHref(order)
+}
+
 /**
  * After the gateway sends the customer back, the backend callback may still be on its way. Judge only
  * the most recently issued invoice (the one the customer just returned from), so older abandoned
@@ -88,10 +113,7 @@ export type ReturnState = "waiting" | "paid" | "failed"
  * does not expose the merchant order id from `?payment=`; match on that id if it is ever exposed.
  */
 export function evaluateReturn(subs: BillingSubscription[], now = Date.now()): ReturnState {
-  const latest = subs
-    .map((s) => s.latestPayment)
-    .filter((p): p is BillingPayment => p !== null)
-    .reduce<BillingPayment | null>((a, p) => (!a || Date.parse(p.expiresAt) > Date.parse(a.expiresAt) ? p : a), null)
+  const latest = newestOrder(subs)?.latestPayment
   if (!latest) return subs.some(isPendingPurchase) ? "failed" : "paid"
   if (latest.status === "PAID") return "paid"
   if (latest.status === "PENDING" && Date.parse(latest.expiresAt) > now) return "waiting"

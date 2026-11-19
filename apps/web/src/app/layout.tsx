@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next"
 import { Bricolage_Grotesque, Onest } from "next/font/google"
+import { DEFAULT_LANG, DEFAULT_THEME, PREFS_SCRIPT } from "@/lib/prefs-core"
 import { Providers } from "./providers"
 import "./globals.css"
 
@@ -31,7 +32,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${bricolage.variable} ${onest.variable}`}>
+    // PREFS_SCRIPT rewrites lang and data-theme before paint from the viewer's saved choice, hence suppressHydrationWarning.
+    <html lang={DEFAULT_LANG} data-theme={DEFAULT_THEME} className={`${bricolage.variable} ${onest.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: PREFS_SCRIPT }} />
+      </head>
       <body>
         <Providers>{children}</Providers>
       </body>

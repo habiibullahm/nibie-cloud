@@ -1,4 +1,7 @@
+"use client"
+
 import { CircleX, Clock, Loader2, PauseCircle, TriangleAlert } from "lucide-react"
+import { useT } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import type { InstanceStatus } from "@/lib/api/types"
 import { presentStatus } from "@/lib/api/status"
@@ -9,6 +12,7 @@ import { presentStatus } from "@/lib/api/status"
  */
 export function StatusBadge({ status, label, className }: { status: InstanceStatus; label?: string; className?: string }) {
   const p = presentStatus(status)
+  const t = useT()
   return (
     <span
       data-tone={p.tone}
@@ -21,7 +25,7 @@ export function StatusBadge({ status, label, className }: { status: InstanceStat
       )}
     >
       <StatusIcon status={status} />
-      {label ?? p.label}
+      {label ?? t(p.label)}
     </span>
   )
 }

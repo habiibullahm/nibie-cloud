@@ -1,5 +1,6 @@
 "use client"
 
+import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Loader2 } from "lucide-react"
@@ -11,6 +12,7 @@ import { getSupabase } from "@/lib/auth/supabase"
  */
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const supabase = getSupabase()
   const [ready, setReady] = useState(supabase === null)
 
@@ -23,13 +25,17 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       else router.replace("/sign-in")
     })
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) router.replace("/sign-in")
+      if (!session) {
+        // Sign-out or an ended session: drop every cached response, so the next account on this tab never sees this one's data.
+        queryClient.clear()
+        router.replace("/sign-in")
+      }
     })
     return () => {
       active = false
       sub.subscription.unsubscribe()
     }
-  }, [supabase, router])
+  }, [supabase, router, queryClient])
 
   if (ready) return <>{children}</>
   // Announced to screen readers and visible, so the check never looks like a blank, frozen page.

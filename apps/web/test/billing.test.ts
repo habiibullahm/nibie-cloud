@@ -5,8 +5,12 @@ import {
   billingStatusLabel,
   canCancelRenewal,
   canRenew,
+  deployAgainHref,
   evaluateReturn,
   isPendingPurchase,
+  isRenewal,
+  newestOrder,
+  retryHref,
   payableUrl,
   subscriptionOfInstance,
 } from "../src/lib/billing"
@@ -138,5 +142,31 @@ describe("evaluateReturn", () => {
     const paid = sub({ latestPayment: payment({ status: "PAID", expiresAt: new Date(NOW + HOUR).toISOString() }) })
     expect(evaluateReturn([paid, old], NOW)).toBe("paid")
     expect(evaluateReturn([old, pending(payment())], NOW)).toBe("waiting")
+  })
+})
+
+describe("newestOrder and deployAgainHref", () => {
+  it("picks the subscription with the latest invoice and skips ones without a payment", () => {
+    const old = sub({ id: "old", latestPayment: payment({ expiresAt: new Date(NOW - HOUR).toISOString() }) })
+    const fresh = sub({ id: "fresh", latestPayment: payment({ expiresAt: new Date(NOW + HOUR).toISOString() }) })
+    expect(newestOrder([old, sub({ id: "none", latestPayment: null }), fresh])?.id).toBe("fresh")
+    expect(newestOrder([sub({ latestPayment: null })])).toBeNull()
+  })
+  it("prefills the deploy form with the order's name and plan, encoded", () => {
+    expect(deployAgainHref({ name: "my bot & co", planId: "p1" })).toBe("/deploy?name=my+bot+%26+co&plan=p1")
+  })
+})
+
+describe("isRenewal and retryHref", () => {
+  const renewal = sub({ instanceId: "i1", planId: "p1", name: "bot", latestPayment: payment({ purpose: "RENEWAL" }) })
+  const fresh = sub({ status: "PENDING_PAYMENT", instanceId: null, planId: "p1", name: "bot", latestPayment: payment({ purpose: "NEW" }) })
+  it("tells a renewal of an existing instance from a new order", () => {
+    expect(isRenewal(renewal)).toBe(true)
+    expect(isRenewal(fresh)).toBe(false)
+    expect(isRenewal(null)).toBe(false)
+  })
+  it("retries a renewal on its billing page and a new order on Deploy", () => {
+    expect(retryHref(renewal)).toBe("/instances/i1/billing")
+    expect(retryHref(fresh)).toBe("/deploy?name=bot&plan=p1")
   })
 })

@@ -18,17 +18,16 @@ export function formatBytes(bytes: number): string {
 }
 
 /** `null` is a plan with no price: during the beta that is the free plan. */
-export function formatPriceIdr(price: number | null): string {
-  if (price === null) return "Free during the beta"
+export function formatPriceIdr(price: number | null, lang: "en" | "id" = "en"): string {
+  if (price === null) return lang === "id" ? "Gratis selama beta" : "Free during the beta"
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(price)
 }
 
-const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" })
-
-export function formatRelative(iso: string, now = Date.now()): string {
+export function formatRelative(iso: string, now = Date.now(), lang: "en" | "id" = "en"): string {
+  const rtf = new Intl.RelativeTimeFormat(lang, { numeric: "auto" })
   const diff = (new Date(iso).getTime() - now) / 1000
   const abs = Math.abs(diff)
-  if (abs < 45) return "just now"
+  if (abs < 45) return lang === "id" ? "baru saja" : "just now"
   if (abs < 3600) return rtf.format(Math.round(diff / 60), "minute")
   if (abs < 86400) return rtf.format(Math.round(diff / 3600), "hour")
   return rtf.format(Math.round(diff / 86400), "day")
@@ -43,8 +42,10 @@ export function formatDateTime(iso: string): string {
   }).format(new Date(iso))
 }
 
-export function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric" }).format(new Date(iso))
+export function formatDate(iso: string, lang: "en" | "id" = "en"): string {
+  return new Intl.DateTimeFormat(lang === "id" ? "id-ID" : "en-GB", { day: "numeric", month: "long", year: "numeric" }).format(
+    new Date(iso)
+  )
 }
 
 export function formatTime(iso: string): string {

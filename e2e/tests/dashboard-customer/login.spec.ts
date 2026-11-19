@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test"
-import { emailOf, required, USER_PASSWORD_VAR } from "../../support/env"
+import { DASHBOARD_URL, emailOf, englishState, required, USER_PASSWORD_VAR } from "../../support/env"
 
-test.use({ storageState: { cookies: [], origins: [] } })
+test.use({ storageState: englishState(DASHBOARD_URL) })
 
 test("without a session the dashboard sends the visitor to sign-in", async ({ page }) => {
   await page.goto("/dashboard/instances")

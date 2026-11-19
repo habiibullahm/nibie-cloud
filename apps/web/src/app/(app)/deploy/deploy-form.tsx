@@ -1,8 +1,8 @@
 "use client"
 
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useMemo, useState } from "react"
-import { Info, Rocket } from "lucide-react"
+import { Info, Rocket, TriangleAlert } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -13,13 +13,18 @@ import { QueryFallback } from "@/components/app/query-fallback"
 import { KeyValue } from "@/components/app/key-value"
 import { PageHeader, SectionTitle } from "@/components/app/page-header"
 import { PreviewNote } from "@/components/app/preview-note"
-import { errorMessage, useApiMode, useCheckout, useCreateInstance, usePlans, useRegions } from "@/hooks/use-hermes"
+import { errorMessage, useApiMode, useCheckout, useCreateInstance, usePlans, useRegions, useSubscriptions } from "@/hooks/use-hermes"
+import { isPendingPurchase, payableUrl } from "@/lib/billing"
 import { cn } from "@/lib/utils"
 import { formatCpu, formatMb, formatPriceIdr } from "@/lib/format"
+import { useT } from "@/lib/i18n"
+import { useLang } from "@/lib/prefs"
 import { startPayment } from "@/lib/pay"
 import { validateInstanceName } from "./validate-name"
 
 export function DeployForm() {
+  const t = useT()
+  const lang = useLang()
   const router = useRouter()
   const plans = usePlans()
   const regions = useRegions()
@@ -28,10 +33,16 @@ export function DeployForm() {
   // One key per form session: a double submit or retry cannot provision twice (PRD §15.8).
   const [idempotencyKey] = useState(() => crypto.randomUUID())
 
-  const [name, setName] = useState("")
+  // "Deploy again" on an expired order links here with its name and plan (lib/billing deployAgainHref).
+  const search = useSearchParams()
+  const [name, setName] = useState(() => search.get("name") ?? "")
   const [touched, setTouched] = useState(false)
   const [regionId, setRegionId] = useState<string>("")
-  const [planId, setPlanId] = useState<string>("")
+  const [planId, setPlanId] = useState<string>(() => search.get("plan") ?? "")
+  // A new checkout expires every other unpaid invoice (backend BillingService.checkout), so say so before it happens.
+  const subs = useSubscriptions()
+  const openOrder = subs.data?.find((s) => isPendingPurchase(s) && payableUrl(s.latestPayment) !== null)
+  const openOrderUrl = openOrder ? payableUrl(openOrder.latestPayment) : null
 
   // Regions are sample data and the create call never sends one, so customers do not see the choice.
   const showRegion = useApiMode() !== "customer"
@@ -42,7 +53,7 @@ export function DeployForm() {
   const step = (n: number) => (showRegion || n < 2 ? n : n - 1)
   // Every plan is listed; the ones this account cannot take now are shown out of stock and cannot be chosen.
   const openPlans = plans.data?.filter((p) => p.available) ?? []
-  // Default to the smallest open plan: no tier is promoted, and upgrading later is always possible.
+  // Default to the smallest open plan: no tier is promoted.
   const plan = openPlans.find((p) => p.id === (planId || openPlans[0]?.id))
   const nameError = validateInstanceName(name)
   const priced = plan !== undefined && plan.monthlyPriceIdr !== null
@@ -72,22 +83,24 @@ export function DeployForm() {
     <form onSubmit={submit} noValidate className="grid gap-8">
       <PageHeader
         actions={showRegion ? <PreviewNote what="Plans, regions and pricing" /> : null}
-        title="Deploy a Hermes instance"
-        description="Your instance runs in its own container with dedicated persistent storage. You can change plans later."
+        title={t("Deploy a Hermes instance")}
+        description={t("Your instance runs in its own container with dedicated persistent storage.")}
       />
 
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="grid gap-8">
           <section className="grid gap-3" aria-labelledby="sec-name">
             <SectionTitle>
-              <span id="sec-name">{step(1)} · Name</span>
+              <span id="sec-name">
+                {step(1)} · {t("Name")}
+              </span>
             </SectionTitle>
             <div className="grid max-w-md gap-2">
-              <Label htmlFor="instance-name">Instance name</Label>
+              <Label htmlFor="instance-name">{t("Instance name")}</Label>
               <Input
                 id="instance-name"
                 value={name}
-                placeholder="my-assistant"
+                placeholder={t("e.g. my-assistant")}
                 autoComplete="off"
                 spellCheck={false}
                 maxLength={63}
@@ -97,7 +110,7 @@ export function DeployForm() {
                 onBlur={() => setTouched(true)}
               />
               <p id="instance-name-hint" className={cn("text-muted-foreground", touched && nameError && "text-foreground")}>
-                {touched && nameError ? nameError : "Up to 63 characters. Lowercase letters, numbers and dashes read best in URLs."}
+                {touched && nameError ? t(nameError) : t("Up to 63 characters. Lowercase letters, numbers and dashes read best in URLs.")}
               </p>
             </div>
           </section>
@@ -105,21 +118,23 @@ export function DeployForm() {
           {showRegion ? (
           <section className="grid gap-3" aria-labelledby="sec-region">
             <SectionTitle>
-              <span id="sec-region">{step(2)} · Region</span>
+              <span id="sec-region">
+                {step(2)} · {t("Region")}
+              </span>
             </SectionTitle>
             {!regions.data ? (
               <QueryFallback what="regions" queries={[regions]} className="h-16 max-w-md" />
             ) : placeable.length === 0 ? (
               <Alert>
                 <Info aria-hidden="true" />
-                <AlertTitle>No capacity right now</AlertTitle>
-                <AlertDescription>All regions are full right now. Try again later.</AlertDescription>
+                <AlertTitle>{t("No capacity right now")}</AlertTitle>
+                <AlertDescription>{t("All regions are full right now. Try again later.")}</AlertDescription>
               </Alert>
             ) : (
               <RadioGroup
                 value={region?.id}
                 onValueChange={setRegionId}
-                aria-label="Region"
+                aria-label={t("Region")}
                 className="grid gap-3 sm:grid-cols-2"
               >
                 {placeable.map((r) => (
@@ -135,7 +150,9 @@ export function DeployForm() {
 
           <section className="grid gap-3" aria-labelledby="sec-plan">
             <SectionTitle>
-              <span id="sec-plan">{step(3)} · Plan</span>
+              <span id="sec-plan">
+                {step(3)} · {t("Plan")}
+              </span>
             </SectionTitle>
             {!plans.data ? (
               <QueryFallback what="plans" queries={[plans]} className="h-40" />
@@ -144,46 +161,51 @@ export function DeployForm() {
               {openPlans.length === 0 ? (
                 <Alert>
                   <Info aria-hidden="true" />
-                  <AlertTitle>No plan is open for your account</AlertTitle>
+                  <AlertTitle>{t("No plan is open for your account")}</AlertTitle>
                   <AlertDescription>
-                    Every plan is out of stock for your account right now. Ask for beta access on{" "}
+                    {t("Every plan is out of stock for your account right now. Ask for beta access on")}{" "}
                     <a href="https://cloud.nibie.app" className="text-foreground underline underline-offset-4">
                       cloud.nibie.app
                     </a>{" "}
-                    and we will email you when a plan opens for you.
+                    {t("and we will email you when a plan opens for you.")}
                   </AlertDescription>
                 </Alert>
               ) : null}
-              <RadioGroup value={plan?.id ?? ""} onValueChange={setPlanId} aria-label="Plan" className="grid gap-3 md:grid-cols-3">
+              <RadioGroup value={plan?.id ?? ""} onValueChange={setPlanId} aria-label={t("Plan")} className="grid gap-3 md:grid-cols-3">
                 {plans.data.map((p) => (
                   <OptionCard key={p.id} id={`plan-${p.id}`} value={p.id} selected={plan?.id === p.id} disabled={!p.available}>
                     <span className="flex items-start justify-between gap-2">
                       <span className="type-label text-foreground">{p.name}</span>
-                      {p.available ? null : <Badge variant="outline">Stock 0</Badge>}
+                      {p.available ? null : <Badge variant="outline">{t("Out of stock")}</Badge>}
                     </span>
-                    <dl className="grid grid-cols-2 gap-x-3 gap-y-1 pt-2">
-                      <dt className="text-muted-foreground">CPU</dt>
-                      <dd className="type-mono">{formatCpu(p.cpuMillis)}</dd>
-                      <dt className="text-muted-foreground">Memory</dt>
-                      <dd className="type-mono">{formatMb(p.memoryMb)}</dd>
-                      <dt className="text-muted-foreground">Storage</dt>
-                      <dd className="type-mono">{formatMb(p.storageMb)}</dd>
-                      <dt className="text-muted-foreground">Processes</dt>
-                      <dd className="type-mono">{p.pids}</dd>
-                      <dt className="text-muted-foreground">Backups</dt>
-                      <dd className="type-mono">{p.backupRetentionDays === null ? "Not set yet" : `${p.backupRetentionDays} days`}</dd>
-                    </dl>
-                    <span className="pt-2 text-muted-foreground">
-                      {p.customDomain === null ? "Custom domain: not set yet" : p.customDomain ? "Custom domain included" : "No custom domain"}
-                    </span>
-                    <span className="border-t pt-2 text-muted-foreground">
-                      Price <span className="text-foreground">{formatPriceIdr(p.monthlyPriceIdr)}</span>
+                    {/* What sets the plans apart comes first: price and included credit. */}
+                    <span className="text-foreground">
+                      {formatPriceIdr(p.monthlyPriceIdr, lang)}
+                      {p.monthlyPriceIdr !== null ? <span className="text-muted-foreground"> {t("per month")}</span> : null}
                     </span>
                     {p.includedCreditUsd !== null ? (
                       <span className="text-muted-foreground">
-                        AI credit <span className="text-foreground">US${p.includedCreditUsd} one-time</span>, in NibieRouter
+                        {t("Includes US${amount} AI credit, one-time, in NibieRouter", { amount: p.includedCreditUsd })}
                       </span>
                     ) : null}
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-1 border-t pt-2">
+                      <dt className="text-muted-foreground">CPU</dt>
+                      <dd className="type-mono">{formatCpu(p.cpuMillis)}</dd>
+                      <dt className="text-muted-foreground">{t("Memory")}</dt>
+                      <dd className="type-mono">{formatMb(p.memoryMb)}</dd>
+                      <dt className="text-muted-foreground">{t("Storage")}</dt>
+                      <dd className="type-mono">{formatMb(p.storageMb)}</dd>
+                      <dt className="text-muted-foreground">{t("Processes")}</dt>
+                      <dd className="type-mono">{p.pids}</dd>
+                      {/* Unset plan fields (null) are left out rather than shown as "not set yet". */}
+                      {p.backupRetentionDays !== null ? (
+                        <>
+                          <dt className="text-muted-foreground">{t("Backups")}</dt>
+                          <dd className="type-mono">{t("{days} days", { days: p.backupRetentionDays })}</dd>
+                        </>
+                      ) : null}
+                    </dl>
+                    {p.customDomain === true ? <span className="text-muted-foreground">{t("Custom domain included")}</span> : null}
                   </OptionCard>
                 ))}
               </RadioGroup>
@@ -195,12 +217,14 @@ export function DeployForm() {
           {priced ? (
             <section className="grid gap-3" aria-labelledby="sec-billing">
               <SectionTitle>
-                <span id="sec-billing">{step(4)} · Billing cycle</span>
+                <span id="sec-billing">
+                  {step(4)} · {t("Billing cycle")}
+                </span>
               </SectionTitle>
               <div className="grid max-w-md gap-1">
-                <p className="text-foreground">Monthly</p>
+                <p className="text-foreground">{t("Monthly")}</p>
                 <p className="text-muted-foreground">
-                  Hosting is billed monthly. AI usage is billed separately by NibieRouter or by your own provider.
+                  {t("Hosting is billed monthly. AI usage is billed separately by NibieRouter or by your own provider.")}
                 </p>
               </div>
             </section>
@@ -209,21 +233,21 @@ export function DeployForm() {
 
         <aside className="grid gap-4 rounded-md border bg-card p-4 lg:sticky lg:top-10" aria-labelledby="sum-title">
           <h2 id="sum-title" className="type-label">
-            Summary
+            {t("Summary")}
           </h2>
           <KeyValue
             className="sm:grid-cols-[max-content_1fr]"
             items={[
               {
-                k: "Name",
-                v: name.trim() ? <span className="type-mono">{name.trim()}</span> : <span className="text-muted-foreground">Not set</span>,
+                k: t("Name"),
+                v: name.trim() ? <span className="type-mono">{name.trim()}</span> : <span className="text-muted-foreground">{t("Not set")}</span>,
               },
-              ...(showRegion ? [{ k: "Region", v: region ? region.name : <Unset loading={regions.isLoading} /> }] : []),
-              { k: "Plan", v: plan ? plan.name : <Unset loading={plans.isLoading} /> },
+              ...(showRegion ? [{ k: t("Region"), v: region ? region.name : <Unset loading={regions.isLoading} /> }] : []),
+              { k: t("Plan"), v: plan ? plan.name : <Unset loading={plans.isLoading} /> },
               ...(plan
                 ? [
                     {
-                      k: "Resources",
+                      k: t("Resources"),
                       v: (
                         <span className="type-mono">
                           {formatCpu(plan.cpuMillis)} · {formatMb(plan.memoryMb)} · {formatMb(plan.storageMb)}
@@ -232,34 +256,51 @@ export function DeployForm() {
                     },
                   ]
                 : []),
-              { k: "Network", v: "Dedicated container, platform egress policy" },
-              ...(priced ? [{ k: "Billing", v: "Monthly" }] : []),
-              ...(plan ? [{ k: "Price", v: formatPriceIdr(plan.monthlyPriceIdr) }] : []),
+              ...(priced ? [{ k: t("Billing"), v: t("Monthly") }] : []),
+              ...(plan ? [{ k: t("Price"), v: formatPriceIdr(plan.monthlyPriceIdr, lang) }] : []),
               ...(plan && plan.includedCreditUsd !== null
-                ? [{ k: "AI credit", v: `US$${plan.includedCreditUsd}, one-time, with the first payment` }]
+                ? [{ k: t("AI credit"), v: t("US${amount}, one-time, with the first payment", { amount: plan.includedCreditUsd }) }]
                 : []),
             ]}
           />
           {plan ? (
             <Alert>
               <Info aria-hidden="true" />
-              <AlertTitle>{priced ? "Pay with Duitku" : "Free during the beta"}</AlertTitle>
+              <AlertTitle>{priced ? t("Pay with Duitku") : t("Free during the beta")}</AlertTitle>
               <AlertDescription>
                 {priced
-                  ? "You pay by virtual account or QRIS on the Duitku page. Your instance is created after the payment is confirmed, usually within a minute."
-                  : "There is nothing to pay. Deploying starts provisioning right away."}
+                  ? t("You pay by virtual account or QRIS on the Duitku page. Your instance is created after the payment is confirmed, usually within a minute.")
+                  : t("There is nothing to pay. Deploying starts provisioning right away.")}
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          {priced && openOrder && openOrderUrl ? (
+            <Alert>
+              <TriangleAlert aria-hidden="true" />
+              <AlertTitle>{t("You have an unpaid order for {name}", { name: openOrder.name })}</AlertTitle>
+              <AlertDescription>
+                <p>{t("Starting a new payment cancels its payment link.")}</p>
+                <Button type="button" size="sm" variant="outline" onClick={() => startPayment(openOrderUrl)}>
+                  {t("Pay for {name} instead", { name: openOrder.name })}
+                </Button>
               </AlertDescription>
             </Alert>
           ) : null}
           {failure ? (
             <Alert variant="destructive" role="alert">
-              <AlertTitle>{priced ? "Could not start the payment" : "Deployment failed"}</AlertTitle>
+              <AlertTitle>{priced ? t("Could not start the payment") : t("Deployment failed")}</AlertTitle>
               <AlertDescription>{errorMessage(failure)}</AlertDescription>
             </Alert>
           ) : null}
           <Button type="submit" disabled={busy || !plan || !regionReady} className="w-full">
             <Rocket aria-hidden="true" />
-            {busy ? (priced ? "Preparing payment…" : "Deploying…") : priced ? `Pay ${formatPriceIdr(plan?.monthlyPriceIdr ?? null)} and deploy` : "Deploy instance"}
+            {busy
+              ? priced
+                ? t("Preparing payment…")
+                : t("Deploying…")
+              : priced
+                ? t("Pay {amount} and deploy", { amount: formatPriceIdr(plan?.monthlyPriceIdr ?? null, lang) })
+                : t("Deploy instance")}
           </Button>
         </aside>
       </div>
@@ -268,7 +309,8 @@ export function DeployForm() {
 }
 
 function Unset({ loading }: { loading: boolean }) {
-  return <span className="text-muted-foreground">{loading ? "Loading" : "Not available"}</span>
+  const t = useT()
+  return <span className="text-muted-foreground">{loading ? t("Loading") : t("Not available")}</span>
 }
 
 function OptionCard({

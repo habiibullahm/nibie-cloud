@@ -7,15 +7,19 @@ import { Boxes, LifeBuoy, LogOut, Menu, Rocket, ShieldCheck, UserRound } from "l
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { getSupabase } from "@/lib/auth/supabase"
+import { useT } from "@/lib/i18n"
+import { SUPPORT } from "@/lib/support"
 import { cn } from "@/lib/utils"
 import { useApiMode, useMe } from "@/hooks/use-hermes"
 import { useAdminMe } from "@/hooks/use-admin"
 import { Brand } from "./brand"
+import { PreferenceToggles } from "./preference-toggles"
 
 const NAV = [
   { href: "/instances", label: "Instances", icon: Boxes, match: (p: string) => p.startsWith("/instances") },
   { href: "/deploy", label: "Deploy", icon: Rocket, match: (p: string) => p.startsWith("/deploy") },
   { href: "/account", label: "Account", icon: UserRound, match: (p: string) => p.startsWith("/account") },
+  { href: "/support", label: "Support", icon: LifeBuoy, match: (p: string) => p.startsWith("/support") },
 ]
 
 /**
@@ -43,6 +47,7 @@ function AdminLink({ onNavigate }: { onNavigate?: () => void }) {
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
+  const t = useT()
   return (
     <nav aria-label="Main" className="flex flex-col gap-1">
       {NAV.map(({ href, label, icon: Icon, match }) => {
@@ -59,7 +64,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             )}
           >
             <Icon className="size-4 shrink-0" aria-hidden="true" />
-            {label}
+            {t(label)}
           </Link>
         )
       })}
@@ -72,8 +77,10 @@ function RailFooter() {
   const router = useRouter()
   const mode = useApiMode()
   const me = useMe()
+  const t = useT()
   return (
     <div className="mt-auto flex flex-col gap-3 border-t pt-4 text-muted-foreground">
+      <PreferenceToggles />
       {/* A developer hint: customers only ever see their real data, so they do not get the chip. */}
       {mode === "customer" ? null : (
         <div className="flex items-center gap-2">
@@ -89,7 +96,7 @@ function RailFooter() {
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label="Sign out"
+          aria-label={t("Sign out")}
           onClick={async () => {
             await getSupabase()?.auth.signOut()
             router.push("/sign-in")
@@ -104,13 +111,14 @@ function RailFooter() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
+  const t = useT()
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
       <a
         href="#main"
         className="fixed top-2 left-2 z-[100] -translate-y-[200%] rounded-sm bg-foreground px-4 py-2 text-background focus:translate-y-0 pointer-coarse:py-3"
       >
-        Skip to content
+        {t("Skip to content")}
       </a>
 
       <header className="sticky top-0 hidden h-dvh flex-col gap-6 overflow-y-auto border-r px-4 py-6 lg:flex">
@@ -123,14 +131,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Brand />
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Open navigation">
+            <Button variant="ghost" size="icon" aria-label={t("Open navigation")}>
               <Menu aria-hidden="true" />
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="flex w-72 flex-col gap-6 border-r bg-background px-4 py-6">
             <SheetHeader className="p-0">
-              <SheetTitle className="sr-only">Navigation</SheetTitle>
-              <SheetDescription className="sr-only">Main navigation</SheetDescription>
+              <SheetTitle className="sr-only">{t("Navigation")}</SheetTitle>
+              <SheetDescription className="sr-only">{t("Main navigation")}</SheetDescription>
               <Brand />
             </SheetHeader>
             <NavLinks onNavigate={() => setOpen(false)} />
@@ -149,14 +157,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   )
 }
 
-/** Page footer, shared with the auth screens. */
+/** Page footer, shared with the auth screens (signed out too, so it links Telegram rather than the Support page). */
 export function SiteFooter({ className }: { className?: string }) {
+  const t = useT()
   return (
     <footer className={cn("border-t py-4 text-muted-foreground", className)}>
       <div className="mx-auto flex w-full max-w-[1080px] items-center gap-2">
         <LifeBuoy className="size-4 shrink-0" aria-hidden="true" />
-        {/* TODO(support): link the Telegram support handle once it exists (PRD §3, "Initial support: Telegram"). */}
-        <p>Support on Telegram, coming soon.</p>
+        <p>
+          {t("Need help? Message us on Telegram:")}{" "}
+          <a href={SUPPORT.telegramUrl} target="_blank" rel="noopener noreferrer" className="text-foreground underline">
+            {SUPPORT.telegramHandle}
+          </a>
+        </p>
       </div>
     </footer>
   )
