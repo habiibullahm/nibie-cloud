@@ -24,7 +24,7 @@ export function BillingNotice({ instanceId }: { instanceId: string }) {
   return (
     <Alert variant={suspended ? "destructive" : "default"} aria-labelledby="billing-notice-title">
       <Icon aria-hidden="true" />
-      <AlertTitle id="billing-notice-title" className="line-clamp-none">
+      <AlertTitle id="billing-notice-title">
         {notice.title}
       </AlertTitle>
       <AlertDescription>

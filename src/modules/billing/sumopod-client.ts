@@ -12,6 +12,9 @@ export interface SumoPodConfig {
   callbackUrl: string;
 }
 
+/** Smallest invoice amount the client sends; a plan priced below it is not for sale. */
+export const SUMOPOD_MIN_AMOUNT_IDR = 1_000;
+
 const HOSTS = { sandbox: 'api-pay-sandbox.sumopod.com', production: 'api-pay.sumopod.com' } as const;
 
 const invoiceRespSchema = z.object({
@@ -31,7 +34,7 @@ export function createSumoPodClient(cfg: SumoPodConfig, deps: { fetcher?: typeof
   return {
     async createInvoice(input) {
       if (input.merchantOrderId.length < 1 || input.merchantOrderId.length > 128) throw new ValidationError('invalid order id');
-      if (!Number.isInteger(input.amountIdr) || input.amountIdr < 1_000) throw new ValidationError('invalid amount');
+      if (!Number.isInteger(input.amountIdr) || input.amountIdr < SUMOPOD_MIN_AMOUNT_IDR) throw new ValidationError('invalid amount');
       if (input.productDetails.length > 255) throw new ValidationError('invalid product details');
 
       const body = JSON.stringify({

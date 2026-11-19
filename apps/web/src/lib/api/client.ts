@@ -45,7 +45,7 @@ export interface InstancesApi {
   remove(id: string): Promise<Instance>
 }
 
-/** Duitku billing (backend milestone D). Real in customer mode, in-memory sample data in mock mode. */
+/** SumoPod billing (backend milestone D). Real in customer mode, in-memory sample data in mock mode. */
 export interface BillingApi {
   /** Every subscription of the tenant, including purchases that are still waiting for payment. */
   list(): Promise<BillingSubscription[]>

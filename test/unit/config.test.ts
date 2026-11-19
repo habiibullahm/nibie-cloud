@@ -389,68 +389,73 @@ describe('loadConfig: outbound mail (SumoPod SMTP)', () => {
   });
 });
 
-describe('Duitku billing configuration', () => {
-  const duitku = {
-    BILLING_GATEWAY: 'duitku',
-    DUITKU_MERCHANT_CODE: 'DS00000',
-    DUITKU_API_KEY: 'duitku-api-key-value',
-    DUITKU_CALLBACK_URL: 'https://api.example.test/api/v1/billing/duitku/callback',
+describe('SumoPod billing configuration', () => {
+  const sumopod = {
+    SUMOPOD_API_KEY: 'sumopod-api-key-value',
+    SUMOPOD_WEBHOOK_TOKEN: 'whtok_test_value',
+    SUMOPOD_CALLBACK_URL: 'https://api.example.test/api/v1/billing/sumopod/webhook',
     DASHBOARD_ORIGIN: 'https://cloud.example.test',
   };
 
   it('requires DASHBOARD_ORIGIN for the return URL', () => {
-    const { DASHBOARD_ORIGIN: _omit, ...rest } = duitku;
+    const { DASHBOARD_ORIGIN: _omit, ...rest } = sumopod;
     expect(() => loadConfig({ ...base, ...rest })).toThrow('DASHBOARD_ORIGIN');
   });
 
   it('is null when nothing is set, including empty values from a .env file', () => {
     expect(loadConfig(base).billing).toBeNull();
-    expect(loadConfig({ ...base, DUITKU_MERCHANT_CODE: '', DUITKU_API_KEY: '', DUITKU_CALLBACK_URL: '' }).billing).toBeNull();
+    expect(loadConfig({ ...base, SUMOPOD_API_KEY: '', SUMOPOD_WEBHOOK_TOKEN: '', SUMOPOD_CALLBACK_URL: '' }).billing).toBeNull();
   });
 
   it('parses a complete block and defaults the environment to sandbox', () => {
-    expect(loadConfig({ ...base, ...duitku }).billing).toEqual({
-      gateway: 'duitku',
-      duitku: {
-        merchantCode: 'DS00000',
-        apiKey: 'duitku-api-key-value',
+    expect(loadConfig({ ...base, ...sumopod }).billing).toEqual({
+      sumopod: {
+        apiKey: 'sumopod-api-key-value',
+        webhookToken: 'whtok_test_value',
+        webhookSecret: null,
         env: 'sandbox',
-        callbackUrl: 'https://api.example.test/api/v1/billing/duitku/callback',
+        callbackUrl: 'https://api.example.test/api/v1/billing/sumopod/webhook',
       },
-      sumopod: null,
     });
   });
 
-  it.each(['DUITKU_MERCHANT_CODE', 'DUITKU_API_KEY', 'DUITKU_CALLBACK_URL'])('rejects a block without %s and names the key', (key) => {
-    const env: Record<string, string> = { ...base, ...duitku };
+  it('ignores the removed Duitku variables, so an old env file still starts', () => {
+    const old = { BILLING_GATEWAY: 'duitku', DUITKU_MERCHANT_CODE: 'DS00000', DUITKU_API_KEY: 'x', DUITKU_ENV: 'production' };
+    expect(loadConfig({ ...base, ...old }).billing).toBeNull();
+    expect(loadConfig({ ...base, ...sumopod, ...old }).billing?.sumopod.env).toBe('sandbox');
+  });
+
+  it.each(['SUMOPOD_API_KEY', 'SUMOPOD_WEBHOOK_TOKEN', 'SUMOPOD_CALLBACK_URL'])('rejects a block without %s and names the key', (key) => {
+    const env: Record<string, string> = { ...base, ...sumopod };
     delete env[key];
     expect(() => loadConfig(env)).toThrow(key);
   });
 
-  it('rejects an unknown DUITKU_ENV and a non-https callback URL', () => {
-    expect(() => loadConfig({ ...base, ...duitku, DUITKU_ENV: 'staging' })).toThrow('DUITKU_ENV');
-    expect(() => loadConfig({ ...base, ...duitku, DUITKU_CALLBACK_URL: 'http://api.example.test/cb' })).toThrow('DUITKU_CALLBACK_URL');
+  it('rejects an unknown SUMOPOD_ENV and a non-https callback URL', () => {
+    expect(() => loadConfig({ ...base, ...sumopod, SUMOPOD_ENV: 'staging' })).toThrow('SUMOPOD_ENV');
+    expect(() => loadConfig({ ...base, ...sumopod, SUMOPOD_CALLBACK_URL: 'http://api.example.test/cb' })).toThrow('SUMOPOD_CALLBACK_URL');
   });
 
-  it('refuses the production Duitku environment outside NODE_ENV=production', () => {
-    expect(() => loadConfig({ ...base, ...duitku, DUITKU_ENV: 'production' })).toThrow('DUITKU_ENV');
+  it('refuses the production SumoPod environment outside NODE_ENV=production', () => {
+    expect(() => loadConfig({ ...base, ...sumopod, SUMOPOD_ENV: 'production' })).toThrow('SUMOPOD_ENV');
   });
 
   it('never echoes the API key in an error', () => {
     let message = '';
     try {
-      loadConfig({ ...base, ...duitku, DUITKU_ENV: 'staging' });
+      loadConfig({ ...base, ...sumopod, SUMOPOD_ENV: 'staging' });
     } catch (e) {
       message = (e as Error).message;
     }
-    expect(message).toContain('DUITKU_ENV');
-    expect(message).not.toContain('duitku-api-key-value');
+    expect(message).toContain('SUMOPOD_ENV');
+    expect(message).not.toContain('sumopod-api-key-value');
   });
 });
 
 describe('SumoPod webhook signing secret', () => {
   const sumopod = {
     SUMOPOD_API_KEY: 'sk_test_value', SUMOPOD_WEBHOOK_TOKEN: 'whtok_test_value', SUMOPOD_CALLBACK_URL: 'https://api.example.test/api/v1/billing/sumopod/webhook',
+    DASHBOARD_ORIGIN: 'https://cloud.example.test',
   };
   const secret = `whsec_${Buffer.alloc(24, 5).toString('base64')}`;
   const prod = {

@@ -8,7 +8,7 @@ milestones A and B (`edb7d62`); see "Verified" and "Not verified" below. The ope
 | --- | --- |
 | `compose.prod.yaml` | Redis (AOF, `noeviction`, password, loopback port 6380), the backend (host network, Docker socket, no capabilities) and Caddy (host network) |
 | `Dockerfile`, `Dockerfile.dockerignore` | Backend image (`node:22-bookworm-slim`, pnpm from the lockfile, runs `tsx src/main.ts` as `node`). The ignore file is an allowlist |
-| `Caddyfile` | TLS (Let's Encrypt) and an allowlist of customer routes only: `/healthz`, `/api/v1/me`, `/api/v1/plans`, `/api/v1/instances[/*]`, `/api/v1/subscriptions[/*]`, `/api/v1/payments/*` and the Duitku callback `/api/v1/billing/duitku/callback` |
+| `Caddyfile` | TLS (Let's Encrypt) and an allowlist of customer routes only: `/healthz`, `/api/v1/me`, `/api/v1/plans`, `/api/v1/instances[/*]`, `/api/v1/subscriptions[/*]`, `/api/v1/payments/*` and the SumoPod webhook `/api/v1/billing/sumopod/webhook` |
 | `backend.env.example` | Variable names and how to generate each value. The real file lives outside the repository (`/etc/hermes-cloud/backend.env`, mode 600) |
 
 ## Order of work (host, then stack)
@@ -101,7 +101,7 @@ after recreate. See [../docs/CURRENT_STATE.md](../docs/CURRENT_STATE.md).
   (`accessUrl` is still a loopback address), the dashboard against the customer API.
 - Milestone C (secrets, providers, Telegram) was deployed later on 2026-11-13 (`95228b9`, `SECRETS_KEK` set, the
   new migration applied, canary and boundary checks passed), but no credential route was exercised there.
-  Milestone D (Duitku POP billing) is not built.
+  Milestone D (billing) was not built at the time.
 
 ## Pitfalls seen during the first deploy
 

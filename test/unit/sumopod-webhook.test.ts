@@ -11,9 +11,7 @@ function service(): BillingService {
   return new BillingService({
     prisma: {} as never,
     paymentClient: { createInvoice: async () => ({ reference: 'r', paymentUrl: 'https://x.test/p' }) },
-    duitkuAuth: null,
     sumopodAuth: { webhookToken: TOKEN },
-    gateway: 'sumopod',
     commands: {} as never,
     mailer: { enabled: false, send: async () => undefined } as never,
     dashboardOrigin: 'https://cloud.example.test',
@@ -54,7 +52,7 @@ describe('SumoPod webhook', () => {
 describe('SumoPod status normalization', () => {
   const PAID = new Set(['paid', 'completed', 'success', 'succeeded', 'settled']);
 
-  it('maps paid words to the Duitku paid code', () => {
+  it('maps paid words to the paid code', () => {
     for (const s of ['paid', 'PAID', 'completed', 'success', 'settled']) {
       expect(PAID.has(s.toLowerCase())).toBe(true);
     }

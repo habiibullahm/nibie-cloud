@@ -28,7 +28,7 @@ owner is a single non-operator founder; anything that needs an admin on call is 
 - **Data**: Supabase Postgres (schema `hermes`, region Singapore) and Supabase Auth; Redis for jobs on the VPS; backups to
   Cloudflare R2 with restic. Row level security must be enabled on every new `hermes` table (migrations do it; check after
   applying).
-- **Billing**: SumoPod Managed Payment (QRIS) first, Duitku optional (`BILLING_GATEWAY`). NibieRouter provisioning gives a paid
+- **Billing**: SumoPod Managed Payment (QRIS), the only gateway (Duitku removed 2026-11-19). NibieRouter provisioning gives a paid
   "Hosting + Kredit AI" customer a key and a one-time US$2 credit.
 - **Frontends** (each its own `package.json` and lockfile, no workspace): `apps/web` dashboard + admin panel (Cloudflare Worker
   `nibie-cloud-web`), `apps/landing` (Worker `nibie-cloud-landing`), `apps/docs` (Worker `nibie-cloud-docs`), `e2e` (Playwright).
@@ -82,8 +82,8 @@ Full list with comments: `deploy/backend.env.example`. File on the host: `/etc/h
   `PAID_CHECKOUT_OPEN` (`false` hides priced plans and refuses checkout except for invited accounts).
 - Runtime: `HERMES_IMAGE` (digest-pinned), `HERMES_RUNTIME` (`runsc` in production), `HERMES_DNS_RESOLVERS`, `HERMES_DISK_QUOTA`,
   `HERMES_EGRESS_POLICY`, `HERMES_CANARY_IMAGE`.
-- Billing: `BILLING_GATEWAY`, `SUMOPOD_ENV`, `SUMOPOD_API_KEY`, `SUMOPOD_WEBHOOK_TOKEN`, `SUMOPOD_WEBHOOK_SECRET` (required in production), `SUMOPOD_CALLBACK_URL`, `SUMOPOD_SMTP_*` +
-  `MAIL_FROM` (all five or none), `DUITKU_*`.
+- Billing: `SUMOPOD_ENV`, `SUMOPOD_API_KEY`, `SUMOPOD_WEBHOOK_TOKEN`, `SUMOPOD_WEBHOOK_SECRET` (required in production), `SUMOPOD_CALLBACK_URL`, `SUMOPOD_SMTP_*` +
+  `MAIL_FROM` (all five or none).
 - Router: `NIBIEROUTER_ADMIN_KEY`, `NIBIEROUTER_DEFAULT_MODEL`.
 - Alerts: `OPS_TELEGRAM_BOT_TOKEN`, `OPS_TELEGRAM_CHAT_ID` (set together; also in `/etc/hermes-cloud/ops.env` for the host watchdog).
 - Landing build variables (Cloudflare): `NEXT_PUBLIC_SIGNUP_OPEN`, `NEXT_PUBLIC_FREE_BETA_OPEN`, `NEXT_PUBLIC_API_URL`,
@@ -157,7 +157,7 @@ Owner (cannot be done by an agent):
 4. Read the three legal drafts (terms, refund, privacy) and decide; the AUP does not exist yet.
 5. Test the "Hosting + Kredit AI" plan end to end (needs the router copy step) and review the "100 pengguna" claim on the landing page.
 6. Telegram alert bot and an external uptime monitor (alerts exist in code but are off).
-7. Gateway KYC (SumoPod, optionally Duitku). Rotate the database password that leaked in an early chat.
+7. Gateway KYC (SumoPod). Rotate the database password that leaked in an early chat.
 
 Engineering, in order:
 

@@ -115,22 +115,20 @@ describe('admin api keys', () => {
   });
 
   it('settings show modes and counts but never a secret, URL or email list', async () => {
-    const secrets = ['sk-sumopod-SECRET', 'whtoken-SECRET', 'whsec_SECRET', 'duitku-SECRET', 'smtp-pass-SECRET', 'router-admin-SECRET', 'turnstile-SECRET', 'https://callback.example.test', 'https://router.example.test', 'invited@example.test'];
+    const secrets = ['sk-sumopod-SECRET', 'whtoken-SECRET', 'whsec_SECRET', 'smtp-pass-SECRET', 'router-admin-SECRET', 'turnstile-SECRET', 'https://callback.example.test', 'https://router.example.test', 'invited@example.test'];
     const a = app({
       betaAllowedEmails: ['invited@example.test'],
       turnstileSecret: 'turnstile-SECRET',
       mail: { host: 'smtp.example.test', port: 465, user: 'smtp-user', pass: 'smtp-pass-SECRET', from: 'noreply@nibie.app' },
       billing: {
-        gateway: 'both',
         sumopod: { apiKey: 'sk-sumopod-SECRET', webhookToken: 'whtoken-SECRET', webhookSecret: 'whsec_SECRET', env: 'sandbox', callbackUrl: 'https://callback.example.test' },
-        duitku: { merchantCode: 'D1', apiKey: 'duitku-SECRET', env: 'sandbox', callbackUrl: 'https://callback.example.test' },
       },
       router: { apiUrl: 'https://router.example.test', adminKey: 'router-admin-SECRET', defaultModel: 'nibie/default', emailDomain: 'users.nibie.app' },
     });
     const res = await a.inject({ method: 'GET', url: '/api/v1/admin/system', headers: await session() });
     expect(res.statusCode).toBe(200);
     expect(res.json().settings).toEqual({
-      billing: { gateway: 'both', paidCheckoutOpen: true, sumopod: { env: 'sandbox', webhookSigned: true }, duitku: { env: 'sandbox' } },
+      billing: { gateway: 'sumopod', paidCheckoutOpen: true, sumopod: { env: 'sandbox', webhookSigned: true } },
       email: { configured: true, from: 'noreply@nibie.app' },
       signIn: { supabase: true, adminEmails: 1, betaAllowedEmails: 1, freeBetaSlots: 0, turnstile: true, maxInstancesPerTenant: 1, maxTotalInstances: null },
       ai: { configured: true, defaultModel: 'nibie/default', userEmailDomain: 'users.nibie.app' },

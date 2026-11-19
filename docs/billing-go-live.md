@@ -1,7 +1,7 @@
-# Billing go-live runbook (SumoPod first, Duitku as an option)
+# Billing go-live runbook (SumoPod)
 
-Owner decision of 2026-11-17: **SumoPod Managed Payment** is the first gateway. Duitku stays supported
-(`BILLING_GATEWAY=duitku` or `both`) and is a fallback. Nothing in this file contains a credential; the real
+Owner decision of 2026-11-17: **SumoPod Managed Payment** is the gateway. Duitku was removed from the code on
+2026-11-19 (`BILLING_GATEWAY` and `DUITKU_*` are ignored if still set). Nothing in this file contains a credential; the real
 values live only in `/etc/hermes-cloud/backend.env` (mode 600) and in the gateway dashboards.
 
 ## State before go-live (checked 2026-11-17)
@@ -9,7 +9,7 @@ values live only in `/etc/hermes-cloud/backend.env` (mode 600) and in the gatewa
 - VPS runs the backend with the billing code, but **no gateway variable is set**, so billing is off and the
   checkout answers "not available". The signup button on the landing page is closed
   (`NEXT_PUBLIC_SIGNUP_OPEN=false` on the Worker `nibie-cloud-landing`).
-- Caddy forwards `/api/v1/billing/sumopod/webhook` and `/api/v1/billing/duitku/callback` (PR #33). The SumoPod route
+- Caddy forwards `/api/v1/billing/sumopod/webhook` (PR #33; the Duitku path was dropped 2026-11-19). The route
   answers 404 until the SumoPod variables are set, because the backend registers it only then.
 - Plans in the database match the landing: `hosting` Rp 25.000 and `hosting-kredit` Rp 50.000 (beta), 1 CPU,
   1 GB RAM, 1 GB storage; `hosting-kredit` grants a one-time US$2 NibieRouter credit.
@@ -21,7 +21,6 @@ values live only in `/etc/hermes-cloud/backend.env` (mode 600) and in the gatewa
 
 | Variable | Sandbox | Production |
 | --- | --- | --- |
-| `BILLING_GATEWAY` | `sumopod` | `sumopod` |
 | `SUMOPOD_ENV` | `sandbox` | `production` (needs `NODE_ENV=production`, which the VPS already has) |
 | `SUMOPOD_API_KEY` | sandbox key from the SumoPod dashboard | production key (after KYC) |
 | `SUMOPOD_WEBHOOK_TOKEN` | token shown for the sandbox webhook | token shown for the production webhook |

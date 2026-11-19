@@ -18,7 +18,7 @@ export function billingStatusLabel(status: BillingStatus, cancelAtPeriodEnd: boo
   }
 }
 
-/** The Duitku page, only while the invoice can still be paid. */
+/** The SumoPod payment page, only while the invoice can still be paid. */
 export function payableUrl(payment: BillingPayment | null, now = Date.now()): string | null {
   if (!payment || payment.status !== "PENDING" || !payment.paymentUrl) return null
   return new Date(payment.expiresAt).getTime() > now ? payment.paymentUrl : null

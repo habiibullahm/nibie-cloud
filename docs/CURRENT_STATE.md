@@ -12,6 +12,26 @@ It covers a web shell (full shell as uid 10000; owner accepted that customers ca
 (owner: "ignore go. focus on current codebase"). The three parts ship behind `SELF_MANAGE_CONFIG|FILES|SHELL`, off by default. The
 console and file manager pages stay mock until then.
 
+## Duitku removed; SumoPod is the only payment gateway (2026-11-19, branch `claude/remove-duitku`, not committed)
+
+Owner: "remove Duitku payment gateway, we use SumoPod". Production was checked first through the admin MCP: gateway `sumopod`,
+`duitku: null`, no open Duitku invoice. Wherever older entries below mention Duitku or `BILLING_GATEWAY`, this entry wins.
+- **Backend:** deleted `duitku-client.ts`, the `POST /api/v1/billing/duitku/callback` route, `BILLING_GATEWAY`, `DUITKU_*` and the
+  `both` mode. Old env files still start: those variables are now ignored. `DASHBOARD_ORIGIN` is now required whenever SumoPod
+  is configured (the Duitku-only check moved over; production has it). The lowest sellable price is SumoPod's `1000` (was
+  Duitku's `10000`). Admin `/system` still returns `billingGateway`/`settings.billing.gateway` (`sumopod` or null) and no
+  longer `settings.billing.duitku`. No migration: `Payment`/`PaymentEvent` rows from Duitku stay valid.
+- **Caddy:** the Duitku callback path is no longer forwarded. **Dashboard:** deploy page says "Bayar lewat QRIS" (SumoPod page),
+  Pengaturan drops the Duitku row. **Landing:** the privacy policy lists SumoPod (QRIS) as the payment processor;
+  `SITE.legalUpdated` was not changed (owner's call).
+- **Tests:** payment tests now drive the SumoPod webhook (`test/helpers/billing-env.ts` `FakeSumoPod`, `webhookBody`); the
+  Duitku client unit test and the Duitku sandbox live script were deleted. Checks: backend `tsc`; unit tests 526 pass (2 known
+  Windows `egress-canary` failures); billing-service, billing-tick, billing-api, sumopod-webhook and admin-api-keys integration
+  98 pass; web typecheck, lint, 193 tests; landing typecheck, lint, 67 tests. Not run: full integration suite, builds, e2e.
+- **Open:** the Go port (`server/` on PR #71 and branch `claude/go-port-m1`) still mirrors `DUITKU_*`/`BILLING_GATEWAY` in its
+  config parity goldens; regenerate them when that work resumes. The VPS env file may still hold `BILLING_GATEWAY` and empty
+  `DUITKU_*` lines: harmless, can be deleted.
+
 ## Beta invite email is plain text with Reply-To (2026-11-19, branch `claude/invite-deliverability`, not committed)
 
 The admin beta invite still landed in Gmail spam after the display-name change. NibieRouter sends through the same SumoPod SMTP and
@@ -888,7 +908,7 @@ Everything here was checked with real command output or a real page on 2026-11-1
   over SumoPod SMTP. `Plan.monthlyPriceIdr` is nullable (`null`: not for sale); `scripts/seed-sandbox-plans.ts` sets a
   sandbox test price. The `BETA_ALLOWED_EMAILS` free path is unchanged. Plan:
   [superpowers/plans/2026-11-14-backend-milestone-d-duitku-billing.md](superpowers/plans/2026-11-14-backend-milestone-d-duitku-billing.md);
-  how to run it: [setup.md](setup.md#billing-duitku-pop); design and gaps: [architecture.md](architecture.md) ("Billing", gap 9a).
+  how to run it: [setup.md](setup.md#billing-sumopod); design and gaps: [architecture.md](architecture.md) ("Billing", gap 9a).
   **Verified:** `tsc` clean; unit tests (Duitku signature vectors, lifecycle rules, templates, mailer, config) and
   integration tests against a real Postgres with a fake Duitku, fake mailer, fake runtime and an injected clock
   (service, HTTP callback, tick). **Not verified:** a real sandbox invoice and callback (Task 0 of the plan: needs the

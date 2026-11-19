@@ -1,7 +1,7 @@
-import { createHmac, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import type { PrismaClient } from '@prisma/client';
 import { BillingService } from '../../src/modules/billing/billing-service.js';
-import type { DuitkuClient, InvoiceRequest } from '../../src/modules/billing/duitku-client.js';
+import type { InvoiceRequest, PaymentClient } from '../../src/modules/billing/payment-client.js';
 import type { Mailer, MailMessage } from '../../src/modules/billing/mailer.js';
 import { InstanceCommands } from '../../src/modules/instances/instance-commands.js';
 import { InstanceService } from '../../src/modules/instances/instance-service.js';
@@ -10,17 +10,16 @@ import { createLogger } from '../../src/shared/logger.js';
 import { FakeRuntime } from './fake-runtime.js';
 import { TEST_MASTER_KEY } from './service-env.js';
 
-export const MERCHANT = 'DS00000';
-export const API_KEY = 'test-duitku-api-key-value';
+export const WEBHOOK_TOKEN = 'whtok_test_value_for_billing';
 export const PRICE = 50_000;
 
-export class FakeDuitku implements DuitkuClient {
+export class FakeSumoPod implements PaymentClient {
   readonly invoices: InvoiceRequest[] = [];
   failNext = false;
   async createInvoice(input: InvoiceRequest) {
     if (this.failNext) { this.failNext = false; throw new PaymentProviderUnavailableError(); }
     this.invoices.push(input);
-    return { reference: `REF-${this.invoices.length}`, paymentUrl: `https://sandbox.duitku.test/pay/${input.merchantOrderId}` };
+    return { reference: `REF-${this.invoices.length}`, paymentUrl: `https://sandbox.sumopod.test/pay/${input.merchantOrderId}` };
   }
 }
 
@@ -62,24 +61,21 @@ export function makeBilling(prisma: PrismaClient, o: { clock?: Clock; maxInstanc
     masterKey: TEST_MASTER_KEY, diskQuota: 'off', egressPolicy: 'off', containerRuntime: 'runc', now: () => clock.now,
   });
   const commands = new InstanceCommands({ service, queue: null, logger });
-  const duitku = new FakeDuitku();
+  const sumopod = new FakeSumoPod();
   const mailer = new FakeMailer();
   const billing = new BillingService({
-      prisma, paymentClient: duitku, duitkuAuth: { merchantCode: MERCHANT, apiKey: API_KEY }, sumopodAuth: null, gateway: 'duitku', commands, mailer,
+      prisma, paymentClient: sumopod, sumopodAuth: { webhookToken: WEBHOOK_TOKEN }, commands, mailer,
       dashboardOrigin: 'https://cloud.example.test', maxInstancesPerTenant: o.maxInstances ?? 1, maxTotalInstances: o.maxTotal ?? null, logger, now: () => clock.now,
       ...(o.router ? { router: o.router } : {}),
     });
-  return { billing, duitku, mailer, runtime, service, commands, clock, logger };
+  return { billing, sumopod, mailer, runtime, service, commands, clock, logger };
 }
 
-export const sign = (amount: string, merchantOrderId: string, key = API_KEY): string =>
-  createHmac('sha256', key).update(MERCHANT + amount + merchantOrderId).digest('hex');
-
-/** A callback form as Duitku posts it, correctly signed unless overridden. */
-export function callbackForm(o: { orderId: string; amount?: number | string; resultCode?: string; reference?: string; signature?: string }) {
-  const amount = String(o.amount ?? PRICE);
+/** A SumoPod webhook body (svix-style envelope); `status` 'paid' unless overridden. */
+export function webhookBody(o: { orderId: string; amount?: number; status?: string; reference?: string }) {
+  const status = o.status ?? 'paid';
   return {
-    merchantCode: MERCHANT, amount, merchantOrderId: o.orderId, resultCode: o.resultCode ?? '00',
-    reference: o.reference ?? 'REF-1', signature: o.signature ?? sign(amount, o.orderId),
+    event_type: status === 'paid' ? 'payment.completed' : 'payment.failed',
+    data: { order_id: o.orderId, payment_id: o.reference ?? 'REF-1', amount: o.amount ?? PRICE, status },
   };
 }

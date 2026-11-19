@@ -157,10 +157,10 @@ export const ID: Record<string, string> = {
   Price: "Harga",
   "AI credit": "Kredit AI",
   "US${amount}, one-time, with the first payment": "US${amount}, sekali, bersama pembayaran pertama",
-  "Pay with Duitku": "Bayar lewat Duitku",
+  "Pay with QRIS": "Bayar lewat QRIS",
   "Free during the beta": "Gratis selama beta",
-  "You pay by virtual account or QRIS on the Duitku page. Your instance is created after the payment is confirmed, usually within a minute.":
-    "Kamu bayar dengan virtual account atau QRIS di halaman Duitku. Instance dibuat setelah pembayaran dikonfirmasi, biasanya dalam semenit.",
+  "You pay by QRIS on the SumoPod payment page. Your instance is created after the payment is confirmed, usually within a minute.":
+    "Kamu bayar dengan QRIS di halaman pembayaran SumoPod. Instance dibuat setelah pembayaran dikonfirmasi, biasanya dalam semenit.",
   "There is nothing to pay. Deploying starts provisioning right away.":
     "Tidak ada yang perlu dibayar. Deploy langsung mulai menyiapkan instance.",
   "You have an unpaid order for {name}": "Kamu punya pesanan {name} yang belum dibayar",

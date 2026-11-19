@@ -12,7 +12,7 @@ import { TEST_MASTER_KEY } from '../helpers/service-env.js';
 
 // The SumoPod webhook: envelope shape, token check, status normalization, and the full
 // payment -> PAID -> instance activation path. Regression guard for three bugs found in a real
-// sandbox check-out (top-level field read, word status treated as a Duitku failure code, no
+// sandbox check-out (top-level field read, word status treated as a failure code, no
 // return URL). Uses the real Fastify route so the body parsing and header handling are covered.
 
 const prisma = createPrisma(process.env.DATABASE_URL!);
@@ -28,8 +28,6 @@ function app() {
     service: env.service, commands: env.commands, logger: createLogger({ level: 'silent' }),
     config: testConfig('hermes-stub:0.2.0', TEST_MASTER_KEY, {
       billing: {
-        gateway: 'sumopod',
-        duitku: null,
         sumopod: { apiKey: 'test-key', webhookToken: TOKEN, env: 'sandbox', callbackUrl: 'https://example.test/hook' },
       },
       maxInstancesPerTenant: 2,
@@ -74,8 +72,8 @@ describe('SumoPod webhook', () => {
     await prisma.runtimeNode.create({ data: { name: 'local', region: 'local' } });
     planId = plan.id;
     billing = new BillingService({
-      prisma, paymentClient: env.duitku, duitkuAuth: null,
-      sumopodAuth: { webhookToken: TOKEN }, gateway: 'sumopod',
+      prisma, paymentClient: env.sumopod,
+      sumopodAuth: { webhookToken: TOKEN },
       commands: env.commands, mailer: env.mailer as never,
       dashboardOrigin: 'https://cloud.example.test', maxInstancesPerTenant: 2,
       logger: createLogger({ level: 'silent' }),
@@ -87,8 +85,8 @@ describe('SumoPod webhook', () => {
     const SECRET = `whsec_${Buffer.alloc(24, 3).toString('base64')}`;
     function signedApp() {
       const signed = new BillingService({
-        prisma, paymentClient: env.duitku, duitkuAuth: null,
-        sumopodAuth: { webhookToken: TOKEN, webhookSecret: SECRET }, gateway: 'sumopod',
+        prisma, paymentClient: env.sumopod,
+        sumopodAuth: { webhookToken: TOKEN, webhookSecret: SECRET },
         commands: env.commands, mailer: env.mailer as never,
         dashboardOrigin: 'https://cloud.example.test', maxInstancesPerTenant: 2,
         logger: createLogger({ level: 'silent' }),
@@ -96,7 +94,7 @@ describe('SumoPod webhook', () => {
       return buildServer({
         service: env.service, commands: env.commands, logger: createLogger({ level: 'silent' }),
         config: testConfig('hermes-stub:0.2.0', TEST_MASTER_KEY, {
-          billing: { gateway: 'sumopod', duitku: null, sumopod: { apiKey: 'test-key', webhookToken: TOKEN, webhookSecret: SECRET, env: 'sandbox', callbackUrl: 'https://example.test/hook' } },
+          billing: { sumopod: { apiKey: 'test-key', webhookToken: TOKEN, webhookSecret: SECRET, env: 'sandbox', callbackUrl: 'https://example.test/hook' } },
           maxInstancesPerTenant: 2,
         }),
         customer: { verify: auth.verify, identity: new IdentityService({ prisma }), prisma },
@@ -175,7 +173,7 @@ describe('SumoPod webhook', () => {
     expect(sub.status).toBe('ACTIVE');
   });
 
-  it('normalizes a word status to the Duitku paid code instead of writing FAILED', async () => {
+  it('normalizes a word status to the paid code instead of writing FAILED', async () => {
     const { merchantOrderId } = await pendingPayment();
     await post(app(), {
       event_type: 'payment.completed',

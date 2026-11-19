@@ -13,7 +13,7 @@ export function AdminBillingView() {
 
   return (
     <div className="grid gap-8">
-      <PageHeader title="Langganan &amp; pembayaran" description="Langganan hosting dan invoice Duitku." />
+      <PageHeader title="Langganan &amp; pembayaran" description="Langganan hosting dan invoice SumoPod." />
 
       <section className="grid gap-3">
         <h2 className="type-label text-foreground">Langganan</h2>
@@ -95,7 +95,7 @@ export function AdminBillingView() {
         <CardHeader>
           <CardTitle>Tindakan uang belum tersedia</CardTitle>
           <CardDescription>
-            Refund dan perubahan langganan menunggu keputusan gateway (Duitku atau SumoPod). Panel ini untuk sekarang hanya membaca.
+            Refund dan perubahan langganan belum bisa dilakukan dari panel ini. Untuk sekarang panel hanya membaca.
           </CardDescription>
         </CardHeader>
       </Card>
