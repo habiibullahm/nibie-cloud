@@ -251,3 +251,21 @@ export interface Wallet {
   entries: WalletEntry[]
   topups: WalletTopup[]
 }
+
+export type InvoiceKind = "HOSTING_NEW" | "HOSTING_RENEWAL" | "TOPUP"
+
+/** A paid hosting payment or top-up (`GET /invoices`). Plan and instance names are as they were when it was paid. */
+export interface Invoice {
+  id: string
+  /** INV/<year>/<month>/<seq>, numbered per month in Asia/Jakarta time. */
+  number: string
+  kind: InvoiceKind
+  planName: string | null
+  instanceName: string | null
+  amountIdr: number
+  paidAt: string
+  /** SumoPod's payment reference, when it sent one. */
+  reference: string | null
+  /** Only on `GET /invoices/:id`: the account owner's email. */
+  billedTo?: string | null
+}

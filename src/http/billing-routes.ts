@@ -53,6 +53,12 @@ export function registerBillingRoutes(api: FastifyInstance, billing: BillingServ
     payment: await billing.getPayment(principalOf(req).tenantId, req.params.paymentId),
   }));
 
+  api.get('/invoices', async (req) => ({ invoices: await billing.invoices(principalOf(req).tenantId) }));
+
+  api.get<{ Params: { invoiceId: string } }>('/invoices/:invoiceId', async (req) => ({
+    invoice: await billing.invoice(principalOf(req).tenantId, req.params.invoiceId),
+  }));
+
   // Wallet (top-up saldo): only with WALLET_ENABLED, otherwise these paths are 404.
   const wallet = billing.wallet;
   if (!wallet) return;

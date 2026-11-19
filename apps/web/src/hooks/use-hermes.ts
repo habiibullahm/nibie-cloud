@@ -21,6 +21,8 @@ export const keys = {
   access: (id: string) => ["access", id] as const,
   subscriptions: ["subscriptions"] as const,
   wallet: ["wallet"] as const,
+  invoices: ["invoices"] as const,
+  invoice: (id: string) => ["invoices", id] as const,
   usage: (id: string, r: string) => ["usage", id, r] as const,
   logs: (id: string, level: string, q: string) => ["logs", id, level, q] as const,
   provider: (id: string) => ["provider", id] as const,
@@ -211,6 +213,14 @@ export function useTopup() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.wallet }),
     onError: (e) => toast.error(errorMessage(e)),
   })
+}
+
+export function useInvoices() {
+  return useQuery({ queryKey: keys.invoices, queryFn: () => getApi().billing.invoices() })
+}
+
+export function useInvoice(id: string) {
+  return useQuery({ queryKey: keys.invoice(id), queryFn: () => getApi().billing.invoice(id) })
 }
 
 export function useUsage(id: string, range: "1h" | "24h" | "7d") {
