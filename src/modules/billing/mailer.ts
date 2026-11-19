@@ -6,7 +6,10 @@ export interface MailMessage {
   to: string;
   subject: string;
   text: string;
-  html: string;
+  /** Left out for a plain-text mail. */
+  html?: string;
+  /** Where a reply goes. A monitored address shows Gmail a person stands behind the mail; `noreply@` alone looks like bulk. */
+  replyTo?: string;
 }
 
 export interface Mailer {
@@ -18,7 +21,7 @@ export interface Mailer {
 /** Shown as the sender name in the inbox; a bare `noreply@` address looks like bulk mail to Gmail. */
 export const MAIL_FROM_NAME = 'Nibie Cloud';
 
-type Transport = { sendMail(message: { from: { name: string; address: string }; to: string; subject: string; text: string; html: string }): Promise<unknown> };
+type Transport = { sendMail(message: { from: { name: string; address: string }; to: string; subject: string; text: string; html?: string; replyTo?: string }): Promise<unknown> };
 
 export interface TransportFactoryInput { host: string; port: number; secure: boolean; auth: { user: string; pass: string } }
 
@@ -39,7 +42,7 @@ export function createMailer(mail: Config['mail'], logger: Logger, transportFact
     enabled: true,
     async send(m) {
       try {
-        await transport.sendMail({ from: { name: MAIL_FROM_NAME, address: mail.from }, to: m.to, subject: m.subject, text: m.text, html: m.html });
+        await transport.sendMail({ from: { name: MAIL_FROM_NAME, address: mail.from }, to: m.to, subject: m.subject, text: m.text, ...(m.html ? { html: m.html } : {}), ...(m.replyTo ? { replyTo: m.replyTo } : {}) });
       } catch (e) {
         logger.warn({ errName: (e as Error).name }, 'email send failed');
         throw new MailSendError();

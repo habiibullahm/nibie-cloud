@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { escapeHtml, renderEmail, renderWaitlistConfirm, type EmailKind } from '../../src/modules/billing/email-templates.js';
+import { escapeHtml, renderBetaInvite, renderEmail, renderWaitlistConfirm, type EmailKind } from '../../src/modules/billing/email-templates.js';
 
 const ctx = {
   instanceName: 'Bot <script>alert(1)</script> "x"',
@@ -54,6 +54,23 @@ describe('renderWaitlistConfirm', () => {
     expect(m.html).toContain('href="https://cloud.example.test/daftar-tunggu/konfirmasi#t=abc"');
     expect(m.text).toMatch(/^Konfirmasi email Anda\n\nHalo,\n/);
     expect(m.text).toContain('WIB');
+  });
+});
+
+describe('renderBetaInvite', () => {
+  const base = { email: 'friend@example.test', registerUrl: 'https://cloud.example.test/dashboard/register' };
+
+  it('is plain text addressed to one person, with the register link', () => {
+    const m = renderBetaInvite({ ...base, canReply: false });
+    expect(m).not.toHaveProperty('html');
+    expect(m.subject).toBe('Akses beta Nibie Cloud untuk friend@example.test');
+    expect(m.text).toContain('friend@example.test');
+    expect(m.text).toContain(base.registerUrl);
+    expect(m.text).not.toContain('Balas email ini');
+  });
+
+  it('asks for a reply only when a Reply-To is set', () => {
+    expect(renderBetaInvite({ ...base, canReply: true }).text).toContain('Balas email ini');
   });
 });
 
