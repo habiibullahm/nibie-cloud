@@ -137,7 +137,7 @@ Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
   One `Subscription` per instance; the instance is created after the first verified payment, except for an upgrade
   (`POST /subscriptions/upgrade`): a free instance gets a subscription that already points at it, and the first verified
   payment moves it onto the paid plan (`applyPlanChange`: router credit, `planId`, `configRevision`, restart; the volume
-  quota is raised by hand on the host). A billing tick (inside the locked maintenance
+  quota is raised by the host timer `hermes-volume-quota`, which reads the operator route `GET /api/v1/volume-quotas`). A billing tick (inside the locked maintenance
   job) handles reminders, 3-day grace, suspension (instance stopped, start answers `subscription_suspended`), 30-day
   retention and deletion, with Indonesian emails over SumoPod SMTP. `Plan.monthlyPriceIdr` null means not for sale; prices
   are set by `scripts/seed-sandbox-plans.ts` (sandbox) or by hand, never by a migration. No real-money payment verified

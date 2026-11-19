@@ -52,9 +52,10 @@ the instance and create a new one, which loses its data.
 
 **After a free-to-paid upgrade (2026-11-20).** A paid upgrade of a free instance (`POST /api/v1/subscriptions/upgrade`)
 moves the instance to the paid plan's CPU, memory and process limits on its restart, but its volume keeps the free plan's
-quota. The backend logs `plan upgraded: raise the volume quota on the host` with the instance id and records a
-`plan.changed` event; then run the steps above with the paid plan's `storageMb` (`bhard=5120m` for Hosting,
-`bhard=10240m` for Hosting + Kredit AI).
+quota. Since 2026-11-20 the host timer `hermes-volume-quota` (`ops/host`, every minute, install steps in `deploy/README.md`)
+raises it: it reads each live instance's plan disk from `GET /api/v1/volume-quotas` and runs the `xfs_quota limit` step above
+when the current limit is smaller. It never lowers a limit. Checked on the VPS on 2026-11-20 in dry-run mode: it found the
+project of each volume and listed only the one below its wanted size.
 
 **Budget.** Tenant volumes share one 100 GB XFS image (`/srv/hermes-volumes.img` mounted on `/var/lib/docker/volumes`,
 seen on the VPS on 2026-11-20). Quotas are caps, not reservations, but the sum of stock x `storageMb` of all plans above

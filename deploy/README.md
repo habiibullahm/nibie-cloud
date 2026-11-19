@@ -57,6 +57,22 @@ milestones A and B (`edb7d62`); see "Verified" and "Not verified" below. The ope
   way back; migrations are never rolled back.
 - **Dashboard, landing, docs:** Cloudflare Workers Builds deploy each app from `main` (see each app's README).
 
+## Volume quota after a plan upgrade (since 2026-11-20)
+
+A volume's XFS quota is set when Docker creates it, so a free instance upgraded to a paid plan keeps the free size until the host
+raises it. `hermes-volume-quota` (copy of `ops/host/hermes-volume-quota.sh`) runs every minute as root: it reads the plan disk of
+every live instance from the operator API on loopback (`GET /api/v1/volume-quotas`, `ADMIN_TOKEN` from the backend env file, never
+printed) and raises any smaller limit with `xfs_quota`. It never lowers a limit. Log: `/var/log/hermes-volume-quota.log`.
+Install once (and reinstall after changing the script):
+
+```bash
+cd /opt/hermes-cloud
+sudo install -m 755 ops/host/hermes-volume-quota.sh /usr/local/sbin/hermes-volume-quota
+sudo install -m 644 ops/host/hermes-volume-quota.service ops/host/hermes-volume-quota.timer /etc/systemd/system/
+sudo DRY_RUN=1 /usr/local/sbin/hermes-volume-quota      # prints what it would raise, changes nothing
+sudo systemctl daemon-reload && sudo systemctl enable --now hermes-volume-quota.timer
+```
+
 ## Verified on 2026-11-13 (single VPS: Ubuntu 24.04, kernel 6.8, Docker 29.9, cgroup v2, `runc`)
 
 - Image build, migrations on Supabase (session pooler), backend + Redis + Caddy up with a Let's Encrypt certificate.
