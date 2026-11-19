@@ -36,6 +36,7 @@ model Tenant {
   wallet        Wallet?
   walletEntries WalletEntry[]
   walletTopups  WalletTopup[]
+  invoices      Invoice[]
 }
 
 /// Customer identity. `id` is the Supabase Auth user id (the token's `sub`); it is not generated here.
@@ -295,6 +296,7 @@ model Payment {
   updatedAt       DateTime       @updatedAt @db.Timestamptz(3)
 
   subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+  invoice      Invoice?
 
   @@index([status, expiresAt])
 }
@@ -383,10 +385,45 @@ model WalletTopup {
   createdAt       DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt       DateTime      @updatedAt @db.Timestamptz(3)
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  invoice Invoice?
 
   @@unique([tenantId, idempotencyKey])
   @@index([status, expiresAt])
+}
+
+enum InvoiceKind {
+  HOSTING_NEW
+  HOSTING_RENEWAL
+  TOPUP
+}
+
+/// One per paid Payment or paid WalletTopup, issued in the transaction that marks it paid. Never changed afterwards:
+/// plan and instance names are copied at issue time. `number` is INV/<year>/<month>/<seq>, month in Asia/Jakarta.
+model Invoice {
+  id            String      @id @default(uuid()) @db.Uuid
+  number        String      @unique
+  tenantId      String      @db.Uuid
+  kind          InvoiceKind
+  planName      String?
+  instanceName  String?
+  amountIdr     Int
+  paidAt        DateTime    @db.Timestamptz(3)
+  paymentId     String?     @unique @db.Uuid
+  walletTopupId String?     @unique @db.Uuid
+  createdAt     DateTime    @default(now()) @db.Timestamptz(3)
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  payment     Payment?     @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  walletTopup WalletTopup? @relation(fields: [walletTopupId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, paidAt])
+}
+
+/// Last invoice sequence used per month ("2026/11"); bumped in the issuing transaction, so numbers have no gaps.
+model InvoiceCounter {
+  period String @id
+  last   Int
 }
 
 enum CreditGrantStatus {

@@ -1,5 +1,5 @@
 import { ApiError, type BillingApi, type InstancesApi } from "./client"
-import type { BillingSubscription, CheckoutResult, Instance, InstanceEvent, InstanceStatusView, Wallet, WalletTopup } from "./types"
+import type { BillingSubscription, CheckoutResult, Instance, InstanceEvent, InstanceStatusView, Invoice, Wallet, WalletTopup } from "./types"
 
 const BASE = (process.env.NEXT_PUBLIC_BASE_PATH ?? "") + "/api/hermes"
 
@@ -123,11 +123,16 @@ export function buildBillingApi(call: Call): BillingApi {
           body: JSON.stringify({ amountIdr }),
         })
       ).topup,
+    invoices: async () => (await call<{ invoices: Invoice[] }>("/invoices")).invoices,
+    invoice: async (invoiceId) => (await call<{ invoice: Invoice }>(`/invoices/${id(invoiceId)}`)).invoice,
   }
 }
 
 /** Live (operator bridge) mode has no billing: no subscriptions, and purchases are refused. */
 export function createUnavailableBillingApi(): BillingApi {
   const refuse = () => Promise.reject(new ApiError(404, "billing_unavailable", "Billing is not available in this mode."))
-  return { list: async () => [], checkout: refuse, upgrade: refuse, renew: refuse, cancel: refuse, wallet: async () => null, topup: refuse }
+  return {
+    list: async () => [], checkout: refuse, upgrade: refuse, renew: refuse, cancel: refuse,
+    wallet: async () => null, topup: refuse, invoices: async () => [], invoice: refuse,
+  }
 }

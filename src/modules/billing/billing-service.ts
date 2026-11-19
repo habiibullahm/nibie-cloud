@@ -13,6 +13,7 @@ import { hasStock, stockLeft, totalLoad } from '../instances/capacity.js';
 import type { PaymentClient } from './payment-client.js';
 import { SUMOPOD_MIN_AMOUNT_IDR } from './sumopod-client.js';
 import { verifySvixSignature, type SvixHeaders } from './svix.js';
+import { getInvoice, issueInvoice, listInvoices, type InvoiceView } from './invoices.js';
 import { moveWallet, WalletService } from './wallet.js';
 
 /** How long an invoice stays payable. QRIS allows 60 minutes at most. */
@@ -282,6 +283,17 @@ export class BillingService {
     return paymentView(p, this.now());
   }
 
+  /** Invoices of every paid hosting payment and top-up, newest first. */
+  async invoices(tenantId: string): Promise<InvoiceView[]> {
+    return listInvoices(this.d.prisma, tenantId);
+  }
+
+  /** One invoice, with the account owner's address it is billed to. */
+  async invoice(tenantId: string, invoiceId: string): Promise<InvoiceView & { billedTo: string | null }> {
+    const [inv, billedTo] = await Promise.all([getInvoice(this.d.prisma, tenantId, invoiceId), this.ownerEmail(tenantId)]);
+    return { ...inv, billedTo };
+  }
+
   /** The subscription behind an instance, for the customer start/restart guard. */
   async subscriptionOfInstance(instanceId: string): Promise<{ status: SubscriptionStatus } | null> {
     return this.d.prisma.subscription.findUnique({ where: { instanceId }, select: { status: true } });
@@ -375,12 +387,14 @@ export class BillingService {
         return finish(changed.count === 1 ? 'failed' : 'ignored_failure');
       }
       // Money arrived: credited in full even after expiry or above the wallet cap, so a payment is never lost.
+      const paidAt = this.now();
       const marked = await tx.walletTopup.updateMany({
         where: { id: topup.id, status: { not: 'PAID' } },
-        data: { status: 'PAID', resultCode: c.resultCode, reference: c.reference || topup.reference, paidAt: this.now() },
+        data: { status: 'PAID', resultCode: c.resultCode, reference: c.reference || topup.reference, paidAt },
       });
       if (marked.count === 0) return finish('already_paid');
       const { balanceIdr } = await moveWallet(tx, { tenantId: topup.tenantId, amountIdr: topup.amountIdr, kind: 'TOPUP', refId: topup.id, note: 'Top-up QRIS' });
+      await issueInvoice(tx, { tenantId: topup.tenantId, kind: 'TOPUP', amountIdr: topup.amountIdr, paidAt, walletTopupId: topup.id });
       return { ...(await finish('topped_up')), topup: { tenantId: topup.tenantId, amountIdr: topup.amountIdr, balanceIdr } };
     }
     if (c.amountIdr !== payment.amountIdr) return finish('amount_mismatch');
@@ -402,7 +416,12 @@ export class BillingService {
     });
     if (marked.count === 0) return finish('already_paid');
 
-    const sub = await tx.subscription.findUniqueOrThrow({ where: { id: payment.subscriptionId } });
+    const sub = await tx.subscription.findUniqueOrThrow({ where: { id: payment.subscriptionId }, include: { plan: { select: { name: true } } } });
+    // Money was received, so an invoice is issued even when the subscription already ended (the operator then refunds).
+    await issueInvoice(tx, {
+      tenantId: sub.tenantId, kind: payment.purpose === 'RENEWAL' ? 'HOSTING_RENEWAL' : 'HOSTING_NEW', amountIdr: payment.amountIdr,
+      paidAt: now, planName: sub.plan.name, instanceName: sub.intendedName, paymentId: payment.id,
+    });
     if (sub.status === 'ENDED') return finish('paid_after_end');
     const { end } = periodAfterPayment({ now, status: sub.status, currentPeriodEnd: sub.currentPeriodEnd });
     await tx.subscription.update({

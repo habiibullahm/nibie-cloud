@@ -11,6 +11,7 @@ import type {
   InstanceEvent,
   InstanceMeta,
   InstanceStatusView,
+  Invoice,
   LogLevel,
   LogLine,
   Plan,
@@ -63,6 +64,9 @@ export interface BillingApi {
   wallet(): Promise<Wallet | null>
   /** Starts a QRIS top-up; the caller sends the customer to `paymentUrl`. */
   topup(amountIdr: number, idempotencyKey: string): Promise<WalletTopup>
+  /** Invoices of paid hosting and top-ups, newest first. */
+  invoices(): Promise<Invoice[]>
+  invoice(id: string): Promise<Invoice>
 }
 
 /** PRD §15 endpoints with no backend yet. Always served by the mock. */

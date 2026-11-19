@@ -134,6 +134,11 @@ Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
   the same SumoPod webhook when no hosting `Payment` matches the order id. Admin adjust needs aal2, a reason and an `AuditLog`
   row. Non-refundable. Paying hosting from it, auto-renew and buying AI credit are planned, not built
   (`docs/superpowers/plans/2026-11-20-wallet-topup.md`).
+- **Invoices** (`src/modules/billing/invoices.ts`, `GET /invoices`, `GET /invoices/:id`): one `Invoice` per paid `Payment` or paid
+  `WalletTopup`, issued in the webhook transaction that marks it paid (unique source id, so never twice; issued even for
+  `paid_after_end`). Number `INV/<yyyy>/<mm>/<seq>` per month in Asia/Jakarta, from `InvoiceCounter` bumped in the same
+  transaction (no gaps). Rows are never changed: plan and instance names are copied at issue time. Seller "Nibie Cloud / nibie.app",
+  no PPN (owner, 2026-11-20). Dashboard: list on Billing, printable page `/billing/invoices/[id]` (prints in the light theme).
 - **Billing** (`src/modules/billing`, `src/http/billing-routes.ts`, `src/http/sumopod-callback.ts`): SumoPod Managed Payment (QRIS)
   is the only gateway (Duitku was removed 2026-11-19). It is configured by `SUMOPOD_API_KEY`, `SUMOPOD_WEBHOOK_TOKEN` and
   `SUMOPOD_CALLBACK_URL` plus `DASHBOARD_ORIGIN` (`SUMOPOD_ENV` `sandbox` default, `production` needs `NODE_ENV=production`; details in

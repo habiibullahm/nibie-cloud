@@ -290,7 +290,7 @@ describe('deploy/Caddyfile', () => {
   const matcher = /@public \{\s*path ([^\n]+)/.exec(caddy)?.[1] ?? '';
 
   it('forwards the billing routes and the SumoPod webhook, and no longer the Duitku callback', () => {
-    for (const p of ['/api/v1/subscriptions', '/api/v1/subscriptions/*', '/api/v1/payments/*', '/api/v1/wallet', '/api/v1/wallet/*', '/api/v1/billing/sumopod/webhook']) {
+    for (const p of ['/api/v1/subscriptions', '/api/v1/subscriptions/*', '/api/v1/payments/*', '/api/v1/wallet', '/api/v1/wallet/*', '/api/v1/invoices', '/api/v1/invoices/*', '/api/v1/billing/sumopod/webhook']) {
       expect(matcher.split(/\s+/)).toContain(p);
     }
     expect(matcher).not.toContain('duitku');

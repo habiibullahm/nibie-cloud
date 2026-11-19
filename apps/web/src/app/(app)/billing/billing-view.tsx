@@ -15,6 +15,7 @@ import { formatDate } from "@/lib/format"
 import { useT, type T } from "@/lib/i18n"
 import { startPayment } from "@/lib/pay"
 import { useLang, type Lang } from "@/lib/prefs"
+import { InvoicesCard } from "./invoices-card"
 import { WalletCard } from "./wallet-card"
 
 function periodText(sub: BillingSubscription, t: T, lang: Lang): string {
@@ -67,6 +68,7 @@ export function BillingView() {
         actions={mock ? <PreviewNote what="Subscriptions" reason="mock" /> : null}
       />
       <WalletCard />
+      <InvoicesCard />
       {!subs.data ? (
         <QueryFallback what="your subscriptions" queries={[subs]} className="h-48" />
       ) : list.length === 0 ? (

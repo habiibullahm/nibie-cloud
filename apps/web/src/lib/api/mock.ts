@@ -11,6 +11,7 @@ import type {
   InstanceEvent,
   InstanceMeta,
   InstanceStatus,
+  Invoice,
   LogLine,
   Plan,
   ProviderConfig,
@@ -744,6 +745,16 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       wallet.topups.unshift(t)
       return t
     },
+    async invoices() {
+      await wait()
+      return [...MOCK_INVOICES]
+    },
+    async invoice(id) {
+      await wait()
+      const inv = MOCK_INVOICES.find((i) => i.id === id)
+      if (!inv) throw new ApiError(404, "not_found", "Invoice not found")
+      return { ...inv, billedTo: "you@example.com" }
+    },
   }
   const wallet: Wallet = {
     balanceIdr: 0,
@@ -754,6 +765,18 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
 
   return { mode: "mock", instances, billing, tickets: createMockTicketsApi(), preview }
 }
+
+/** Sample invoices for preview mode. */
+const MOCK_INVOICES: Invoice[] = [
+  {
+    id: "7a1c2e9e-3c1d-4f0a-9b51-2f7f0c6d8e01", number: "INV/2026/11/0002", kind: "HOSTING_NEW", planName: "Hosting",
+    instanceName: "support-bot", amountIdr: 49_000, paidAt: "2026-11-20T03:12:00.000Z", reference: "SP-PREVIEW-2",
+  },
+  {
+    id: "7a1c2e9e-3c1d-4f0a-9b51-2f7f0c6d8e00", number: "INV/2026/11/0001", kind: "TOPUP", planName: null,
+    instanceName: null, amountIdr: 50_000, paidAt: "2026-11-19T09:40:00.000Z", reference: "SP-PREVIEW-1",
+  },
+]
 
 /** A fixed tree rooted at the tenant volume. Paths are volume-relative by construction. */
 function mockFiles(path: string): FileEntry[] {

@@ -4,7 +4,26 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
-## Wallet top-up saldo, part 1 of 3 (2026-11-20, branch `claude/wallet-topup`, PR #96, not deployed)
+## Invoices for every payment (2026-11-20, branch `claude/invoices`, not merged, not deployed)
+
+Owner: "yaa buatkan invoice nibie". Owner decisions: seller "Nibie Cloud / nibie.app" (no address, no NPWP), numbers sequential per
+month, no PPN line.
+- **Built:** migration `20261120200000_add_invoices` (`Invoice`, `InvoiceCounter`, CHECK one source, RLS) that also backfills an
+  invoice for every payment and top-up already `PAID`, numbered by `paidAt`; the webhook issues one in the transaction that marks a
+  hosting payment or top-up paid; customer `GET /invoices`, `GET /invoices/:id` (with the owner's email as "billed to"); Caddy
+  forwards `/api/v1/invoices*`. Dashboard: "Invoice" card on Billing and `/billing/invoices/[id]` with "Cetak atau simpan PDF"
+  (sidebar and top bar hidden in print, light palette while printing).
+- **Not built:** the invoice number or link in the receipt emails; invoices in the admin panel; a PDF file sent by email.
+- **Checks (Windows, local Postgres `hermes_test`):** backend `tsc`; integration `invoices` (new, 5), `wallet`, `sumopod-webhook`,
+  `billing-service`, `billing-api`, `billing-tick`, `alert-scanner`, `admin-api`, `schema` pass; the backfill SQL re-run on the test
+  data gave the same numbers as the webhook; unit tests pass except the 2 known Windows-only `egress-canary` failures. Dashboard
+  typecheck, lint, tests (203), `next build`; mock-mode screenshots at desktop, 400px and a printed A4 PDF.
+
+## Wallet top-up saldo, part 1 of 3 (2026-11-20, branch `claude/wallet-topup`, PR #96, deployed `829eb4f`)
+
+**Live since 2026-11-20:** `WALLET_ENABLED=true` on production (owner: "nyalakan wallet"); a real Rp 10.000 QRIS top-up was
+credited once through the webhook (`topped_up`) with no backend warnings. The landing terms line is still missing (owner chose to
+keep the wallet on).
 
 Owner: "add billing topup saldo for users". Owner decisions: an IDR wallet per tenant (not only AI credit), custom amount
 Rp 10.000 to 2.000.000, wallet cap Rp 5.000.000, admin adjust with reason and audit, non-refundable, auto-renew as a toggle

@@ -336,4 +336,24 @@ export const ID: Record<string, string> = {
     "Panduan langkah demi langkah untuk deploy, menyambungkan Telegram, dan pembayaran.",
   "Read the documentation": "Baca dokumentasi",
   "Contact page": "Halaman kontak",
+
+  // Invoices (Billing page and the invoice page).
+  Invoices: "Invoice",
+  Invoice: "Invoice",
+  invoice: "invoice",
+  "your invoices": "invoice kamu",
+  "One invoice for every payment. Open one to print it or save it as a PDF.":
+    "Satu invoice untuk setiap pembayaran. Buka untuk mencetak atau menyimpannya sebagai PDF.",
+  "No invoices yet.": "Belum ada invoice.",
+  Number: "Nomor",
+  Paid: "Lunas",
+  "Billed to": "Ditagihkan kepada",
+  "Paid on": "Dibayar pada",
+  "Payment method": "Metode pembayaran",
+  "Payment reference": "Referensi pembayaran",
+  "Total paid": "Total dibayar",
+  "Print or save as PDF": "Cetak atau simpan PDF",
+  "Nibie Cloud balance top-up": "Top-up saldo Nibie Cloud",
+  "{plan} plan, 30 days: {name}": "Paket {plan}, 30 hari: {name}",
+  "{plan} plan renewal, 30 days: {name}": "Perpanjangan paket {plan}, 30 hari: {name}",
 }

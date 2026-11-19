@@ -212,7 +212,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
   const t = useT()
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[240px_minmax(0,1fr)] print:block">
       <a
         href="#main"
         className="fixed top-2 left-2 z-[100] -translate-y-[200%] rounded-sm bg-foreground px-4 py-2 text-background focus:translate-y-0 pointer-coarse:py-3"
@@ -220,7 +220,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {t("Skip to content")}
       </a>
 
-      <aside className="sticky top-0 hidden h-dvh flex-col border-r lg:flex">
+      <aside className="sticky top-0 hidden h-dvh flex-col border-r lg:flex print:hidden">
         <div className="flex h-14 shrink-0 items-center border-b px-4">
           <Brand />
         </div>
@@ -230,7 +230,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-h-dvh min-w-0 flex-col">
-        <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b bg-background px-4 sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-40 flex h-14 items-center justify-between gap-3 border-b bg-background px-4 sm:px-6 lg:px-8 print:hidden">
           <div className="flex min-w-0 items-center gap-3">
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger asChild>
