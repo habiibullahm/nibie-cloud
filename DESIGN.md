@@ -134,6 +134,28 @@ The palette is rooted in semantic tokens. Use the role (e.g. `{colors.primary}`)
 - **secondary-surface (#24292E)**
 - **destructive (#B84A4A)**
 
+### Light theme (approved 2026-11-19)
+
+The dashboard (`apps/web`) has a theme switch; dark stays the default. The light theme redefines only these tokens and
+keeps every other one (tertiary, on-tertiary, destructive), so terracotta and the destructive red are the same in both.
+
+| Token | Dark | Light |
+| --- | --- | --- |
+| primary | #F3F4F6 | #111417 |
+| secondary | #9CA3AA | #545C64 |
+| neutral | #0B0D0F | #F6F7F8 |
+| card-bg | #14171A | #FFFFFF |
+| elevated | #1B1F23 | #F0F2F4 |
+| secondary-surface | #24292E | #E6E9EC |
+| border | #2A2F34 | #DADEE2 |
+| border-strong | #6B747C | #7A838B |
+
+Contrast in the light theme: secondary text 5.57:1 on secondary-surface (its darkest surface), border-strong 3.44:1 on
+elevated, on-tertiary on tertiary 4.84:1, destructive 4.76:1 on neutral. **ink** (#0B0D0F, the dark neutral) stays the
+same in both themes: hover and active shades of filled buttons and the dialog scrim mix toward it, and the on-dark brand
+mark always sits on a `rounded.sm` ink tile, so its near-white shape stays visible on light surfaces. An on-light
+variant of the mark is an owner asset that does not exist yet.
+
 ## Typography
 
 | Token | Font | Size | Weight |

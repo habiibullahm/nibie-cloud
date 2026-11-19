@@ -5,7 +5,10 @@
  * Nibie Cloud theme. Every literal value below is transcribed from the root DESIGN.md
  * (colors, typography, rounded, spacing). Interaction tones are derived from those tokens
  * with color-mix(), using the same formulas as the approved design-preview.html.
- * Dark-neutral only: DESIGN.md defines no light palette.
+ * Dark-neutral by default; the light palette (DESIGN.md "Light theme", approved 2026-11-19) only redefines the
+ * --hc-* tokens under [data-theme="light"], so every component follows without a second set of classes.
+ * --hc-ink is the dark neutral in both themes: hover/active shading and the dialog scrim mix toward it, and the
+ * on-dark brand mark sits on it.
  *
  * shadcn/ui semantic variable → DESIGN.md token
  *   --background ........ colors.neutral        --foreground ......... colors.primary
@@ -30,6 +33,7 @@
   --hc-elevated: #1b1f23;
   --hc-secondary-surface: #24292e;
   --hc-destructive: #b84a4a;
+  --hc-ink: #0b0d0f;
 
   --background: var(--hc-neutral);
   --foreground: var(--hc-primary);
@@ -53,16 +57,31 @@
   --elevated: var(--hc-elevated);
 
   /* Token-derived interaction tones (same formulas as design-preview.html). */
-  --primary-hover: color-mix(in srgb, var(--hc-tertiary) 86%, var(--hc-neutral));
-  --primary-active: color-mix(in srgb, var(--hc-tertiary) 74%, var(--hc-neutral));
-  --destructive-hover: color-mix(in srgb, var(--hc-destructive) 86%, var(--hc-neutral));
+  --primary-hover: color-mix(in srgb, var(--hc-tertiary) 86%, var(--hc-ink));
+  --primary-active: color-mix(in srgb, var(--hc-tertiary) 74%, var(--hc-ink));
+  --destructive-hover: color-mix(in srgb, var(--hc-destructive) 86%, var(--hc-ink));
   --surface-hover: color-mix(in srgb, var(--hc-secondary-surface) 88%, var(--hc-primary));
   --row-hover: color-mix(in srgb, var(--hc-secondary-surface) 46%, var(--hc-card-bg));
   --disabled: color-mix(in srgb, var(--hc-secondary-surface) 40%, var(--hc-neutral));
   --disabled-foreground: color-mix(in srgb, var(--hc-secondary) 46%, var(--hc-neutral));
-  --backdrop: color-mix(in srgb, var(--hc-neutral) 78%, transparent);
+  --backdrop: color-mix(in srgb, var(--hc-ink) 78%, transparent);
 
   color-scheme: dark;
+}
+
+/* DESIGN.md "Light theme". Contrast: secondary text 5.57:1 on the darkest light surface, border-strong 3.44:1. */
+:root[data-theme="light"] {
+  --hc-primary: #111417;
+  --hc-secondary: #545c64;
+  --hc-neutral: #f6f7f8;
+  --hc-border: #dadee2;
+  --hc-border-strong: #7a838b;
+  --hc-card-bg: #ffffff;
+  --hc-elevated: #f0f2f4;
+  --hc-secondary-surface: #e6e9ec;
+  --backdrop: color-mix(in srgb, var(--hc-ink) 40%, transparent);
+
+  color-scheme: light;
 }
 
 @theme inline {
@@ -94,6 +113,7 @@
   --color-disabled: var(--disabled);
   --color-disabled-foreground: var(--disabled-foreground);
   --color-backdrop: var(--backdrop);
+  --color-ink: var(--hc-ink);
 
   /* Typography: exactly the four DESIGN.md styles. */
   --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif;

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test"
-import { authFile, emailOf, required, USER_PASSWORD_VAR, type UserKey } from "../../support/env"
+import { authFile, DASHBOARD_URL, emailOf, englishState, required, USER_PASSWORD_VAR, type UserKey } from "../../support/env"
 import { canManageUsers, recreateUser } from "../../support/supabase-admin"
 
 // Creates the test users through the Supabase Admin API when the secret key is set (a dedicated test project), or
@@ -11,7 +11,7 @@ for (const key of USERS) {
   test(`create and sign in ${key}`, async ({ browser }) => {
     const password = required(USER_PASSWORD_VAR)
     if (canManageUsers()) await recreateUser(emailOf(key), password)
-    const context = await browser.newContext()
+    const context = await browser.newContext({ storageState: englishState(DASHBOARD_URL) })
     const page = await context.newPage()
     await page.goto("/dashboard/sign-in")
     await page.getByLabel("Email").fill(emailOf(key))

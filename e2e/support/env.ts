@@ -21,6 +21,14 @@ export const LANDING_URL = `http://127.0.0.1:${LANDING_PORT}`
 export const DASHBOARD_URL = `http://127.0.0.1:${DASHBOARD_PORT}`
 export const BACKEND_URL = `http://127.0.0.1:${BACKEND_PORT}`
 
+/**
+ * The dashboard defaults to Bahasa Indonesia; these specs assert the English text, so they start with the language
+ * switch on English (apps/web lib/prefs-core.ts LANG_KEY). The Indonesian texts are covered by apps/web/test/i18n.test.ts.
+ */
+export function englishState(origin: string) {
+  return { cookies: [], origins: [{ origin, localStorage: [{ name: "nibie.lang", value: "en" }] }] }
+}
+
 /** Test users for T1. All share one password from the environment; the Supabase test project holds nothing else. */
 export const USER_PASSWORD_VAR = "E2E_USER_PASSWORD"
 

@@ -5,6 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { errorMessage } from "@/hooks/use-hermes"
+import { useT } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
 type QueryLike = { error: unknown; refetch: () => unknown; isFetching: boolean }
@@ -14,11 +15,12 @@ type QueryLike = { error: unknown; refetch: () => unknown; isFetching: boolean }
  * otherwise a skeleton that names what is loading (antislop R-27).
  */
 export function QueryFallback({ what, queries, className }: { what: string; queries: QueryLike[]; className?: string }) {
+  const t = useT()
   const failed = queries.filter((q) => q.error)
   if (failed.length > 0) {
     return (
       <Alert variant="destructive">
-        <AlertTitle>Could not load {what}</AlertTitle>
+        <AlertTitle>{t("Could not load {what}", { what: t(what) })}</AlertTitle>
         <AlertDescription>
           <p>{errorMessage(failed[0]!.error)}</p>
           <Button
@@ -28,7 +30,7 @@ export function QueryFallback({ what, queries, className }: { what: string; quer
             onClick={() => failed.forEach((q) => void q.refetch())}
           >
             <RefreshCw aria-hidden="true" />
-            Try again
+            {t("Try again")}
           </Button>
         </AlertDescription>
       </Alert>
@@ -36,7 +38,7 @@ export function QueryFallback({ what, queries, className }: { what: string; quer
   }
   return (
     <div role="status">
-      <span className="sr-only">Loading {what}</span>
+      <span className="sr-only">{t("Loading {what}", { what: t(what) })}</span>
       <Skeleton className={cn("h-48 bg-card", className)} />
     </div>
   )
