@@ -19,6 +19,8 @@ import type {
   Region,
   TelegramConfig,
   Usage,
+  Wallet,
+  WalletTopup,
 } from "./types"
 
 export class ApiError extends Error {
@@ -57,6 +59,10 @@ export interface BillingApi {
   renew(subscriptionId: string): Promise<CheckoutResult>
   /** Stops auto-renewal only; the paid period keeps running. */
   cancel(subscriptionId: string): Promise<BillingSubscription>
+  /** The Nibie Cloud wallet, or null when the backend has it switched off (WALLET_ENABLED). */
+  wallet(): Promise<Wallet | null>
+  /** Starts a QRIS top-up; the caller sends the customer to `paymentUrl`. */
+  topup(amountIdr: number, idempotencyKey: string): Promise<WalletTopup>
 }
 
 /** PRD §15 endpoints with no backend yet. Always served by the mock. */

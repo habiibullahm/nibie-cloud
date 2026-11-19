@@ -52,7 +52,7 @@ export async function seedBilling(prisma: PrismaClient, o: { price?: number | nu
   return { tenant, other, user, plan, node };
 }
 
-export function makeBilling(prisma: PrismaClient, o: { clock?: Clock; maxInstances?: number; maxTotal?: number | null; router?: NonNullable<ConstructorParameters<typeof BillingService>[0]['router']> } = {}) {
+export function makeBilling(prisma: PrismaClient, o: { clock?: Clock; maxInstances?: number; maxTotal?: number | null; router?: NonNullable<ConstructorParameters<typeof BillingService>[0]['router']>; wallet?: boolean } = {}) {
   const logger = createLogger({ level: 'silent' });
   const runtime = new FakeRuntime();
   const clock = o.clock ?? makeClock();
@@ -67,6 +67,7 @@ export function makeBilling(prisma: PrismaClient, o: { clock?: Clock; maxInstanc
       prisma, paymentClient: sumopod, sumopodAuth: { webhookToken: WEBHOOK_TOKEN }, commands, mailer,
       dashboardOrigin: 'https://cloud.example.test', maxInstancesPerTenant: o.maxInstances ?? 1, maxTotalInstances: o.maxTotal ?? null, logger, now: () => clock.now,
       ...(o.router ? { router: o.router } : {}),
+      walletEnabled: o.wallet ?? false,
     });
   return { billing, sumopod, mailer, runtime, service, commands, clock, logger };
 }

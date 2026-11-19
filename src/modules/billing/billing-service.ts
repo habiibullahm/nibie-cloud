@@ -13,6 +13,7 @@ import { hasStock, stockLeft, totalLoad } from '../instances/capacity.js';
 import type { PaymentClient } from './payment-client.js';
 import { SUMOPOD_MIN_AMOUNT_IDR } from './sumopod-client.js';
 import { verifySvixSignature, type SvixHeaders } from './svix.js';
+import { moveWallet, WalletService } from './wallet.js';
 
 /** How long an invoice stays payable. QRIS allows 60 minutes at most. */
 export const INVOICE_EXPIRY_MINUTES = 60;
@@ -68,6 +69,8 @@ export interface BillingDeps {
   logger: Logger;
   /** NibieRouter key and credit for a freshly created paid instance. Absent: the operator attaches a provider by hand. */
   router?: Pick<RouterProvisioner, 'begin'>;
+  /** `WALLET_ENABLED`: the customer wallet routes exist. A paid top-up is credited by the webhook either way. */
+  walletEnabled?: boolean;
   now?: () => Date;
 }
 
@@ -79,7 +82,7 @@ export interface SumoPodCredentials {
 }
 
 export type CallbackOutcome =
-  | 'activated' | 'duplicate' | 'unknown_order' | 'amount_mismatch' | 'failed' | 'ignored_failure' | 'already_paid' | 'paid_after_end';
+  | 'activated' | 'topped_up' | 'duplicate' | 'unknown_order' | 'amount_mismatch' | 'failed' | 'ignored_failure' | 'already_paid' | 'paid_after_end';
 
 export type CallbackResult =
   | { accepted: false }
@@ -118,9 +121,14 @@ function subscriptionView(s: Subscription & { plan: Plan; payments: Payment[] },
 
 export class BillingService {
   private readonly now: () => Date;
+  /** Customer wallet (top-up saldo), or null when `WALLET_ENABLED` is off. */
+  readonly wallet: WalletService | null;
 
   constructor(private readonly d: BillingDeps) {
     this.now = d.now ?? (() => new Date());
+    this.wallet = d.walletEnabled
+      ? new WalletService({ prisma: d.prisma, paymentClient: d.paymentClient, dashboardOrigin: d.dashboardOrigin, now: this.now })
+      : null;
   }
 
   // ---- customer operations -------------------------------------------------------------------
@@ -326,7 +334,7 @@ export class BillingService {
     // existing PaymentEvent and Payment rows), so the apply path keeps its single '00 means paid' rule.
     const resultCode = SUMOPOD_PAID_STATUSES.has(status.toLowerCase()) ? '00' : status.slice(0, 10);
 
-    let result: { outcome: CallbackOutcome; activation?: Activation };
+    let result: { outcome: CallbackOutcome; activation?: Activation; topup?: TopupCredit };
     try {
       result = await this.d.prisma.$transaction(async (tx) => this.applyInTransaction(tx, { merchantOrderId: order_id, reference, resultCode, amountIdr }));
     } catch (e) {
@@ -336,14 +344,17 @@ export class BillingService {
     if (result.outcome === 'paid_after_end') {
       this.d.logger.error({ merchantOrderId: order_id }, 'payment received for an ended subscription: operator must refund or reinstate');
     }
-    const activation = result.activation;
-    return { accepted: true, outcome: result.outcome, postActions: activation ? () => this.afterActivation(activation) : none };
+    const { activation, topup } = result;
+    let postActions = none;
+    if (activation) postActions = () => this.afterActivation(activation);
+    else if (topup) postActions = () => this.afterTopup(topup);
+    return { accepted: true, outcome: result.outcome, postActions };
   }
 
   private async applyInTransaction(
     tx: Prisma.TransactionClient,
     c: { merchantOrderId: string; reference: string; resultCode: string; amountIdr: number },
-  ): Promise<{ outcome: CallbackOutcome; activation?: Activation }> {
+  ): Promise<{ outcome: CallbackOutcome; activation?: Activation; topup?: TopupCredit }> {
     // The unique key makes a redelivered callback a no-op: the second insert fails and the caller maps it to `duplicate`.
     const event = await tx.paymentEvent.create({
       data: { merchantOrderId: c.merchantOrderId, reference: c.reference, resultCode: c.resultCode, amountIdr: c.amountIdr, outcome: 'received' },
@@ -354,7 +365,24 @@ export class BillingService {
     };
 
     const payment = await tx.payment.findUnique({ where: { merchantOrderId: c.merchantOrderId } });
-    if (!payment) return finish('unknown_order');
+    if (!payment) {
+      // Not a hosting invoice: maybe a wallet top-up. Its tenant comes from our row, never from the webhook body.
+      const topup = await tx.walletTopup.findUnique({ where: { merchantOrderId: c.merchantOrderId } });
+      if (!topup) return finish('unknown_order');
+      if (c.amountIdr !== topup.amountIdr) return finish('amount_mismatch');
+      if (c.resultCode !== '00') {
+        const changed = await tx.walletTopup.updateMany({ where: { id: topup.id, status: 'PENDING' }, data: { status: 'FAILED', resultCode: c.resultCode } });
+        return finish(changed.count === 1 ? 'failed' : 'ignored_failure');
+      }
+      // Money arrived: credited in full even after expiry or above the wallet cap, so a payment is never lost.
+      const marked = await tx.walletTopup.updateMany({
+        where: { id: topup.id, status: { not: 'PAID' } },
+        data: { status: 'PAID', resultCode: c.resultCode, reference: c.reference || topup.reference, paidAt: this.now() },
+      });
+      if (marked.count === 0) return finish('already_paid');
+      const { balanceIdr } = await moveWallet(tx, { tenantId: topup.tenantId, amountIdr: topup.amountIdr, kind: 'TOPUP', refId: topup.id, note: 'Top-up QRIS' });
+      return { ...(await finish('topped_up')), topup: { tenantId: topup.tenantId, amountIdr: topup.amountIdr, balanceIdr } };
+    }
     if (c.amountIdr !== payment.amountIdr) return finish('amount_mismatch');
 
     // Serializes payments of one subscription, so two invoices paid together extend the period twice, correctly.
@@ -400,6 +428,10 @@ export class BillingService {
       this.d.logger.error({ subscriptionId: a.subscriptionId, errName: (e as Error).name }, 'post-payment instance action failed; the billing tick will retry');
     }
     await this.sendEmail(a.tenantId, 'payment_received', { subscriptionId: a.subscriptionId, periodEnd: a.periodEnd, amountIdr: a.amountIdr });
+  }
+
+  private async afterTopup(t: TopupCredit): Promise<void> {
+    await this.sendEmail(t.tenantId, 'topup_received', { periodEnd: null, amountIdr: t.amountIdr, balanceIdr: t.balanceIdr, dashboardPath: '/dashboard/billing' });
   }
 
   /** Starts the kept instance of a subscription that was reinstated after suspension, then clears the flag. */
@@ -473,7 +505,13 @@ export class BillingService {
   async sendEmail(
     tenantId: string,
     kind: EmailKind,
-    ctx: { subscriptionId: string; periodEnd: Date | null; graceEndsAt?: Date | null; retentionEndsAt?: Date | null; amountIdr?: number },
+    ctx: {
+      /** Absent for mail that is not about one subscription (a wallet top-up). */
+      subscriptionId?: string;
+      periodEnd: Date | null; graceEndsAt?: Date | null; retentionEndsAt?: Date | null; amountIdr?: number; balanceIdr?: number;
+      /** Dashboard page the button opens. Default: the instance list. */
+      dashboardPath?: string;
+    },
   ): Promise<boolean> {
     if (!this.d.mailer.enabled) {
       this.d.logger.warn({ kind }, 'mail is not configured; billing email skipped');
@@ -482,11 +520,14 @@ export class BillingService {
     try {
       const to = await this.ownerEmail(tenantId);
       if (!to) return false;
-      const sub = await this.d.prisma.subscription.findUnique({ where: { id: ctx.subscriptionId }, select: { intendedName: true } });
+      const sub = ctx.subscriptionId
+        ? await this.d.prisma.subscription.findUnique({ where: { id: ctx.subscriptionId }, select: { intendedName: true } })
+        : null;
       const msg = renderEmail(kind, {
         instanceName: sub?.intendedName ?? '', periodEnd: ctx.periodEnd, graceEndsAt: ctx.graceEndsAt, retentionEndsAt: ctx.retentionEndsAt,
         ...(ctx.amountIdr !== undefined ? { amountIdr: ctx.amountIdr } : {}),
-        dashboardUrl: `${this.d.dashboardOrigin}/dashboard/instances`,
+        ...(ctx.balanceIdr !== undefined ? { balanceIdr: ctx.balanceIdr } : {}),
+        dashboardUrl: `${this.d.dashboardOrigin}${ctx.dashboardPath ?? '/dashboard/instances'}`,
       });
       await this.d.mailer.send({ to, ...msg });
       return true;
@@ -568,6 +609,13 @@ export class BillingService {
     });
     return subscriptionView(row, this.now());
   }
+}
+
+/** A top-up the webhook just credited, for its receipt email. */
+interface TopupCredit {
+  tenantId: string;
+  amountIdr: number;
+  balanceIdr: number;
 }
 
 interface Activation {

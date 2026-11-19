@@ -33,6 +33,9 @@ model Tenant {
   routerUserId  String?
   creditGrants  CreditGrant[]
   tickets       SupportTicket[]
+  wallet        Wallet?
+  walletEntries WalletEntry[]
+  walletTopups  WalletTopup[]
 }
 
 /// Customer identity. `id` is the Supabase Auth user id (the token's `sub`); it is not generated here.
@@ -322,6 +325,68 @@ model BillingNotice {
   subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
 
   @@unique([subscriptionId, kind, periodEnd])
+}
+
+/// Nibie Cloud balance (saldo) of a tenant, in whole rupiah. Changed only together with a `WalletEntry` in one
+/// transaction, under a row lock; a database CHECK keeps it from going below zero. Non-refundable.
+model Wallet {
+  tenantId   String   @id @db.Uuid
+  balanceIdr Int      @default(0)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+}
+
+enum WalletEntryKind {
+  TOPUP
+  HOSTING
+  AUTO_RENEW
+  AI_CREDIT
+  ADMIN_CREDIT
+  ADMIN_DEBIT
+}
+
+/// Append-only ledger of every wallet movement (signed amount). The unique (kind, refId) makes each movement happen at
+/// most once: a top-up is credited once per `WalletTopup.id`, an admin adjustment once per its generated id.
+model WalletEntry {
+  id              String          @id @default(uuid()) @db.Uuid
+  tenantId        String          @db.Uuid
+  amountIdr       Int
+  kind            WalletEntryKind
+  refId           String
+  balanceAfterIdr Int
+  /// Short reason, shown to the customer. Admin reasons are kept in AuditLog, not here.
+  note            String?
+  actorEmail      String?
+  createdAt       DateTime        @default(now()) @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([kind, refId])
+  @@index([tenantId, createdAt])
+}
+
+/// One SumoPod invoice that tops up a wallet. Kept apart from `Payment` (which always belongs to a subscription); the
+/// webhook looks here when no `Payment` has the order id. Order ids start with `nw-`.
+model WalletTopup {
+  id              String        @id @default(uuid()) @db.Uuid
+  tenantId        String        @db.Uuid
+  merchantOrderId String        @unique
+  amountIdr       Int
+  status          PaymentStatus @default(PENDING)
+  idempotencyKey  String
+  reference       String?
+  paymentUrl      String?
+  resultCode      String?
+  expiresAt       DateTime      @db.Timestamptz(3)
+  paidAt          DateTime?     @db.Timestamptz(3)
+  createdAt       DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([status, expiresAt])
 }
 
 enum CreditGrantStatus {

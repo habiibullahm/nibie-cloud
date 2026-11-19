@@ -1,11 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { BillingService } from '../modules/billing/billing-service.js';
+import { TOPUP_MAX_IDR, TOPUP_MIN_IDR } from '../modules/billing/wallet.js';
 import { principalOf } from './customer-auth.js';
 
 const checkoutBody = z.object({ name: z.string(), planId: z.string().uuid() }).strict();
 const upgradeBody = z.object({ instanceId: z.string().uuid(), planId: z.string().uuid() }).strict();
 const idempotencyKey = z.string().min(1).max(128);
+const topupBody = z.object({ amountIdr: z.number().int().min(TOPUP_MIN_IDR).max(TOPUP_MAX_IDR) }).strict();
 
 /** Customer billing routes. Registered inside the customer plugin, so the token and the tenant are already resolved. */
 export function registerBillingRoutes(api: FastifyInstance, billing: BillingService, gate: (email: string) => void | Promise<void> = () => undefined): void {
@@ -49,5 +51,24 @@ export function registerBillingRoutes(api: FastifyInstance, billing: BillingServ
 
   api.get<{ Params: { paymentId: string } }>('/payments/:paymentId', async (req) => ({
     payment: await billing.getPayment(principalOf(req).tenantId, req.params.paymentId),
+  }));
+
+  // Wallet (top-up saldo): only with WALLET_ENABLED, otherwise these paths are 404.
+  const wallet = billing.wallet;
+  if (!wallet) return;
+
+  api.get('/wallet', async (req) => ({ wallet: await wallet.view(principalOf(req).tenantId) }));
+
+  api.post('/wallet/topups', { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } }, async (req, reply) => {
+    const p = principalOf(req);
+    await gate(p.email);
+    const key = idempotencyKey.parse(req.headers['idempotency-key']);
+    const body = topupBody.parse(req.body);
+    const topup = await wallet.startTopup({ tenantId: p.tenantId, email: p.email, amountIdr: body.amountIdr, idempotencyKey: key });
+    return reply.status(201).send({ topup });
+  });
+
+  api.get<{ Params: { topupId: string } }>('/wallet/topups/:topupId', async (req) => ({
+    topup: await wallet.getTopup(principalOf(req).tenantId, req.params.topupId),
   }));
 }

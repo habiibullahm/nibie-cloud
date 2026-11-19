@@ -116,6 +116,7 @@ const billing = config.billing && config.dashboardOrigin
       commands, mailer,
       dashboardOrigin: config.dashboardOrigin, maxInstancesPerTenant: config.maxInstancesPerTenant, maxTotalInstances: config.maxTotalInstances, logger,
       ...(router ? { router } : {}),
+      walletEnabled: config.walletEnabled === true,
     })
   : null;
 const billingTick = billing ? new BillingTick({ prisma, billing, commands, mailer, logger, ...(router ? { router } : {}) }) : null;

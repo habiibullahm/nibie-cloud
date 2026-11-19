@@ -107,6 +107,17 @@ export function useAdminAudit() {
   return useQuery({ queryKey: adminKeys.audit, queryFn: () => getAdminApi().audit(), staleTime: LONG })
 }
 
+export function useAdjustWallet(tenantId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ amountIdr, reason }: { amountIdr: number; reason: string }) => getAdminApi().adjustWallet(tenantId, amountIdr, reason),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: adminKeys.customer(tenantId) })
+      void qc.invalidateQueries({ queryKey: adminKeys.audit })
+    },
+  })
+}
+
 export function useSetPlanStock() {
   const qc = useQueryClient()
   return useMutation({

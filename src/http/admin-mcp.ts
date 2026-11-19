@@ -54,8 +54,13 @@ function buildServer(api: FastifyInstance, authorization: string): McpServer {
     inputSchema: { ...page, q: z.string().max(254).optional() },
     annotations: ro,
   }, (a) => call('GET', `/customers${query(a, ['limit', 'cursor', 'q'])}`));
-  server.registerTool('get_customer', { description: 'One customer with members, instances and subscriptions.', inputSchema: { tenantId: z.string().uuid() }, annotations: ro },
+  server.registerTool('get_customer', { description: 'One customer with members, instances, subscriptions, payments and wallet (saldo, IDR) with its latest entries.', inputSchema: { tenantId: z.string().uuid() }, annotations: ro },
     (a) => call('GET', `/customers/${encodeURIComponent(a.tenantId)}`));
+  server.registerTool('adjust_wallet', {
+    description: 'Add to (positive) or take from (negative) a customer\'s wallet balance, in whole IDR, at most 2,000,000 either way. A debit cannot go below zero; a credit cannot exceed the wallet cap. Only when WALLET_ENABLED is on. Not reversible except by another adjustment. Changes data: confirm with the human first.',
+    inputSchema: { tenantId: z.string().uuid(), amountIdr: z.number().int().min(-2_000_000).max(2_000_000), reason },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+  }, (a) => call('POST', `/customers/${encodeURIComponent(a.tenantId)}/wallet/adjust`, { amountIdr: a.amountIdr, reason: a.reason }));
   server.registerTool('list_instances', {
     description: 'Instances, newest first, optionally filtered by status.',
     inputSchema: { ...page, status: z.enum(['PENDING', 'PROVISIONING', 'CONFIGURING', 'STARTING', 'ACTIVE', 'DEGRADED', 'STOPPING', 'STOPPED', 'FAILED', 'DELETING', 'DELETED']).optional() },

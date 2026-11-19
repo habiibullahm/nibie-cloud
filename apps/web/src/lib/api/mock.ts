@@ -17,6 +17,7 @@ import type {
   Region,
   TelegramConfig,
   UsagePoint,
+  Wallet,
 } from "./types"
 
 /**
@@ -725,6 +726,30 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       subs.set(sub.id, next)
       return next
     },
+    // An empty wallet; a top-up gets an invoice with no payment page, like renewals.
+    async wallet() {
+      await wait()
+      return { ...wallet, topups: [...wallet.topups] }
+    },
+    async topup(amountIdr) {
+      await wait()
+      const { topupMinIdr, topupMaxIdr } = wallet.limits
+      if (!Number.isInteger(amountIdr) || amountIdr < topupMinIdr || amountIdr > topupMaxIdr) {
+        throw new ApiError(400, "validation_error", "Top-up amount is out of range.")
+      }
+      const t = {
+        id: uuid(), amountIdr, status: "PENDING" as const, paymentUrl: MOCK_PAYMENT_URL,
+        expiresAt: new Date(Date.now() + HOUR).toISOString(), paidAt: null, createdAt: new Date().toISOString(),
+      }
+      wallet.topups.unshift(t)
+      return t
+    },
+  }
+  const wallet: Wallet = {
+    balanceIdr: 0,
+    limits: { topupMinIdr: 10_000, topupMaxIdr: 2_000_000, maxBalanceIdr: 5_000_000 },
+    entries: [],
+    topups: [],
   }
 
   return { mode: "mock", instances, billing, tickets: createMockTicketsApi(), preview }

@@ -1,6 +1,6 @@
 import type { NoticeKind } from './lifecycle.js';
 
-export type EmailKind = NoticeKind | 'payment_received';
+export type EmailKind = NoticeKind | 'payment_received' | 'topup_received';
 
 export interface EmailContext {
   instanceName: string;
@@ -9,6 +9,8 @@ export interface EmailContext {
   graceEndsAt?: Date | null;
   retentionEndsAt?: Date | null;
   amountIdr?: number;
+  /** Wallet balance after a top-up (`topup_received`). */
+  balanceIdr?: number;
   /** Where the customer manages the instance, e.g. `https://cloud.nibie.app/dashboard/instances`. */
   dashboardUrl: string;
 }
@@ -40,6 +42,16 @@ function copyFor(kind: EmailKind, c: EmailContext): Copy {
           `Instance Anda aktif sampai ${end}.`,
         ],
         button: 'Buka dashboard',
+      };
+    case 'topup_received':
+      return {
+        subject: 'Top-up saldo diterima - Nibie Cloud', heading: 'Top-up saldo diterima', tag: 'TAGIHAN',
+        paragraphs: [
+          `Terima kasih. Top-up saldo${c.amountIdr ? ` sebesar ${fmtIdr(c.amountIdr)}` : ''} sudah kami terima.`,
+          ...(c.balanceIdr !== undefined ? [`Saldo Nibie Cloud Anda sekarang ${fmtIdr(c.balanceIdr)}.`] : []),
+          'Saldo bukan uang tunai dan tidak dapat dikembalikan atau ditarik.',
+        ],
+        button: 'Lihat saldo',
       };
     case 'renewal_7d':
     case 'renewal_3d':

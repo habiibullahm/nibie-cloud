@@ -72,6 +72,10 @@ export class BillingTick {
     sum.expiredPayments = (await prisma.payment.updateMany({
       where: { status: 'PENDING', expiresAt: { lte: now } }, data: { status: 'EXPIRED' },
     })).count;
+    // Wallet top-ups too; one paid after this is still credited by the webhook.
+    sum.expiredPayments += (await prisma.walletTopup.updateMany({
+      where: { status: 'PENDING', expiresAt: { lte: now } }, data: { status: 'EXPIRED' },
+    })).count;
 
     sum.abandoned = (await prisma.subscription.updateMany({
       where: {

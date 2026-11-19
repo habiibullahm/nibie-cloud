@@ -128,6 +128,12 @@ Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
   next start/restart (user or reconciler) recreate the container. Nothing under `src/http` may import
   `secrets/secret-store` (test-enforced). Control-plane calls to Telegram and provider URLs use `safeFetch`
   (https, no redirects, public pinned address). Secrets are purged only after `runtime.remove` succeeds.
+- **Wallet / top-up saldo** (`src/modules/billing/wallet.ts`, behind `WALLET_ENABLED`, default off): an IDR balance per tenant
+  (`Wallet`) changed only with a `WalletEntry` (unique `(kind, refId)`, balance after) in one transaction under a row lock; DB
+  CHECK `>= 0`. QRIS top-ups (`WalletTopup`, `nw-` order ids, Rp 10.000 to 2.000.000, wallet cap Rp 5.000.000) are credited by
+  the same SumoPod webhook when no hosting `Payment` matches the order id. Admin adjust needs aal2, a reason and an `AuditLog`
+  row. Non-refundable. Paying hosting from it, auto-renew and buying AI credit are planned, not built
+  (`docs/superpowers/plans/2026-11-20-wallet-topup.md`).
 - **Billing** (`src/modules/billing`, `src/http/billing-routes.ts`, `src/http/sumopod-callback.ts`): SumoPod Managed Payment (QRIS)
   is the only gateway (Duitku was removed 2026-11-19). It is configured by `SUMOPOD_API_KEY`, `SUMOPOD_WEBHOOK_TOKEN` and
   `SUMOPOD_CALLBACK_URL` plus `DASHBOARD_ORIGIN` (`SUMOPOD_ENV` `sandbox` default, `production` needs `NODE_ENV=production`; details in

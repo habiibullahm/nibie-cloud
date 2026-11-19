@@ -1,5 +1,5 @@
 import { ApiError, type BillingApi, type InstancesApi } from "./client"
-import type { BillingSubscription, CheckoutResult, Instance, InstanceEvent, InstanceStatusView } from "./types"
+import type { BillingSubscription, CheckoutResult, Instance, InstanceEvent, InstanceStatusView, Wallet, WalletTopup } from "./types"
 
 const BASE = (process.env.NEXT_PUBLIC_BASE_PATH ?? "") + "/api/hermes"
 
@@ -106,11 +106,28 @@ export function buildBillingApi(call: Call): BillingApi {
     cancel: async (subscriptionId) =>
       (await call<{ subscription: BillingSubscription }>(`/subscriptions/${id(subscriptionId)}/cancel`, { method: "POST" }))
         .subscription,
+    wallet: async () => {
+      try {
+        return (await call<{ wallet: Wallet }>("/wallet")).wallet
+      } catch (e) {
+        // 404: the backend has the wallet switched off (WALLET_ENABLED), so the page hides it.
+        if (e instanceof ApiError && e.status === 404) return null
+        throw e
+      }
+    },
+    topup: async (amountIdr, idempotencyKey) =>
+      (
+        await call<{ topup: WalletTopup }>("/wallet/topups", {
+          method: "POST",
+          headers: { "content-type": "application/json", "idempotency-key": idempotencyKey },
+          body: JSON.stringify({ amountIdr }),
+        })
+      ).topup,
   }
 }
 
 /** Live (operator bridge) mode has no billing: no subscriptions, and purchases are refused. */
 export function createUnavailableBillingApi(): BillingApi {
   const refuse = () => Promise.reject(new ApiError(404, "billing_unavailable", "Billing is not available in this mode."))
-  return { list: async () => [], checkout: refuse, upgrade: refuse, renew: refuse, cancel: refuse }
+  return { list: async () => [], checkout: refuse, upgrade: refuse, renew: refuse, cancel: refuse, wallet: async () => null, topup: refuse }
 }
