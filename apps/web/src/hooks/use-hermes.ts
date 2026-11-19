@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { ApiError, getApi, type CreateInstanceInput, type Instance, type LogLevel, type NewTicket } from "@/lib/api"
 import { isTransitional, type InstanceAction } from "@/lib/api/status"
+import { authConfigured, getSupabase } from "@/lib/auth/supabase"
 import { fetchSupportContact } from "@/lib/support"
 
 const POLL_MS = 1500
@@ -26,6 +27,22 @@ export const keys = {
   file: (id: string, path: string) => ["file", id, path] as const,
   backups: (id: string) => ["backups", id] as const,
   supportContact: ["support-contact"] as const,
+  displayName: ["auth-user-name"] as const,
+}
+
+/**
+ * The name the customer chose on Account (Google sign-in fills it too), kept in the Supabase user's metadata; "" when
+ * unset. Only asked when auth is configured; the sign-out in auth-gate.tsx clears the cache, so it never leaks across users.
+ */
+export function useDisplayName() {
+  return useQuery({
+    queryKey: keys.displayName,
+    queryFn: async () => {
+      const n = (await getSupabase()?.auth.getUser())?.data.user?.user_metadata?.full_name
+      return typeof n === "string" ? n : ""
+    },
+    enabled: authConfigured(),
+  })
 }
 
 const ticketKeys = {

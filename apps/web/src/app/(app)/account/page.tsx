@@ -15,7 +15,7 @@ import { PageHeader } from "@/components/app/page-header"
 import { PreferenceToggles } from "@/components/app/preference-toggles"
 import { PreviewNote } from "@/components/app/preview-note"
 import { QueryFallback } from "@/components/app/query-fallback"
-import { useApiMode, useMe, useSubscriptions } from "@/hooks/use-hermes"
+import { keys, useApiMode, useDisplayName, useMe, useSubscriptions } from "@/hooks/use-hermes"
 import { authConfigured, getSupabase } from "@/lib/auth/supabase"
 import { billingStatusLabel, payableUrl } from "@/lib/billing"
 import type { BillingSubscription } from "@/lib/api/types"
@@ -38,33 +38,27 @@ function useSignInMethods() {
 
 const MAX_NAME = 80
 
-/** Display name, kept in the Supabase user's metadata (no backend column). */
+/** Display name, kept in the Supabase user's metadata (no backend column); the navigation rail shows it above the email. */
 function NameCard() {
   const t = useT()
   const qc = useQueryClient()
-  const user = useQuery({
-    queryKey: ["auth-user-name"],
-    queryFn: async () => {
-      const u = (await getSupabase()?.auth.getUser())?.data.user
-      const n = u?.user_metadata?.full_name
-      return typeof n === "string" ? n : ""
-    },
-    enabled: authConfigured(),
-  })
+  const name = useDisplayName()
   const [draft, setDraft] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const value = draft ?? user.data ?? ""
-  const dirty = draft !== null && draft.trim() !== (user.data ?? "")
+  const value = draft ?? name.data ?? ""
+  const dirty = draft !== null && draft.trim() !== (name.data ?? "")
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault()
+    // Enter with nothing changed (the form submits implicitly without a visible button).
+    if (!dirty || saving) return
     setSaving(true)
     const { error } = await getSupabase()!.auth.updateUser({ data: { full_name: value.trim() } })
     setSaving(false)
     if (error) return void toast.error(t("Could not save"))
     toast.success(t("Name saved"))
     setDraft(null)
-    await qc.invalidateQueries({ queryKey: ["auth-user-name"] })
+    await qc.invalidateQueries({ queryKey: keys.displayName })
   }
 
   return (
@@ -74,22 +68,33 @@ function NameCard() {
           <CardTitle>{t("Name")}</CardTitle>
           <CardDescription>{t("How you appear in the dashboard.")}</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-2">
-          <Label htmlFor="display-name">{t("Name")}</Label>
-          <Input
-            id="display-name"
-            value={value}
-            maxLength={MAX_NAME}
-            autoComplete="name"
-            disabled={!user.data && user.data !== ""}
-            onChange={(e) => setDraft(e.target.value)}
-          />
+        <CardContent>
+          {name.data === undefined ? (
+            <QueryFallback what="name" queries={[name]} className="h-10 bg-elevated" />
+          ) : (
+            <>
+              {/* The card title already says "Name"; the label stays for screen readers. */}
+              <Label htmlFor="display-name" className="sr-only">
+                {t("Name")}
+              </Label>
+              <Input
+                id="display-name"
+                value={value}
+                maxLength={MAX_NAME}
+                autoComplete="name"
+                onChange={(e) => setDraft(e.target.value)}
+              />
+            </>
+          )}
         </CardContent>
-        <CardFooter className="border-t">
-          <Button type="submit" disabled={!dirty || saving}>
-            {saving ? t("Saving…") : t("Save")}
-          </Button>
-        </CardFooter>
+        {/* Shown only once there is something to save, instead of a faint disabled button. */}
+        {dirty || saving ? (
+          <CardFooter className="border-t">
+            <Button type="submit" disabled={saving}>
+              {saving ? t("Saving…") : t("Save")}
+            </Button>
+          </CardFooter>
+        ) : null}
       </form>
     </Card>
   )
