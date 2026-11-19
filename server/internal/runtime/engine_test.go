@@ -110,7 +110,7 @@ func isZero(v any) bool {
 // absentMeansFalse lists the Engine fields the SDK omits when false (omitempty) and whose Engine default is false,
 // so an absent key means the same as Node's explicit false. Init and EnableIPv6 are not here on purpose: their
 // daemon defaults can be true.
-var absentMeansFalse = map[string]bool{"NoCopy": true}
+var absentMeansFalse = map[string]bool{"NoCopy": true, "NetworkDisabled": true}
 
 // isEmpty is a Node value Go may leave out: empty but not false.
 func isEmpty(v any) bool {
