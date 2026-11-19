@@ -37,11 +37,19 @@ export class RouterProvisioner {
   /** Records that this instance needs provisioning (once) and tries it. Never throws. */
   async begin(input: { tenantId: string; instanceId: string; subscriptionId: string | null }): Promise<RunOutcome> {
     try {
-      await this.d.prisma.routerProvisioning.upsert({
+      const row = await this.d.prisma.routerProvisioning.upsert({
         where: { instanceId: input.instanceId },
         create: { instanceId: input.instanceId, tenantId: input.tenantId, subscriptionId: input.subscriptionId },
         update: {},
       });
+      // A free instance upgraded to a paid plan already has a row (its key, no subscription): link the subscription and run
+      // it again, so the plan's one-time credit is granted. The key is kept (an instance with a provider gets no new one).
+      if (input.subscriptionId && row.subscriptionId === null) {
+        await this.d.prisma.routerProvisioning.update({
+          where: { instanceId: input.instanceId },
+          data: { subscriptionId: input.subscriptionId, status: 'PENDING', lastError: null, attempts: 0 },
+        });
+      }
     } catch (e) {
       this.d.logger.error({ errName: (e as Error).name }, 'router provisioning row could not be written');
       return 'pending';

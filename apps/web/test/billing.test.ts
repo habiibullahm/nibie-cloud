@@ -13,6 +13,7 @@ import {
   retryHref,
   payableUrl,
   paymentText,
+  pendingUpgradeOf,
   subscriptionOfInstance,
 } from "../src/lib/billing"
 
@@ -169,6 +170,20 @@ describe("isRenewal and retryHref", () => {
   it("retries a renewal on its billing page and a new order on Deploy", () => {
     expect(retryHref(renewal)).toBe("/instances/i1/billing")
     expect(retryHref(fresh)).toBe("/deploy?name=bot&plan=p1")
+  })
+})
+
+describe("upgrade of a free instance", () => {
+  const upgrade = sub({ id: "u1", status: "PENDING_PAYMENT", instanceId: "i1", latestPayment: payment() })
+  it("is not the instance's subscription until it is paid", () => {
+    expect(subscriptionOfInstance([upgrade], "i1")).toBeNull()
+    expect(pendingUpgradeOf([upgrade], "i1")?.id).toBe("u1")
+    const paid = { ...upgrade, status: "ACTIVE" as const }
+    expect(subscriptionOfInstance([paid], "i1")?.id).toBe("u1")
+    expect(pendingUpgradeOf([paid], "i1")).toBeNull()
+  })
+  it("retries on the instance's billing page", () => {
+    expect(retryHref(upgrade)).toBe("/instances/i1/billing")
   })
 })
 

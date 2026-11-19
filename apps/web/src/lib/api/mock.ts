@@ -700,6 +700,10 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       await wait()
       throw new ApiError(404, "plan_not_for_sale", "Plans have no price in preview mode, so there is nothing to buy.")
     },
+    async upgrade() {
+      await wait()
+      throw new ApiError(404, "plan_not_for_sale", "Plans have no price in preview mode, so there is nothing to buy.")
+    },
     async renew(subscriptionId) {
       await wait()
       const sub = subs.get(subscriptionId)

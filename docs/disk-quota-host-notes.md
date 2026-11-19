@@ -49,3 +49,13 @@ sudo xfs_quota -x -c "report -p -h" "$M" | grep -w "$P"
 `docker volume inspect` keeps showing the old `size` option afterwards, so the backend still records
 `disk.quota_mismatch` for that volume; the event is informational. The alternative that needs no host step is to delete
 the instance and create a new one, which loses its data.
+
+**After a free-to-paid upgrade (2026-11-20).** A paid upgrade of a free instance (`POST /api/v1/subscriptions/upgrade`)
+moves the instance to the paid plan's CPU, memory and process limits on its restart, but its volume keeps the free plan's
+quota. The backend logs `plan upgraded: raise the volume quota on the host` with the instance id and records a
+`plan.changed` event; then run the steps above with the paid plan's `storageMb` (`bhard=5120m` for Hosting,
+`bhard=10240m` for Hosting + Kredit AI).
+
+**Budget.** Tenant volumes share one 100 GB XFS image (`/srv/hermes-volumes.img` mounted on `/var/lib/docker/volumes`,
+seen on the VPS on 2026-11-20). Quotas are caps, not reservations, but the sum of stock x `storageMb` of all plans above
+100 GB means a few full volumes can fill the image for everyone.

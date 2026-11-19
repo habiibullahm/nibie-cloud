@@ -156,6 +156,17 @@ export function useCheckout() {
   })
 }
 
+/** Upgrades a free instance; the caller sends the customer to `payment.paymentUrl`. */
+export function useUpgrade() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ instanceId, planId, idempotencyKey }: { instanceId: string; planId: string; idempotencyKey: string }) =>
+      getApi().billing.upgrade({ instanceId, planId }, idempotencyKey),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.subscriptions }),
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+}
+
 export function useRenew() {
   const qc = useQueryClient()
   return useMutation({

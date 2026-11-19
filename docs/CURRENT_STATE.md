@@ -4,6 +4,34 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Free instance upgrade to a paid plan; Kredit plan 10 GB (2026-11-20, branch `claude/free-upgrade`, PR #93)
+
+Owner: "users bisa upgrade paket dari free plan dengan new payment" and "adjust plan kredit ke storage 10gb".
+- **Production database (applied by hand, owner's instruction):** `hosting-kredit` `storageMb` 5120 -> 10240
+  (`deploy/sql/2026-11-20-kredit-storage-10gb.sql`). No Kredit instance existed, so no volume was affected.
+- **Backend:** `POST /api/v1/subscriptions/upgrade` `{ instanceId, planId }` + `Idempotency-Key` (customer API, same gate and
+  rate limit as checkout). Only an instance on a plan without a price; one subscription per instance (`already_subscribed`,
+  `not_free`). It creates a `PENDING_PAYMENT` subscription that already points at the instance, and a NEW invoice whose return
+  URL is that instance's billing page. Only the plan's stock is checked (no new instance). A second request ends the first
+  (`ENDED`, unlinked), so a late payment of the old invoice is `paid_after_end`, never applied. Deleting the instance ends an
+  unpaid upgrade too. On the verified payment, `applyPlanChange` runs `router.begin` (the free key is kept; the row is linked
+  to the subscription so the plan's one-time credit is granted), sets `planId`, bumps `configRevision`, records `plan.changed`
+  and restarts a running instance (new CPU/memory/pids). The billing tick repairs a missed plan change.
+- **Not automatic:** the volume keeps the free plan's quota. The backend logs `plan upgraded: raise the volume quota on the
+  host`; the operator runs the `xfs_quota` steps in `docs/disk-quota-host-notes.md` (not verified on the host yet).
+- **Capacity:** tenant volumes share a 100 GB XFS image (`/srv/hermes-volumes.img`). Stock 10 x 5 GB (Hosting) + 10 x 10 GB
+  (Kredit) = 150 GB of caps; RAM (15 GB host, 1 GB per instance) limits the host to about 12 instances anyway.
+- **Dashboard:** the billing page of a free instance lists the priced plans with an "Upgrade to ..." button (SumoPod QRIS),
+  shows an open upgrade invoice with "Continue payment" and polls until it is paid. `subscriptionOfInstance` ignores an
+  unpaid upgrade; `retryHref` sends any order with an instance to its billing page. A priced instance without a
+  subscription (created by an admin) now says "No subscription" instead of "Free beta instance".
+- **Landing:** storage per plan (Hosting 5 GB, Kredit 10 GB); intros say "penyimpanan mulai 5 GB".
+- **Production switch:** `PAID_CHECKOUT_OPEN=false` also closes upgrades for everyone not invited.
+- **Checks:** backend `tsc`; unit 526 pass (2 known Windows `egress-canary` failures); integration billing-upgrade (new, 9),
+  billing-service, billing-tick, billing-api, sumopod-webhook, router-provisioner (+1 test) pass; web typecheck, lint, 195
+  tests, build; landing typecheck, lint, 67 tests, build. Not run: full integration suite, e2e. An abandoned upgrade (7 days
+  unpaid) is ended and unlinked by the billing tick.
+
 ## Dashboard shell like NibieRouter, Quickstart and Billing pages (2026-11-19, branch `claude/router-style-shell`, not committed)
 
 Owner asked for the dashboard header to look like router.nibie.app, plus Quickstart and Billing pages, and chose the options below.
@@ -22,7 +50,7 @@ Owner asked for the dashboard header to look like router.nibie.app, plus Quickst
   screenshots (mock mode, 1440px dark and light, 400px) were done before the review fixes. Not run: e2e suites, customer mode
   against a real backend.
 
-## No preview data in customer mode (2026-11-19, branch `claude/no-preview-data`, not committed)
+## No preview data in customer mode (2026-11-19, branch `claude/no-preview-data`, merged as PR #90)
 
 Owner: "pastikan no preview data lagi. we're going live prod". Before this, the customer dashboard still took an instance's plan
 from sample metadata when the instance had no subscription (every free instance), so the header, the free-plan NibieRouter notice

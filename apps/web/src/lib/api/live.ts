@@ -96,6 +96,12 @@ export function buildBillingApi(call: Call): BillingApi {
         headers: { "content-type": "application/json", "idempotency-key": idempotencyKey },
         body: JSON.stringify({ name: input.name, planId: input.planId }),
       }),
+    upgrade: (input, idempotencyKey) =>
+      call<CheckoutResult>("/subscriptions/upgrade", {
+        method: "POST",
+        headers: { "content-type": "application/json", "idempotency-key": idempotencyKey },
+        body: JSON.stringify({ instanceId: input.instanceId, planId: input.planId }),
+      }),
     renew: (subscriptionId) => call<CheckoutResult>(`/subscriptions/${id(subscriptionId)}/renew`, { method: "POST" }),
     cancel: async (subscriptionId) =>
       (await call<{ subscription: BillingSubscription }>(`/subscriptions/${id(subscriptionId)}/cancel`, { method: "POST" }))
@@ -106,5 +112,5 @@ export function buildBillingApi(call: Call): BillingApi {
 /** Live (operator bridge) mode has no billing: no subscriptions, and purchases are refused. */
 export function createUnavailableBillingApi(): BillingApi {
   const refuse = () => Promise.reject(new ApiError(404, "billing_unavailable", "Billing is not available in this mode."))
-  return { list: async () => [], checkout: refuse, renew: refuse, cancel: refuse }
+  return { list: async () => [], checkout: refuse, upgrade: refuse, renew: refuse, cancel: refuse }
 }
