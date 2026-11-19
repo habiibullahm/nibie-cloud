@@ -170,6 +170,45 @@ export function renderBetaInvite(ctx: BetaInviteContext): RenderedEmail {
   }, ctx.registerUrl);
 }
 
+/** Long messages are cut in emails; the full text is in the dashboard. */
+const excerpt = (s: string) => (s.length > 1000 ? `${s.slice(0, 1000)}…` : s);
+
+export interface TicketToTeamContext {
+  kind: 'new' | 'reply';
+  subject: string;
+  category: string;
+  customerEmail: string;
+  message: string;
+  /** Admin panel page of the ticket. */
+  url: string;
+}
+
+/** To the support inbox: a new ticket, or a customer's reply on one. Customer text is escaped by `layout`. */
+export function renderTicketToTeam(ctx: TicketToTeamContext): RenderedEmail {
+  const what = ctx.kind === 'new' ? 'Tiket baru' : 'Balasan pelanggan';
+  return layout({
+    subject: `${what}: ${ctx.subject}`, heading: `${what}: ${ctx.subject}`, tag: 'TIKET',
+    paragraphs: [`Dari ${ctx.customerEmail} · ${ctx.category}`, excerpt(ctx.message)],
+    button: 'Buka di panel admin',
+  }, ctx.url);
+}
+
+export interface TicketReplyContext {
+  subject: string;
+  message: string;
+  /** Dashboard page of the ticket. */
+  url: string;
+}
+
+/** To the customer when the team replies. */
+export function renderTicketReply(ctx: TicketReplyContext): RenderedEmail {
+  return layout({
+    subject: `Balasan untuk tiket: ${ctx.subject}`, heading: `Balasan untuk tiket: ${ctx.subject}`, tag: 'TIKET',
+    paragraphs: ['Tim Nibie Cloud membalas tiketmu:', excerpt(ctx.message), 'Balas lewat dashboard supaya percakapannya tetap di satu tempat.'],
+    button: 'Buka tiket',
+  }, ctx.url);
+}
+
 function layout(c: Copy, buttonUrl: string): RenderedEmail {
   const font = "font-family:'Segoe UI',Arial,Helvetica,sans-serif;";
   const paras = c.paragraphs

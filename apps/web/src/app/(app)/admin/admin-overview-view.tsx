@@ -56,7 +56,8 @@ export function AdminOverviewView() {
     <div className="grid gap-8">
       <PageHeader title="Ringkasan" description="Keadaan Nibie Cloud saat ini, langsung dari backend." />
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        <Stat label="Tiket perlu dibalas" value={c.openTickets ?? 0} />
         <Stat label="Pelanggan" value={c.customers} />
         <Stat label="Instance" value={c.instances} hint={`${c.activeInstances} aktif`} />
         <Stat label="Langganan" value={c.subscriptions} />

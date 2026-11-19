@@ -1,5 +1,4 @@
 import { Brand } from "@/components/app/brand"
-import { SiteFooter } from "@/components/app/app-shell"
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -14,7 +13,6 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           Your own AI agent in the cloud. No server to set up or maintain.
         </p>
       </div>
-      <SiteFooter className="px-4 [&>div]:justify-center" />
     </div>
   )
 }

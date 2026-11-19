@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ApiError } from "@/lib/api"
 import { getAdminApi, type AdminApi } from "@/lib/api/admin"
+import type { TicketStatus } from "@/lib/api/tickets"
 /**
  * Status and code of an API error. The admin client builds its errors as plain `Error`s named "ApiError" (it does not
  * import the class), so `instanceof` alone would miss them.
@@ -116,6 +117,29 @@ export function useSetPlanStock() {
       void qc.invalidateQueries({ queryKey: adminKeys.audit })
     },
   })
+}
+
+export function useAdminTickets(status: TicketStatus | undefined) {
+  return useQuery({ queryKey: ["admin", "tickets", status ?? "all"], queryFn: () => getAdminApi().tickets(status), refetchInterval: 30_000 })
+}
+
+export function useAdminTicket(id: string) {
+  return useQuery({ queryKey: ["admin", "ticket", id], queryFn: () => getAdminApi().ticket(id), refetchInterval: 30_000 })
+}
+
+/** Reply or close: both refresh the ticket, the list, the Ringkasan count and the audit list. */
+export function useAdminTicketAction(id: string) {
+  const qc = useQueryClient()
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: ["admin", "ticket", id] })
+    void qc.invalidateQueries({ queryKey: ["admin", "tickets"] })
+    void qc.invalidateQueries({ queryKey: adminKeys.overview })
+    void qc.invalidateQueries({ queryKey: adminKeys.audit })
+  }
+  return {
+    reply: useMutation({ mutationFn: (message: string) => getAdminApi().replyTicket(id, message), onSuccess: refresh }),
+    close: useMutation({ mutationFn: () => getAdminApi().closeTicket(id), onSuccess: refresh }),
+  }
 }
 
 /** Saves the support contacts (empty string clears one); the public contact query is refreshed for every page. */

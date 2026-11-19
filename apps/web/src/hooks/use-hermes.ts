@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
-import { ApiError, getApi, type CreateInstanceInput, type Instance, type LogLevel } from "@/lib/api"
+import { ApiError, getApi, type CreateInstanceInput, type Instance, type LogLevel, type NewTicket } from "@/lib/api"
 import { isTransitional, type InstanceAction } from "@/lib/api/status"
 import { fetchSupportContact } from "@/lib/support"
 
@@ -26,6 +26,38 @@ export const keys = {
   file: (id: string, path: string) => ["file", id, path] as const,
   backups: (id: string) => ["backups", id] as const,
   supportContact: ["support-contact"] as const,
+}
+
+const ticketKeys = {
+  list: ["tickets"] as const,
+  one: (id: string) => ["tickets", id] as const,
+}
+
+/** The customer's own support tickets. Refreshed every 30 s so a reply shows without reloading. */
+export function useTickets() {
+  return useQuery({ queryKey: ticketKeys.list, queryFn: () => getApi().tickets.list(), refetchInterval: 30_000 })
+}
+
+export function useTicket(id: string) {
+  return useQuery({ queryKey: ticketKeys.one(id), queryFn: () => getApi().tickets.get(id), refetchInterval: 30_000 })
+}
+
+export function useCreateTicket() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: NewTicket) => getApi().tickets.create(input),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ticketKeys.list }),
+  })
+}
+
+/** Reply or close one ticket: both refresh it and the list. */
+export function useTicketAction(id: string) {
+  const qc = useQueryClient()
+  const refresh = () => void qc.invalidateQueries({ queryKey: ticketKeys.list })
+  return {
+    reply: useMutation({ mutationFn: (message: string) => getApi().tickets.reply(id, message), onSuccess: refresh }),
+    close: useMutation({ mutationFn: () => getApi().tickets.close(id), onSuccess: refresh }),
+  }
 }
 
 /** Support contacts set on the admin Pengaturan page (public endpoint, no token). */

@@ -1,5 +1,6 @@
 import { ApiError, type BillingApi, type HermesApi, type InstancesApi, type PreviewApi } from "./client"
 import { MODEL_FORMAT, TELEGRAM_TOKEN_FORMAT, TELEGRAM_USER_ID_FORMAT } from "./providers"
+import { createMockTicketsApi } from "./tickets"
 import type {
   Backup,
   BillingPayment,
@@ -720,7 +721,7 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
     },
   }
 
-  return { mode: "mock", instances, billing, preview }
+  return { mode: "mock", instances, billing, tickets: createMockTicketsApi(), preview }
 }
 
 /** A fixed tree rooted at the tenant volume. Paths are volume-relative by construction. */

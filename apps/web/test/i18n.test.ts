@@ -9,6 +9,7 @@ import { billingStatusLabel } from "../src/lib/billing"
 import { GROUPS, SORTS } from "../src/lib/instance-list"
 import { validateInstanceName } from "../src/app/(app)/deploy/validate-name"
 import { instanceStatusId } from "../src/lib/admin-format"
+import { CATEGORY, CUSTOMER_STATUS } from "../src/lib/ticket-labels"
 
 function literals(dir: string, out = new Set<string>()): Set<string> {
   for (const f of readdirSync(dir)) {
@@ -36,6 +37,8 @@ describe("Bahasa Indonesia dictionary", () => {
       }),
       ...GROUPS.map((g) => g.label),
       ...SORTS.map((s) => s.label),
+      ...Object.values(CUSTOMER_STATUS),
+      ...Object.values(CATEGORY),
       ...billing.map((b) => billingStatusLabel(b, false)),
       billingStatusLabel("ACTIVE", true),
       validateInstanceName(""),

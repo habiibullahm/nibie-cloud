@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils"
 
 const ADMIN_NAV = [
   { href: "/admin", label: "Ringkasan", exact: true },
+  { href: "/admin/tiket", label: "Tiket" },
   { href: "/admin/pelanggan", label: "Pelanggan" },
   { href: "/admin/instance", label: "Instance" },
   { href: "/admin/langganan", label: "Langganan" },
