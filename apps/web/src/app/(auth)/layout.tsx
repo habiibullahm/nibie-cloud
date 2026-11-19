@@ -11,7 +11,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <main className="w-full max-w-sm">{children}</main>
         {/* Positioning line from PRD §1. */}
         <p className="max-w-sm text-center text-muted-foreground">
-          Run your personal AI agent 24/7. No VPS, no setup, no infrastructure maintenance.
+          Your own AI agent in the cloud. No server to set up or maintain.
         </p>
       </div>
       <SiteFooter className="px-4 [&>div]:justify-center" />

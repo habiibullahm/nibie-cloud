@@ -4,6 +4,54 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Cloudflare Security Insights for nibie.app (2026-11-19, dashboard changes, no code)
+
+Owner exported the Security Insights list (scan of 2026-11-13). Changed in the Cloudflare dashboard on the owner's word:
+- Minimum TLS version for the zone raised from 1.0 to 1.2. Checked: `stars.nibie.app` refuses TLS 1.1 and answers on TLS 1.2.
+- HSTS was already on (max-age 6 months, includeSubDomains, no preload, set 3 days before). `stars.nibie.app` now sends the header,
+  so that finding was stale.
+- AI Labyrinth turned on.
+- security.txt turned on (Cloudflare Security Settings, no file in the repo): `Contact: mailto:security@nibie.app`, expires
+  2027-11-19, languages `id, en`. Served at `https://nibie.app/.well-known/security.txt`. The address reaches the project inbox through
+  the Email Routing catch-all. **Renew before 2027-11-19.**
+
+Left as is, on purpose:
+- DMARC stays `p=none` (owner's choice) until reports are clean for every sender (Kirim.Email, SumoPod SMTP, Supabase).
+- Bot Fight Mode stays off: on the free plan it cannot be skipped per path, so it would challenge the payment webhooks
+  (SumoPod, Duitku) and API clients of `stars.nibie.app`.
+- Precursor not turned on (not evaluated).
+- MFA on the Cloudflare account: owner turned on email and authenticator-app (TOTP) two-factor (both seen active on 2026-11-19).
+  No hardware security key.
+Seen on the way: Email Routing reports "Email DNS records misconfigured" while still forwarding mail; not investigated.
+
+Supabase captcha is **on** (2026-11-19, rollout step 2 of the free sign-up section below):
+- `NEXT_PUBLIC_TURNSTILE_SITE_KEY` was added to the build variables of Worker `nibie-cloud-web` (widget "Nibie Cloud auth"),
+  rebuilt as `2ad14c72`. The register page shows the Turnstile widget and gets a token (checked in Chrome).
+- The owner rotated the widget secret and switched on "Enable Captcha protection" (Turnstile) in Supabase Attack Protection.
+- Checked: `POST /auth/v1/otp` without a token answers `400 captcha_failed`. Code audit: every captcha-protected Supabase call
+  (`signUp`, `signInWithPassword`, `resend`) passes `captchaToken` and the widget is replaced after each call; `/verify`, the OAuth
+  callback and `updateUser` are not captcha-checked by Supabase. Google sign-in does not go through Turnstile.
+- Not yet checked: a real email sign-in. The widget showed 10 solves and 0 siteverify requests, all page-load solves before any
+  email sign-in; after one sign-in "Siteverify requests" should be at least 1.
+- The owner once saw "The security check could not load" (the widget's error callback). Not reproduced: the live CSP allows
+  `challenges.cloudflare.com` for script, frame and connect, and the widget worked in the owner's Chrome earlier. Suspects: a
+  hostname other than `cloud.nibie.app`/`localhost` (error 110200) or a browser extension. The error code is not shown yet.
+- If the waiting-list backend (`TURNSTILE_SECRET_KEY` on the VPS) uses the same widget, its secret is stale after the rotation;
+  the list is closed (`FREE_BETA_SLOTS=0`), so nothing uses it now. Not checked which widget it uses.
+- Cloudflare Turnstile warns that the NibieRouter widget (router.nibie.app, SumoRouter, not in this repo) never calls siteverify,
+  although SumoRouter has `turnstile_enabled` and a secret set. Not investigated.
+- The CSP blocks Cloudflare's auto-injected Web Analytics beacon (`static.cloudflareinsights.com`); harmless.
+
+## Register page tweaks (2026-11-19, branch `claude/register-form-tweaks`, PR #76, not merged)
+
+- The Name field is gone from "Create account"; sign-up sends no `name` metadata (nothing read it).
+- The terms checkbox moved to the bottom of the form, above the submit button; the hint under the Google button now says
+  "Tick the box below".
+- Card subtitles: register "Your personal AI agent, hosted for you.", sign-in "Welcome back.". The line under the card and the
+  site description are now "Your own AI agent in the cloud. No server to set up or maintain." (the "24/7" claim is gone).
+- The footer keeps main's Telegram link and adds "or email <address>" from `NEXT_PUBLIC_CONTACT_EMAIL` (the variable the
+  Support page already uses); empty shows Telegram only. Production needs that variable on Worker `nibie-cloud-web`.
+- Checked: web `typecheck`, `lint`, `test` (173 pass), and a headless screenshot of `/dashboard/register` at 420 px.
 ## Dashboard: unpaid and expired orders on the Instances page (2026-11-19, branch `claude/dashboard-flow-fixes`, not committed)
 
 Fixes F1 to F9 of the anti-slop audit 004 (kept outside git in `anti-slop/`). Orders whose payment link expired no longer

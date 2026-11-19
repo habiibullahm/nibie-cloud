@@ -18,6 +18,7 @@ export const ID: Record<string, string> = {
   "Switch to light theme": "Ganti ke tema terang",
   "Switch to dark theme": "Ganti ke tema gelap",
   "Need help? Message us on Telegram:": "Butuh bantuan? Kirim pesan lewat Telegram:",
+  "or email": "atau email",
 
   // Common
   Loading: "Memuat",

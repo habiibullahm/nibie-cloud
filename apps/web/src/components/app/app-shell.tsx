@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { getSupabase } from "@/lib/auth/supabase"
 import { useT } from "@/lib/i18n"
-import { SUPPORT } from "@/lib/support"
+import { SUPPORT, supportEmail } from "@/lib/support"
 import { cn } from "@/lib/utils"
 import { useApiMode, useMe } from "@/hooks/use-hermes"
 import { useAdminMe } from "@/hooks/use-admin"
@@ -160,6 +160,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 /** Page footer, shared with the auth screens (signed out too, so it links Telegram rather than the Support page). */
 export function SiteFooter({ className }: { className?: string }) {
   const t = useT()
+  const email = supportEmail()
   return (
     <footer className={cn("border-t py-4 text-muted-foreground", className)}>
       <div className="mx-auto flex w-full max-w-[1080px] items-center gap-2">
@@ -169,6 +170,15 @@ export function SiteFooter({ className }: { className?: string }) {
           <a href={SUPPORT.telegramUrl} target="_blank" rel="noopener noreferrer" className="text-foreground underline">
             {SUPPORT.telegramHandle}
           </a>
+          {email ? (
+            <>
+              {" "}
+              {t("or email")}{" "}
+              <a href={`mailto:${email}`} className="text-foreground underline">
+                {email}
+              </a>
+            </>
+          ) : null}
         </p>
       </div>
     </footer>
