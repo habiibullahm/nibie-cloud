@@ -134,7 +134,10 @@ Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
   `src/config/env.ts`). Its public webhook `POST /api/v1/billing/sumopod/webhook` is checked before any database access by a
   Svix signature over the raw body (`SUMOPOD_WEBHOOK_SECRET`, `whsec_...`, 5-minute window, required in production), or by
   that token when no secret is set (`src/modules/billing/svix.ts`), and is idempotent through `PaymentEvent`'s unique key.
-  One `Subscription` per instance; the instance is created after the first verified payment. A billing tick (inside the locked maintenance
+  One `Subscription` per instance; the instance is created after the first verified payment, except for an upgrade
+  (`POST /subscriptions/upgrade`): a free instance gets a subscription that already points at it, and the first verified
+  payment moves it onto the paid plan (`applyPlanChange`: router credit, `planId`, `configRevision`, restart; the volume
+  quota is raised by hand on the host). A billing tick (inside the locked maintenance
   job) handles reminders, 3-day grace, suspension (instance stopped, start answers `subscription_suspended`), 30-day
   retention and deletion, with Indonesian emails over SumoPod SMTP. `Plan.monthlyPriceIdr` null means not for sale; prices
   are set by `scripts/seed-sandbox-plans.ts` (sandbox) or by hand, never by a migration. No real-money payment verified

@@ -78,7 +78,8 @@ export class BillingTick {
         status: 'PENDING_PAYMENT', createdAt: { lte: new Date(now.getTime() - ABANDONED_AFTER_DAYS * DAY_MS) },
         payments: { none: { OR: [{ status: 'PAID' }, { status: 'PENDING', expiresAt: { gt: now } }] } },
       },
-      data: { status: 'ENDED' },
+      // An abandoned upgrade also lets go of its free instance, so the customer can start a new one later.
+      data: { status: 'ENDED', instanceId: null },
     })).count;
 
     const subs = await prisma.subscription.findMany({
@@ -128,6 +129,11 @@ export class BillingTick {
       sum.repaired += 1;
     } else if (sub.restartPending) {
       await this.d.billing.restartIfPending(sub.id);
+      sum.repaired += 1;
+    }
+    // A paid upgrade whose plan change a crash left undone.
+    if (sub.instance && sub.instance.planId !== sub.planId) {
+      await this.d.billing.applyPlanChange(sub.id);
       sum.repaired += 1;
     }
 

@@ -12,6 +12,8 @@ export type Plan = {
   betaPriceIdr: number
   /** NibieRouter credit granted once at the start, in US dollars. 0 means none. */
   creditUsd: number
+  /** Disk of the instance; must match `Plan.storageMb` in the production database. */
+  storageGb: number
 }
 
 export const BETA_USERS = 100
@@ -20,15 +22,17 @@ export const PLAN_SPECS = {
   app: "Hermes Agent",
   cpu: "1 CPU",
   ramGb: 1,
-  // 5 GB since 2026-11-17: Hermes warns about low disk below 2 GiB free, so 1 GB warned on every instance.
-  storageGb: 5,
   region: "Jakarta",
 } as const
 
+// Hosting 5 GB since 2026-11-17 (Hermes warns about low disk below 2 GiB free); Kredit 10 GB since 2026-11-20 (owner).
 export const PLANS: readonly Plan[] = [
-  { id: "hosting", name: "Hosting", normalPriceIdr: 50_000, betaPriceIdr: 25_000, creditUsd: 0 },
-  { id: "hosting-kredit", name: "Hosting + Kredit AI", normalPriceIdr: 75_000, betaPriceIdr: 50_000, creditUsd: 2 },
+  { id: "hosting", name: "Hosting", normalPriceIdr: 50_000, betaPriceIdr: 25_000, creditUsd: 0, storageGb: 5 },
+  { id: "hosting-kredit", name: "Hosting + Kredit AI", normalPriceIdr: 75_000, betaPriceIdr: 50_000, creditUsd: 2, storageGb: 10 },
 ]
+
+/** Smallest disk on sale, for the "from X GB" line in the intros. */
+export const MIN_STORAGE_GB = Math.min(...PLANS.map((p) => p.storageGb))
 
 const idr = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 })
 

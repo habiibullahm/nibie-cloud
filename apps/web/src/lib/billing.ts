@@ -29,8 +29,14 @@ export function isPendingPurchase(sub: BillingSubscription): boolean {
   return sub.status === "PENDING_PAYMENT" && sub.instanceId === null
 }
 
+/** The subscription that bills an instance. An unpaid upgrade (see `pendingUpgradeOf`) does not count until it is paid. */
 export function subscriptionOfInstance(subs: BillingSubscription[] | undefined, instanceId: string) {
-  return subs?.find((s) => s.instanceId === instanceId) ?? null
+  return subs?.find((s) => s.instanceId === instanceId && s.status !== "PENDING_PAYMENT") ?? null
+}
+
+/** An upgrade of a free instance that waits for its first payment. */
+export function pendingUpgradeOf(subs: BillingSubscription[] | undefined, instanceId: string) {
+  return subs?.find((s) => s.instanceId === instanceId && s.status === "PENDING_PAYMENT") ?? null
 }
 
 /** Renewal is offered while the subscription is running, late, or suspended (backend `renew` rules). */
@@ -100,9 +106,12 @@ export function isRenewal(order: BillingSubscription | null): boolean {
   return order?.latestPayment?.purpose === "RENEWAL" && order.instanceId !== null
 }
 
-/** Where to try again after a payment that did not go through: a renewal on its billing page, a new order on Deploy. */
+/**
+ * Where to try again after a payment that did not go through: a renewal or an upgrade on its instance's billing page, a
+ * new order on Deploy.
+ */
 export function retryHref(order: BillingSubscription): string {
-  return isRenewal(order) ? `/instances/${order.instanceId}/billing` : deployAgainHref(order)
+  return order.instanceId !== null ? `/instances/${order.instanceId}/billing` : deployAgainHref(order)
 }
 
 /**

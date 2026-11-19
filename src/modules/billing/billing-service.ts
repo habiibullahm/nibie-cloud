@@ -146,14 +146,7 @@ export class BillingService {
       if (existing) {
         // The key is bound to its original request: reuse with another payload is a client error.
         if (existing.intendedName !== i.name || existing.planId !== plan.id) throw new ConflictError('Idempotency-Key was already used with a different request');
-        const latest = await tx.payment.findFirst({ where: { subscriptionId: existing.id }, orderBy: { createdAt: 'desc' } });
-        const live = latest && latest.status === 'PENDING' && latest.paymentUrl !== null && latest.expiresAt.getTime() > now.getTime();
-        if (existing.status !== 'PENDING_PAYMENT' || live) return { subscription: existing, payment: latest as Payment, needsInvoice: false };
-        if (latest && latest.status === 'PENDING' && latest.paymentUrl === null) {
-          await tx.payment.update({ where: { id: latest.id }, data: { status: 'FAILED' } });
-        }
-        const payment = await tx.payment.create({ data: this.newPayment(existing.id, 'NEW', price, now) });
-        return { subscription: existing, payment, needsInvoice: true };
+        return this.replay(tx, existing, price, now);
       }
       // Starting a new checkout means the customer walked away from any earlier unpaid one: release its slot now,
       // instead of locking them out until the 60 minute invoice expires. If that old invoice is paid after all, the
@@ -165,13 +158,7 @@ export class BillingService {
       await this.assertCapacity(tx, i.tenantId, now);
       // A new purchase is refused before any invoice exists when the server is full; paying customers are never blocked here.
       if (this.d.maxTotalInstances != null && (await totalLoad(tx, now)) >= this.d.maxTotalInstances) throw new CapacityFullError();
-      // The plan's stock. Checkouts of the same plan by different tenants queue on this lock (always taken after the tenant
-      // lock, so the order is fixed), so two buyers can never both take the last unit.
-      if (hasStock(plan)) {
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`plan-stock:${plan.id}`}))`;
-        const fresh = await tx.plan.findUniqueOrThrow({ where: { id: plan.id }, select: { id: true, monthlyPriceIdr: true, stockLimit: true } });
-        if ((await stockLeft(tx, fresh, now)) === 0) throw new PlanSoldOutError();
-      }
+      await this.assertStock(tx, plan, now);
       const subscription = await tx.subscription.create({
         data: { tenantId: i.tenantId, planId: plan.id, intendedName: i.name, idempotencyKey: i.idempotencyKey },
       });
@@ -180,6 +167,58 @@ export class BillingService {
     });
 
     const payment = prepared.needsInvoice ? await this.issueInvoice(prepared.payment, plan, i.email) : prepared.payment;
+    return { subscription: await this.viewOf(prepared.subscription.id), payment: paymentView(payment, now) };
+  }
+
+  /**
+   * Moves a free instance to a paid plan, keeping the instance and its data: a subscription that already points at the
+   * instance, plus an invoice. The instance changes plan only once the first payment is verified (`applyPlanChange`).
+   * It adds no instance, so only the plan's stock is checked, not the per-tenant or server cap.
+   */
+  async upgrade(i: { tenantId: string; email: string; instanceId: string; planId: string; idempotencyKey: string }): Promise<{ subscription: SubscriptionView; payment: PaymentView }> {
+    if (!i.idempotencyKey || i.idempotencyKey.length > 128) throw new ValidationError('invalid idempotency key');
+    if (!isUuid(i.instanceId)) throw new NotFoundError('Instance not found');
+    if (!isUuid(i.planId)) throw new NotFoundError('Plan not found');
+    const plan = await this.d.prisma.plan.findUnique({ where: { id: i.planId } });
+    if (!plan || !plan.active) throw new NotFoundError('Plan not found');
+    const price = plan.monthlyPriceIdr;
+    if (price === null || price < SUMOPOD_MIN_AMOUNT_IDR) throw new PlanNotForSaleError();
+
+    const now = this.now();
+    const prepared = await this.d.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${i.tenantId}))`;
+      const inst = await tx.instance.findFirst({ where: { id: i.instanceId, tenantId: i.tenantId }, include: { plan: true } });
+      if (!inst || inst.status === 'DELETING' || inst.status === 'DELETED') throw new NotFoundError('Instance not found');
+      let existing = await tx.subscription.findUnique({ where: { instanceId: inst.id } });
+      if (existing?.status === 'ENDED') {
+        // An ended subscription still linked to a live instance (e.g. ended elsewhere) must not block a new upgrade.
+        await tx.subscription.update({ where: { id: existing.id }, data: { instanceId: null, idempotencyKey: null } });
+        existing = null;
+      }
+      if (existing && existing.status !== 'PENDING_PAYMENT') throw new AppError('This instance already has a paid plan', 409, 'already_subscribed');
+      if (inst.plan.monthlyPriceIdr !== null) throw new AppError('Only a free instance can be upgraded', 409, 'not_free');
+      if (existing) {
+        if (existing.idempotencyKey === i.idempotencyKey) {
+          if (existing.planId !== plan.id) throw new ConflictError('Idempotency-Key was already used with a different request');
+          return this.replay(tx, existing, price, now);
+        }
+        // A new upgrade request replaces the open one. Ending it and unlinking the instance means a late payment of its
+        // invoice lands on an ended subscription (`paid_after_end`, logged for the operator), never on another plan. Its key
+        // is released, so going back to that plan later in the same visit is a new request, not a unique-key clash.
+        await tx.payment.updateMany({ where: { subscriptionId: existing.id, status: 'PENDING' }, data: { status: 'EXPIRED' } });
+        await tx.subscription.update({ where: { id: existing.id }, data: { status: 'ENDED', instanceId: null, idempotencyKey: null } });
+      }
+      await this.assertStock(tx, plan, now);
+      const subscription = await tx.subscription.create({
+        data: { tenantId: i.tenantId, planId: plan.id, instanceId: inst.id, intendedName: inst.name, idempotencyKey: i.idempotencyKey },
+      });
+      const payment = await tx.payment.create({ data: this.newPayment(subscription.id, 'NEW', price, now) });
+      return { subscription, payment, needsInvoice: true };
+    });
+
+    // The gateway brings the customer back to this instance's billing page, which shows the upgrade's outcome.
+    const back = `/dashboard/instances/${i.instanceId}/billing`;
+    const payment = prepared.needsInvoice ? await this.issueInvoice(prepared.payment, plan, i.email, back) : prepared.payment;
     return { subscription: await this.viewOf(prepared.subscription.id), payment: paymentView(payment, now) };
   }
 
@@ -240,10 +279,13 @@ export class BillingService {
     return this.d.prisma.subscription.findUnique({ where: { instanceId }, select: { status: true } });
   }
 
-  /** The customer deleted the instance: the subscription ends with it (no refund, PRD 10.4 does not apply). */
+  /**
+   * The customer deleted the instance: the subscription ends with it (no refund, PRD 10.4 does not apply). An unpaid
+   * upgrade ends too, so paying its invoice afterwards is reported as `paid_after_end` instead of being kept silently.
+   */
   async endForInstance(tenantId: string, instanceId: string): Promise<void> {
     await this.d.prisma.subscription.updateMany({
-      where: { tenantId, instanceId, status: { in: ['ACTIVE', 'GRACE', 'SUSPENDED'] } },
+      where: { tenantId, instanceId, status: { in: ['PENDING_PAYMENT', 'ACTIVE', 'GRACE', 'SUSPENDED'] } },
       data: { status: 'ENDED', graceEndsAt: null, retentionEndsAt: null },
     });
   }
@@ -351,6 +393,7 @@ export class BillingService {
   private async afterActivation(a: Activation): Promise<void> {
     try {
       await this.ensureInstance(a.subscriptionId);
+      await this.applyPlanChange(a.subscriptionId);
       if (a.wasSuspended) await this.restartIfPending(a.subscriptionId);
     } catch (e) {
       // Nothing is lost: the subscription is paid and the billing tick repairs a missing or stopped instance.
@@ -387,6 +430,36 @@ export class BillingService {
     // The AI provider (router user, key, one-time credit) never fails the payment: `begin` swallows its own errors,
     // and the billing tick retries whatever is left.
     await this.d.router?.begin({ tenantId: sub.tenantId, instanceId: instance.id, subscriptionId: sub.id });
+  }
+
+  /**
+   * Puts an upgraded instance on its subscription's plan once paid. The NibieRouter step (the plan's credit) runs first,
+   * so a crash before the plan change is repaired by the billing tick, which calls this again. The new CPU, memory and
+   * process limits apply when the container is recreated: a running instance is restarted now, a stopped one on its next
+   * start. The volume keeps the quota it was created with; raising it is a host step (docs/disk-quota-host-notes.md).
+   * Idempotent.
+   */
+  async applyPlanChange(subscriptionId: string): Promise<void> {
+    const sub = await this.d.prisma.subscription.findUnique({ where: { id: subscriptionId }, include: { instance: true } });
+    const inst = sub?.instance;
+    if (!sub || !inst || sub.status === 'PENDING_PAYMENT' || sub.status === 'ENDED') return;
+    if (inst.planId === sub.planId) return;
+    if (inst.status === 'DELETING' || inst.status === 'DELETED') {
+      // Deleted outside the customer route (which ends an unpaid upgrade first) and paid afterwards.
+      this.d.logger.error({ subscriptionId: sub.id, instanceId: inst.id }, 'upgrade paid for a deleted instance: operator must refund');
+      return;
+    }
+    await this.d.router?.begin({ tenantId: sub.tenantId, instanceId: inst.id, subscriptionId: sub.id });
+    const changed = await this.d.prisma.$transaction(async (tx) => {
+      const n = await tx.instance.updateMany({ where: { id: inst.id, planId: inst.planId }, data: { planId: sub.planId, configRevision: { increment: 1 } } });
+      if (n.count === 1) await tx.instanceEvent.create({ data: { instanceId: inst.id, type: 'plan.changed', message: 'Plan upgraded after payment' } });
+      return n.count === 1;
+    });
+    if (!changed) return;
+    // Error level so it is not missed: until the quota is raised, writes fail at the old size and the disk monitor
+    // (which measures against the new plan) does not warn first.
+    this.d.logger.error({ instanceId: inst.id, planId: sub.planId }, 'plan upgraded: raise the volume quota on the host (docs/disk-quota-host-notes.md)');
+    if (inst.status === 'ACTIVE' || inst.status === 'DEGRADED') await this.d.commands.restart(sub.tenantId, inst.id);
   }
 
   // ---- email ---------------------------------------------------------------------------------
@@ -430,15 +503,38 @@ export class BillingService {
     return { subscriptionId, merchantOrderId: newOrderId(), amountIdr, purpose, expiresAt: new Date(now.getTime() + INVOICE_EXPIRY_MINUTES * 60_000) };
   }
 
+  /** Replays a request with a known Idempotency-Key: the still-payable invoice, or a fresh one while the purchase is unpaid. */
+  private async replay(tx: Prisma.TransactionClient, existing: Subscription, price: number, now: Date): Promise<{ subscription: Subscription; payment: Payment; needsInvoice: boolean }> {
+    const latest = await tx.payment.findFirst({ where: { subscriptionId: existing.id }, orderBy: { createdAt: 'desc' } });
+    const live = latest && latest.status === 'PENDING' && latest.paymentUrl !== null && latest.expiresAt.getTime() > now.getTime();
+    if (existing.status !== 'PENDING_PAYMENT' || live) return { subscription: existing, payment: latest as Payment, needsInvoice: false };
+    if (latest && latest.status === 'PENDING' && latest.paymentUrl === null) {
+      await tx.payment.update({ where: { id: latest.id }, data: { status: 'FAILED' } });
+    }
+    const payment = await tx.payment.create({ data: this.newPayment(existing.id, 'NEW', price, now) });
+    return { subscription: existing, payment, needsInvoice: true };
+  }
+
+  /**
+   * The plan's stock. Purchases of the same plan by different tenants queue on this lock (always taken after the tenant
+   * lock, so the order is fixed), so two buyers can never both take the last unit.
+   */
+  private async assertStock(tx: Prisma.TransactionClient, plan: Plan, now: Date): Promise<void> {
+    if (!hasStock(plan)) return;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`plan-stock:${plan.id}`}))`;
+    const fresh = await tx.plan.findUniqueOrThrow({ where: { id: plan.id }, select: { id: true, monthlyPriceIdr: true, stockLimit: true } });
+    if ((await stockLeft(tx, fresh, now)) === 0) throw new PlanSoldOutError();
+  }
+
   /** Calls the payment client outside any transaction. A failure marks the row FAILED so a retry makes a fresh invoice. */
-  private async issueInvoice(payment: Payment, plan: Plan, email: string): Promise<Payment> {
+  private async issueInvoice(payment: Payment, plan: Plan, email: string, returnPath = '/dashboard/instances'): Promise<Payment> {
     try {
       const invoice = await this.d.paymentClient.createInvoice({
         merchantOrderId: payment.merchantOrderId,
         amountIdr: payment.amountIdr,
         productDetails: `Nibie Cloud ${plan.name} (30 hari)`.slice(0, 255),
         email,
-        returnUrl: `${this.d.dashboardOrigin}/dashboard/instances?payment=${payment.merchantOrderId}`,
+        returnUrl: `${this.d.dashboardOrigin}${returnPath}?payment=${payment.merchantOrderId}`,
         expiryMinutes: INVOICE_EXPIRY_MINUTES,
       });
       return await this.d.prisma.payment.update({ where: { id: payment.id }, data: { reference: invoice.reference, paymentUrl: invoice.paymentUrl } });

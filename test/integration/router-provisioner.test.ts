@@ -268,6 +268,30 @@ describe('RouterProvisioner', () => {
     expect(router.keys).toHaveLength(2);
   });
 
+  it('a free instance upgraded to a paid plan keeps its key and gets the plan credit once', async () => {
+    const free = await prisma.plan.create({
+      data: { slug: 'free', name: 'Free', cpuMillis: 500, memoryMb: 256, pids: 128, storageMb: 1024, monthlyPriceIdr: null },
+    });
+    const instance = await prisma.instance.create({
+      data: { tenantId: s.tenant.id, planId: free.id, nodeId: s.node.id, name: 'free', idempotencyKey: crypto.randomUUID(), image: 'hermes-stub:0.2.0', status: 'ACTIVE' },
+    });
+    await prov.runPending();
+    expect(await rowOf(instance.id)).toMatchObject({ status: 'DONE', subscriptionId: null });
+    expect(router.keys).toHaveLength(1);
+
+    await prisma.plan.update({ where: { id: s.plan.id }, data: { includedCreditNano: CREDIT } });
+    const sub = await prisma.subscription.create({
+      data: { tenantId: s.tenant.id, planId: s.plan.id, instanceId: instance.id, intendedName: 'free', status: 'ACTIVE', currentPeriodEnd: new Date('2027-01-01T00:00:00Z') },
+    });
+    expect(await prov.begin({ tenantId: s.tenant.id, instanceId: instance.id, subscriptionId: sub.id })).toBe('done');
+    expect(router.keys).toHaveLength(1);
+    expect(router.history).toEqual([{ userId: 'ru-1', note: `nibie-cloud credit ${sub.id}`, delta: CREDIT }]);
+    expect(await rowOf(instance.id)).toMatchObject({ status: 'DONE', subscriptionId: sub.id });
+
+    await prov.begin({ tenantId: s.tenant.id, instanceId: instance.id, subscriptionId: sub.id });
+    expect(router.history).toHaveLength(1);
+  });
+
   it('runNewFree attaches the key to a new free instance at once, tries each one only once, and leaves retries to runPending', async () => {
     await prisma.plan.update({ where: { id: s.plan.id }, data: { monthlyPriceIdr: null } });
     const mkFree = () => prisma.instance.create({

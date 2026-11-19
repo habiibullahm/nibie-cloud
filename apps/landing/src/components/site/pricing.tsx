@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { BETA_USERS, PLANS, PLAN_SPECS, discountPercent, formatIdr, type Plan } from "@/lib/plans"
+import { BETA_USERS, MIN_STORAGE_GB, PLANS, PLAN_SPECS, discountPercent, formatIdr, type Plan } from "@/lib/plans"
 import { ctaHref } from "@/lib/site"
 import { Section } from "./section"
 
@@ -25,7 +25,7 @@ export function Pricing({ headingLevel = "section" }: { headingLevel?: "section"
       </p>
     </>
   )
-  const intro = `${PLAN_SPECS.app} dengan ${PLAN_SPECS.cpu}, ${PLAN_SPECS.ramGb} GB RAM, dan ${PLAN_SPECS.storageGb} GB penyimpanan di region ${PLAN_SPECS.region}. Harga beta khusus untuk pengguna beta (${BETA_USERS} pengguna pertama).`
+  const intro = `${PLAN_SPECS.app} dengan ${PLAN_SPECS.cpu}, ${PLAN_SPECS.ramGb} GB RAM, dan penyimpanan mulai ${MIN_STORAGE_GB} GB di region ${PLAN_SPECS.region}. Harga beta khusus untuk pengguna beta (${BETA_USERS} pengguna pertama).`
   if (headingLevel === "page") return <div>{body}</div>
   return (
     <Section id="harga" label="Harga" title="Langganan bulanan dalam Rupiah" intro={intro}>
@@ -39,7 +39,7 @@ function PlanCard({ plan }: { plan: Plan }) {
     ["Aplikasi", PLAN_SPECS.app],
     ["CPU", PLAN_SPECS.cpu.replace(" CPU", " core")],
     ["RAM", `${PLAN_SPECS.ramGb} GB`],
-    ["Penyimpanan", `${PLAN_SPECS.storageGb} GB`],
+    ["Penyimpanan", `${plan.storageGb} GB`],
     ["Region", PLAN_SPECS.region],
     ["Kredit NibieRouter", plan.creditUsd > 0 ? `$${plan.creditUsd}, sekali di awal` : "tidak termasuk"],
   ]

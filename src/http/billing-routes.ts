@@ -4,6 +4,7 @@ import type { BillingService } from '../modules/billing/billing-service.js';
 import { principalOf } from './customer-auth.js';
 
 const checkoutBody = z.object({ name: z.string(), planId: z.string().uuid() }).strict();
+const upgradeBody = z.object({ instanceId: z.string().uuid(), planId: z.string().uuid() }).strict();
 const idempotencyKey = z.string().min(1).max(128);
 
 /** Customer billing routes. Registered inside the customer plugin, so the token and the tenant are already resolved. */
@@ -22,6 +23,16 @@ export function registerBillingRoutes(api: FastifyInstance, billing: BillingServ
     const key = idempotencyKey.parse(req.headers['idempotency-key']);
     const body = checkoutBody.parse(req.body);
     const out = await billing.checkout({ tenantId: p.tenantId, email: p.email, planId: body.planId, name: body.name, idempotencyKey: key });
+    return reply.status(201).send(out);
+  });
+
+  // A free instance onto a paid plan, keeping its data; the plan changes once the payment is verified.
+  api.post('/subscriptions/upgrade', { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } }, async (req, reply) => {
+    const p = principalOf(req);
+    await gate(p.email);
+    const key = idempotencyKey.parse(req.headers['idempotency-key']);
+    const body = upgradeBody.parse(req.body);
+    const out = await billing.upgrade({ tenantId: p.tenantId, email: p.email, instanceId: body.instanceId, planId: body.planId, idempotencyKey: key });
     return reply.status(201).send(out);
   });
 
