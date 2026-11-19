@@ -4,6 +4,17 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Register page tweaks (2026-11-19, branch `claude/register-form-tweaks`, not committed)
+
+- The Name field is gone from "Create account"; sign-up sends no `name` metadata (nothing read it).
+- The terms checkbox moved to the bottom of the form, above the submit button; the hint under the Google button now says
+  "Tick the box below".
+- Card subtitles: register "Your personal AI agent, hosted for you.", sign-in "Welcome back.". The line under the card and the
+  site description are now "Your own AI agent in the cloud. No server to set up or maintain." (the "24/7" claim is gone).
+- The footer shows `Support: <address>` from the new build variable `NEXT_PUBLIC_CONTACT_EMAIL`; empty keeps
+  "Support on Telegram, coming soon.". Production needs that variable on Worker `nibie-cloud-web` before the next build.
+- Checked: web `typecheck`, `lint`, `test` (173 pass), and a headless screenshot of `/dashboard/register` at 420 px.
+
 ## Customers no longer call the admin API (2026-11-19, branch `claude/no-admin-probe-for-customers`, PR #74, not merged)
 
 - **Why:** the owner saw every customer's browser call `GET /api/v1/admin/me` (403 `forbidden`) from the sidebar's Admin link.

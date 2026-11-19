@@ -149,14 +149,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   )
 }
 
-/** Page footer, shared with the auth screens. */
+/** Page footer, shared with the auth screens. The address comes from the build so it stays out of the public repo. */
 export function SiteFooter({ className }: { className?: string }) {
+  const supportEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim()
   return (
     <footer className={cn("border-t py-4 text-muted-foreground", className)}>
       <div className="mx-auto flex w-full max-w-[1080px] items-center gap-2">
         <LifeBuoy className="size-4 shrink-0" aria-hidden="true" />
-        {/* TODO(support): link the Telegram support handle once it exists (PRD §3, "Initial support: Telegram"). */}
-        <p>Support on Telegram, coming soon.</p>
+        {supportEmail ? (
+          <p>
+            Support:{" "}
+            <a href={`mailto:${supportEmail}`} className="text-foreground underline underline-offset-4">
+              {supportEmail}
+            </a>
+          </p>
+        ) : (
+          <p>Support on Telegram, coming soon.</p>
+        )}
       </div>
     </footer>
   )
