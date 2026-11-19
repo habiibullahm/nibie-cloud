@@ -4,6 +4,16 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Beta invite email is plain text with Reply-To (2026-11-19, branch `claude/invite-deliverability`, not committed)
+
+The admin beta invite still landed in Gmail spam after the display-name change. NibieRouter sends through the same SumoPod SMTP and
+`noreply@nibie.app` and reaches the inbox, so the cause is the mail itself: an unsolicited, generic, branded "Anda diundang" mail.
+Changed: `renderBetaInvite` is plain text with no HTML layout (owner: "do not use template"), subject
+`Akses beta Nibie Cloud untuk <email>`, says why it came. `Reply-To` is the support contact email from the admin panel when set
+(never an admin's own address); without it the copy does not ask for a reply. `MailMessage` gained optional `replyTo`; `html` is
+optional. Other emails unchanged. Checked: `pnpm build`, unit tests (547 pass, 2 known Windows `egress-canary` failures),
+`test/integration/admin-beta-invites.test.ts` pass. Not verified: whether Gmail now delivers it to the inbox.
+
 ## Display name shown in the sidebar (2026-11-19, branch `claude/account-name-fixes`)
 
 Fixes anti-slop audit 006 (N1-N4) on the Account "Nama" card from PR #81. The name (Supabase `user_metadata.full_name`) was

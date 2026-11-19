@@ -152,22 +152,36 @@ export function renderWaitlistInvite(ctx: WaitlistInviteContext): RenderedEmail 
 }
 
 export interface BetaInviteContext {
+  /** The invited address, already validated by the route; named in the subject so the mail reads as written to one person. */
+  email: string;
   /** Where to register, e.g. `https://cloud.nibie.app/dashboard/register`. */
   registerUrl: string;
+  /** True when the mail carries a monitored Reply-To, so the copy may ask for a reply. */
+  canReply: boolean;
 }
 
-/** Sent when an admin adds an address to the beta invite list. It carries no admin-typed text (note, reason). */
-export function renderBetaInvite(ctx: BetaInviteContext): RenderedEmail {
-  return layout({
-    subject: 'Anda diundang ke beta Nibie Cloud', heading: 'Anda diundang ke beta Nibie Cloud', tag: 'BETA',
-    paragraphs: [
-      'Halo,',
-      'Alamat email ini sudah kami undang untuk mencoba Nibie Cloud, hosting agen Hermes AI.',
-      'Daftar atau masuk dengan alamat email ini, lalu buat instance Hermes Anda dari dashboard.',
-      'Kalau Anda tidak merasa mengharapkan email ini, abaikan saja.',
-    ],
-    button: 'Daftar sekarang',
-  }, ctx.registerUrl);
+/**
+ * Sent when an admin adds an address to the beta invite list. It carries no admin-typed text (note, reason). Plain text with
+ * no HTML layout (owner decision 2026-11-19): the branded "you are invited" mail landed in Gmail spam on a first contact, so
+ * this one reads like a person's note. It names the address and says why it came.
+ */
+export function renderBetaInvite(ctx: BetaInviteContext): { subject: string; text: string } {
+  const text = [
+    'Halo,',
+    '',
+    `Tim Nibie Cloud sudah membuka akses beta untuk ${ctx.email}. Biasanya karena Anda atau rekan Anda meminta akses ke kami.`,
+    '',
+    'Nibie Cloud adalah layanan hosting agen Hermes AI. Daftar atau masuk dengan alamat email ini, lalu buat instance Hermes Anda dari dashboard:',
+    ctx.registerUrl,
+    '',
+    ctx.canReply
+      ? 'Ada pertanyaan? Balas email ini, tim kami yang menjawab. Kalau Anda tidak meminta akses ini, abaikan saja email ini.'
+      : 'Kalau Anda tidak meminta akses ini, abaikan saja email ini.',
+    '',
+    'Salam,',
+    'Tim Nibie Cloud',
+  ].join('\n');
+  return { subject: `Akses beta Nibie Cloud untuk ${ctx.email}`, text };
 }
 
 /** Long messages are cut in emails; the full text is in the dashboard. */

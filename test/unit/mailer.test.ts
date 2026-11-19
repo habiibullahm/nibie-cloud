@@ -29,6 +29,13 @@ describe('createMailer', () => {
     expect(sendMail).toHaveBeenCalledWith({ from: { name: 'Nibie Cloud', address: 'no-reply@example.test' }, to: 'a@example.test', subject: 's', text: 't', html: '<p>t</p>' });
   });
 
+  it('sends a plain-text mail with Reply-To when asked', async () => {
+    const sendMail = vi.fn(async (_m: object) => ({}));
+    await createMailer(mail, logger, () => ({ sendMail })).send({ to: 'a@example.test', subject: 's', text: 't', replyTo: 'help@example.test' });
+    expect(sendMail).toHaveBeenCalledWith({ from: { name: 'Nibie Cloud', address: 'no-reply@example.test' }, to: 'a@example.test', subject: 's', text: 't', replyTo: 'help@example.test' });
+    expect(sendMail.mock.calls[0]![0]).not.toHaveProperty('html');
+  });
+
   it('turns an SMTP failure into MailSendError without the server text', async () => {
     const sendMail = vi.fn(async () => { throw new Error('535 auth failed for smtp-user smtp-pass-secret'); });
     const err = await createMailer(mail, logger, () => ({ sendMail })).send(msg).catch((e: unknown) => e);

@@ -555,7 +555,10 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
       let emailSent = false;
       if (mailer?.enabled) {
         try {
-          await mailer.send({ to: invite.email, ...renderBetaInvite({ registerUrl: `${config.dashboardOrigin ?? 'https://cloud.nibie.app'}/dashboard/register` }) });
+          // Reply-To is the panel's support contact only, never an admin's own address: it would reach every invitee.
+          const replyTo = (await readSupportContact(prisma)).email ?? undefined;
+          const registerUrl = `${config.dashboardOrigin ?? 'https://cloud.nibie.app'}/dashboard/register`;
+          await mailer.send({ to: invite.email, replyTo, ...renderBetaInvite({ email: invite.email, registerUrl, canReply: !!replyTo }) });
           emailSent = true;
         } catch { /* the mailer already logged the failure by class name */ }
       }

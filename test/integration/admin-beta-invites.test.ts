@@ -91,9 +91,17 @@ describe('admin beta invites', () => {
     expect(res.json().emailSent).toBe(true);
     expect(sent).toHaveLength(1);
     expect(sent[0]!.to).toBe('mail-me@example.test');
-    expect(sent[0]!.html).toContain('/dashboard/register');
+    expect(sent[0]!.text).toContain('/dashboard/register');
+    expect(sent[0]!.html).toBeUndefined();
+    expect(sent[0]!.replyTo).toBeUndefined();
     expect(sent[0]!.text).not.toContain('secret note');
     expect(sent[0]!.text).not.toContain('asked on telegram');
+
+    // With a support contact email set in the panel, replies go there, never to the admin who sent the invite.
+    await prisma.supportContact.create({ data: { id: 1, email: 'help@example.test' } });
+    await invite(app({}, ok), await as(BOSS), { email: 'reply-me@example.test', reason: 'asked on telegram' });
+    expect(sent[1]!.replyTo).toBe('help@example.test');
+    expect(sent[1]!.text).toContain('Balas email ini');
 
     const broken: Mailer = { enabled: true, send: async () => { throw new Error('smtp down'); } };
     const failed = await invite(app({}, broken), await as(BOSS), { email: 'smtp-down@example.test', reason: 'asked on telegram' });
@@ -103,7 +111,7 @@ describe('admin beta invites', () => {
     const none = await invite(app(), await as(BOSS), { email: 'no-mailer@example.test', reason: 'asked on telegram' });
     expect(none.statusCode).toBe(201);
     expect(none.json().emailSent).toBe(false);
-    expect(await prisma.betaInvite.count()).toBe(3);
+    expect(await prisma.betaInvite.count()).toBe(4);
   });
 
   it('rejects a bad email, a missing or short reason and unknown fields, and writes nothing', async () => {
