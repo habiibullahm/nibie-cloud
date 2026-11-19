@@ -46,10 +46,12 @@ export default function KebijakanRefundPage() {
               Hubungi kami lewat{" "}
               {email ? (
                 <>
-                  email <a href={`mailto:${email}`}>{email}</a> atau{" "}
+                  email <a href={`mailto:${email}`}>{email}</a>
                 </>
-              ) : null}
-              <a href={SITE.telegramUrl}>Telegram {SITE.telegramHandle}</a>.
+              ) : (
+                <a href="/kontak">halaman Kontak</a>
+              )}
+              .
             </li>
             <li>Sertakan email akunmu serta tanggal, jumlah, dan metode pembayaran.</li>
             <li>Kami memeriksa permintaanmu dan menjawab dengan keputusan beserta alasannya.</li>

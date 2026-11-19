@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { ApiError, getApi, type CreateInstanceInput, type Instance, type LogLevel } from "@/lib/api"
 import { isTransitional, type InstanceAction } from "@/lib/api/status"
+import { fetchSupportContact } from "@/lib/support"
 
 const POLL_MS = 1500
 
@@ -24,6 +25,12 @@ export const keys = {
   files: (id: string, path: string) => ["files", id, path] as const,
   file: (id: string, path: string) => ["file", id, path] as const,
   backups: (id: string) => ["backups", id] as const,
+  supportContact: ["support-contact"] as const,
+}
+
+/** Support contacts set on the admin Pengaturan page (public endpoint, no token). */
+export function useSupportContact() {
+  return useQuery({ queryKey: keys.supportContact, queryFn: () => fetchSupportContact(), staleTime: 60_000 })
 }
 
 export function errorMessage(e: unknown): string {

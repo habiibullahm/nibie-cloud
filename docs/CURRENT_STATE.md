@@ -4,6 +4,24 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Support contacts set from the admin panel (2026-11-19, branch `claude/support-contacts`)
+
+On the owner's word ("fill form on admin settings"; WhatsApp and email on the dashboard, email only on the landing page),
+despite the Node feature freeze during the Go port:
+- **Backend:** table `SupportContact` (one row, `id` = 1, RLS on; migration `20261119300000_add_support_contact`).
+  `POST /api/v1/admin/support-contact` `{whatsapp, email, reason}` (admin, `aal2`, rate limit, audit row with before and after in the
+  same transaction; an unchanged save writes nothing). The number is stored as digits with the country code (`+62 812-...` is
+  accepted, a leading 0 is refused); an empty value clears a field. `GET /api/v1/public/support-contact` (no auth, `max-age=60`).
+  Integration test `test/integration/support-contact.test.ts`.
+- **Go port:** PR #71 needs a goose copy of this migration in `server/migrations` (plus `PrismaMigrations` bump, `schema.txt`,
+  `sqlc generate`) when it is rebased; `server/` is not on `main` yet.
+- **Dashboard:** admin Pengaturan has a "Kontak bantuan" form; the customer Support page and the footer (sign-in screens too)
+  read the public endpoint and show WhatsApp (wa.me link) and email, or nothing until set. Telegram and the build variable
+  `NEXT_PUBLIC_CONTACT_EMAIL` (added in PR #75) are gone from the dashboard; mock mode shows no contacts.
+- **Landing:** email only (build variable `NEXT_PUBLIC_CONTACT_EMAIL` of the landing Worker, live value at the time:
+  a Gmail address); Telegram removed from the footer, Kontak and the three legal pages (`legalUpdated` 19 November 2026). With no
+  email configured, the links point to `/kontak`.
+
 ## Cloudflare Security Insights for nibie.app (2026-11-19, dashboard changes, no code)
 
 Owner exported the Security Insights list (scan of 2026-11-13). Changed in the Cloudflare dashboard on the owner's word:

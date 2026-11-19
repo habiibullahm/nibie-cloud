@@ -83,12 +83,7 @@ export default function KebijakanPrivasiPage() {
           <p>
             Kamu dapat meminta akses, koreksi, atau penghapusan data pribadimu, dan menarik persetujuan yang pernah
             kamu berikan. Kirim permintaan lewat{" "}
-            {email ? (
-              <>
-                <a href={`mailto:${email}`}>{email}</a> atau{" "}
-              </>
-            ) : null}
-            <a href={SITE.telegramUrl}>Telegram {SITE.telegramHandle}</a>. Kami menjawab secepatnya.
+            {email ? <a href={`mailto:${email}`}>{email}</a> : <a href="/kontak">halaman Kontak</a>}. Kami menjawab secepatnya.
           </p>
         </section>
         <section>

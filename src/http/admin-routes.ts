@@ -11,6 +11,7 @@ import { renderBetaInvite } from '../modules/billing/email-templates.js';
 import { addInvite, INVITE_SELECT, listInvites, maskEmail, maskInvite, normalizeEmail } from '../modules/beta/invites.js';
 import { createKey, findActiveKey, isAdminKey, KEY_EXPIRY_DAYS, listKeys, revokeKey } from '../modules/admin/api-keys.js';
 import { hasStock, totalLoad } from '../modules/instances/capacity.js';
+import { readSupportContact, supportContactBody, writeSupportContact } from '../modules/support/contact.js';
 import { AppError, AuthUnavailableError, ForbiddenError, NotFoundError, QueueUnavailableError, UnauthorizedError } from '../shared/errors.js';
 import { registerAdminMcp } from './admin-mcp.js';
 
@@ -444,6 +445,23 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
         return row;
       });
       return { plan: { id: plan.id, slug: plan.slug, stockLimit: plan.stockLimit } };
+    });
+
+    /** Support contacts for the dashboard (WhatsApp and email). Empty clears one. Public data, so the audit keeps both values. */
+    api.post('/support-contact', async (req) => {
+      const admin = req.admin!;
+      const { reason: why, ...next } = supportContactBody.parse(req.body);
+      return prisma.$transaction(async (tx) => {
+        const before = await readSupportContact(tx);
+        // Saving the same values changes nothing, so it is not recorded as a change.
+        if (before.whatsapp === next.whatsapp && before.email === next.email) return before;
+        await writeSupportContact(tx, next);
+        await audit.record({
+          actorEmail: admin.email, action: 'POST /support-contact', targetType: 'support-contact', targetId: null,
+          reason: why, detail: { from: { ...before }, to: { ...next }, ...via(req) },
+        }, tx);
+        return next;
+      });
     });
 
     /**

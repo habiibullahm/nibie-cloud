@@ -15,7 +15,7 @@ const linkClass =
 export default function KontakPage() {
   const email = contactEmail()
   return (
-    <PageShell title="Kontak" intro="Pertanyaan tentang layanan, akses beta, pembayaran, refund, atau masalah teknis? Hubungi kami lewat salah satu saluran di bawah.">
+    <PageShell title="Kontak" intro="Pertanyaan tentang layanan, akses beta, pembayaran, refund, atau masalah teknis? Hubungi kami lewat email di bawah.">
       <dl className="grid max-w-[620px] gap-4">
         {email ? (
           <Row label="Email">
@@ -24,11 +24,6 @@ export default function KontakPage() {
             </a>
           </Row>
         ) : null}
-        <Row label="Telegram">
-          <a href={SITE.telegramUrl} rel="noopener noreferrer" className={linkClass}>
-            {SITE.telegramHandle}
-          </a>
-        </Row>
         <Row label="Penyelenggara">{SITE.operator}</Row>
         <Row label="Layanan">
           {SITE.name} (<a href={SITE.url} className={linkClass}>cloud.nibie.app</a>)
@@ -36,7 +31,7 @@ export default function KontakPage() {
       </dl>
       <p className="max-w-[62ch] text-muted-foreground">
         Sebutkan alamat email akunmu dan, untuk masalah pembayaran, waktu serta metode pembayarannya. Jangan pernah
-        mengirim kata sandi, API key, atau token bot lewat email atau Telegram.
+        mengirim kata sandi, API key, atau token bot lewat email.
       </p>
     </PageShell>
   )

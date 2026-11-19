@@ -1,16 +1,20 @@
 "use client"
 
-import { BookOpen, Mail, Send, ShieldAlert } from "lucide-react"
+import { BookOpen, Mail, MessageCircle, ShieldAlert } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/app/page-header"
+import { QueryFallback } from "@/components/app/query-fallback"
+import { useSupportContact } from "@/hooks/use-hermes"
 import { useT } from "@/lib/i18n"
-import { SUPPORT, supportEmail } from "@/lib/support"
+import { formatWhatsapp, SUPPORT, whatsappUrl } from "@/lib/support"
 
 const linkClass = "text-foreground underline underline-offset-4"
+const rowClass = "flex flex-wrap items-center justify-between gap-3 border-t py-3 first:border-t-0 first:pt-0"
 
 export function SupportView() {
   const t = useT()
-  const email = supportEmail()
+  const contact = useSupportContact()
+  const c = contact.data
   return (
     <div className="grid gap-8">
       <PageHeader
@@ -22,31 +26,39 @@ export function SupportView() {
         <Card>
           <CardHeader>
             <CardTitle>{t("Contact us")}</CardTitle>
-            <CardDescription>{t("Message us on Telegram or by email.")}</CardDescription>
+            <CardDescription>{t("Message us on WhatsApp or by email.")}</CardDescription>
           </CardHeader>
           <CardContent>
-            <ul className="grid">
-              <li className="flex flex-wrap items-center justify-between gap-3 border-t py-3 first:border-t-0 first:pt-0">
-                <span className="flex items-center gap-2 text-muted-foreground">
-                  <Send className="size-4" aria-hidden="true" />
-                  Telegram
-                </span>
-                <a href={SUPPORT.telegramUrl} target="_blank" rel="noopener noreferrer" className={linkClass}>
-                  {SUPPORT.telegramHandle}
-                </a>
-              </li>
-              {email ? (
-                <li className="flex flex-wrap items-center justify-between gap-3 border-t py-3">
-                  <span className="flex items-center gap-2 text-muted-foreground">
-                    <Mail className="size-4" aria-hidden="true" />
-                    {t("Email")}
-                  </span>
-                  <a href={`mailto:${email}`} className={`${linkClass} break-all`}>
-                    {email}
-                  </a>
-                </li>
-              ) : null}
-            </ul>
+            {!c ? (
+              <QueryFallback what="contacts" queries={[contact]} className="h-20 bg-elevated" />
+            ) : !c.whatsapp && !c.email ? (
+              <p className="text-muted-foreground">{t("Support contacts are not set yet. The guides below cover the common questions.")}</p>
+            ) : (
+              <ul className="grid">
+                {c.whatsapp ? (
+                  <li className={rowClass}>
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <MessageCircle className="size-4" aria-hidden="true" />
+                      WhatsApp
+                    </span>
+                    <a href={whatsappUrl(c.whatsapp)} target="_blank" rel="noopener noreferrer" className={linkClass}>
+                      {formatWhatsapp(c.whatsapp)}
+                    </a>
+                  </li>
+                ) : null}
+                {c.email ? (
+                  <li className={rowClass}>
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Mail className="size-4" aria-hidden="true" />
+                      {t("Email")}
+                    </span>
+                    <a href={`mailto:${c.email}`} className={`${linkClass} break-all`}>
+                      {c.email}
+                    </a>
+                  </li>
+                ) : null}
+              </ul>
+            )}
           </CardContent>
         </Card>
 
