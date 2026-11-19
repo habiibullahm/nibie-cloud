@@ -332,6 +332,14 @@ describe('deploy/Caddyfile', () => {
     }
   });
 
+  it('forwards every public route the backend registers', () => {
+    // A public route missing here answers 404 in production while every local test passes (support-contact, 2026-11-19).
+    const src = readFileSync(new URL('../../src/http/public-routes.ts', import.meta.url), 'utf8');
+    const routes = [...src.matchAll(/pub\.(?:get|post)\(\s*'(\/api\/v1\/public\/[^']+)'/g)].map((m) => m[1]);
+    expect(routes.length).toBeGreaterThan(3);
+    expect(routes.filter((r) => !matcher.split(/\s+/).includes(r!))).toEqual([]);
+  });
+
   it('still never forwards the operator API, jobs or everything else', () => {
     expect(matcher).not.toMatch(/tenants|jobs|\/api\/v1\/\*/);
     expect(caddy).toMatch(/\(\\\.\\\.\|%2e\|%2f\|\/\/\)/);
