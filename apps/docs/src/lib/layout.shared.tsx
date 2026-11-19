@@ -1,6 +1,6 @@
 import Image from "next/image"
 import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared"
-import logoMark from "@/assets/logo-mark-on-dark.png"
+import logoMark from "@/assets/mark-paper.svg"
 
 export function baseOptions(): BaseLayoutProps {
   return {

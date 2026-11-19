@@ -17,7 +17,7 @@ export function SiteHeader() {
           className="type-label -mx-1 inline-flex min-h-11 items-center gap-2 rounded-sm px-1 text-foreground no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {/* Brand mark (owner-supplied asset); decorative, the name next to it is the link text. */}
-          <Image src="/logo-mark-on-dark.png" alt="" aria-hidden width={36} height={24} loading="eager" className="h-6 w-9 shrink-0" />
+          <Image src="/mark-paper.svg" alt="" aria-hidden width={36} height={24} loading="eager" className="h-6 w-9 shrink-0" />
           {SITE.name}
         </Link>
         <nav aria-label="Utama" className="hidden items-center gap-6 md:flex">
