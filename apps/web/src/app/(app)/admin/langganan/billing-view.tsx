@@ -47,7 +47,7 @@ export function AdminBillingView() {
                   <Link
                     href={`/admin/instance/${s.instanceId}`}
                     aria-label={`Lihat instance ${s.intendedName}`}
-                    className="no-underline hover:underline"
+                    className="underline decoration-input underline-offset-4 hover:decoration-foreground"
                   >
                     Lihat instance
                   </Link>

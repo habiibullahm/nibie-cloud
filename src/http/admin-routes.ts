@@ -458,7 +458,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
         await writeSupportContact(tx, next);
         await audit.record({
           actorEmail: admin.email, action: 'POST /support-contact', targetType: 'support-contact', targetId: null,
-          reason: why, detail: { from: { ...before }, to: { ...next }, ...via(req) },
+          reason: why ?? null, detail: { from: { ...before }, to: { ...next }, ...via(req) },
         }, tx);
         return next;
       });

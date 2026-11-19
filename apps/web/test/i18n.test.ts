@@ -8,6 +8,7 @@ import type { BillingStatus, InstanceStatus } from "../src/lib/api/types"
 import { billingStatusLabel } from "../src/lib/billing"
 import { GROUPS, SORTS } from "../src/lib/instance-list"
 import { validateInstanceName } from "../src/app/(app)/deploy/validate-name"
+import { instanceStatusId } from "../src/lib/admin-format"
 
 function literals(dir: string, out = new Set<string>()): Set<string> {
   for (const f of readdirSync(dir)) {
@@ -47,6 +48,15 @@ describe("Bahasa Indonesia dictionary", () => {
   it("keeps the same placeholders in every translation", () => {
     const bad = Object.entries(ID).filter(([en, id]) => placeholders(en).join() !== placeholders(id).join())
     expect(bad).toEqual([])
+  })
+})
+
+describe("status words", () => {
+  it("are the same in the customer dashboard and the admin panel", () => {
+    // CONFIGURING is shown to customers as Provisioning, so the admin's own word for it is not compared.
+    const statuses: InstanceStatus[] = ["PENDING", "PROVISIONING", "STARTING", "ACTIVE", "DEGRADED", "STOPPING", "STOPPED", "SUSPENDED", "FAILED", "DELETING", "DELETED"]
+    const differ = statuses.filter((s) => translate("id", presentStatus(s).label) !== instanceStatusId(s))
+    expect(differ).toEqual([])
   })
 })
 

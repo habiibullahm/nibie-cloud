@@ -43,7 +43,7 @@ export interface AdminApi {
   /** Changes data: sets a priced plan's stock (null: no limit). Answers 409 `free_plan_stock` for the free plan. */
   setPlanStock(id: string, stockLimit: number | null, reason: string): Promise<Pick<AdminPlan, "id" | "slug" | "stockLimit">>
   /** Changes data: the support contacts on the dashboard's Support page. An empty string clears one. */
-  setSupportContact(input: { whatsapp: string; email: string; reason: string }): Promise<{ whatsapp: string | null; email: string | null }>
+  setSupportContact(input: { whatsapp: string; email: string }): Promise<{ whatsapp: string | null; email: string | null }>
   nodes(): Promise<AdminNode[]>
   subscriptions(cursor?: string): Promise<AdminPage<AdminSubscription>>
   payments(cursor?: string): Promise<AdminPage<AdminPayment>>

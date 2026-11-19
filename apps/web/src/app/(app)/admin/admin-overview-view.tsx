@@ -7,19 +7,20 @@ import { StatusBadge } from "@/components/app/status-badge"
 import { useAdminOverview, useAdminSystem } from "@/hooks/use-admin"
 import { instanceStatusId } from "@/lib/admin-format"
 import type { BackendStatus } from "@/lib/api/types"
+import { cn } from "@/lib/utils"
 
+/** The number is the point of the tile, so it gets the heading size (not CardTitle, whose type-label would win in CSS). */
 function Stat({ label, value, hint }: { label: string; value: number | string; hint?: string }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className="type-h1">{value}</CardTitle>
-      </CardHeader>
-      {hint ? <CardContent className="text-muted-foreground">{hint}</CardContent> : null}
-    </Card>
+    <div className="grid gap-1 rounded-md border bg-card p-4">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="type-h1 tabular-nums">{value}</span>
+      {hint ? <span className="text-muted-foreground">{hint}</span> : null}
+    </div>
   )
 }
 
+/** "Mati" is drawn differently (dashed, muted) so a switch that is off stands out, not only by its word. */
 function Switch({ label, on, detail }: { label: string; on: boolean; detail?: string }) {
   return (
     <div className="flex items-center justify-between gap-3 border-b py-2 last:border-b-0">
@@ -28,7 +29,10 @@ function Switch({ label, on, detail }: { label: string; on: boolean; detail?: st
         {detail ? <p className="type-mono text-muted-foreground">{detail}</p> : null}
       </div>
       <span
-        className="type-label shrink-0 rounded-sm border px-2 py-1"
+        className={cn(
+          "type-label shrink-0 rounded-sm border px-2 py-1",
+          on ? "border-input text-foreground" : "border-dashed border-input text-muted-foreground"
+        )}
         data-on={on}
       >
         {on ? "Nyala" : "Mati"}
@@ -52,7 +56,7 @@ export function AdminOverviewView() {
     <div className="grid gap-8">
       <PageHeader title="Ringkasan" description="Keadaan Nibie Cloud saat ini, langsung dari backend." />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <Stat label="Pelanggan" value={c.customers} />
         <Stat label="Instance" value={c.instances} hint={`${c.activeInstances} aktif`} />
         <Stat label="Langganan" value={c.subscriptions} />
@@ -60,7 +64,7 @@ export function AdminOverviewView() {
         <Stat label="Instance gagal" value={c.failedInstances} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid items-start gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Instance per status</CardTitle>

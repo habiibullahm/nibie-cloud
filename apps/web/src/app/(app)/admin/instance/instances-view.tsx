@@ -61,7 +61,7 @@ export function AdminInstancesView() {
               <StatusBadge status={i.status as BackendStatus} label={instanceStatusId(i.status)} />
             </TableCell>
             <TableCell>
-              <Link href={`/admin/instance/${i.id}`} className="no-underline hover:underline">
+              <Link href={`/admin/instance/${i.id}`} className="underline decoration-input underline-offset-4 hover:decoration-foreground">
                 {i.name}
               </Link>
             </TableCell>
