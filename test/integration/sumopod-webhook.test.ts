@@ -1,4 +1,5 @@
 import { createHmac, randomUUID } from 'node:crypto';
+import { Writable } from 'node:stream';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createPrisma } from '../../src/db/client.js';
 import { buildServer } from '../../src/http/server.js';
@@ -214,14 +215,24 @@ describe('SumoPod webhook', () => {
     expect(payment.status).toBe('PAID');
   });
 
-  it('rejects an amount mismatch without paying', async () => {
+  it('rejects an amount mismatch without paying, and logs it as an error for the operator', async () => {
     const { merchantOrderId } = await pendingPayment();
+    let logs = '';
+    billing = new BillingService({
+      prisma, paymentClient: env.sumopod, sumopodAuth: { webhookToken: TOKEN },
+      commands: env.commands, mailer: env.mailer as never,
+      dashboardOrigin: 'https://cloud.example.test', maxInstancesPerTenant: 2,
+      logger: createLogger({ level: 'debug', stream: new Writable({ write(c, _e, cb) { logs += c.toString(); cb(); } }) }),
+    });
     await post(app(), {
       event_type: 'payment.completed',
       data: { order_id: merchantOrderId, payment_id: 'pay_6', amount: PRICE + 1, status: 'paid' },
     });
     const payment = await prisma.payment.findUniqueOrThrow({ where: { merchantOrderId } });
     expect(payment.status).toBe('PENDING');
+    const line = logs.split('\n').find((l) => l.includes('amount mismatch'));
+    expect(line).toBeDefined();
+    expect(JSON.parse(line!)).toMatchObject({ level: 50, merchantOrderId, amountIdr: PRICE + 1 });
   });
 
   it('accepts an unknown order and records the event', async () => {
@@ -232,5 +243,29 @@ describe('SumoPod webhook', () => {
     expect(res.statusCode).toBe(200);
     const ev = await prisma.paymentEvent.findFirst();
     expect(ev?.outcome).toBe('unknown_order');
+  });
+
+  it('lets a known event type decide over the status word', async () => {
+    const { merchantOrderId } = await pendingPayment();
+    await post(app(), { event_type: 'payment.completed', data: { order_id: merchantOrderId, payment_id: 'pay_8', amount: PRICE, status: 'pending' } });
+    expect((await prisma.payment.findUniqueOrThrow({ where: { merchantOrderId } })).status).toBe('PAID');
+  });
+
+  it('treats payment.expired as not paid, and as expired rather than failed', async () => {
+    const { merchantOrderId } = await pendingPayment();
+    await post(app(), { event_type: 'payment.expired', data: { order_id: merchantOrderId, payment_id: 'pay_9', amount: PRICE, status: 'expired' } });
+    const payment = await prisma.payment.findUniqueOrThrow({ where: { merchantOrderId } });
+    expect(payment.status).toBe('EXPIRED');
+    expect(payment.resultCode).toBe('expired');
+  });
+
+  it('acknowledges an unknown event or status without writing anything', async () => {
+    const { merchantOrderId } = await pendingPayment();
+    const a = app();
+    const unknownEvent = await post(a, { event_type: 'payment.refunded', data: { order_id: merchantOrderId, payment_id: 'pay_10', amount: PRICE, status: 'refunded' } });
+    const unknownFlat = await post(a, { order_id: merchantOrderId, payment_id: 'pay_11', amount: PRICE, status: 'processing' });
+    expect([unknownEvent.statusCode, unknownFlat.statusCode]).toEqual([200, 200]);
+    expect(await prisma.paymentEvent.count()).toBe(0);
+    expect((await prisma.payment.findUniqueOrThrow({ where: { merchantOrderId } })).status).toBe('PENDING');
   });
 });

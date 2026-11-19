@@ -159,6 +159,14 @@ describe('wallet', () => {
       expect(await balance(s.tenant.id)).toBe(WALLET_MAX_IDR + 500_000);
     });
 
+    it('leaves a top-up untouched on an unknown event', async () => {
+      const t = await topup(30_000);
+      const body = { event_type: 'payment.refunded', data: { order_id: await orderOf(t.id), payment_id: 'REF-U', amount: 30_000, status: 'refunded' } };
+      expect(await env.billing.handleSumoPodWebhook({ token: WEBHOOK_TOKEN }, body)).toMatchObject({ accepted: true, outcome: 'ignored_event' });
+      expect((await prisma.walletTopup.findUniqueOrThrow({ where: { id: t.id } })).status).toBe('PENDING');
+      expect(await balance(s.tenant.id)).toBe(0);
+    });
+
     it('leaves hosting payments on their own path', async () => {
       expect(await pay('nw-unknown', { amount: 10_000 })).toMatchObject({ outcome: 'unknown_order' });
     });

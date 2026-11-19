@@ -61,7 +61,7 @@ DATABASE_URL=postgresql://hermes:hermes_dev_only@127.0.0.1:5433/hermes_test pnpm
 | `SECRETS_KEK` | Base64 of exactly 32 random bytes (`openssl rand -base64 32`). The key-encryption key for customer credentials (provider API keys, Telegram bot tokens). Required when `NODE_ENV=production`; without it the credential routes answer `503 secrets_unavailable` and no instance gets a credential. Host environment only, never the repository. See [Secrets](#secrets-provider-keys-and-telegram) |
 | `SECRETS_KEK_VERSION` | Positive integer, default `1`. The version number stored beside every secret sealed with `SECRETS_KEK` |
 | `SUMOPOD_SMTP_HOST`, `SUMOPOD_SMTP_PORT`, `SUMOPOD_SMTP_USER`, `SUMOPOD_SMTP_PASS`, `MAIL_FROM` | All five or none. SumoPod SMTP for the billing emails (port 465 uses implicit TLS, any other port STARTTLS). Unset: the backend sends no email; billing still works and the notice is retried once mail is configured |
-| `SUMOPOD_API_KEY`, `SUMOPOD_WEBHOOK_TOKEN`, `SUMOPOD_CALLBACK_URL` | All three or none (billing off: checkout, the billing routes and the webhook answer 404). Needs `DASHBOARD_ORIGIN` too (the invoice's return URL). Host environment only, never the repository. See [Billing](#billing-sumopod) |
+| `SUMOPOD_API_KEY`, `SUMOPOD_WEBHOOK_TOKEN`, `SUMOPOD_CALLBACK_URL` | All three or none (billing off: checkout, the billing routes and the webhook answer 404). Needs `DASHBOARD_ORIGIN` too (the invoice's return URL). `SUMOPOD_CALLBACK_URL` is not sent to SumoPod; it records the webhook URL set in the SumoPod dashboard. Host environment only, never the repository. See [Billing](#billing-sumopod) |
 | `NIBIEROUTER_ADMIN_KEY`, `NIBIEROUTER_DEFAULT_MODEL` | Both or neither. Turns on the NibieRouter user, per-instance key and one-time credit for paid instances, and the key for free instances (needs `SECRETS_KEK`). Host environment only. See [NibieRouter](#nibierouter-key-and-credit) |
 | `NIBIEROUTER_API_URL`, `NIBIEROUTER_USER_EMAIL_DOMAIN` | Optional. Router origin (https, default `https://router.nibie.app`) and the domain of the synthetic per-tenant router user address (default `cloud.nibie.app`) |
 | `SUMOPOD_ENV` | `sandbox` (default) or `production`. `production` is refused unless `NODE_ENV=production` |
@@ -134,8 +134,10 @@ was written for Duitku and is historical. Go-live steps: [billing-go-live.md](bi
   for sale and checkout answers `409 plan_not_for_sale`.
 - **Public webhook:** `POST /api/v1/billing/sumopod/webhook` (JSON). The Svix signature (or the `X-Webhook-Token` when
   no signing secret is set) is the authentication and is checked before any database access: failed check `400`,
-  everything else `200`. Set the same URL as `SUMOPOD_CALLBACK_URL` and in the SumoPod dashboard. `deploy/Caddyfile`
-  forwards it and the customer billing paths.
+  everything else `200`. The URL is set in the SumoPod dashboard; `SUMOPOD_CALLBACK_URL` records the same URL but is
+  never sent to SumoPod. `deploy/Caddyfile` forwards it and the customer billing paths. A known `event_type` decides
+  (`payment.completed` paid, `payment.failed` and `payment.expired` not paid); an unknown event or status is answered
+  `200` and changes nothing (`ignored_event`, logged as a warning). Operations: [runbook-payments.md](runbook-payments.md).
 - **Test price:** prices are an operator step, never a migration. List plans with
   `pnpm tsx scripts/seed-sandbox-plans.ts`, set a sandbox price with `pnpm tsx scripts/seed-sandbox-plans.ts <slug> 10000`
   (minimum 1000; refused when `NODE_ENV` or `SUMOPOD_ENV` is production).

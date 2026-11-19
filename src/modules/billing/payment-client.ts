@@ -6,7 +6,7 @@ export interface InvoiceRequest {
   productDetails: string;
   email: string;
   returnUrl: string;
-  /** SumoPod does not support this; its client ignores it. */
+  /** Sent to SumoPod as `expires_in_hours`, rounded up to whole hours (1 to 24). */
   expiryMinutes?: number;
 }
 

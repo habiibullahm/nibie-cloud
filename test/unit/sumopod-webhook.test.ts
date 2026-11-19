@@ -41,6 +41,18 @@ describe('SumoPod webhook', () => {
     expect(r).toMatchObject({ accepted: true, outcome: 'ignored_failure' });
   });
 
+  it('ignores an unknown event type, or a flat body with an unknown status, before touching the database', async () => {
+    const data = { order_id: 'nc-x', payment_id: 'p', amount: 25_000, status: 'refunded' };
+    for (const body of [{ event_type: 'payment.refunded', data }, { event_type: 'constructor', data }, { ...data, status: 'processing' }]) {
+      expect(await service().handleSumoPodWebhook({ token: TOKEN }, body)).toMatchObject({ accepted: true, outcome: 'ignored_event', merchantOrderId: 'nc-x' });
+    }
+  });
+
+  it('rejects a flat body with no status', async () => {
+    const r = await service().handleSumoPodWebhook({ token: TOKEN }, { order_id: 'nc-x', payment_id: 'p', amount: 25_000 });
+    expect(r.accepted).toBe(false);
+  });
+
   it('rejects an envelope with no order_id', async () => {
     const r = await service().handleSumoPodWebhook({ token: TOKEN }, { event_type: 'payment.completed', data: { status: 'paid' } });
     expect(r.accepted).toBe(false);

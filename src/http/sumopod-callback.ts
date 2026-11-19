@@ -51,7 +51,7 @@ export function registerSumoPodWebhook(app: FastifyInstance, deps: { billing: Bi
       if (!result.accepted) {
         return reply.status(400).send({ error: { code: 'invalid_webhook', message: 'Invalid webhook' } });
       }
-      deps.logger.info({ outcome: result.outcome }, 'sumopod webhook processed');
+      deps.logger.info({ outcome: result.outcome, merchantOrderId: result.merchantOrderId }, 'sumopod webhook processed');
       setImmediate(() => {
         result.postActions().catch((e: Error) => deps.logger.error({ errName: e.name }, 'post-payment actions failed'));
       });

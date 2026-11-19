@@ -19,10 +19,13 @@ const HOSTS = { sandbox: 'api-pay-sandbox.sumopod.com', production: 'api-pay.sum
 
 const invoiceRespSchema = z.object({
   payment_id: z.string().min(1).max(200),
-  payment_link_url: z.string().max(2048).optional(),
-  payment_code: z.string().max(100).optional(),
+  // SumoPod always returns its hosted payment page (`https://pay.sumopod.com/pay/<payment_id>`, dashboard Quick Start).
+  payment_link_url: z.string().min(1).max(2048),
   status: z.string().optional(),
-}).refine((d) => d.payment_link_url || d.payment_code, { message: 'needs payment_link_url or payment_code' });
+});
+
+/** SumoPod's own limit for `expires_in_hours` (24, also its default when omitted). */
+const MAX_EXPIRY_HOURS = 24;
 
 /**
  * SumoPod Managed Payment `createInvoice`. Sends `X-Api-Key` header (never logged).
@@ -46,6 +49,11 @@ export function createSumoPodClient(cfg: SumoPodConfig, deps: { fetcher?: typeof
         // production — the payer would land on the live site after paying a sandbox invoice.
         success_return_url: input.returnUrl,
         cancel_return_url: input.returnUrl,
+        // Without this the QR stays payable for SumoPod's default 24 hours, long after our own row expired, so a
+        // customer could pay an old invoice after opening a new one. Whole hours only, rounded up.
+        ...(input.expiryMinutes !== undefined
+          ? { expires_in_hours: Math.min(MAX_EXPIRY_HOURS, Math.max(1, Math.ceil(input.expiryMinutes / 60))) }
+          : {}),
       });
 
       let res: SafeFetchResult;
@@ -77,17 +85,14 @@ export function createSumoPodClient(cfg: SumoPodConfig, deps: { fetcher?: typeof
 
       if (res.status !== 200 && res.status !== 201) throw new PaymentProviderRejectedError();
 
-      const paymentUrl = parsed.payment_link_url ?? '';
+      const paymentUrl = parsed.payment_link_url;
       try {
-        if (paymentUrl && new URL(paymentUrl).protocol !== 'https:') throw new Error('not https');
+        if (new URL(paymentUrl).protocol !== 'https:') throw new Error('not https');
       } catch {
         throw new PaymentProviderRejectedError();
       }
 
-      return {
-        reference: parsed.payment_id,
-        paymentUrl: paymentUrl || `https://app.sumopod.com/pay/${parsed.payment_code}`,
-      };
+      return { reference: parsed.payment_id, paymentUrl };
     },
   };
 }
