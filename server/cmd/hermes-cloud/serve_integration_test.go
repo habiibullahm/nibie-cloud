@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"net"
 	"net/http"
 	"os"
@@ -140,5 +141,73 @@ func TestHealthcheckFailsWhenNothingListens(t *testing.T) {
 	hc.Env = []string{"PORT=" + strconv.Itoa(freePort(t))}
 	if err := hc.Run(); err == nil || hc.ProcessState.ExitCode() != 1 {
 		t.Fatalf("healthcheck with nothing listening: exit %d, want 1", hc.ProcessState.ExitCode())
+	}
+}
+
+// serveEnv is the minimal valid environment for serve, with overrides.
+func serveEnv(t *testing.T, port int, extra ...string) []string {
+	t.Helper()
+	env := []string{
+		"PATH=" + os.Getenv("PATH"),
+		"NODE_ENV=test",
+		"DATABASE_URL=" + pgtest.Fresh(t, "") + "?schema=public",
+		"HERMES_IMAGE=hermes-stub:0.1.0",
+		"ADMIN_TOKEN=" + strings.Repeat("a", 24),
+		"HERMES_MASTER_KEY=" + strings.Repeat("k", 32),
+		"HERMES_DISK_QUOTA=off",
+		"HERMES_EGRESS_POLICY=off",
+		"PORT=" + strconv.Itoa(port),
+	}
+	return append(env, extra...)
+}
+
+// TestServeReadyzNamesDocker: without a reachable daemon serve still starts (runc, quota and egress off need
+// none), and /readyz answers 503 naming only "docker".
+func TestServeReadyzNamesDocker(t *testing.T) {
+	bin := buildBinary(t)
+	port := freePort(t)
+	var logs bytes.Buffer
+	cmd := exec.Command(bin)
+	cmd.Env, cmd.Dir, cmd.Stdout, cmd.Stderr = serveEnv(t, port, "DOCKER_SOCKET_PATH=/nonexistent.sock"), t.TempDir(), &logs, &logs
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		res, err := http.Get("http://127.0.0.1:" + strconv.Itoa(port) + "/readyz")
+		if err == nil {
+			body := new(bytes.Buffer)
+			_, _ = body.ReadFrom(res.Body)
+			res.Body.Close()
+			if res.StatusCode == 503 && strings.TrimSpace(body.String()) == `{"status":"fail","failed":["docker"]}` {
+				return
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("/readyz never answered 503 naming docker (last err %v)\n%s", err, logs.String())
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+// TestServeRefusesWithoutDockerWhenQuotaEnforced: the disk-quota startup check needs the daemon; without it serve
+// exits 1 with the fixed message and no Docker text.
+func TestServeRefusesWithoutDockerWhenQuotaEnforced(t *testing.T) {
+	bin := buildBinary(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin)
+	cmd.Env, cmd.Dir = serveEnv(t, freePort(t), "DOCKER_SOCKET_PATH=/nonexistent.sock", "HERMES_DISK_QUOTA=enforce"), t.TempDir()
+	out, _ := cmd.CombinedOutput()
+	if ctx.Err() != nil {
+		t.Fatalf("serve did not exit within 20 s (it must refuse at startup):\n%s", out)
+	}
+	if code := cmd.ProcessState.ExitCode(); code != 1 {
+		t.Fatalf("exit %d\n%s", code, out)
+	}
+	s := string(out)
+	if !strings.Contains(s, "HERMES_DISK_QUOTA") || strings.Contains(s, "nonexistent.sock") || strings.Contains(strings.ToLower(s), "cannot connect") {
+		t.Fatalf("output:\n%s", s)
 	}
 }

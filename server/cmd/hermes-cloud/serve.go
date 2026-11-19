@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"net"
 	nethttp "net/http"
 	"os"
@@ -12,10 +13,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/docker/docker/client"
+
 	"github.com/habiibullahm/nibie-cloud/server/internal/config"
 	"github.com/habiibullahm/nibie-cloud/server/internal/db"
 	"github.com/habiibullahm/nibie-cloud/server/internal/db/sqlcgen"
 	apihttp "github.com/habiibullahm/nibie-cloud/server/internal/http"
+	"github.com/habiibullahm/nibie-cloud/server/internal/runtime"
 	"github.com/habiibullahm/nibie-cloud/server/internal/shared/logger"
 )
 
@@ -23,8 +27,8 @@ import (
 // a dead database), like the Node backend's 30 s timer.
 const shutdownLimit = 30 * time.Second
 
-// serve runs the API on 127.0.0.1:PORT until SIGINT or SIGTERM. In M0 it only answers /healthz and
-// /readyz; the Docker check, the job worker and the APIs come in later milestones.
+// serve runs the API on 127.0.0.1:PORT until SIGINT or SIGTERM. It answers /healthz and /readyz (database and
+// docker) after the runtime startup checks pass; the job worker and the APIs come in later milestones.
 func serve(ctx context.Context, cfg config.Config, stdout io.Writer) int {
 	log := logger.New(stdout, logger.ParseLevel(os.Getenv("LOG_LEVEL")))
 	log.Info("config", "config", cfg)
@@ -40,8 +44,21 @@ func serve(ctx context.Context, cfg config.Config, stdout io.Writer) int {
 	defer pool.Close()
 	queries := sqlcgen.New(pool)
 
+	docker, err := client.NewClientWithOpts(client.WithHost("unix://"+cfg.DockerSocketPath), client.WithAPIVersionNegotiation())
+	if err != nil {
+		log.Error("startup failed", "err", "docker client could not be created")
+		return 1
+	}
+	defer docker.Close()
+	if code := runtimeStartupChecks(ctx, docker, cfg, log); code != 0 {
+		return code
+	}
+	// The tenant runtime. Nothing calls it yet: instances arrive in M2.
+	_ = runtime.NewDocker(docker, log)
+
 	handler := apihttp.NewHandler(apihttp.Deps{Log: log, Checks: []apihttp.Check{
 		{Name: "database", Fn: func(ctx context.Context) error { _, err := queries.Ping(ctx); return err }},
+		{Name: "docker", Fn: func(ctx context.Context) error { _, err := docker.Ping(ctx); return err }},
 	}})
 	// Loopback only: this API must not be reachable from the network (a proxy forwards what is public).
 	ln, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(cfg.Port)))
@@ -74,6 +91,47 @@ func serve(ctx context.Context, cfg config.Config, stdout io.Writer) int {
 	if err := srv.Shutdown(shutdownCtx); err != nil && !errors.Is(err, nethttp.ErrServerClosed) {
 		log.Error("shutdown", "err", err.Error())
 		return 1
+	}
+	return 0
+}
+
+// runtimeStartupChecks refuses to serve tenants when the host cannot run them safely, in the order of
+// src/main.ts: the OCI runtime, the disk quota, the egress ruleset (canary) and, under runsc, the tenant DNS
+// volume. It logs a fixed message (never Docker text) and returns the exit code, 0 when everything passed.
+func runtimeStartupChecks(ctx context.Context, docker *client.Client, cfg config.Config, log *slog.Logger) int {
+	if err := runtime.AssertRuntimeAvailable(ctx, docker, cfg.Runtime); err != nil {
+		log.Error("startup failed", "err", err.Error())
+		return 1
+	}
+	if err := runtime.AssertDiskQuotaSupported(ctx, docker, cfg.DiskQuota); err != nil {
+		log.Error("startup failed", "err", err.Error())
+		return 1
+	}
+	if cfg.EgressPolicy == "enforce" {
+		err := runtime.RunEgressCanary(ctx, docker, cfg.CanaryImage, cfg.CanaryPrivateIP, cfg.Runtime, nil, log)
+		var pe *runtime.EgressPolicyError
+		var ce *runtime.EgressCanaryError
+		switch {
+		case errors.As(err, &pe) || errors.As(err, &ce):
+			log.Error(err.Error())
+			return 1
+		case err != nil:
+			log.Error("Egress canary failed unexpectedly")
+			return 1
+		}
+	}
+	if cfg.Runtime == "runsc" && len(cfg.DNSResolvers) > 0 {
+		// Without this, tenant containers under runsc get no working DNS.
+		err := runtime.EnsureDNSResolvConf(ctx, docker, cfg.CanaryImage, cfg.DNSResolvers, cfg.Runtime, log)
+		var de *runtime.DNSResolvConfError
+		switch {
+		case errors.As(err, &de):
+			log.Error(err.Error())
+			return 1
+		case err != nil:
+			log.Error("Tenant DNS resolv.conf setup failed unexpectedly")
+			return 1
+		}
 	}
 	return 0
 }
