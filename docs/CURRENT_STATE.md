@@ -4,7 +4,7 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
-## Wallet top-up saldo, part 1 of 3 (2026-11-20, branch `claude/wallet-topup`, not merged, not deployed)
+## Wallet top-up saldo, part 1 of 3 (2026-11-20, branch `claude/wallet-topup`, PR #96, not deployed)
 
 Owner: "add billing topup saldo for users". Owner decisions: an IDR wallet per tenant (not only AI credit), custom amount
 Rp 10.000 to 2.000.000, wallet cap Rp 5.000.000, admin adjust with reason and audit, non-refundable, auto-renew as a toggle
@@ -25,7 +25,7 @@ Balance. Plan: [superpowers/plans/2026-11-20-wallet-topup.md](superpowers/plans/
   `sumopod-webhook`, `billing-service`, `billing-tick`, `billing-api`, `admin-plan-stock`, `admin-api` pass; unit tests pass
   except the 2 known Windows-only `egress-canary` failures. Dashboard typecheck, lint, tests (203).
 
-## Volume quota raised automatically after an upgrade (2026-11-20, branch `claude/auto-volume-quota`)
+## Volume quota raised automatically after an upgrade (2026-11-20, branch `claude/auto-volume-quota`, PR #94, deployed `3952452`)
 
 Owner: "kenapa manual? make it auto update".
 - **Backend:** operator route `GET /api/v1/volume-quotas` (bearer `ADMIN_TOKEN`, refused when proxy headers are present, not in the
@@ -33,7 +33,9 @@ Owner: "kenapa manual? make it auto update".
 - **Host:** `ops/host/hermes-volume-quota.sh` + `.service` + `.timer` (every minute, root). Reads that route over loopback, finds the
   XFS project of `hermes-data-<id>` (`xfs_io lsproj`), and raises `bsoft`/`bhard` to the plan size when the current hard limit is
   smaller; never lowers one. Install steps: `deploy/README.md`. Dry run on the VPS with sample input listed only the 1 GiB volume.
-- **Not done yet:** installing the timer on the VPS (after this is deployed, since the route must exist first).
+- **Installed on the VPS (owner: "install"):** script at `/usr/local/sbin/hermes-volume-quota`, units in `/etc/systemd/system/`,
+  `hermes-volume-quota.timer` enabled. `DRY_RUN=1` against live data: nothing to raise. First run: `Result=success`, empty log.
+  **Not verified:** a real raise after a paid upgrade (needs a real payment); check `/var/log/hermes-volume-quota.log` then.
 - **Checks:** backend `tsc`; integration `operator-volume-quotas` (new) and `billing-upgrade` pass; `bash -n` on the script.
 
 ## Free instance upgrade to a paid plan; Kredit plan 10 GB (2026-11-20, branch `claude/free-upgrade`, PR #93)
@@ -49,8 +51,8 @@ Owner: "users bisa upgrade paket dari free plan dengan new payment" and "adjust 
   unpaid upgrade too. On the verified payment, `applyPlanChange` runs `router.begin` (the free key is kept; the row is linked
   to the subscription so the plan's one-time credit is granted), sets `planId`, bumps `configRevision`, records `plan.changed`
   and restarts a running instance (new CPU/memory/pids). The billing tick repairs a missed plan change.
-- **Not automatic:** the volume keeps the free plan's quota. The backend logs `plan upgraded: raise the volume quota on the
-  host`; the operator runs the `xfs_quota` steps in `docs/disk-quota-host-notes.md` (not verified on the host yet).
+- **Volume quota:** Docker keeps the free plan's quota on the volume; since PR #94 the host timer `hermes-volume-quota` raises it
+  to the new plan size within about a minute (section above).
 - **Capacity:** tenant volumes share a 100 GB XFS image (`/srv/hermes-volumes.img`). Stock 10 x 5 GB (Hosting) + 10 x 10 GB
   (Kredit) = 150 GB of caps; RAM (15 GB host, 1 GB per instance) limits the host to about 12 instances anyway.
 - **Dashboard:** the billing page of a free instance lists the priced plans with an "Upgrade to ..." button (SumoPod QRIS),
