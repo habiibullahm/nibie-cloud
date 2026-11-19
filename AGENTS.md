@@ -132,7 +132,11 @@ Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
   (`Wallet`) changed only with a `WalletEntry` (unique `(kind, refId)`, balance after) in one transaction under a row lock; DB
   CHECK `>= 0`. QRIS top-ups (`WalletTopup`, `nw-` order ids, Rp 10.000 to 2.000.000, wallet cap Rp 5.000.000) are credited by
   the same SumoPod webhook when no hosting `Payment` matches the order id. Admin adjust needs aal2, a reason and an `AuditLog`
-  row. Non-refundable. Paying hosting from it, auto-renew and buying AI credit are planned, not built
+  row. Non-refundable. `POST /payments/:id/pay-with-wallet` pays an open hosting invoice (purchase, upgrade, renewal) from it under
+  the same subscription row lock as the webhook (`Payment.method = WALLET`, ledger `HOSTING` keyed on the payment id); a QRIS payment
+  of an invoice already paid from the wallet is put back into the wallet (`credited_to_wallet`). With `WALLET_AUTO_RENEW` (default
+  off) the billing tick renews during the last day of a period when `Subscription.autoRenew` (default on, customer switch) and the
+  balance allow it, once per period (order id `ar-<sub>-<periodEnd>`). Buying AI credit is planned, not built
   (`docs/superpowers/plans/2026-11-20-wallet-topup.md`).
 - **Invoices** (`src/modules/billing/invoices.ts`, `GET /invoices`, `GET /invoices/:id`): one `Invoice` per paid `Payment` or paid
   `WalletTopup`, issued in the webhook transaction that marks it paid (unique source id, so never twice; issued even for

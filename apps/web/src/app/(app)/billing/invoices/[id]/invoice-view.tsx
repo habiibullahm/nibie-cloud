@@ -95,7 +95,7 @@ export function InvoiceView() {
               </div>
               <div>
                 <dt className="type-label text-muted-foreground">{t("Payment method")}</dt>
-                <dd>QRIS (SumoPod)</dd>
+                <dd>{inv.method === "WALLET" ? t("Nibie Cloud balance") : "QRIS (SumoPod)"}</dd>
               </div>
               {inv.reference ? (
                 <div>

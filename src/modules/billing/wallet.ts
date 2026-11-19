@@ -101,6 +101,8 @@ export interface WalletEntryView {
 
 export interface WalletView {
   balanceIdr: number;
+  /** WALLET_AUTO_RENEW: the billing tick renews subscriptions from this balance. */
+  autoRenew: boolean;
   limits: { topupMinIdr: number; topupMaxIdr: number; maxBalanceIdr: number };
   entries: WalletEntryView[];
   topups: TopupView[];
@@ -129,6 +131,7 @@ export interface WalletDeps {
   prisma: PrismaClient;
   paymentClient: PaymentClient;
   dashboardOrigin: string;
+  autoRenew?: boolean;
   now?: () => Date;
 }
 
@@ -148,6 +151,7 @@ export class WalletService {
     ]);
     return {
       ...w,
+      autoRenew: this.d.autoRenew === true,
       limits: { topupMinIdr: TOPUP_MIN_IDR, topupMaxIdr: TOPUP_MAX_IDR, maxBalanceIdr: WALLET_MAX_IDR },
       topups: topups.map((t) => topupView(t, now)),
     };

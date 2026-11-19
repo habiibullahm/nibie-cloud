@@ -178,6 +178,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
           gateway: config.billing ? 'sumopod' : null,
           paidCheckoutOpen: config.paidCheckoutOpen,
           walletEnabled: config.walletEnabled === true,
+          walletAutoRenew: config.walletEnabled === true && config.walletAutoRenew === true,
           sumopod: config.billing
             ? { env: config.billing.sumopod.env, webhookSigned: Boolean(config.billing.sumopod.webhookSecret) }
             : null,

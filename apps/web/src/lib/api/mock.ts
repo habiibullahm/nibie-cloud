@@ -662,6 +662,7 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       subscriptionId,
       status: "PENDING",
       purpose,
+      method: "QRIS",
       amountIdr,
       paymentUrl: MOCK_PAYMENT_URL,
       expiresAt: new Date(Date.now() + HOUR).toISOString(),
@@ -684,6 +685,7 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       status,
       currentPeriodEnd: new Date(status === "ACTIVE" ? created + 30 * DAY : Date.now() - 2 * DAY).toISOString(),
       cancelAtPeriodEnd: false,
+      autoRenew: true,
       graceEndsAt: status === "GRACE" ? new Date(Date.now() + DAY).toISOString() : null,
       retentionEndsAt: status === "SUSPENDED" ? new Date(Date.now() + 20 * DAY).toISOString() : null,
       createdAt: row.instance.createdAt,
@@ -727,7 +729,7 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       subs.set(sub.id, next)
       return next
     },
-    // An empty wallet; a top-up gets an invoice with no payment page, like renewals.
+    // A top-up gets an invoice with no payment page, like renewals.
     async wallet() {
       await wait()
       return { ...wallet, topups: [...wallet.topups] }
@@ -745,6 +747,33 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       wallet.topups.unshift(t)
       return t
     },
+    // Pays a renewal invoice from the sample wallet, like the backend: refused when the balance is short.
+    async payWithWallet(paymentId) {
+      await wait()
+      const sub = [...subs.values()].find((x) => x.latestPayment?.id === paymentId)
+      const payment = sub?.latestPayment
+      if (!sub || !payment || payment.status !== "PENDING") throw new ApiError(409, "payment_not_payable", "This invoice can no longer be paid.")
+      if (wallet.balanceIdr < payment.amountIdr) throw new ApiError(409, "insufficient_balance", "Not enough balance")
+      const now = new Date().toISOString()
+      wallet.balanceIdr -= payment.amountIdr
+      wallet.entries.unshift({ id: uuid(), amountIdr: -payment.amountIdr, kind: "HOSTING", balanceAfterIdr: wallet.balanceIdr, note: null, createdAt: now })
+      const paid = { ...payment, status: "PAID" as const, method: "WALLET" as const, paymentUrl: null, paidAt: now }
+      const from = sub.status === "ACTIVE" && sub.currentPeriodEnd ? Date.parse(sub.currentPeriodEnd) : Date.now()
+      const next = {
+        ...sub, status: "ACTIVE" as const, currentPeriodEnd: new Date(from + 30 * DAY).toISOString(),
+        graceEndsAt: null, retentionEndsAt: null, latestPayment: paid,
+      }
+      subs.set(sub.id, next)
+      return { subscription: next, payment: paid }
+    },
+    async setAutoRenew(subscriptionId, enabled) {
+      await wait()
+      const sub = subs.get(subscriptionId)
+      if (!sub) throw new ApiError(404, "not_found", "Subscription not found")
+      const next = { ...sub, autoRenew: enabled }
+      subs.set(sub.id, next)
+      return next
+    },
     async invoices() {
       await wait()
       return [...MOCK_INVOICES]
@@ -756,10 +785,14 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       return { ...inv, billedTo: "you@example.com" }
     },
   }
+  // A sample balance, so paying from the wallet can be tried in preview mode.
   const wallet: Wallet = {
-    balanceIdr: 0,
+    balanceIdr: 150_000,
+    autoRenew: true,
     limits: { topupMinIdr: 10_000, topupMaxIdr: 2_000_000, maxBalanceIdr: 5_000_000 },
-    entries: [],
+    entries: [
+      { id: uuid(), amountIdr: 150_000, kind: "TOPUP", balanceAfterIdr: 150_000, note: null, createdAt: new Date(Date.now() - DAY).toISOString() },
+    ],
     topups: [],
   }
 
@@ -770,11 +803,11 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
 const MOCK_INVOICES: Invoice[] = [
   {
     id: "7a1c2e9e-3c1d-4f0a-9b51-2f7f0c6d8e01", number: "INV/2026/11/0002", kind: "HOSTING_NEW", planName: "Hosting",
-    instanceName: "support-bot", amountIdr: 49_000, paidAt: "2026-11-20T03:12:00.000Z", reference: "SP-PREVIEW-2",
+    instanceName: "support-bot", amountIdr: 49_000, paidAt: "2026-11-20T03:12:00.000Z", reference: "SP-PREVIEW-2", method: "QRIS",
   },
   {
     id: "7a1c2e9e-3c1d-4f0a-9b51-2f7f0c6d8e00", number: "INV/2026/11/0001", kind: "TOPUP", planName: null,
-    instanceName: null, amountIdr: 50_000, paidAt: "2026-11-19T09:40:00.000Z", reference: "SP-PREVIEW-1",
+    instanceName: null, amountIdr: 50_000, paidAt: "2026-11-19T09:40:00.000Z", reference: "SP-PREVIEW-1", method: "QRIS",
   },
 ]
 

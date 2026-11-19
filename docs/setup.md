@@ -157,7 +157,7 @@ was written for Duitku and is historical. Go-live steps: [billing-go-live.md](bi
 ### Wallet (top-up saldo)
 
 Off unless `WALLET_ENABLED=true` (then `GET /api/v1/wallet` and the top-up routes exist; otherwise they answer `404`).
-Plan and the two later parts (paying hosting from the wallet, auto-renew, buying AI credit):
+Plan, including the part not built yet (buying AI credit):
 [superpowers/plans/2026-11-20-wallet-topup.md](superpowers/plans/2026-11-20-wallet-topup.md).
 
 - **Customer routes** (token required): `GET /wallet` (balance, limits, latest 50 entries, latest 20 top-ups),
@@ -175,6 +175,16 @@ Plan and the two later parts (paying hosting from the wallet, auto-renew, buying
   `POST /api/v1/admin/customers/:tenantId/wallet/adjust` `{ amountIdr, reason }` (MCP `adjust_wallet`) adds or takes up to
   Rp 2.000.000, never below zero, within the cap, with an `AuditLog` row in the same transaction. The customer sees
   "Penyesuaian admin".
+- **Paying hosting from the wallet:** `POST /payments/:paymentId/pay-with-wallet` pays an open (still payable) invoice of a
+  purchase, an upgrade or a renewal: `409 insufficient_balance` when short, `409 payment_not_payable` when it expired or was
+  already paid. The dashboard creates the invoice as usual (checkout, upgrade, renew) and then pays it from the balance when the
+  customer chose that. If the QRIS invoice of the same payment is paid later anyway, the webhook puts that money into the
+  wallet (outcome `credited_to_wallet`).
+- **Auto-renew:** `WALLET_AUTO_RENEW=true` (only with `WALLET_ENABLED`, default off) lets the billing tick renew an `ACTIVE` or
+  `GRACE` subscription during the last day of its period when its `autoRenew` switch is on (default on;
+  `POST /subscriptions/:id/auto-renew { enabled }`, shown on the instance's Billing tab) and the balance covers the price. One
+  charge per period (order id `ar-<subscription>-<period end>`); an open QRIS renewal invoice is marked expired. A short balance
+  changes nothing: the usual reminders and grace follow.
 - **Not refundable:** the dashboard and the receipt say the balance is not cash and cannot be refunded or withdrawn.
 - **Before turning it on:** verify one real SumoPod payment end to end, and add the non-refundable line to the landing
   terms page (owner wording).
