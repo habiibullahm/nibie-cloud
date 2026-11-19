@@ -3,9 +3,12 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { KeyRound, LogOut } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { KeyValue } from "@/components/app/key-value"
 import { PageHeader } from "@/components/app/page-header"
@@ -31,6 +34,65 @@ function useSignInMethods() {
     },
     enabled: authConfigured(),
   })
+}
+
+const MAX_NAME = 80
+
+/** Display name, kept in the Supabase user's metadata (no backend column). */
+function NameCard() {
+  const t = useT()
+  const qc = useQueryClient()
+  const user = useQuery({
+    queryKey: ["auth-user-name"],
+    queryFn: async () => {
+      const u = (await getSupabase()?.auth.getUser())?.data.user
+      const n = u?.user_metadata?.full_name
+      return typeof n === "string" ? n : ""
+    },
+    enabled: authConfigured(),
+  })
+  const [draft, setDraft] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const value = draft ?? user.data ?? ""
+  const dirty = draft !== null && draft.trim() !== (user.data ?? "")
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    const { error } = await getSupabase()!.auth.updateUser({ data: { full_name: value.trim() } })
+    setSaving(false)
+    if (error) return void toast.error(t("Could not save"))
+    toast.success(t("Name saved"))
+    setDraft(null)
+    await qc.invalidateQueries({ queryKey: ["auth-user-name"] })
+  }
+
+  return (
+    <Card>
+      <form onSubmit={save}>
+        <CardHeader>
+          <CardTitle>{t("Name")}</CardTitle>
+          <CardDescription>{t("How you appear in the dashboard.")}</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-2">
+          <Label htmlFor="display-name">{t("Name")}</Label>
+          <Input
+            id="display-name"
+            value={value}
+            maxLength={MAX_NAME}
+            autoComplete="name"
+            disabled={!user.data && user.data !== ""}
+            onChange={(e) => setDraft(e.target.value)}
+          />
+        </CardContent>
+        <CardFooter className="border-t">
+          <Button type="submit" disabled={!dirty || saving}>
+            {saving ? t("Saving…") : t("Save")}
+          </Button>
+        </CardFooter>
+      </form>
+    </Card>
+  )
 }
 
 export default function AccountPage() {
@@ -95,6 +157,8 @@ export default function AccountPage() {
             </Button>
           </CardFooter>
         </Card>
+
+        {authConfigured() ? <NameCard /> : null}
 
         <OrdersCard />
 
