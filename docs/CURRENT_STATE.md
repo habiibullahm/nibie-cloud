@@ -4,6 +4,14 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Instance self-management design spec (2026-11-19, branch `claude/self-manage-spec`)
+
+Design only, nothing built: [2026-11-19-instance-self-management-design.md](superpowers/specs/2026-11-19-instance-self-management-design.md).
+It covers a web shell (full shell as uid 10000; owner accepted that customers can see their own instance keys), a file manager, a
+`SOUL.md`/`config.yaml` editor with history, and dashboard self-recovery for `recovery_exhausted`. Target is the current Node backend
+(owner: "ignore go. focus on current codebase"). The three parts ship behind `SELF_MANAGE_CONFIG|FILES|SHELL`, off by default. The
+console and file manager pages stay mock until then.
+
 ## Beta invite email is plain text with Reply-To (2026-11-19, branch `claude/invite-deliverability`, not committed)
 
 The admin beta invite still landed in Gmail spam after the display-name change. NibieRouter sends through the same SumoPod SMTP and

@@ -36,4 +36,4 @@ Also outside `docs/`: [../AGENTS.md](../AGENTS.md) (agent instructions shared by
 | [implementation-checklist.md](implementation-checklist.md) | Milestone 1 plan tasks and review rounds. |
 | [review-fixes.md](review-fixes.md) | Milestone 1 review round 2 fixes. |
 | [superpowers/plans/](superpowers/plans) | Implementation plans: runtime foundation (2026-11-11), hardening wiring, frontend dashboard, disk quota, egress controls and backend milestones A (2026-11-12), B and C (2026-11-13). |
-| [superpowers/specs/](superpowers/specs) | Design specs: hardening wiring, disk quota and egress controls, and the backend design (customer API, jobs, secrets, billing; 2026-11-12, milestones B to D not built). |
+| [superpowers/specs/](superpowers/specs) | Design specs: hardening wiring, disk quota and egress controls, and the backend design (customer API, jobs, secrets, billing; 2026-11-12, milestones B to D not built). Also [instance self-management](superpowers/specs/2026-11-19-instance-self-management-design.md) (web shell, file manager, config editor, self-recovery; 2026-11-19, not built). |
