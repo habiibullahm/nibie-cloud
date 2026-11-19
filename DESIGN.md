@@ -152,9 +152,10 @@ keeps every other one (tertiary, on-tertiary, destructive), so terracotta and th
 
 Contrast in the light theme: secondary text 5.57:1 on secondary-surface (its darkest surface), border-strong 3.44:1 on
 elevated, on-tertiary on tertiary 4.84:1, destructive 4.76:1 on neutral. **ink** (#0B0D0F, the dark neutral) stays the
-same in both themes: hover and active shades of filled buttons and the dialog scrim mix toward it, and the on-dark brand
-mark always sits on a `rounded.sm` ink tile, so its near-white shape stays visible on light surfaces. An on-light
-variant of the mark is an owner asset that does not exist yet.
+same in both themes: hover and active shades of filled buttons and the dialog scrim mix toward it, and in the light
+theme the on-dark brand mark sits on a `rounded.sm` ink tile, so its near-white shape stays visible on light surfaces
+(in the dark theme it sits straight on the background, approved 2026-11-19). An on-light variant of the mark is an
+owner asset that does not exist yet.
 
 ## Typography
 
@@ -275,4 +276,4 @@ Corner radius scale:
 - Don't invent hex values outside the semantic token set; extend tokens instead of hard-coding.
 - Don't use color alone to convey instance state; pair badges with text (active, degraded, stopped, failed).
 - Exception (approved 2026-11-17): the "Continue with Google" button carries Google's own four-color "G" mark, because Google's sign-in branding requires it. It is the only third-party logo and the only non-Lucide icon; it sits inside an outline button that otherwise follows these tokens, and its colors are not tokens for any other use.
-- Approved asset (2026-11-18): the Nibie brand mark. The dashboard ships it as `apps/web/src/app/favicon.ico`, `icon.png` and `apple-icon.png` (browser and home-screen icons, rendered from `mark-paper.svg` on an ink tile so they match the header; landing and docs ship the same three files) and `apps/web/public/brand/mark-paper.svg` (the on-dark "paper" variant, the only one used in the dark UI; landing and docs ship the same file; source: the canonical marks at router.nibie.app/landing/, `mark-paper.svg`), shown beside the "Nibie Cloud" text in the headers as a decorative image. Its terracotta #D97757 belongs to the mark and is not a UI token: never use it for buttons, text or surfaces.
+- Approved asset (2026-11-18): the Nibie brand mark. The dashboard ships it as `apps/web/src/app/favicon.ico`, `icon.png` and `apple-icon.png` (browser and home-screen icons, rendered from `mark-paper.svg` on an ink tile so they match the header; landing and docs ship the same three files) and `apps/web/public/brand/mark-paper.svg` (the on-dark "paper" variant, the only one used in the dark UI; landing and docs ship the same file; source: the canonical marks at router.nibie.app/landing/, `mark-paper.svg`), shown beside the "Nibie Cloud" wordmark in the headers as a decorative image. The wordmark (approved 2026-11-19, to match NibieRouter's header) is Bricolage Grotesque 700 at 1rem in sentence case, the only use of that size in the dashboard. Its terracotta #D97757 belongs to the mark and is not a UI token: never use it for buttons, text or surfaces.

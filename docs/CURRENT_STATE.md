@@ -4,6 +4,24 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Dashboard shell like NibieRouter, Quickstart and Billing pages (2026-11-19, branch `claude/router-style-shell`, not committed)
+
+Owner asked for the dashboard header to look like router.nibie.app, plus Quickstart and Billing pages, and chose the options below.
+- **Shell (`app-shell.tsx`):** sidebar groups "Overview" (Quickstart, Instances, Deploy) and "Account" (Billing, Account settings,
+  Support), then Admin when allowed. A sticky top bar holds a breadcrumb (group > page), the language and theme switches and an
+  account menu (name/email, Account settings, Support, Sign out). No balance chip: Nibie Cloud has no credit balance. On phones the
+  switches move into the navigation sheet. Logo: no ink tile in the dark theme, wordmark in sentence case (`DESIGN.md` updated).
+- **`/quickstart`:** three steps checked from real data for the first running instance (`lib/quickstart.ts`, tested): deploy, AI
+  provider configured, Telegram configured and verified. The first open step gets the primary button.
+- **`/billing`:** every subscription on the account (plan, status, period, latest payment), with Pay for an open invoice,
+  Manage (the instance's Billing tab, where renew and cancel stay) or Order again for an expired order.
+- **Review fixes:** the latest-payment line is one helper (`paymentText` in `lib/billing.ts`, used by Account and Billing, tested), so
+  an unpaid invoice past its expiry reads "expired" and dates follow the language; no Manage link for an ended order; Quickstart waits
+  for the provider and Telegram status instead of showing those steps as open; e2e `login.spec.ts` signs out through the account menu.
+- **Checks:** web typecheck, lint, 23 test files (197 tests) pass; e2e typecheck; `DESIGN.md` lint clean. Build and headless
+  screenshots (mock mode, 1440px dark and light, 400px) were done before the review fixes. Not run: e2e suites, customer mode
+  against a real backend.
+
 ## No preview data in customer mode (2026-11-19, branch `claude/no-preview-data`, not committed)
 
 Owner: "pastikan no preview data lagi. we're going live prod". Before this, the customer dashboard still took an instance's plan

@@ -12,6 +12,7 @@ import {
   newestOrder,
   retryHref,
   payableUrl,
+  paymentText,
   subscriptionOfInstance,
 } from "../src/lib/billing"
 
@@ -168,5 +169,14 @@ describe("isRenewal and retryHref", () => {
   it("retries a renewal on its billing page and a new order on Deploy", () => {
     expect(retryHref(renewal)).toBe("/instances/i1/billing")
     expect(retryHref(fresh)).toBe("/deploy?name=bot&plan=p1")
+  })
+})
+
+describe("paymentText", () => {
+  const t = (text: string, vars?: Record<string, string | number>) => text.replace(/\{(\w+)\}/g, (_, k: string) => String(vars?.[k]))
+
+  it("calls an unpaid invoice past its expiry expired, not waiting", () => {
+    expect(paymentText(payment(), t, "en", NOW)).toMatch(/waiting for payment$/)
+    expect(paymentText(payment({ expiresAt: new Date(NOW - HOUR).toISOString() }), t, "en", NOW)).toMatch(/expired$/)
   })
 })

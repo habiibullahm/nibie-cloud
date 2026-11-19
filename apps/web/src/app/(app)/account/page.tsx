@@ -17,9 +17,8 @@ import { PreviewNote } from "@/components/app/preview-note"
 import { QueryFallback } from "@/components/app/query-fallback"
 import { keys, useApiMode, useDisplayName, useMe, useSubscriptions } from "@/hooks/use-hermes"
 import { authConfigured, getSupabase } from "@/lib/auth/supabase"
-import { billingStatusLabel, payableUrl } from "@/lib/billing"
+import { billingStatusLabel, paymentText } from "@/lib/billing"
 import type { BillingSubscription } from "@/lib/api/types"
-import { formatDate, formatPriceIdr } from "@/lib/format"
 import { useT } from "@/lib/i18n"
 import { useLang } from "@/lib/prefs"
 
@@ -227,17 +226,7 @@ function OrdersCard() {
 function OrderRow({ sub }: { sub: BillingSubscription }) {
   const t = useT()
   const lang = useLang()
-  const p = sub.latestPayment
-  const amount = p ? formatPriceIdr(p.amountIdr, lang) : ""
-  const payment = !p
-    ? null
-    : p.status === "PAID" && p.paidAt
-      ? t("{amount}, paid {date}", { amount, date: formatDate(p.paidAt, lang) })
-      : p.status === "PENDING" && payableUrl(p)
-        ? t("{amount}, waiting for payment", { amount })
-        : p.status === "FAILED"
-          ? t("{amount}, failed", { amount })
-          : t("{amount}, expired", { amount })
+  const payment = sub.latestPayment ? paymentText(sub.latestPayment, t, lang) : null
   return (
     <li className="flex flex-wrap items-start justify-between gap-3 border-t py-3 first:border-t-0 first:pt-0">
       <div className="grid min-w-0 gap-1">

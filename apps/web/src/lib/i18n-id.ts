@@ -17,6 +17,61 @@ export const ID: Record<string, string> = {
   Language: "Bahasa",
   "Switch to light theme": "Ganti ke tema terang",
   "Switch to dark theme": "Ganti ke tema gelap",
+  Overview: "Ringkasan",
+  Quickstart: "Mulai cepat",
+  Main: "Utama",
+  Breadcrumb: "Lokasi halaman",
+  "Account menu": "Menu akun",
+  "Account settings": "Pengaturan akun",
+
+  // Quickstart
+  Welcome: "Selamat datang",
+  "Welcome, {name}": "Selamat datang, {name}",
+  "Get your Hermes agent answering on Telegram in a few minutes.": "Bikin agen Hermes kamu menjawab di Telegram dalam beberapa menit.",
+  "your instances": "instance kamu",
+  "You're all set": "Semua sudah siap",
+  "{done} of {total} steps done": "{done} dari {total} langkah selesai",
+  "setup status": "status penyiapan",
+  "Setup progress": "Progres penyiapan",
+  Done: "Selesai",
+  "Not done yet": "Belum selesai",
+  "{name} is deployed. It runs in its own container with its own storage.":
+    "{name} sudah di-deploy. Berjalan di container sendiri dengan penyimpanan sendiri.",
+  "Pick a plan and a name. Hermes is ready a few minutes after you pay.":
+    "Pilih plan dan nama. Hermes siap beberapa menit setelah kamu bayar.",
+  "Open instance": "Buka instance",
+  "Connect an AI provider": "Hubungkan AI provider",
+  "NibieRouter is connected. Paid plans include credit.": "NibieRouter sudah terhubung. Plan berbayar sudah termasuk kredit.",
+  "Your own API key is connected.": "API key kamu sendiri sudah terhubung.",
+  "Hermes needs a model to answer. Paid plans connect NibieRouter for you; you can also use your own API key.":
+    "Hermes butuh model untuk menjawab. Plan berbayar langsung terhubung ke NibieRouter; kamu juga bisa pakai API key sendiri.",
+  "AI provider settings": "Pengaturan AI provider",
+  "Connect Telegram": "Hubungkan Telegram",
+  "Telegram settings": "Pengaturan Telegram",
+  "@{bot} is connected. Send it a message to talk to your agent.":
+    "@{bot} sudah terhubung. Kirim pesan ke bot itu untuk ngobrol dengan agen kamu.",
+  "Create a bot with @BotFather, paste its token, and send a test message.":
+    "Buat bot lewat @BotFather, tempel token-nya, lalu kirim pesan uji.",
+
+  // Billing page
+  "Every subscription on your account. Hosting only: AI usage is billed by NibieRouter or your own provider.":
+    "Semua langganan di akun kamu. Hanya hosting: pemakaian AI ditagih oleh NibieRouter atau provider kamu sendiri.",
+  "your subscriptions": "langganan kamu",
+  "No subscriptions yet": "Belum ada langganan",
+  "Free beta instances have nothing to pay. A paid plan shows up here after you order it.":
+    "Instance free beta tidak perlu dibayar. Plan berbayar muncul di sini setelah kamu memesannya.",
+  Instance: "Instance",
+  Status: "Status",
+  Period: "Periode",
+  "Latest payment": "Pembayaran terakhir",
+  Actions: "Aksi",
+  Pay: "Bayar",
+  "Order again": "Pesan lagi",
+  "Renews {date}": "Diperpanjang {date}",
+  "Ends {date}": "Berakhir {date}",
+  "Paid until {date}": "Dibayar sampai {date}",
+  "A missed payment starts a 3-day grace period. After that the instance is suspended and its data is kept for 30 days, then deleted.":
+    "Kalau pembayaran terlewat, ada masa tenggang 3 hari. Setelah itu instance ditangguhkan dan datanya disimpan 30 hari, lalu dihapus.",
 
   // Common
   Loading: "Memuat",
