@@ -4,6 +4,29 @@ Last updated: 2026-11-19 (Go port M0, see the first section). Earlier entries be
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Go port of the backend, milestone M1: Docker runtime (2026-11-19, branch `claude/go-port-m1` on top of M0, committed locally, NOT pushed, NOT deployed)
+
+**On hold (owner, 2026-11-19).** Tasks 1–8 are done; Task 9's full M1 gate run and the final review have not run yet.
+
+Plan: [superpowers/plans/2026-11-19-go-port-m1-runtime.md](superpowers/plans/2026-11-19-go-port-m1-runtime.md). Owner rule for the
+whole migration: never switch off what runs in production; this branch changes nothing under the paths the auto-deploy watches.
+- **Done:** `server/internal/runtime`, the only code that talks to Docker:
+  - the `Manager` interface and its Docker implementation (ensure, recreate, quota and network-policy guards, start, stop, restart,
+    logs, inspect, health, volume usage, remove);
+  - the Node hardening, with the Docker request bodies golden-tested field by field against `src/modules/runtime`;
+  - API key, image policy, the `config.yaml` model block (compared parsed, comments kept);
+  - startup checks: OCI runtime, disk quota, egress canary, runsc DNS volume.
+  `serve` runs those checks before it listens, and `/readyz` now also pings Docker.
+- **Verified here** (Docker Desktop, runc):
+  - unit and integration suites green: the 10 runtime-manager and 8 tenant-isolation tests on a real daemon, a 5-way concurrent
+    ensure, and a hanging daemon giving `runtime_unavailable`;
+  - the live harness against the pinned official Hermes image: 21 PASS, 0 FAIL, 2 SKIP (runsc DNS, egress).
+  - `server/TEST-MAP.md`: 919 TS test cases (the counter now includes `it.skipIf`), 234 golden or ported.
+- **Not verified:** runsc, the XFS kernel quota and the host egress ruleset (only on the VPS, at M8). The canary's two host-rule tests are
+  mapped to M8.
+- **Moved in TEST-MAP:** `hermes-config` M4 to M1 (done), `network-policy` integration M1 to M2 (it needs `InstanceService`),
+  `egress-rules` M1 to M7 (host shell scripts).
+
 ## Go port of the backend, milestone M0 (2026-11-19, PR #71 from `claude/go-port-m0`, NOT merged, NOT deployed)
 
 On the owner's decision to move the backend from Node.js to Go (reason: memory and margin; Rust and PHP ruled out):
