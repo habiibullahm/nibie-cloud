@@ -44,7 +44,7 @@ export interface AdminApi {
   /** Changes data: sets a priced plan's stock (null: no limit). Answers 409 `free_plan_stock` for the free plan. */
   setPlanStock(id: string, stockLimit: number | null, reason: string): Promise<Pick<AdminPlan, "id" | "slug" | "stockLimit">>
   /** Changes data: the support contacts on the dashboard's Support page. An empty string clears one. */
-  setSupportContact(input: { whatsapp: string; email: string }): Promise<{ whatsapp: string | null; email: string | null }>
+  setSupportContact(input: { whatsapp: string; email: string; groupUrl: string }): Promise<{ whatsapp: string | null; email: string | null; groupUrl: string | null }>
   /** Support tickets of every tenant; `status` filters. */
   tickets(status?: TicketStatus): Promise<TicketSummary[]>
   ticket(id: string): Promise<TicketDetail>

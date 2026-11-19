@@ -204,6 +204,8 @@ export const ID: Record<string, string> = {
   "Questions about an instance, a payment or your account? Reach us here.":
     "Ada pertanyaan soal instance, pembayaran, atau akunmu? Hubungi kami di sini.",
   "Contact us": "Hubungi kami",
+  Community: "Komunitas",
+  "Join the WhatsApp group": "Gabung grup WhatsApp",
   "Message us on WhatsApp or by email.": "Kirim pesan lewat WhatsApp atau email.",
   "Support contacts are not set yet. The guides below cover the common questions.":
     "Kontak bantuan belum diisi. Panduan di bawah menjawab pertanyaan yang paling sering.",

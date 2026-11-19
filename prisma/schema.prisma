@@ -493,6 +493,8 @@ model SupportContact {
   /// WhatsApp number, digits only with the country code (e.g. 628...). Null: not offered.
   whatsapp  String?
   email     String?
+  /// WhatsApp group invite link (https://chat.whatsapp.com/...). Null: not offered.
+  groupUrl  String?
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
 }
 

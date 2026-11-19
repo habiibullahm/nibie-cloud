@@ -454,11 +454,13 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
     /** Support contacts for the dashboard (WhatsApp and email). Empty clears one. Public data, so the audit keeps both values. */
     api.post('/support-contact', async (req) => {
       const admin = req.admin!;
-      const { reason: why, ...next } = supportContactBody.parse(req.body);
+      const { reason: why, groupUrl, ...rest } = supportContactBody.parse(req.body);
       return prisma.$transaction(async (tx) => {
         const before = await readSupportContact(tx);
+        // A body without groupUrl (an older dashboard) keeps the stored link.
+        const next = { ...rest, groupUrl: groupUrl === undefined ? before.groupUrl : groupUrl };
         // Saving the same values changes nothing, so it is not recorded as a change.
-        if (before.whatsapp === next.whatsapp && before.email === next.email) return before;
+        if (before.whatsapp === next.whatsapp && before.email === next.email && before.groupUrl === next.groupUrl) return before;
         await writeSupportContact(tx, next);
         await audit.record({
           actorEmail: admin.email, action: 'POST /support-contact', targetType: 'support-contact', targetId: null,
