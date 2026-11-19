@@ -50,6 +50,9 @@ export function registerOperatorRoutes(app: FastifyInstance, deps: { service: In
       return reply.status(202).send({ jobId: req.params.jobId });
     });
 
+    // Plan disk per live instance, for the host job that raises volume quotas (ops/host/hermes-volume-quota.sh).
+    api.get('/volume-quotas', async () => ({ volumes: await service.volumeQuotas() }));
+
     registerOperatorIntegrationRoutes(api, deps.integrations);
 
     const base = '/tenants/:tenantId/instances';

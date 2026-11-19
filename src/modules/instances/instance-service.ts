@@ -214,6 +214,18 @@ export class InstanceService {
     return toView(await findOwned(this.prisma, tenantId, instanceId));
   }
 
+  /**
+   * The disk each live instance's plan allows. Read by the host job `hermes-volume-quota` (ops/host), which raises a
+   * volume's XFS quota when it is smaller, e.g. after a free instance was upgraded to a paid plan.
+   */
+  async volumeQuotas(): Promise<Array<{ instanceId: string; storageMb: number }>> {
+    const rows = await this.prisma.instance.findMany({
+      where: { status: { notIn: ['DELETING', 'DELETED'] } },
+      select: { id: true, plan: { select: { storageMb: true } } },
+    });
+    return rows.map((r) => ({ instanceId: r.id, storageMb: r.plan.storageMb }));
+  }
+
   async list(tenantId: string): Promise<InstanceView[]> {
     if (!isUuid(tenantId)) throw new NotFoundError('Tenant not found');
     const rows = await this.prisma.instance.findMany({ where: { tenantId, deletedAt: null }, orderBy: { createdAt: 'asc' } });

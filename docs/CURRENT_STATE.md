@@ -4,6 +4,17 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Volume quota raised automatically after an upgrade (2026-11-20, branch `claude/auto-volume-quota`)
+
+Owner: "kenapa manual? make it auto update".
+- **Backend:** operator route `GET /api/v1/volume-quotas` (bearer `ADMIN_TOKEN`, refused when proxy headers are present, not in the
+  Caddy allowlist) lists `{ instanceId, storageMb }` for every instance not `DELETING`/`DELETED`. `applyPlanChange` now logs at info.
+- **Host:** `ops/host/hermes-volume-quota.sh` + `.service` + `.timer` (every minute, root). Reads that route over loopback, finds the
+  XFS project of `hermes-data-<id>` (`xfs_io lsproj`), and raises `bsoft`/`bhard` to the plan size when the current hard limit is
+  smaller; never lowers one. Install steps: `deploy/README.md`. Dry run on the VPS with sample input listed only the 1 GiB volume.
+- **Not done yet:** installing the timer on the VPS (after this is deployed, since the route must exist first).
+- **Checks:** backend `tsc`; integration `operator-volume-quotas` (new) and `billing-upgrade` pass; `bash -n` on the script.
+
 ## Free instance upgrade to a paid plan; Kredit plan 10 GB (2026-11-20, branch `claude/free-upgrade`, PR #93)
 
 Owner: "users bisa upgrade paket dari free plan dengan new payment" and "adjust plan kredit ke storage 10gb".

@@ -1,0 +1,8 @@
+[Unit]
+Description=Hermes Cloud: raise tenant volume quotas to their plan size
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/hermes-volume-quota
+Nice=10

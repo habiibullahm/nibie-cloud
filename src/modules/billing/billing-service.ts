@@ -436,7 +436,7 @@ export class BillingService {
    * Puts an upgraded instance on its subscription's plan once paid. The NibieRouter step (the plan's credit) runs first,
    * so a crash before the plan change is repaired by the billing tick, which calls this again. The new CPU, memory and
    * process limits apply when the container is recreated: a running instance is restarted now, a stopped one on its next
-   * start. The volume keeps the quota it was created with; raising it is a host step (docs/disk-quota-host-notes.md).
+   * start. The volume's quota is raised by the host job hermes-volume-quota (ops/host), which reads `GET /volume-quotas`.
    * Idempotent.
    */
   async applyPlanChange(subscriptionId: string): Promise<void> {
@@ -456,9 +456,8 @@ export class BillingService {
       return n.count === 1;
     });
     if (!changed) return;
-    // Error level so it is not missed: until the quota is raised, writes fail at the old size and the disk monitor
-    // (which measures against the new plan) does not warn first.
-    this.d.logger.error({ instanceId: inst.id, planId: sub.planId }, 'plan upgraded: raise the volume quota on the host (docs/disk-quota-host-notes.md)');
+    // The volume keeps its old quota until the host job hermes-volume-quota (ops/host, every minute) raises it.
+    this.d.logger.info({ instanceId: inst.id, planId: sub.planId }, 'plan upgraded; the host raises the volume quota');
     if (inst.status === 'ACTIVE' || inst.status === 'DEGRADED') await this.d.commands.restart(sub.tenantId, inst.id);
   }
 
