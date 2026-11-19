@@ -14,11 +14,11 @@ export function Brand({ href = "/instances" }: { href?: string }) {
       href={href}
       className="hit-area relative flex w-fit items-center gap-2 rounded-sm text-foreground no-underline outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
-      {/* The on-dark mark has a near-white lobe, so it always sits on ink (invisible on the dark theme's background). */}
-      <span className="flex shrink-0 rounded-sm bg-ink p-0.5">
+      {/* The on-dark mark has a near-white lobe: straight on the dark background, on an ink tile in the light theme. */}
+      <span className="flex shrink-0 rounded-sm [[data-theme=light]_&]:bg-ink [[data-theme=light]_&]:p-0.5">
         <Image src={MARK_SRC} alt="" aria-hidden="true" width={30} height={20} unoptimized loading="eager" className="h-5 w-auto" />
       </span>
-      <span className="type-label">Nibie Cloud</span>
+      <span className="font-heading text-base font-bold tracking-tight">Nibie Cloud</span>
     </Link>
   )
 }

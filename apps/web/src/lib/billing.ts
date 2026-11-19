@@ -1,5 +1,7 @@
 import type { BillingPayment, BillingStatus, BillingSubscription } from "./api/types"
-import { formatDate } from "./format"
+import { formatDate, formatPriceIdr } from "./format"
+import type { T } from "./i18n"
+import type { Lang } from "./prefs"
 
 /** Plain-language status for a subscription. Always text, never only a color (DESIGN.md). */
 export function billingStatusLabel(status: BillingStatus, cancelAtPeriodEnd: boolean): string {
@@ -22,6 +24,14 @@ export function billingStatusLabel(status: BillingStatus, cancelAtPeriodEnd: boo
 export function payableUrl(payment: BillingPayment | null, now = Date.now()): string | null {
   if (!payment || payment.status !== "PENDING" || !payment.paymentUrl) return null
   return new Date(payment.expiresAt).getTime() > now ? payment.paymentUrl : null
+}
+
+/** The latest payment in one line (Account and Billing pages). An unpaid invoice past its expiry reads as expired. */
+export function paymentText(p: BillingPayment, t: T, lang: Lang, now = Date.now()): string {
+  const amount = formatPriceIdr(p.amountIdr, lang)
+  if (p.status === "PAID") return p.paidAt ? t("{amount}, paid {date}", { amount, date: formatDate(p.paidAt, lang) }) : amount
+  if (p.status === "PENDING" && payableUrl(p, now)) return t("{amount}, waiting for payment", { amount })
+  return p.status === "FAILED" ? t("{amount}, failed", { amount }) : t("{amount}, expired", { amount })
 }
 
 /** A purchase the customer started but has not paid: there is no instance yet. */
