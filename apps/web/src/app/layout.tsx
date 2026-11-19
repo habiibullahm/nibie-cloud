@@ -22,7 +22,7 @@ const onest = Onest({
 
 export const metadata: Metadata = {
   title: { default: "Nibie Cloud", template: "%s · Nibie Cloud" },
-  description: "Run your personal AI agent 24/7. No VPS, no setup, no infrastructure maintenance.",
+  description: "Your own AI agent in the cloud. No server to set up or maintain.",
 }
 
 export const viewport: Viewport = {

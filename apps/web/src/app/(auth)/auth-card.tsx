@@ -79,16 +79,11 @@ export function AuthCard({ mode }: { mode: "sign-in" | "register" }) {
     const form = new FormData(e.currentTarget)
     const email = String(form.get("email") ?? "").trim()
     const password = String(form.get("password") ?? "")
-    const name = String(form.get("name") ?? "").trim()
     setBusy(true)
     setError(null)
     setNotice(null)
     if (register) {
-      const { error: e2 } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: name ? { name } : undefined, ...takeCaptcha() },
-      })
+      const { error: e2 } = await supabase.auth.signUp({ email, password, options: takeCaptcha() })
       setBusy(false)
       if (e2) return setError(authErrorMessage(e2, "sign-up"))
       // The code step's own heading already says where the code went.
@@ -233,14 +228,33 @@ export function AuthCard({ mode }: { mode: "sign-in" | "register" }) {
     <Card>
       <CardHeader>
         <h1 className="type-h1">{register ? "Create account" : "Sign in"}</h1>
-        <CardDescription>
-          {register ? "Deploy your own Hermes agent." : "Welcome back. Manage your Hermes instances."}
-        </CardDescription>
+        <CardDescription>{register ? "Your personal AI agent, hosted for you." : "Welcome back."}</CardDescription>
       </CardHeader>
       <form onSubmit={submit}>
         <CardContent className="grid gap-4">
+          {live ? (
+            <>
+              <GoogleButton onClick={google} disabled={busy || (register && !terms)} />
+              {register && !terms ? (
+                <p className="text-[0.8125rem] text-muted-foreground">Tick the box below to continue with Google or email.</p>
+              ) : null}
+              <div className="flex items-center gap-3 text-[0.8125rem] text-muted-foreground">
+                <Separator className="flex-1" />
+                or with email
+                <Separator className="flex-1" />
+              </div>
+            </>
+          ) : null}
+          <div className="grid gap-2">
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="password">Password</Label>
+            <Input id="password" name="password" type="password" autoComplete={register ? "new-password" : "current-password"} />
+          </div>
           {register ? (
-            // First on the card: both Google and email need it, so it must be seen before either button.
+            // Both Google and email need it; the hint under the Google button points down here.
             <div className="flex items-start gap-3">
               <Checkbox id="terms" checked={terms} onCheckedChange={(v) => setTerms(v === true)} className="mt-1" />
               <Label htmlFor="terms" className="block text-muted-foreground">
@@ -260,33 +274,6 @@ export function AuthCard({ mode }: { mode: "sign-in" | "register" }) {
               </Label>
             </div>
           ) : null}
-          {live ? (
-            <>
-              <GoogleButton onClick={google} disabled={busy || (register && !terms)} />
-              {register && !terms ? (
-                <p className="text-[0.8125rem] text-muted-foreground">Tick the box above to continue with Google or email.</p>
-              ) : null}
-              <div className="flex items-center gap-3 text-[0.8125rem] text-muted-foreground">
-                <Separator className="flex-1" />
-                or with email
-                <Separator className="flex-1" />
-              </div>
-            </>
-          ) : null}
-          {register ? (
-            <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" name="name" autoComplete="name" maxLength={100} />
-            </div>
-          ) : null}
-          <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" name="password" type="password" autoComplete={register ? "new-password" : "current-password"} />
-          </div>
           {captchaWidget}
           {!live ? (
             <Alert>
