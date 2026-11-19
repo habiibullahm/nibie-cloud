@@ -61,10 +61,11 @@ DATABASE_URL=postgresql://hermes:hermes_dev_only@127.0.0.1:5433/hermes_test pnpm
 | `SECRETS_KEK` | Base64 of exactly 32 random bytes (`openssl rand -base64 32`). The key-encryption key for customer credentials (provider API keys, Telegram bot tokens). Required when `NODE_ENV=production`; without it the credential routes answer `503 secrets_unavailable` and no instance gets a credential. Host environment only, never the repository. See [Secrets](#secrets-provider-keys-and-telegram) |
 | `SECRETS_KEK_VERSION` | Positive integer, default `1`. The version number stored beside every secret sealed with `SECRETS_KEK` |
 | `SUMOPOD_SMTP_HOST`, `SUMOPOD_SMTP_PORT`, `SUMOPOD_SMTP_USER`, `SUMOPOD_SMTP_PASS`, `MAIL_FROM` | All five or none. SumoPod SMTP for the billing emails (port 465 uses implicit TLS, any other port STARTTLS). Unset: the backend sends no email; billing still works and the notice is retried once mail is configured |
-| `DUITKU_MERCHANT_CODE`, `DUITKU_API_KEY`, `DUITKU_CALLBACK_URL` | All three or none (billing off: checkout, the billing routes and the callback answer 404). Needs `DASHBOARD_ORIGIN` too (the invoice's return URL). Host environment only, never the repository. See [Billing](#billing-duitku-pop) |
+| `SUMOPOD_API_KEY`, `SUMOPOD_WEBHOOK_TOKEN`, `SUMOPOD_CALLBACK_URL` | All three or none (billing off: checkout, the billing routes and the webhook answer 404). Needs `DASHBOARD_ORIGIN` too (the invoice's return URL). Host environment only, never the repository. See [Billing](#billing-sumopod) |
 | `NIBIEROUTER_ADMIN_KEY`, `NIBIEROUTER_DEFAULT_MODEL` | Both or neither. Turns on the NibieRouter user, per-instance key and one-time credit for paid instances, and the key for free instances (needs `SECRETS_KEK`). Host environment only. See [NibieRouter](#nibierouter-key-and-credit) |
 | `NIBIEROUTER_API_URL`, `NIBIEROUTER_USER_EMAIL_DOMAIN` | Optional. Router origin (https, default `https://router.nibie.app`) and the domain of the synthetic per-tenant router user address (default `cloud.nibie.app`) |
-| `DUITKU_ENV` | `sandbox` (default) or `production`. `production` is refused unless `NODE_ENV=production` |
+| `SUMOPOD_ENV` | `sandbox` (default) or `production`. `production` is refused unless `NODE_ENV=production` |
+| `SUMOPOD_WEBHOOK_SECRET` | The webhook's Svix signing secret (`whsec_...`). Required when `NODE_ENV=production` with SumoPod configured; when set, only signed webhooks are accepted |
 | `SECRETS_KEK_PREVIOUS`, `SECRETS_KEK_PREVIOUS_VERSION` | Only during a KEK rotation: the old key and its version (both required together, and the version must differ from the current one) |
 
 ## Job queue (Redis and BullMQ)
@@ -120,26 +121,27 @@ which recreates the container (the volume is kept).
   through `safeFetch`: https only, no redirects, every resolved address must be public, the connection is
   pinned to the validated address, with a timeout and a size cap.
 
-## Billing (Duitku POP)
+## Billing (SumoPod)
 
-Plan: [superpowers/plans/2026-11-14-backend-milestone-d-duitku-billing.md](superpowers/plans/2026-11-14-backend-milestone-d-duitku-billing.md).
+SumoPod Managed Payment (QRIS) is the only gateway; Duitku was removed on 2026-11-19. The original plan
+([superpowers/plans/2026-11-14-backend-milestone-d-duitku-billing.md](superpowers/plans/2026-11-14-backend-milestone-d-duitku-billing.md))
+was written for Duitku and is historical. Go-live steps: [billing-go-live.md](billing-go-live.md).
 
 - **Customer routes** (token required, only when billing is configured): `GET /subscriptions`,
   `GET /subscriptions/:id`, `POST /subscriptions/checkout` (`Idempotency-Key`, body `{ planId, name }`, answers `201`
-  `{ subscription, payment }` with the Duitku `paymentUrl`), `POST /subscriptions/:id/renew`,
+  `{ subscription, payment }` with the SumoPod `paymentUrl`), `POST /subscriptions/:id/renew`,
   `POST /subscriptions/:id/cancel`, `GET /payments/:id`. `GET /plans` shows `monthlyPriceIdr`; `null` means the plan is not
   for sale and checkout answers `409 plan_not_for_sale`.
-- **Public callback:** `POST /api/v1/billing/duitku/callback` (form body). The HMAC signature is the authentication and
-  is checked before any database access: bad signature `400`, everything else `200`. Set the same URL as
-  `DUITKU_CALLBACK_URL`; Duitku needs it on port 443. `deploy/Caddyfile` forwards it and the customer billing paths.
+- **Public webhook:** `POST /api/v1/billing/sumopod/webhook` (JSON). The Svix signature (or the `X-Webhook-Token` when
+  no signing secret is set) is the authentication and is checked before any database access: failed check `400`,
+  everything else `200`. Set the same URL as `SUMOPOD_CALLBACK_URL` and in the SumoPod dashboard. `deploy/Caddyfile`
+  forwards it and the customer billing paths.
 - **Test price:** prices are an operator step, never a migration. List plans with
   `pnpm tsx scripts/seed-sandbox-plans.ts`, set a sandbox price with `pnpm tsx scripts/seed-sandbox-plans.ts <slug> 10000`
-  (minimum 10000; refused when `NODE_ENV` or `DUITKU_ENV` is production).
-- **Check the credentials against the real sandbox** (Task 0, cannot run from the cloud sandbox because Duitku is
-  not reachable there): `DUITKU_MERCHANT_CODE=... DUITKU_API_KEY=... pnpm tsx test/validation/duitku-sandbox-live.ts --email <address> [--raw]`
-  creates one Rp 10.000 sandbox invoice and prints its reference and payment URL. Pay it with the Duitku sandbox
-  simulators (VA demo page, QRIS simulator), then confirm in the backend log that a `duitku callback processed` line with
-  `outcome: activated` appears and the instance reaches `ACTIVE`.
+  (minimum 1000; refused when `NODE_ENV` or `SUMOPOD_ENV` is production).
+- **Check against the real sandbox:** with `SUMOPOD_ENV=sandbox`, start a checkout from the dashboard, pay it in the
+  SumoPod sandbox, then confirm in the backend log that a `sumopod webhook processed` line with `outcome: activated`
+  appears and the instance reaches `ACTIVE`.
 - **Lifecycle:** 30-day periods; at the end 3 days of grace (the instance keeps running), then suspension (instance
   stopped, volume kept, customer start/restart answers `409 subscription_suspended`), then 30 days of retention, then
   the instance is deleted. A verified renewal at any point before deletion reinstates the subscription and restarts the

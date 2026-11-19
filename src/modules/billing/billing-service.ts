@@ -6,13 +6,12 @@ import type { Logger } from '../../shared/logger.js';
 import { isUuid } from '../../shared/uuid.js';
 import type { InstanceCommands } from '../instances/instance-commands.js';
 import { validateName } from '../instances/instance-service.js';
-import { DUITKU_MIN_AMOUNT_IDR, verifyCallbackSignature, type DuitkuClient, type DuitkuConfig } from './duitku-client.js';
 import { renderEmail, type EmailKind } from './email-templates.js';
 import { periodAfterPayment } from './lifecycle.js';
 import type { Mailer } from './mailer.js';
 import { hasStock, stockLeft, totalLoad } from '../instances/capacity.js';
 import type { PaymentClient } from './payment-client.js';
-import type { SumoPodConfig } from './sumopod-client.js';
+import { SUMOPOD_MIN_AMOUNT_IDR } from './sumopod-client.js';
 import { verifySvixSignature, type SvixHeaders } from './svix.js';
 
 /** How long an invoice stays payable. QRIS allows 60 minutes at most. */
@@ -53,19 +52,13 @@ export interface SubscriptionView {
 
 export interface BillingDeps {
   prisma: PrismaClient;
-  /** Default payment client for creating invoices (SumoPod, Duitku, or the first of 'both'). */
+  /** Creates invoices (SumoPod). */
   paymentClient: PaymentClient;
-  /** All payment clients for 'both' mode — creates invoices on all clients in parallel. */
-  paymentClients?: PaymentClient[];
-  /** Duitku config for signature verification, or null. */
-  duitkuAuth?: Pick<DuitkuConfig, 'merchantCode' | 'apiKey'> | null;
   /**
    * SumoPod webhook authentication, or null. With `webhookSecret` (the Svix signing secret, `whsec_...`) a valid signature
    * over the raw body is required and the token is not consulted; without it, the `X-Webhook-Token` is checked.
    */
   sumopodAuth?: { webhookToken: string; webhookSecret?: string | null } | null;
-  /** Active gateway selector. */
-  gateway: 'sumopod' | 'duitku' | 'both';
   commands: InstanceCommands;
   mailer: Mailer;
   dashboardOrigin: string;
@@ -83,15 +76,6 @@ export interface SumoPodCredentials {
   token: string;
   svix?: SvixHeaders;
   rawBody?: string;
-}
-
-export interface CallbackForm {
-  merchantCode?: string;
-  amount?: string;
-  merchantOrderId?: string;
-  resultCode?: string;
-  reference?: string;
-  signature?: string;
 }
 
 export type CallbackOutcome =
@@ -143,7 +127,7 @@ export class BillingService {
 
   /**
    * Starts a purchase: records the intent (a subscription that carries the instance name and plan) and a
-   * Duitku invoice. No instance exists until the first payment is verified. Replaying the same
+   * SumoPod invoice. No instance exists until the first payment is verified. Replaying the same
    * `Idempotency-Key` returns the same invoice while it is still payable.
    */
   async checkout(i: { tenantId: string; email: string; planId: string; name: string; idempotencyKey: string }): Promise<{ subscription: SubscriptionView; payment: PaymentView }> {
@@ -153,7 +137,7 @@ export class BillingService {
     const plan = await this.d.prisma.plan.findUnique({ where: { id: i.planId } });
     if (!plan || !plan.active) throw new NotFoundError('Plan not found');
     const price = plan.monthlyPriceIdr;
-    if (price === null || price < DUITKU_MIN_AMOUNT_IDR) throw new PlanNotForSaleError();
+    if (price === null || price < SUMOPOD_MIN_AMOUNT_IDR) throw new PlanNotForSaleError();
 
     const now = this.now();
     const prepared = await this.d.prisma.$transaction(async (tx) => {
@@ -208,7 +192,7 @@ export class BillingService {
     }
     const plan = await this.d.prisma.plan.findUniqueOrThrow({ where: { id: sub.planId } });
     const price = plan.monthlyPriceIdr;
-    if (price === null || price < DUITKU_MIN_AMOUNT_IDR) throw new PlanNotForSaleError();
+    if (price === null || price < SUMOPOD_MIN_AMOUNT_IDR) throw new PlanNotForSaleError();
     // Pressing the button twice must not create two invoices.
     const open = await this.d.prisma.payment.findFirst({
       where: { subscriptionId: sub.id, purpose: 'RENEWAL', status: 'PENDING', paymentUrl: { not: null }, expiresAt: { gt: now } },
@@ -264,38 +248,6 @@ export class BillingService {
     });
   }
 
-  // ---- Duitku callback ----------------------------------------------------------------------
-
-  /**
-   * Authenticates a callback by its signature, before any database access, and applies it. Returns
-   * `accepted: false` for anything that fails authentication (the caller answers 400). The returned
-   * `postActions` (provisioning, restart, receipt email) run after the response, so a slow instance
-   * start can never make Duitku retry; a crash before they finish is repaired by the billing tick.
-   */
-  async handleDuitkuCallback(form: CallbackForm): Promise<CallbackResult> {
-    if (!this.d.duitkuAuth) return { accepted: false };
-    const { merchantCode, amount, merchantOrderId, resultCode, signature } = form;
-    if (!merchantCode || !amount || !merchantOrderId || !resultCode || !signature) return { accepted: false };
-    if (merchantCode !== this.d.duitkuAuth.merchantCode) return { accepted: false };
-    if (!verifyCallbackSignature(this.d.duitkuAuth, { amount, merchantOrderId, signature })) return { accepted: false };
-    const amountIdr = parseAmount(amount);
-    if (amountIdr === null || merchantOrderId.length > 50 || resultCode.length > 10) return { accepted: false };
-    const reference = (form.reference ?? '').slice(0, 100);
-
-    let result: { outcome: CallbackOutcome; activation?: Activation };
-    try {
-      result = await this.d.prisma.$transaction(async (tx) => this.applyInTransaction(tx, { merchantOrderId, reference, resultCode, amountIdr }));
-    } catch (e) {
-      if ((e as { code?: string }).code === 'P2002') return { accepted: true, outcome: 'duplicate', postActions: none };
-      throw e;
-    }
-    if (result.outcome === 'paid_after_end') {
-      this.d.logger.error({ merchantOrderId }, 'payment received for an ended subscription: operator must refund or reinstate');
-    }
-    const activation = result.activation;
-    return { accepted: true, outcome: result.outcome, postActions: activation ? () => this.afterActivation(activation) : none };
-  }
-
   // ---- SumoPod webhook ---------------------------------------------------------------------
 
   /** True when the request is from SumoPod: a valid Svix signature when a signing secret is configured, else the token. */
@@ -311,9 +263,12 @@ export class BillingService {
   }
 
   /**
-   * Authenticates a SumoPod webhook (Svix signature, or the `X-Webhook-Token` header when no signing secret is set), then
-   * applies it. SumoPod wraps the event in a svix-style envelope: `{ event_type, data: { order_id, payment_id,
-   * amount, status } }`. Flat payloads are still accepted (older/manual calls).
+   * Authenticates a SumoPod webhook (Svix signature, or the `X-Webhook-Token` header when no signing secret is set), before
+   * any database access, then applies it. Returns `accepted: false` for anything that fails authentication (the caller
+   * answers 400). The returned `postActions` (provisioning, restart, receipt email) run after the response, so a slow
+   * instance start can never make SumoPod retry; a crash before they finish is repaired by the billing tick. SumoPod
+   * wraps the event in a svix-style envelope: `{ event_type, data: { order_id, payment_id, amount, status } }`. Flat
+   * payloads are still accepted (older/manual calls).
    */
   async handleSumoPodWebhook(credentials: SumoPodCredentials, body: Record<string, unknown>): Promise<CallbackResult> {
     if (!this.sumoPodAuthentic(credentials)) return { accepted: false };
@@ -325,8 +280,8 @@ export class BillingService {
     const amountIdr = typeof rawAmount === 'number' ? rawAmount : (typeof rawAmount === 'string' ? parseAmount(rawAmount) : null);
     if (amountIdr === null || order_id.length > 128) return { accepted: false };
     const reference = (typeof payment_id === 'string' ? payment_id : '').slice(0, 100);
-    // SumoPod reports a word (`paid`/`completed`/`failed`), Duitku a code (`00` = paid). Normalize so the
-    // shared apply path keeps its single '00 means paid' rule instead of failing every real SumoPod payment.
+    // SumoPod reports a word (`paid`/`completed`/`failed`). Stored as `resultCode` '00' for paid (the convention of the
+    // existing PaymentEvent and Payment rows), so the apply path keeps its single '00 means paid' rule.
     const resultCode = SUMOPOD_PAID_STATUSES.has(status.toLowerCase()) ? '00' : status.slice(0, 10);
 
     let result: { outcome: CallbackOutcome; activation?: Activation };
@@ -341,14 +296,6 @@ export class BillingService {
     }
     const activation = result.activation;
     return { accepted: true, outcome: result.outcome, postActions: activation ? () => this.afterActivation(activation) : none };
-  }
-
-  /**
-   * Legacy single-callback entry point for Duitku. Routes to handleDuitkuCallback.
-   * @deprecated Use handleDuitkuCallback or handleSumoPodWebhook directly.
-   */
-  async handleCallback(form: CallbackForm): Promise<CallbackResult> {
-    return this.handleDuitkuCallback(form);
   }
 
   private async applyInTransaction(
@@ -373,7 +320,7 @@ export class BillingService {
     const now = this.now();
 
     if (c.resultCode !== '00') {
-      // Duitku's docs list both 01 and 02 for a failure; anything but 00 is "not paid". A paid invoice is never downgraded.
+      // Anything but 00 is "not paid". A paid invoice is never downgraded.
       const changed = await tx.payment.updateMany({ where: { id: payment.id, status: 'PENDING' }, data: { status: 'FAILED', resultCode: c.resultCode } });
       return finish(changed.count === 1 ? 'failed' : 'ignored_failure');
     }
@@ -483,34 +430,18 @@ export class BillingService {
     return { subscriptionId, merchantOrderId: newOrderId(), amountIdr, purpose, expiresAt: new Date(now.getTime() + INVOICE_EXPIRY_MINUTES * 60_000) };
   }
 
-  /** Calls the active payment client outside any transaction. A failure marks the row FAILED so a retry makes a fresh invoice. */
+  /** Calls the payment client outside any transaction. A failure marks the row FAILED so a retry makes a fresh invoice. */
   private async issueInvoice(payment: Payment, plan: Plan, email: string): Promise<Payment> {
-    const productDetails = `Nibie Cloud ${plan.name} (30 hari)`.slice(0, 255);
-    const returnUrl = `${this.d.dashboardOrigin}/dashboard/instances?payment=${payment.merchantOrderId}`;
     try {
       const invoice = await this.d.paymentClient.createInvoice({
         merchantOrderId: payment.merchantOrderId,
         amountIdr: payment.amountIdr,
-        productDetails,
+        productDetails: `Nibie Cloud ${plan.name} (30 hari)`.slice(0, 255),
         email,
-        returnUrl,
+        returnUrl: `${this.d.dashboardOrigin}/dashboard/instances?payment=${payment.merchantOrderId}`,
         expiryMinutes: INVOICE_EXPIRY_MINUTES,
       });
-      const updated = await this.d.prisma.payment.update({ where: { id: payment.id }, data: { reference: invoice.reference, paymentUrl: invoice.paymentUrl } });
-      // In 'both' mode, also issue invoices from secondary gateways (best-effort, non-blocking).
-      if (this.d.gateway === 'both' && this.d.paymentClients) {
-        for (const client of this.d.paymentClients) {
-          client.createInvoice({
-            merchantOrderId: payment.merchantOrderId,
-            amountIdr: payment.amountIdr,
-            productDetails,
-            email,
-            returnUrl,
-            expiryMinutes: INVOICE_EXPIRY_MINUTES,
-          }).catch(() => { /* secondary gateway failure is non-fatal */ });
-        }
-      }
-      return updated;
+      return await this.d.prisma.payment.update({ where: { id: payment.id }, data: { reference: invoice.reference, paymentUrl: invoice.paymentUrl } });
     } catch (e) {
       await this.d.prisma.payment.updateMany({ where: { id: payment.id, status: 'PENDING', paymentUrl: null }, data: { status: 'FAILED' } });
       throw e;
@@ -553,7 +484,7 @@ interface Activation {
   amountIdr: number;
 }
 
-/** The amount as Duitku sends it: whole rupiah, optionally with a zero fraction. */
+/** An amount sent as text: whole rupiah, optionally with a zero fraction. */
 function parseAmount(raw: string): number | null {
   const m = /^(\d{1,10})(?:\.0+)?$/.exec(raw);
   return m ? Number(m[1]) : null;

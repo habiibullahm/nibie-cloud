@@ -13,8 +13,8 @@ export interface AdminMe {
 
 export interface AdminSystem {
   billing: boolean
-  /** Which gateway is active: `sumopod`, `duitku`, `both`, or null when billing is off. */
-  billingGateway: "sumopod" | "duitku" | "both" | null
+  /** The payment gateway (`sumopod`), or null when billing is off. */
+  billingGateway: "sumopod" | null
   router: boolean
   mail: boolean
   redis: boolean
@@ -28,10 +28,9 @@ export interface AdminSystem {
 
 export interface AdminSettings {
   billing: {
-    gateway: "sumopod" | "duitku" | "both" | null
+    gateway: "sumopod" | null
     paidCheckoutOpen: boolean
     sumopod: { env: "sandbox" | "production"; webhookSigned: boolean } | null
-    duitku: { env: "sandbox" | "production" } | null
   }
   email: { configured: boolean; from: string | null }
   signIn: {

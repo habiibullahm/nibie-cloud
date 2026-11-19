@@ -4,9 +4,9 @@ import { createPrisma } from '../../src/db/client.js';
 import { CapacityFullError, ConflictError, InstanceLimitError, NotFoundError, PaymentProviderUnavailableError, PlanSoldOutError } from '../../src/shared/errors.js';
 import { PlanNotForSaleError } from '../../src/modules/billing/billing-service.js';
 import { resetDb } from '../helpers/db.js';
-import { PRICE, callbackForm, makeBilling, makeClock, seedBilling } from '../helpers/billing-env.js';
+import { PRICE, WEBHOOK_TOKEN, makeBilling, makeClock, seedBilling, webhookBody } from '../helpers/billing-env.js';
 
-// Needs Postgres only: the runtime, Duitku and SMTP are in-memory fakes.
+// Needs Postgres only: the runtime, SumoPod and SMTP are in-memory fakes.
 const prisma = createPrisma(process.env.DATABASE_URL!);
 let s: Awaited<ReturnType<typeof seedBilling>>;
 let env: ReturnType<typeof makeBilling>;
@@ -14,9 +14,12 @@ let env: ReturnType<typeof makeBilling>;
 const checkout = (key = randomUUID(), name = 'My agent') =>
   env.billing.checkout({ tenantId: s.tenant.id, email: s.user.email, planId: s.plan.id, name, idempotencyKey: key });
 
-/** Pays an invoice: delivers a signed callback and runs the post-commit actions. */
-async function pay(orderId: string, o: { amount?: number; resultCode?: string; reference?: string } = {}) {
-  const r = await env.billing.handleCallback(callbackForm({ orderId, ...o }));
+const webhook = (orderId: string, o: { amount?: number; status?: string; reference?: string } = {}, token = WEBHOOK_TOKEN) =>
+  env.billing.handleSumoPodWebhook({ token }, webhookBody({ orderId, ...o }));
+
+/** Pays an invoice: delivers an authenticated webhook and runs the post-commit actions. */
+async function pay(orderId: string, o: { amount?: number; status?: string; reference?: string } = {}) {
+  const r = await webhook(orderId, o);
   if (r.accepted) await r.postActions();
   return r;
 }
@@ -42,21 +45,21 @@ describe('BillingService', () => {
       expect(subscription.instanceId).toBeNull();
       expect(payment.status).toBe('PENDING');
       expect(payment.amountIdr).toBe(PRICE);
-      expect(payment.paymentUrl).toMatch(/^https:\/\/sandbox\.duitku\.test\/pay\/nc-/);
-      expect(env.duitku.invoices).toHaveLength(1);
-      expect(env.duitku.invoices[0]).toMatchObject({ amountIdr: PRICE, email: 'owner@example.test', expiryMinutes: 60 });
-      expect(env.duitku.invoices[0]!.returnUrl).toMatch(/^https:\/\/cloud\.example\.test\/dashboard\/instances\?payment=nc-/);
-      expect(env.duitku.invoices[0]!.merchantOrderId.length).toBeLessThanOrEqual(50);
+      expect(payment.paymentUrl).toMatch(/^https:\/\/sandbox\.sumopod\.test\/pay\/nc-/);
+      expect(env.sumopod.invoices).toHaveLength(1);
+      expect(env.sumopod.invoices[0]).toMatchObject({ amountIdr: PRICE, email: 'owner@example.test', expiryMinutes: 60 });
+      expect(env.sumopod.invoices[0]!.returnUrl).toMatch(/^https:\/\/cloud\.example\.test\/dashboard\/instances\?payment=nc-/);
+      expect(env.sumopod.invoices[0]!.merchantOrderId.length).toBeLessThanOrEqual(50);
       expect(await prisma.instance.count()).toBe(0);
     });
 
-    it('replaying the same Idempotency-Key returns the same invoice, without a second Duitku call', async () => {
+    it('replaying the same Idempotency-Key returns the same invoice, without a second SumoPod call', async () => {
       const key = randomUUID();
       const a = await checkout(key);
       const b = await checkout(key);
       expect(b.payment.id).toBe(a.payment.id);
       expect(b.payment.paymentUrl).toBe(a.payment.paymentUrl);
-      expect(env.duitku.invoices).toHaveLength(1);
+      expect(env.sumopod.invoices).toHaveLength(1);
       expect(await prisma.subscription.count()).toBe(1);
     });
 
@@ -73,18 +76,18 @@ describe('BillingService', () => {
       const b = await checkout(key);
       expect(b.subscription.id).toBe(a.subscription.id);
       expect(b.payment.id).not.toBe(a.payment.id);
-      expect(env.duitku.invoices).toHaveLength(2);
+      expect(env.sumopod.invoices).toHaveLength(2);
     });
 
     it('refuses a plan without a price, an unknown plan, a bad name', async () => {
       await prisma.plan.update({ where: { id: s.plan.id }, data: { monthlyPriceIdr: null } });
       await expect(checkout()).rejects.toBeInstanceOf(PlanNotForSaleError);
-      await prisma.plan.update({ where: { id: s.plan.id }, data: { monthlyPriceIdr: 9_999 } });
+      await prisma.plan.update({ where: { id: s.plan.id }, data: { monthlyPriceIdr: 999 } });
       await expect(checkout()).rejects.toBeInstanceOf(PlanNotForSaleError);
       await expect(env.billing.checkout({ tenantId: s.tenant.id, email: 'a@b.test', planId: randomUUID(), name: 'x', idempotencyKey: 'k' })).rejects.toBeInstanceOf(NotFoundError);
       await prisma.plan.update({ where: { id: s.plan.id }, data: { monthlyPriceIdr: PRICE } });
       await expect(checkout(randomUUID(), '')).rejects.toThrow();
-      expect(env.duitku.invoices).toHaveLength(0);
+      expect(env.sumopod.invoices).toHaveLength(0);
     });
 
     it('a new checkout releases the slot of an earlier unpaid one instead of waiting for it to expire', async () => {
@@ -116,7 +119,7 @@ describe('BillingService', () => {
       await expect(env.billing.checkout({ tenantId: other.id, email: 'o@example.test', planId: s.plan.id, name: 'x', idempotencyKey: randomUUID() }))
         .rejects.toBeInstanceOf(CapacityFullError);
       expect(await prisma.subscription.count()).toBe(1);
-      expect(env.duitku.invoices).toHaveLength(1);
+      expect(env.sumopod.invoices).toHaveLength(1);
       // The first customer, already counted, pays and is fulfilled even though the server is at its cap.
       await pay(await orderIdOf(first.payment.id));
       expect((await prisma.instance.count({ where: { status: 'ACTIVE' } }))).toBe(1);
@@ -129,7 +132,7 @@ describe('BillingService', () => {
       const buy = () => env.billing.checkout({ tenantId: other.id, email: 'o@example.test', planId: s.plan.id, name: 'x', idempotencyKey: randomUUID() });
       // The open invoice holds the only unit.
       await expect(buy()).rejects.toBeInstanceOf(PlanSoldOutError);
-      expect(env.duitku.invoices).toHaveLength(1);
+      expect(env.sumopod.invoices).toHaveLength(1);
       // The holder pays and is fulfilled; the instance now holds the unit.
       await pay(await orderIdOf(first.payment.id));
       expect(await prisma.instance.count({ where: { status: 'ACTIVE' } })).toBe(1);
@@ -152,8 +155,8 @@ describe('BillingService', () => {
       expect(await prisma.subscription.count()).toBe(1);
     });
 
-    it('a Duitku outage answers 503, marks the attempt failed and a retry works', async () => {
-      env.duitku.failNext = true;
+    it('a SumoPod outage answers 503, marks the attempt failed and a retry works', async () => {
+      env.sumopod.failNext = true;
       const key = randomUUID();
       await expect(checkout(key)).rejects.toBeInstanceOf(PaymentProviderUnavailableError);
       expect(await prisma.payment.count({ where: { status: 'FAILED' } })).toBe(1);
@@ -229,7 +232,7 @@ describe('BillingService', () => {
     it('two simultaneous identical callbacks activate exactly once', async () => {
       const { payment } = await checkout();
       const orderId = await orderIdOf(payment.id);
-      const results = await Promise.all([1, 2, 3].map(() => env.billing.handleCallback(callbackForm({ orderId }))));
+      const results = await Promise.all([1, 2, 3].map(() => webhook(orderId)));
       await Promise.all(results.map((r) => (r.accepted ? r.postActions() : undefined)));
       expect(results.filter((r) => r.accepted && r.outcome === 'activated')).toHaveLength(1);
       expect(await prisma.instance.count()).toBe(1);
@@ -246,9 +249,9 @@ describe('BillingService', () => {
       expect((await prisma.paymentEvent.findFirstOrThrow()).outcome).toBe('amount_mismatch');
     });
 
-    it.each(['01', '02', 'XX'])('resultCode %s marks the payment failed and activates nothing', async (code) => {
+    it.each(['failed', 'expired', 'cancelled'])('status %s marks the payment failed and activates nothing', async (status) => {
       const { payment } = await checkout();
-      const r = await pay(await orderIdOf(payment.id), { resultCode: code });
+      const r = await pay(await orderIdOf(payment.id), { status });
       expect(r).toMatchObject({ accepted: true, outcome: 'failed' });
       expect((await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).status).toBe('FAILED');
       expect((await prisma.subscription.findFirstOrThrow()).status).toBe('PENDING_PAYMENT');
@@ -259,7 +262,7 @@ describe('BillingService', () => {
       const { payment } = await checkout();
       const orderId = await orderIdOf(payment.id);
       await pay(orderId);
-      const r = await pay(orderId, { resultCode: '01' });
+      const r = await pay(orderId, { status: 'failed' });
       expect(r).toMatchObject({ outcome: 'ignored_failure' });
       expect((await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).status).toBe('PAID');
       expect((await prisma.subscription.findFirstOrThrow()).status).toBe('ACTIVE');
@@ -273,34 +276,25 @@ describe('BillingService', () => {
       expect(await prisma.instance.count()).toBe(1);
     });
 
-    it('unknown order id with a valid signature is accepted (so Duitku stops retrying) and changes nothing', async () => {
+    it('unknown order id with a valid signature is accepted (so SumoPod stops retrying) and changes nothing', async () => {
       const r = await pay('nc-doesnotexist');
       expect(r).toMatchObject({ accepted: true, outcome: 'unknown_order' });
       expect(await counts()).toEqual({ instances: 0, payments: 0, events: 1 });
     });
 
     it.each([
-      ['bad signature', { signature: 'a'.repeat(64) }],
-      ['missing signature', { signature: '' }],
-      ['wrong merchant code', { merchantCode: 'OTHER' }],
-    ])('%s is not accepted and records nothing', async (_l, patch) => {
+      ['wrong token', 'not-the-webhook-token'],
+      ['missing token', ''],
+    ])('%s is not accepted and records nothing', async (_l, token) => {
       const { payment } = await checkout();
-      const form = { ...callbackForm({ orderId: await orderIdOf(payment.id) }), ...patch };
-      expect(await env.billing.handleCallback(form)).toEqual({ accepted: false });
+      expect(await webhook(await orderIdOf(payment.id), {}, token)).toEqual({ accepted: false });
       expect(await counts()).toEqual({ instances: 0, payments: 0, events: 0 });
-    });
-
-    it('a signature made for another order cannot activate this one', async () => {
-      const a = await checkout();
-      const orderA = await orderIdOf(a.payment.id);
-      const form = callbackForm({ orderId: 'nc-other' });
-      expect(await env.billing.handleCallback({ ...form, merchantOrderId: orderA })).toEqual({ accepted: false });
     });
 
     it('a crash after commit leaves a paid subscription without an instance, which ensureInstance repairs once', async () => {
       const { payment } = await checkout();
       const orderId = await orderIdOf(payment.id);
-      const r = await env.billing.handleCallback(callbackForm({ orderId })); // postActions deliberately not run
+      const r = await webhook(orderId); // postActions deliberately not run
       expect(r).toMatchObject({ outcome: 'activated' });
       const sub = await prisma.subscription.findFirstOrThrow();
       expect(sub.status).toBe('ACTIVE');
@@ -397,7 +391,7 @@ describe('BillingService', () => {
       expect(await env.billing.list(s.tenant.id)).toHaveLength(1);
     });
 
-    it('views never expose the Duitku reference or order id', async () => {
+    it('views never expose the provider reference or order id', async () => {
       const { subscription, payment } = await checkout();
       const json = JSON.stringify({ subscription, payment, list: await env.billing.list(s.tenant.id) });
       expect(json).not.toContain('REF-');

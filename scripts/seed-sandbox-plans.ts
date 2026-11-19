@@ -1,18 +1,18 @@
 /**
- * Sets a SANDBOX test price on a plan so Duitku checkout can be tried end to end.
+ * Sets a SANDBOX test price on a plan so SumoPod checkout can be tried end to end.
  *
  *   pnpm tsx scripts/seed-sandbox-plans.ts                     # lists plans and prices, changes nothing
- *   pnpm tsx scripts/seed-sandbox-plans.ts <slug> <price-idr>  # sets the price (whole rupiah, at least 10000)
+ *   pnpm tsx scripts/seed-sandbox-plans.ts <slug> <price-idr>  # sets the price (whole rupiah, at least 1000)
  *   pnpm tsx scripts/seed-sandbox-plans.ts <slug> none         # makes the plan not for sale again
  *
  * Prices are an explicit operator step (PRD 5.2: pricing is not approved), never part of a migration.
- * Refuses to run against a production backend or the production Duitku environment.
+ * Refuses to run against a production backend or the production SumoPod environment.
  */
 import { createPrisma } from '../src/db/client.js';
-import { DUITKU_MIN_AMOUNT_IDR } from '../src/modules/billing/duitku-client.js';
+import { SUMOPOD_MIN_AMOUNT_IDR } from '../src/modules/billing/sumopod-client.js';
 
-if (process.env.NODE_ENV === 'production' || process.env.DUITKU_ENV === 'production') {
-  console.error('Refusing to set a test price: NODE_ENV or DUITKU_ENV is production. Production prices are set by hand once approved.');
+if (process.env.NODE_ENV === 'production' || process.env.SUMOPOD_ENV === 'production') {
+  console.error('Refusing to set a test price: NODE_ENV or SUMOPOD_ENV is production. Production prices are set by hand once approved.');
   process.exit(1);
 }
 const databaseUrl = process.env.DATABASE_URL;
@@ -30,9 +30,9 @@ try {
   } else {
     let price: number | null;
     if (rawPrice === 'none') price = null;
-    else if (rawPrice && /^\d+$/.test(rawPrice) && Number(rawPrice) >= DUITKU_MIN_AMOUNT_IDR) price = Number(rawPrice);
+    else if (rawPrice && /^\d+$/.test(rawPrice) && Number(rawPrice) >= SUMOPOD_MIN_AMOUNT_IDR) price = Number(rawPrice);
     else {
-      console.error(`Price must be a whole number of rupiah of at least ${DUITKU_MIN_AMOUNT_IDR}, or "none".`);
+      console.error(`Price must be a whole number of rupiah of at least ${SUMOPOD_MIN_AMOUNT_IDR}, or "none".`);
       process.exit(1);
     }
     const plan = await prisma.plan.findUnique({ where: { slug } });

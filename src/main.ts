@@ -25,9 +25,7 @@ import { sweepPending } from './modules/jobs/sweeper.js';
 import { createInstanceWorker } from './modules/jobs/worker.js';
 import { BillingService } from './modules/billing/billing-service.js';
 import { BillingTick } from './modules/billing/billing-tick.js';
-import { createDuitkuClient } from './modules/billing/duitku-client.js';
 import { createSumoPodClient } from './modules/billing/sumopod-client.js';
-import type { PaymentClient } from './modules/billing/payment-client.js';
 import { createMailer } from './modules/billing/mailer.js';
 import { WaitlistInviter } from './modules/waitlist/waitlist-inviter.js';
 import { createTurnstileVerifier } from './modules/waitlist/turnstile.js';
@@ -102,7 +100,6 @@ logger.info({ customerApi: customer !== undefined }, 'customer API');
 const queue = config.redisUrl ? createBullQueue({ redisUrl: config.redisUrl, logger }) : null;
 const commands = new InstanceCommands({ service, queue, logger });
 logger.info({ jobQueue: queue !== null }, 'job queue');
-// Duitku billing exists only when its credentials are configured; otherwise checkout and the callback are 404.
 const mailer = createMailer(config.mail, logger);
 // NibieRouter key and credit need the admin key and a place to keep the encrypted instance key (SECRETS_KEK).
 const router = config.router && integrations
@@ -110,38 +107,16 @@ const router = config.router && integrations
   : null;
 if (config.router && !integrations) logger.warn('NibieRouter is configured but SECRETS_KEK is not: instance keys cannot be stored, provisioning is off');
 logger.info({ router: router !== null }, 'nibierouter');
-// Billing exists only when at least one gateway is configured; otherwise checkout and callbacks are 404.
+// Billing (SumoPod) exists only when it is configured; otherwise checkout and the webhook are 404.
 const billing = config.billing && config.dashboardOrigin
-  ? (() => {
-      const duitkuClient = config.billing.duitku ? createDuitkuClient(config.billing.duitku) : null;
-      const sumopodClient = config.billing.sumopod ? createSumoPodClient(config.billing.sumopod) : null;
-      // Primary client: the one matching `gateway`, or SumoPod by default, or the only configured one.
-      let paymentClient: PaymentClient | null = null;
-      const allClients: PaymentClient[] = [];
-      if (sumopodClient) {
-        allClients.push(sumopodClient);
-        if (config.billing.gateway === 'sumopod' || config.billing.gateway === 'both') paymentClient = sumopodClient;
-      }
-      if (duitkuClient) {
-        allClients.push(duitkuClient);
-        if (config.billing.gateway === 'duitku') paymentClient = duitkuClient;
-      }
-      if (!allClients.length) return null;
-      if (!paymentClient) paymentClient = allClients[0]!;
-      return new BillingService({
-        prisma,
-        paymentClient: paymentClient!,
-        paymentClients: config.billing.gateway === 'both' && allClients.length > 1 ? allClients.filter((c) => c !== paymentClient) : undefined,
-        duitkuAuth: config.billing.duitku ? { merchantCode: config.billing.duitku.merchantCode, apiKey: config.billing.duitku.apiKey } : null,
-        sumopodAuth: config.billing.sumopod
-          ? { webhookToken: config.billing.sumopod.webhookToken, webhookSecret: config.billing.sumopod.webhookSecret ?? null }
-          : null,
-        gateway: config.billing.gateway,
-        commands, mailer,
-        dashboardOrigin: config.dashboardOrigin!, maxInstancesPerTenant: config.maxInstancesPerTenant, maxTotalInstances: config.maxTotalInstances, logger,
-        ...(router ? { router } : {}),
-      });
-    })()
+  ? new BillingService({
+      prisma,
+      paymentClient: createSumoPodClient(config.billing.sumopod),
+      sumopodAuth: { webhookToken: config.billing.sumopod.webhookToken, webhookSecret: config.billing.sumopod.webhookSecret ?? null },
+      commands, mailer,
+      dashboardOrigin: config.dashboardOrigin, maxInstancesPerTenant: config.maxInstancesPerTenant, maxTotalInstances: config.maxTotalInstances, logger,
+      ...(router ? { router } : {}),
+    })
   : null;
 const billingTick = billing ? new BillingTick({ prisma, billing, commands, mailer, logger, ...(router ? { router } : {}) }) : null;
 // Automatic waiting list: invites the oldest waiting entry whenever a free beta slot opens. Needs the free slots and email.
@@ -151,7 +126,7 @@ const waitlistInviter = customer && config.freeBetaSlots > 0
 // Captcha on the public waiting-list form (the same Turnstile widget as the dashboard sign-up).
 const captcha = config.turnstileSecret ? createTurnstileVerifier({ secret: config.turnstileSecret }) : null;
 logger.info({ waitlist: waitlistInviter !== null, mail: mailer.enabled, captcha: captcha !== null }, 'waiting list');
-logger.info({ billing: billing !== null, billingGateway: config.billing?.gateway ?? null, mail: mailer.enabled }, 'billing');
+logger.info({ billing: billing !== null, mail: mailer.enabled }, 'billing');
 // The admin API exists only when a Supabase project is configured: it authenticates the same tokens
 // the customer API does. An empty ADMIN_EMAILS opens it to nobody (fail closed).
 const admin = customer

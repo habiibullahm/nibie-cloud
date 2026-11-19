@@ -65,7 +65,7 @@ export function DeployForm() {
     setTouched(true)
     if (nameError || !plan || !regionReady) return
     if (priced) {
-      // A paid plan: the backend creates the instance only after Duitku confirms the first payment.
+      // A paid plan: the backend creates the instance only after SumoPod confirms the first payment.
       checkout.mutate(
         { input: { name: name.trim(), planId: plan.id }, idempotencyKey },
         { onSuccess: (r) => startPayment(r.payment.paymentUrl) }
@@ -266,10 +266,10 @@ export function DeployForm() {
           {plan ? (
             <Alert>
               <Info aria-hidden="true" />
-              <AlertTitle>{priced ? t("Pay with Duitku") : t("Free during the beta")}</AlertTitle>
+              <AlertTitle>{priced ? t("Pay with QRIS") : t("Free during the beta")}</AlertTitle>
               <AlertDescription>
                 {priced
-                  ? t("You pay by virtual account or QRIS on the Duitku page. Your instance is created after the payment is confirmed, usually within a minute.")
+                  ? t("You pay by QRIS on the SumoPod payment page. Your instance is created after the payment is confirmed, usually within a minute.")
                   : t("There is nothing to pay. Deploying starts provisioning right away.")}
               </AlertDescription>
             </Alert>

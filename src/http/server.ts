@@ -11,7 +11,6 @@ import { isDatabaseUnavailable } from '../db/errors.js';
 import type { BillingService } from '../modules/billing/billing-service.js';
 import type { Mailer } from '../modules/billing/mailer.js';
 import type { CaptchaVerifier } from '../modules/waitlist/turnstile.js';
-import { registerDuitkuCallback } from './duitku-callback.js';
 import { registerSumoPodWebhook } from './sumopod-callback.js';
 import { registerCustomerRoutes, type CustomerDeps } from './customer-routes.js';
 import { registerOperatorRoutes } from './operator-routes.js';
@@ -40,7 +39,7 @@ export function buildServer(deps: {
   integrations?: Integrations | null;
   /** Redacted container logs for the customer API. Absent: the logs route answers 404. */
   logs?: LogService | null;
-  /** Duitku billing. Null or absent: the billing routes and the callback do not exist (404). */
+  /** SumoPod billing. Null or absent: the billing routes and the webhook do not exist (404). */
   billing?: BillingService | null;
   /** Dependency checks for `/readyz` (database, Redis, Docker). Absent: `/readyz` answers 200 like `/healthz`. */
   readiness?: Record<string, ReadinessCheck>;
@@ -99,10 +98,7 @@ export function buildServer(deps: {
   if (customer) registerPublicRoutes(app, { prisma: customer.prisma, config, mailer: deps.mailer ?? null, captcha: deps.captcha ?? null });
   if (customer) registerCustomerRoutes(app, { customer, service, commands, config, integrations, logs: deps.logs ?? null, billing, mailer: deps.mailer ?? null });
   if (deps.admin) registerAdminRoutes(app, { admin: deps.admin, config, mailer: deps.mailer ?? null });
-  if (billing) {
-    registerDuitkuCallback(app, { billing, logger });
-    registerSumoPodWebhook(app, { billing, logger });
-  }
+  if (billing) registerSumoPodWebhook(app, { billing, logger });
 
   app.setNotFoundHandler(async () => {
     throw new NotFoundError('Route not found');

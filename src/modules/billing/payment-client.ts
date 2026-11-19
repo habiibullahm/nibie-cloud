@@ -1,4 +1,4 @@
-/** Shared payment-provider interface for Duitku and SumoPod. */
+/** Payment-provider interface (implemented by the SumoPod client and the test fake). */
 
 export interface InvoiceRequest {
   merchantOrderId: string;
@@ -6,7 +6,7 @@ export interface InvoiceRequest {
   productDetails: string;
   email: string;
   returnUrl: string;
-  /** Not every gateway supports this (SumoPod does not); ignored when the provider ignores it. */
+  /** SumoPod does not support this; its client ignores it. */
   expiryMinutes?: number;
 }
 

@@ -275,7 +275,7 @@ enum PaymentStatus {
   EXPIRED
 }
 
-/// One Duitku invoice. `merchantOrderId` is generated here (UUID based, 35 chars, Duitku allows 50).
+/// One payment-provider invoice (SumoPod today; older rows may be Duitku). `merchantOrderId` is generated here (UUID based, 35 chars).
 model Payment {
   id              String         @id @default(uuid()) @db.Uuid
   subscriptionId  String         @db.Uuid
@@ -296,9 +296,8 @@ model Payment {
   @@index([status, expiresAt])
 }
 
-/// Append-only record of every callback with a valid signature. Duitku sends no event id, so the unique
-/// key on (order, reference, result code) is what makes a redelivered callback a no-op. No raw body and
-/// no signature are stored.
+/// Append-only record of every authenticated payment webhook. The unique key on (order, reference,
+/// result code) is what makes a redelivered webhook a no-op. No raw body and no signature are stored.
 model PaymentEvent {
   id              String   @id @default(uuid()) @db.Uuid
   merchantOrderId String

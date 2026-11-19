@@ -159,7 +159,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
      */
     api.get('/system', async () => ({
       billing: config.billing !== null,
-      billingGateway: config.billing?.gateway ?? null,
+      billingGateway: config.billing ? 'sumopod' : null,
       router: config.router !== null,
       mail: config.mail !== null,
       redis: config.redisUrl !== null,
@@ -169,12 +169,11 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
       // The Pengaturan page. Booleans, counts, modes and names only: never a key, token, password, URL or email list.
       settings: {
         billing: {
-          gateway: config.billing?.gateway ?? null,
+          gateway: config.billing ? 'sumopod' : null,
           paidCheckoutOpen: config.paidCheckoutOpen,
-          sumopod: config.billing?.sumopod
+          sumopod: config.billing
             ? { env: config.billing.sumopod.env, webhookSigned: Boolean(config.billing.sumopod.webhookSecret) }
             : null,
-          duitku: config.billing?.duitku ? { env: config.billing.duitku.env } : null,
         },
         email: { configured: config.mail !== null, from: config.mail?.from ?? null },
         signIn: {
