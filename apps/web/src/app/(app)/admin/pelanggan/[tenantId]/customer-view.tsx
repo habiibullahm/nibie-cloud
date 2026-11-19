@@ -29,7 +29,7 @@ export function AdminCustomerView({ tenantId }: { tenantId: string }) {
       <PageHeader
         title={customer.email ?? "Tanpa akun"}
         description={`Tenant ${customer.tenantId}`}
-        eyebrow={<Link href="/admin/pelanggan" className="no-underline hover:underline">← Pelanggan</Link>}
+        eyebrow={<Link href="/admin/pelanggan" className="underline decoration-input underline-offset-4 hover:decoration-foreground">← Pelanggan</Link>}
       />
 
       <Card>

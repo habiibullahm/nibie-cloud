@@ -356,10 +356,7 @@ function SupportContactCard() {
     <Card>
       <CardHeader>
         <CardTitle>Kontak bantuan</CardTitle>
-        <CardDescription>
-          Tampil di halaman Bantuan dan footer dashboard pelanggan. Kosongkan kolom untuk menyembunyikannya. Halaman landing
-          tetap memakai email dari variabel build-nya sendiri.
-        </CardDescription>
+        <CardDescription>Tampil di halaman Bantuan dashboard. Kosongkan untuk menyembunyikan.</CardDescription>
       </CardHeader>
       <CardContent>
         {contact.data ? (
@@ -376,27 +373,24 @@ function SupportContactForm(initial: { whatsapp: string; email: string }) {
   const save = useSetSupportContact()
   const [whatsapp, setWhatsapp] = useState(initial.whatsapp)
   const [email, setEmail] = useState(initial.email)
-  const [reason, setReason] = useState("")
   const [error, setError] = useState<string | null>(null)
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (reason.trim().length < MIN_REASON) return setError(`Alasan minimal ${MIN_REASON} karakter.`)
     setError(null)
     save.mutate(
-      { whatsapp: whatsapp.trim(), email: email.trim(), reason: reason.trim() },
+      { whatsapp: whatsapp.trim(), email: email.trim() },
       {
         onSuccess: (saved) => {
           setWhatsapp(saved.whatsapp ?? "")
           setEmail(saved.email ?? "")
-          setReason("")
           toast.success("Kontak bantuan disimpan.")
         },
         // The backend answers only "Invalid request" for a bad body, so say here what it checks.
         onError: (err) =>
           setError(
             (err as { code?: string }).code === "validation_error"
-              ? "Periksa isian: nomor WhatsApp 8 sampai 15 angka dengan kode negara (bukan 0 di depan), email yang valid."
+              ? "Nomor WhatsApp pakai kode negara (contoh 6281234567890), email harus valid."
               : err instanceof Error
                 ? err.message
                 : "Gagal menyimpan."
@@ -406,30 +400,24 @@ function SupportContactForm(initial: { whatsapp: string; email: string }) {
   }
 
   return (
-    <form onSubmit={submit} noValidate className="grid gap-4 sm:max-w-xl">
-      <div className="grid gap-2">
-        <Label htmlFor="support-wa">Nomor WhatsApp</Label>
-        <Input
-          id="support-wa"
-          inputMode="tel"
-          autoComplete="off"
-          maxLength={25}
-          placeholder="contoh: 6281234567890"
-          aria-describedby="support-wa-hint"
-          value={whatsapp}
-          onChange={(e) => setWhatsapp(e.target.value)}
-        />
-        <p id="support-wa-hint" className="text-muted-foreground">
-          Dengan kode negara, tanpa 0 di depan. Spasi, tanda hubung dan + boleh.
-        </p>
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor="support-email">Email bantuan</Label>
-        <Input id="support-email" type="email" autoComplete="off" maxLength={254} value={email} onChange={(e) => setEmail(e.target.value)} />
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor="support-reason">Alasan</Label>
-        <Input id="support-reason" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+    <form onSubmit={submit} noValidate className="grid gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-2">
+          <Label htmlFor="support-wa">WhatsApp</Label>
+          <Input
+            id="support-wa"
+            inputMode="tel"
+            autoComplete="off"
+            maxLength={25}
+            placeholder="6281234567890"
+            value={whatsapp}
+            onChange={(e) => setWhatsapp(e.target.value)}
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="support-email">Email</Label>
+          <Input id="support-email" type="email" autoComplete="off" maxLength={254} placeholder="support@nibie.app" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
       </div>
       {error ? (
         <Alert variant="destructive" role="alert">
@@ -438,7 +426,7 @@ function SupportContactForm(initial: { whatsapp: string; email: string }) {
       ) : null}
       <div>
         <Button type="submit" disabled={save.isPending}>
-          {save.isPending ? "Menyimpan…" : "Simpan kontak"}
+          {save.isPending ? "Menyimpan…" : "Simpan"}
         </Button>
       </div>
     </form>

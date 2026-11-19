@@ -89,10 +89,10 @@ function RailFooter() {
         </div>
       )}
       <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="truncate text-foreground">{me.data?.name ?? " "}</p>
-          <p className="type-mono truncate">{me.data?.email ?? " "}</p>
-        </div>
+        {/* Only the email: there is no real name (Account shows the same); title shows a long, truncated address. */}
+        <p className="min-w-0 truncate text-foreground" title={me.data?.email}>
+          {me.data?.email ?? ""}
+        </p>
         <Button
           variant="ghost"
           size="icon-sm"

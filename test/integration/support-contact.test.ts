@@ -63,25 +63,26 @@ describe('support contact', () => {
     expect((await publicContact(a)).json()).toEqual({ whatsapp: '6281234567890', email: 'support@nibie.app' });
     // The same values again change nothing and are not recorded.
     expect((await save(a, boss, { whatsapp: '6281234567890', email: 'support@nibie.app', reason: 'same again' })).statusCode).toBe(200);
-    expect((await save(a, boss, { whatsapp: '', email: 'support@nibie.app', reason: 'drop whatsapp' })).json()).toEqual({ whatsapp: null, email: 'support@nibie.app' });
+    // No reason: the minimal form sends none; the change is still audited with who and what.
+    expect((await save(a, boss, { whatsapp: '', email: 'support@nibie.app' })).json()).toEqual({ whatsapp: null, email: 'support@nibie.app' });
     const rows = await prisma.auditLog.findMany({ where: { targetType: 'support-contact' }, orderBy: { createdAt: 'asc' } });
     expect(rows.map((r) => [r.reason, r.detail])).toEqual([
       ['launch contacts', { from: { whatsapp: null, email: null }, to: { whatsapp: '6281234567890', email: 'support@nibie.app' } }],
-      ['drop whatsapp', { from: { whatsapp: '6281234567890', email: 'support@nibie.app' }, to: { whatsapp: null, email: 'support@nibie.app' } }],
+      [null, { from: { whatsapp: '6281234567890', email: 'support@nibie.app' }, to: { whatsapp: null, email: 'support@nibie.app' } }],
     ]);
     expect(rows.every((r) => r.actorEmail === BOSS)).toBe(true);
   });
 
-  it('refuses a number without country code, a bad email, a missing reason and unknown fields', async () => {
+  it('refuses a number without country code, a bad email, a too-short reason and unknown fields', async () => {
     const a = app();
     const boss = await as(BOSS);
     for (const body of [
-      { whatsapp: '081234567890', email: '', reason: 'test reason' },
-      { whatsapp: '62812', email: '', reason: 'test reason' },
-      { whatsapp: '62abc1234567', email: '', reason: 'test reason' },
-      { whatsapp: '', email: 'not-an-email', reason: 'test reason' },
-      { whatsapp: '6281234567890', email: '' },
-      { whatsapp: '6281234567890', email: '', reason: 'test reason', extra: 1 },
+      { whatsapp: '081234567890', email: '' },
+      { whatsapp: '62812', email: '' },
+      { whatsapp: '62abc1234567', email: '' },
+      { whatsapp: '', email: 'not-an-email' },
+      { whatsapp: '6281234567890', email: '', reason: 'x' },
+      { whatsapp: '6281234567890', email: '', extra: 1 },
     ]) {
       expect((await save(a, boss, body)).statusCode, JSON.stringify(body)).toBe(400);
     }

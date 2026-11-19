@@ -4,6 +4,17 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Admin panel polish (2026-11-19, branch `claude/admin-polish`)
+
+Fixes A1 to A9 of the anti-slop audit 005 (kept outside git in `anti-slop/`): Ringkasan numbers at heading size and five
+stats in one row, cards no longer stretched, "Mati" switches drawn dashed and muted; customer search runs on submit (each admin
+read writes an audit row); table links underlined; admin tabs in one scrolling row; the admin panel stays Bahasa whatever the
+language switch says (`FixedLang` in `lib/i18n.ts`); one set of Indonesian status words for customers and admins (test-enforced);
+the sidebar shows only the email. The Kontak bantuan form is minimal (WhatsApp, email, Simpan): the backend's `reason` for
+`POST /api/v1/admin/support-contact` is optional now (owner decision); the audit row still records who and the before/after
+values. Checks: backend `tsc`, support-contact integration test, web typecheck, lint, 192 tests, build. Not seen in a browser
+(the admin panel needs the real backend and MFA).
+
 ## Support contacts set from the admin panel (2026-11-19, branch `claude/support-contacts`)
 
 On the owner's word ("fill form on admin settings"; WhatsApp and email on the dashboard, email only on the landing page),

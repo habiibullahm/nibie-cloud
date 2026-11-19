@@ -1,3 +1,4 @@
+import { createContext, useContext } from "react"
 import { ID } from "./i18n-id"
 import { useLang, type Lang } from "./prefs"
 
@@ -14,7 +15,12 @@ export function translate(lang: Lang, text: string, vars?: Vars): string {
 
 export type T = (text: string, vars?: Vars) => string
 
+/** Pins a subtree to one language whatever the viewer's switch says: the admin panel is Bahasa only (AdminGate). */
+const FixedLangContext = createContext<Lang | null>(null)
+export const FixedLang = FixedLangContext.Provider
+
 export function useT(): T {
-  const lang = useLang()
+  const chosen = useLang()
+  const lang = useContext(FixedLangContext) ?? chosen
   return (text, vars) => translate(lang, text, vars)
 }

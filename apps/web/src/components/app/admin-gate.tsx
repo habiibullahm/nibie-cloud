@@ -11,6 +11,7 @@ import { decideAdminGate } from "@/lib/admin-gate-rules"
 import { useQueryClient } from "@tanstack/react-query"
 import { AdminMfa } from "@/components/app/admin-mfa"
 import { useAdminMe } from "@/hooks/use-admin"
+import { FixedLang } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
 const ADMIN_NAV = [
@@ -30,7 +31,9 @@ const ADMIN_NAV = [
 function AdminNav() {
   const pathname = usePathname()
   return (
-    <nav aria-label="Navigasi admin" className="flex flex-wrap gap-2 border-b pb-4">
+    // One row that scrolls sideways on narrow screens (like the instance tabs) instead of wrapping into several rows.
+    <nav aria-label="Navigasi admin" className="-mx-4 overflow-x-auto border-b px-4 pb-4 sm:mx-0 sm:px-0">
+      <div className="flex min-w-max gap-2">
       {ADMIN_NAV.map(({ href, label, exact }) => {
         const active = exact ? pathname === href : pathname.startsWith(href)
         return (
@@ -39,7 +42,7 @@ function AdminNav() {
             href={href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "type-label hit-area rounded-sm border px-3 py-1.5 no-underline transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "type-label hit-area relative rounded-sm border px-3 py-1.5 whitespace-nowrap no-underline transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               active ? "border-foreground bg-card text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
             )}
           >
@@ -47,6 +50,7 @@ function AdminNav() {
           </Link>
         )
       })}
+      </div>
     </nav>
   )
 }
@@ -57,6 +61,15 @@ function AdminNav() {
  * is one), and the panel otherwise.
  */
 export function AdminGate({ children }: { children: React.ReactNode }) {
+  // The admin panel is Bahasa only: shared parts (loading and error messages) must not follow the viewer's EN switch.
+  return (
+    <FixedLang value="id">
+      <AdminPanel>{children}</AdminPanel>
+    </FixedLang>
+  )
+}
+
+function AdminPanel({ children }: { children: React.ReactNode }) {
   const me = useAdminMe()
   const decision = decideAdminGate({
     mode: apiMode(),

@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PageHeader } from "@/components/app/page-header"
@@ -10,6 +11,8 @@ import { useAdminCustomers } from "@/hooks/use-admin"
 import { formatDateTimeId } from "@/lib/admin-format"
 
 export function AdminCustomersView() {
+  // Searched on submit, not per keystroke: every admin request writes an audit row and counts against the rate limit.
+  const [input, setInput] = useState("")
   const [q, setQ] = useState("")
   const customers = useAdminCustomers(q)
 
@@ -17,17 +20,33 @@ export function AdminCustomersView() {
     <div className="grid gap-6">
       <PageHeader title="Pelanggan" description="Tenant dan akun yang memilikinya." />
 
-      <div className="grid max-w-md gap-2">
+      <form
+        role="search"
+        className="grid max-w-md gap-2"
+        onSubmit={(e) => {
+          e.preventDefault()
+          setQ(input.trim())
+        }}
+      >
         <Label htmlFor="admin-customer-search">Cari email</Label>
-        <Input
-          id="admin-customer-search"
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="nama@contoh.com"
-          autoComplete="off"
-        />
-      </div>
+        <div className="flex gap-2">
+          <Input
+            id="admin-customer-search"
+            type="search"
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value)
+              // Clearing the box (or its x button) shows everyone again without another click.
+              if (e.target.value === "" && q !== "") setQ("")
+            }}
+            placeholder="nama@contoh.com"
+            autoComplete="off"
+          />
+          <Button type="submit" variant="outline">
+            Cari
+          </Button>
+        </div>
+      </form>
 
       <AdminTable
         what="pelanggan"
@@ -46,7 +65,7 @@ export function AdminCustomersView() {
         row={(c) => (
           <TableRow key={c.tenantId}>
             <TableCell>
-              <Link href={`/admin/pelanggan/${c.tenantId}`} className="no-underline hover:underline">
+              <Link href={`/admin/pelanggan/${c.tenantId}`} className="underline decoration-input underline-offset-4 hover:decoration-foreground">
                 {c.email ?? "Tanpa akun"}
               </Link>
             </TableCell>

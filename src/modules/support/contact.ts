@@ -25,8 +25,12 @@ const email = z
   .refine((v) => v === '' || z.string().email().safeParse(v).success, 'Invalid email address')
   .transform((v) => (v === '' ? null : v));
 
+/**
+ * The reason is optional here (owner decision 2026-11-19: a minimal form). The audit row still records who changed what,
+ * with the values before and after; other admin actions keep their required reason.
+ */
 export const supportContactBody = z
-  .object({ whatsapp, email, reason: z.string().trim().min(3).max(500) })
+  .object({ whatsapp, email, reason: z.string().trim().min(3).max(500).optional() })
   .strict();
 
 const EMPTY: SupportContactView = { whatsapp: null, email: null };

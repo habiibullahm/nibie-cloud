@@ -34,13 +34,13 @@ export function AdminInstanceView({ instanceId }: { instanceId: string }) {
         description={`Tenant ${i.tenantId}`}
         eyebrow={
           <>
-            <Link href="/admin/instance" className="no-underline hover:underline">
+            <Link href="/admin/instance" className="underline decoration-input underline-offset-4 hover:decoration-foreground">
               ← Instance
             </Link>
             {i.email ? (
               <>
                 <span aria-hidden="true">·</span>
-                <Link href={`/admin/pelanggan/${i.tenantId}`} className="no-underline hover:underline">
+                <Link href={`/admin/pelanggan/${i.tenantId}`} className="underline decoration-input underline-offset-4 hover:decoration-foreground">
                   {i.email}
                 </Link>
               </>

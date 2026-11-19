@@ -122,7 +122,7 @@ export function useSetPlanStock() {
 export function useSetSupportContact() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (input: { whatsapp: string; email: string; reason: string }) => getAdminApi().setSupportContact(input),
+    mutationFn: (input: { whatsapp: string; email: string }) => getAdminApi().setSupportContact(input),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["support-contact"] })
       void qc.invalidateQueries({ queryKey: adminKeys.audit })
