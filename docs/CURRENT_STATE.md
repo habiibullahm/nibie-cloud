@@ -49,9 +49,37 @@ Supabase captcha is **on** (2026-11-19, rollout step 2 of the free sign-up secti
   "Tick the box below".
 - Card subtitles: register "Your personal AI agent, hosted for you.", sign-in "Welcome back.". The line under the card and the
   site description are now "Your own AI agent in the cloud. No server to set up or maintain." (the "24/7" claim is gone).
-- The footer shows `Support: <address>` from the new build variable `NEXT_PUBLIC_CONTACT_EMAIL`; empty keeps
-  "Support on Telegram, coming soon.". Production needs that variable on Worker `nibie-cloud-web` before the next build.
+- The footer keeps main's Telegram link and adds "or email <address>" from `NEXT_PUBLIC_CONTACT_EMAIL` (the variable the
+  Support page already uses); empty shows Telegram only. Production needs that variable on Worker `nibie-cloud-web`.
 - Checked: web `typecheck`, `lint`, `test` (173 pass), and a headless screenshot of `/dashboard/register` at 420 px.
+## Dashboard: unpaid and expired orders on the Instances page (2026-11-19, branch `claude/dashboard-flow-fixes`, not committed)
+
+Fixes F1 to F9 of the anti-slop audit 004 (kept outside git in `anti-slop/`). Orders whose payment link expired no longer
+appear under "Awaiting payment": they move to an "Expired orders" list under the instances, with "Deploy again", which opens
+Deploy with the order's name and plan filled in (`?name=&plan=`). Deploy warns that a new checkout cancels the payment link
+of an unpaid order. After a paid return the alert links to the new instance and the `?payment=` query is dropped. Checks:
+web typecheck, lint, 175 tests, build, and a headless click-through in mock mode. The paid and failed returns and the Deploy
+warning were not run (they need a real gateway or priced plans). A customer cannot remove an expired order yet: the backend
+ends it after 7 days; a remove endpoint would belong in the Go backend.
+
+Same branch, second part (owner request 2026-11-19):
+- Language switch ID/EN (`lib/i18n.ts`, `lib/i18n-id.ts`, default Bahasa Indonesia) and theme switch dark/light
+  (`lib/prefs.ts`, light palette in DESIGN.md "Light theme", default dark), in the sidebar and on Account; saved per browser
+  in localStorage and applied before paint by an inline script in the root layout. Translated so far: sidebar, Instances,
+  Deploy, Account, Support, status badges, payment alerts. Still English: the instance detail tabs, the sign-in screens,
+  backend error messages and backend status reasons. A test fails on any `t()` text without a translation.
+- Support page (`/support`, sidebar "Bantuan"): Telegram from the landing page, email from the new build variable
+  `NEXT_PUBLIC_CONTACT_EMAIL` (hidden when empty), links to `/docs` and `/kontak`. The footer links Telegram.
+- Account page reworked: email, sign-in method, change/set password (`/set-password`), orders and payments, preferences,
+  account deletion through support. Deploy: no "change plans later" claim, price first on plan cards, unset rows hidden.
+- Instances: status filter and sort, "Active first" by default (`lib/instance-list.ts`).
+Checks: web typecheck, lint, 186 tests, build, `@google/design.md@0.4.0` lint 0 errors 0 warnings, headless click-through
+(both themes, both languages, filter, sort, phone width, no console errors).
+- Review fixes: a paid or failed renewal return no longer says an instance "is being created" (`isRenewal`, `retryHref`);
+  "Change password" uses `/set-password?from=account` and returns to Account; the query cache is cleared when the session
+  ends (`AuthGate`), so another account on the same tab never sees cached data; ended orders get no Billing link; the
+  language buttons' names contain their visible text; the browser bar colour follows the theme. 188 tests; mock e2e
+  (dashboard-mock, dashboard-mock-mobile) 30 passed, 1 skipped as before. Not run: T1 e2e, a real gateway return.
 
 ## Customers no longer call the admin API (2026-11-19, branch `claude/no-admin-probe-for-customers`, PR #74, not merged)
 

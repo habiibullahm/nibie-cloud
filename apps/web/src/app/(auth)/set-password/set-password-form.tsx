@@ -1,6 +1,7 @@
 "use client"
 
-import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useState } from "react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -10,9 +11,13 @@ import { Label } from "@/components/ui/label"
 import { validateNewPassword } from "@/lib/auth/password"
 import { getSupabase } from "@/lib/auth/supabase"
 
-/** Shown after an invitation or password-reset link: the session exists, the password does not. */
+/**
+ * Shown after an invitation or password-reset link (the session exists, the password does not), and from the Account
+ * page (`?from=account`), where the customer is signed in normally and goes back to Account afterwards.
+ */
 export function SetPasswordForm() {
   const router = useRouter()
+  const fromAccount = useSearchParams().get("from") === "account"
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -28,8 +33,14 @@ export function SetPasswordForm() {
     setError(null)
     const { error: e2 } = await supabase.auth.updateUser({ password })
     setBusy(false)
-    if (e2) return setError("Could not save the password. Open the link from your email again.")
-    router.replace("/deploy")
+    if (e2) {
+      return setError(
+        fromAccount
+          ? "Could not save the password. Try again, or sign out and sign in again first."
+          : "Could not save the password. Open the link from your email again."
+      )
+    }
+    router.replace(fromAccount ? "/account" : "/deploy")
   }
 
   return (
@@ -58,6 +69,11 @@ export function SetPasswordForm() {
           <Button type="submit" disabled={busy}>
             Save password
           </Button>
+          {fromAccount ? (
+            <Button asChild variant="ghost">
+              <Link href="/account">Back to account</Link>
+            </Button>
+          ) : null}
         </CardFooter>
       </form>
     </Card>

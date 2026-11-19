@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test"
 import { existsSync } from "node:fs"
 import { randomBytes } from "node:crypto"
-import { BACKEND_PORT, BETA_USERS, DASHBOARD_URL, LANDING_PORT, LANDING_URL, e2eDatabaseUrl, emailOf, required } from "./support/env"
+import { BACKEND_PORT, BETA_USERS, DASHBOARD_URL, LANDING_PORT, LANDING_URL, e2eDatabaseUrl, emailOf, englishState, required } from "./support/env"
 
 // Local secrets for tiers T1 and T2 (git-ignored). CI passes them as environment variables instead.
 if (existsSync(".env.e2e")) process.loadEnvFile(".env.e2e")
@@ -29,12 +29,16 @@ export default defineConfig({
       testMatch: /layout\.spec\.ts/,
       use: { ...devices["Pixel 7"], baseURL: LANDING_URL },
     },
-    { name: "dashboard-mock", testDir: "tests/dashboard-mock", use: { ...devices["Desktop Chrome"], baseURL: DASHBOARD_URL } },
+    {
+      name: "dashboard-mock",
+      testDir: "tests/dashboard-mock",
+      use: { ...devices["Desktop Chrome"], baseURL: DASHBOARD_URL, storageState: englishState(DASHBOARD_URL) },
+    },
     {
       name: "dashboard-mock-mobile",
       testDir: "tests/dashboard-mock",
       testMatch: /layout\.spec\.ts/,
-      use: { ...devices["Pixel 7"], baseURL: DASHBOARD_URL },
+      use: { ...devices["Pixel 7"], baseURL: DASHBOARD_URL, storageState: englishState(DASHBOARD_URL) },
     },
     // T1: real backend and a dedicated Supabase test project. The setup project signs in once and saves the
     // session. It records nothing (no trace, video or screenshot) because it types a password.
@@ -56,7 +60,14 @@ export default defineConfig({
     {
       name: "prod-smoke",
       testDir: "tests/prod-smoke",
-      use: { ...devices["Desktop Chrome"], baseURL: prodUrl, trace: "off", video: "off", screenshot: "off" },
+      use: {
+        ...devices["Desktop Chrome"],
+        baseURL: prodUrl,
+        storageState: englishState(new URL(prodUrl).origin),
+        trace: "off",
+        video: "off",
+        screenshot: "off",
+      },
     },
   ],
   webServer: webServers(),
