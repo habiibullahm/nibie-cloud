@@ -2,7 +2,7 @@ import Image from "next/image"
 import Link from "next/link"
 
 /** next/image does not add the base path to a string src (next.config.ts sets it to /dashboard). */
-const MARK_SRC = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/brand/logo-mark-on-dark-128h.png`
+const MARK_SRC = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/brand/mark-paper.svg`
 
 /**
  * The approved brand mark (on-dark variant, DESIGN.md) beside the product name. The name carries the
@@ -16,7 +16,7 @@ export function Brand({ href = "/instances" }: { href?: string }) {
     >
       {/* The on-dark mark has a near-white lobe, so it always sits on ink (invisible on the dark theme's background). */}
       <span className="flex shrink-0 rounded-sm bg-ink p-0.5">
-        <Image src={MARK_SRC} alt="" aria-hidden="true" width={192} height={128} unoptimized loading="eager" className="h-6 w-auto" />
+        <Image src={MARK_SRC} alt="" aria-hidden="true" width={36} height={24} unoptimized loading="eager" className="h-6 w-auto" />
       </span>
       <span className="type-label">Nibie Cloud</span>
     </Link>
