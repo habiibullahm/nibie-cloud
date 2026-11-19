@@ -51,30 +51,17 @@ export function toAccount(m: MeBody): Account {
 /**
  * Browser client for the backend customer API: every call carries the signed-in user's Supabase access
  * token, and the backend derives the tenant from it. The instance endpoints, billing, /me, /plans, the
- * provider and Telegram settings and the logs are real; everything else is taken from `preview` (mock
- * data, labelled in the UI).
+ * provider and Telegram settings and the logs are real. Nothing here falls back to sample data: an endpoint
+ * without a backend answers empty or rejects with `not_available` (customers must never see preview data).
  */
-export function createCustomerApi(opts: {
-  baseUrl: string
-  getToken: () => Promise<string | null>
-  preview: HermesApi["preview"]
-}): HermesApi {
+export function createCustomerApi(opts: { baseUrl: string; getToken: () => Promise<string | null> }): HermesApi {
   const call = makeCall(opts.baseUrl.replace(/\/+$/, "") + "/api/v1", async () => {
     const token = await opts.getToken()
     if (!token) throw new ApiError(401, "unauthorized", "Sign in to continue.")
     return { authorization: `Bearer ${token}` }
   })
   const realPlans = async () => (await call<{ plans: PlanBody[] }>("/plans")).plans.map(toPlan)
-
-  /**
-   * Preview rows (meta) are synthesized from the mock plans. Point them at the real plan
-   * with the same slug (or the first one), so the preview pages can still find their plan.
-   */
-  async function remapPlanId(planId: string): Promise<string> {
-    const [real, sample] = await Promise.all([realPlans(), opts.preview.plans()])
-    const slug = sample.find((p) => p.id === planId)?.slug
-    return (real.find((p) => p.slug === slug) ?? real[0])?.id ?? planId
-  }
+  const notAvailable = () => Promise.reject(new ApiError(501, "not_available", "This feature is not available yet."))
 
   return {
     mode: "customer",
@@ -82,14 +69,18 @@ export function createCustomerApi(opts: {
     billing: buildBillingApi(call),
     tickets: buildTicketsApi(call),
     preview: {
-      ...opts.preview,
       ...buildIntegrationsApi(call),
       me: async () => toAccount(await call<MeBody>("/me")),
       plans: realPlans,
-      meta: async (id) => {
-        const m = await opts.preview.meta(id)
-        return m && { ...m, planId: await remapPlanId(m.planId) }
-      },
+      // No backend for these yet. The pages that need them are hidden in customer mode (instance-frame.tsx).
+      regions: async () => [],
+      meta: async () => null,
+      access: notAvailable,
+      usage: notAvailable,
+      files: notAvailable,
+      fileContent: notAvailable,
+      backups: notAvailable,
+      createBackup: notAvailable,
     },
   }
 }

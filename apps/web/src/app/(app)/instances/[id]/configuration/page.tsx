@@ -14,7 +14,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { ComingSoon } from "@/components/app/coming-soon"
 import { KeyValue } from "@/components/app/key-value"
 import { PreviewNote } from "@/components/app/preview-note"
 import { QueryFallback } from "@/components/app/query-fallback"
@@ -24,7 +23,6 @@ import {
   useApiMode,
   useInstance,
   useInstanceAction,
-  useInstanceMeta,
   usePlans,
   useProvider,
   useSubscriptions,
@@ -140,11 +138,11 @@ function ProviderSection({ id }: { id: string }) {
 function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
   const qc = useQueryClient()
   const mode = useApiMode()
-  const meta = useInstanceMeta(id)
+  const instance = useInstance(id)
   const plans = usePlans()
   // A free instance gets its NibieRouter key from the backend shortly after it becomes active.
   const routerComing =
-    mode === "customer" && !cfg.configured && plans.data?.find((p) => p.id === meta.data?.planId)?.monthlyPriceIdr === null
+    mode === "customer" && !cfg.configured && plans.data?.find((p) => p.id === instance.data?.planId)?.monthlyPriceIdr === null
   // Only the in-browser mock can switch to NibieRouter; on the real API that key is attached by Nibie Cloud.
   const routerLocked = mode !== "mock"
   const [kind, setKind] = useState<ProviderKind>(cfg.configured ? cfg.kind : "byok")
@@ -565,39 +563,29 @@ function TelegramForm({ id, cfg }: { id: string; cfg: TelegramConfig }) {
 // ── Runtime ──────────────────────────────────────────────────────────────────
 
 function RuntimeSection({ id }: { id: string }) {
-  const meta = useInstanceMeta(id)
+  const instance = useInstance(id)
   const plans = usePlans()
   const subs = useSubscriptions()
-  // Same rule as the instance header (instance-frame.tsx): the billed plan wins over the preview metadata.
-  const plan = plans.data?.find((p) => p.id === (subscriptionOfInstance(subs.data, id)?.planId ?? meta.data?.planId))
+  // Same rule as the instance header (instance-frame.tsx): the billed plan wins over the instance's own plan.
+  const plan = plans.data?.find((p) => p.id === (subscriptionOfInstance(subs.data, id)?.planId ?? instance.data?.planId))
 
-  if (!meta.data || !plan) return <QueryFallback what="the runtime details" queries={[meta, plans]} />
+  if (!plan) return <QueryFallback what="the runtime details" queries={[instance, plans]} />
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Runtime</CardTitle>
         <CardDescription>Managed by Nibie Cloud. Limits come from your plan.</CardDescription>
-        <CardAction>
-          <PreviewNote what="Runtime details" />
-        </CardAction>
       </CardHeader>
       <CardContent className="grid gap-6">
         <KeyValue
           items={[
-            { k: "Image", v: <span className="type-mono">{meta.data.image}</span> },
-            { k: "Isolation", v: <span className="type-mono">{meta.data.runtime}</span> },
             { k: "CPU", v: <span className="type-mono">{formatCpu(plan.cpuMillis)}</span> },
             { k: "Memory", v: <span className="type-mono">{formatMb(plan.memoryMb)}</span> },
             { k: "Storage", v: <span className="type-mono">{formatMb(plan.storageMb)}</span> },
             { k: "Processes", v: <span className="type-mono">{plan.pids}</span> },
           ]}
         />
-        {/* TODO(backups): offer a backup before runtime upgrades once the backup API exists (PRD §12). */}
-        <div className="flex flex-wrap items-center gap-3 border-t pt-4 text-muted-foreground">
-          <ComingSoon />
-          <p>Backups before runtime upgrades.</p>
-        </div>
       </CardContent>
     </Card>
   )

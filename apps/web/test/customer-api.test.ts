@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { ApiError } from "../src/lib/api/client"
 import { createCustomerApi, toAccount, toPlan } from "../src/lib/api/customer"
-import { createMockApi } from "../src/lib/api/mock"
 
 const ID = "5b0c6a2e-1f1d-4c55-9a7e-0d1f3a000001"
 
@@ -12,8 +11,7 @@ function json(body: unknown, status = 200) {
 function setup(token: string | null = "tok") {
   const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>()
   vi.stubGlobal("fetch", fetchMock)
-  const preview = createMockApi({ empty: true, synthesizeUnknown: true }).preview
-  const api = createCustomerApi({ baseUrl: "https://api.example.test/", getToken: async () => token, preview })
+  const api = createCustomerApi({ baseUrl: "https://api.example.test/", getToken: async () => token })
   return { api, fetchMock }
 }
 
@@ -110,15 +108,21 @@ describe("customer API client", () => {
     expect(toAccount({ id: "u", email: "a@b.c", tenantId: "t", admin: true }).admin).toBe(true)
   })
 
-  it("points preview metadata at a real plan id", async () => {
+  it("never serves sample data for endpoints without a backend", async () => {
     const { api, fetchMock } = setup()
-    fetchMock.mockImplementation(async (url) =>
-      String(url).endsWith("/plans")
-        ? json({ plans: [{ id: ID, slug: "starter", name: "Starter", cpuMillis: 500, memoryMb: 1024, storageMb: 5120, pids: 256, monthlyPriceIdr: null }] })
-        : json({})
-    )
-    const meta = await api.preview.meta("11111111-1111-4111-8111-111111111111")
-    expect(meta?.planId).toBe(ID)
+    expect(await api.preview.meta(ID)).toBeNull()
+    expect(await api.preview.regions()).toEqual([])
+    for (const call of [
+      () => api.preview.access(ID),
+      () => api.preview.usage(ID, "24h"),
+      () => api.preview.files(ID, "/"),
+      () => api.preview.fileContent(ID, "/a"),
+      () => api.preview.backups(ID),
+      () => api.preview.createBackup(ID),
+    ]) {
+      await expect(call()).rejects.toMatchObject({ status: 501, code: "not_available" })
+    }
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it("pure mappers keep fields", () => {

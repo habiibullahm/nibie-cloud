@@ -24,17 +24,12 @@ async function accessToken(): Promise<string | null> {
   return data?.session?.access_token ?? null
 }
 
-/** Browser-side API. Instances go live when configured; preview endpoints are always mocked. */
+/** Browser-side API. Customer mode never serves sample data; mock and live (dev only) mock the preview endpoints. */
 export function getApi(): HermesApi {
   if (singleton) return singleton
   const mode = apiMode()
   if (mode === "customer") {
-    const mock = createMockApi({ empty: true, synthesizeUnknown: true })
-    singleton = createCustomerApi({
-      baseUrl: process.env.NEXT_PUBLIC_HERMES_API_URL ?? "",
-      getToken: accessToken,
-      preview: mock.preview,
-    })
+    singleton = createCustomerApi({ baseUrl: process.env.NEXT_PUBLIC_HERMES_API_URL ?? "", getToken: accessToken })
   } else if (mode === "live") {
     const mock = createMockApi({ empty: true, synthesizeUnknown: true })
     singleton = {

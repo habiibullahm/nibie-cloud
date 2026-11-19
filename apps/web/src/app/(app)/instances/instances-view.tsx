@@ -246,9 +246,9 @@ function InstanceCard({ instance }: { instance: Instance }) {
   const plans = usePlans()
   const customer = useApiMode() === "customer"
   const subs = useSubscriptions()
-  // Customer mode: the plan comes from what the customer is billed for. Sample meta (plan, region, runtime) is not shown.
+  // The billed plan wins, then the instance's own plan. Sample meta (region, runtime) is not shown to customers.
   const billedPlanId = subscriptionOfInstance(subs.data, instance.id)?.planId
-  const plan = plans.data?.find((p) => p.id === (customer ? billedPlanId : meta.data?.planId))
+  const plan = plans.data?.find((p) => p.id === (billedPlanId ?? instance.planId))
   const p = presentStatus(instance.status)
   const reason = instance.statusReason ?? (p.tone === "ok" ? null : p.defaultReason)
 

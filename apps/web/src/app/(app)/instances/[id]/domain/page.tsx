@@ -8,17 +8,17 @@ import { ComingSoon } from "@/components/app/coming-soon"
 import { EmptyState } from "@/components/app/empty-state"
 import { PreviewNote } from "@/components/app/preview-note"
 import { QueryFallback } from "@/components/app/query-fallback"
-import { useInstance, useInstanceMeta, usePlans } from "@/hooks/use-hermes"
+import { useInstance, usePlans } from "@/hooks/use-hermes"
 import { useInstanceId } from "../instance-frame"
 
 export default function DomainPage() {
   const id = useInstanceId()
-  const { data: instance } = useInstance(id)
-  const meta = useInstanceMeta(id)
+  const inst = useInstance(id)
+  const instance = inst.data
   const plans = usePlans()
-  const plan = plans.data?.find((p) => p.id === meta.data?.planId)
+  const plan = plans.data?.find((p) => p.id === instance?.planId)
 
-  if (!instance || !plan) return <QueryFallback what="domain settings" queries={[meta, plans]} />
+  if (!instance || !plan) return <QueryFallback what="domain settings" queries={[inst, plans]} />
 
   if (!plan.customDomain) {
     return (

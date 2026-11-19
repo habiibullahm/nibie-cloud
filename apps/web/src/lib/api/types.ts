@@ -30,6 +30,7 @@ export interface Instance {
   id: string
   tenantId: string
   name: string
+  planId: string
   status: InstanceStatus
   statusReason: string | null
   accessUrl: string | null

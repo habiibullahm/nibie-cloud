@@ -188,9 +188,9 @@ Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
   `NEXT_PUBLIC_HERMES_API_URL`; instances, `/me`, `/plans` are real), a dev-only live client, and an
   admin client (`admin.ts`) for `/api/v1/admin/*`. Live mode goes through the dev
   bridge `apps/web/src/app/api/hermes/[...path]/route.ts` (never in a production build), which keeps `HERMES_ADMIN_TOKEN` server-side
-  and forwards only the allowlisted instance endpoints in `proxy-rules.ts`. Everything without a
-  backend endpoint (plans, usage, logs, files, console, backups, billing, domain, account) is mock
-  data and is labelled "Preview data". Billing is a UI shell; sign-in is real only when the public Supabase variables are set (`/auth/confirm` verifies email links, `AuthGate` guards `(app)`); the app uses `basePath` `/dashboard`. Mapping details:
+  and forwards only the allowlisted instance endpoints in `proxy-rules.ts`. In `mock`/`live` mode everything without a
+  backend endpoint (usage, files, console, backups, domain, access) is mock data labelled "Preview data"; in `customer`
+  mode those pages are hidden and their calls answer empty or `501 not_available`, never sample data. Billing is a UI shell; sign-in is real only when the public Supabase variables are set (`/auth/confirm` verifies email links, `AuthGate` guards `(app)`); the app uses `basePath` `/dashboard`. Mapping details:
   `apps/web/README.md`.
 - **Admin panel** (`apps/web/src/app/(app)/admin`): Indonesian UI, no mock data — in `mock`/`live`
   mode every page renders "Panel admin butuh backend" rather than sample customers (the decision is
