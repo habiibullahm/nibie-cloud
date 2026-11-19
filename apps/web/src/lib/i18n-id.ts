@@ -17,7 +17,7 @@ export const ID: Record<string, string> = {
   Language: "Bahasa",
   "Switch to light theme": "Ganti ke tema terang",
   "Switch to dark theme": "Ganti ke tema gelap",
-  "Need help? Message us on Telegram:": "Butuh bantuan? Kirim pesan lewat Telegram:",
+  "Need help?": "Butuh bantuan?",
 
   // Common
   Loading: "Memuat",
@@ -200,7 +200,10 @@ export const ID: Record<string, string> = {
   "Questions about an instance, a payment or your account? Reach us here.":
     "Ada pertanyaan soal instance, pembayaran, atau akunmu? Hubungi kami di sini.",
   "Contact us": "Hubungi kami",
-  "Message us on Telegram or by email.": "Kirim pesan lewat Telegram atau email.",
+  "Message us on WhatsApp or by email.": "Kirim pesan lewat WhatsApp atau email.",
+  "Support contacts are not set yet. The guides below cover the common questions.":
+    "Kontak bantuan belum diisi. Panduan di bawah menjawab pertanyaan yang paling sering.",
+  contacts: "kontak",
   "Before you write": "Sebelum menulis pesan",
   "With these details we can answer in one reply.": "Dengan info ini kami bisa menjawab dalam sekali balas.",
   "The instance name and the 8-character ID shown on its card.": "Nama instance dan ID 8 karakter yang tampil di kartunya.",

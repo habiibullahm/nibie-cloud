@@ -29,9 +29,6 @@ export function SiteFooter() {
           </FooterColumn>
           <FooterColumn title="Kontak">
             {email ? <a href={`mailto:${email}`}>{email}</a> : null}
-            <a href={SITE.telegramUrl} rel="noopener noreferrer">
-              Telegram {SITE.telegramHandle}
-            </a>
             <Link href="/kontak">Halaman kontak</Link>
           </FooterColumn>
         </div>

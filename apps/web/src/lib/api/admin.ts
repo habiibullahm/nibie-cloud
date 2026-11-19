@@ -42,6 +42,8 @@ export interface AdminApi {
   plans(): Promise<AdminPlan[]>
   /** Changes data: sets a priced plan's stock (null: no limit). Answers 409 `free_plan_stock` for the free plan. */
   setPlanStock(id: string, stockLimit: number | null, reason: string): Promise<Pick<AdminPlan, "id" | "slug" | "stockLimit">>
+  /** Changes data: the support contacts on the dashboard's Support page. An empty string clears one. */
+  setSupportContact(input: { whatsapp: string; email: string; reason: string }): Promise<{ whatsapp: string | null; email: string | null }>
   nodes(): Promise<AdminNode[]>
   subscriptions(cursor?: string): Promise<AdminPage<AdminSubscription>>
   payments(cursor?: string): Promise<AdminPage<AdminPayment>>
@@ -113,6 +115,7 @@ export function createAdminApi(opts: {
     plans: async () => (await call<{ plans: AdminPlan[] }>("/plans")).plans,
     setPlanStock: async (id, stockLimit, reason) =>
       (await call<{ plan: Pick<AdminPlan, "id" | "slug" | "stockLimit"> }>(`/plans/${encodeURIComponent(id)}/stock`, { stockLimit, reason })).plan,
+    setSupportContact: (input) => call("/support-contact", input),
     nodes: async () => (await call<{ nodes: AdminNode[] }>("/nodes")).nodes,
     subscriptions: async (cursor) => toPage(await call<Paged<"subscriptions", AdminSubscription>>(`/subscriptions${qs({ cursor })}`), "subscriptions"),
     payments: async (cursor) => toPage(await call<Paged<"payments", AdminPayment>>(`/payments${qs({ cursor })}`), "payments"),

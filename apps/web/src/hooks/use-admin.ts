@@ -118,6 +118,18 @@ export function useSetPlanStock() {
   })
 }
 
+/** Saves the support contacts (empty string clears one); the public contact query is refreshed for every page. */
+export function useSetSupportContact() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: { whatsapp: string; email: string; reason: string }) => getAdminApi().setSupportContact(input),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["support-contact"] })
+      void qc.invalidateQueries({ queryKey: adminKeys.audit })
+    },
+  })
+}
+
 export function useAdminBetaInvites() {
   return useQuery({ queryKey: adminKeys.betaInvites, queryFn: () => getAdminApi().betaInvites(), staleTime: LONG })
 }

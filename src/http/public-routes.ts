@@ -9,6 +9,7 @@ import { renderWaitlistConfirm } from '../modules/billing/email-templates.js';
 import type { Mailer } from '../modules/billing/mailer.js';
 import { CONFIRM_TOKEN_PATTERN, confirmWaitlist, forgetConfirmSend, joinWaitlist } from '../modules/waitlist/waitlist.js';
 import type { CaptchaVerifier } from '../modules/waitlist/turnstile.js';
+import { readSupportContact } from '../modules/support/contact.js';
 import { AppError } from '../shared/errors.js';
 import { ipv6Groups } from '../shared/ip.js';
 
@@ -99,6 +100,12 @@ export function registerPublicRoutes(app: FastifyInstance, deps: { prisma: Prism
         total: config.freeBetaSlots,
         remaining: await freeBetaRemaining(prisma, config.freeBetaSlots, { queueFirst: config.mail !== null }),
       };
+    });
+
+    /** Support contacts set on the admin Pengaturan page, for the dashboard's Support page and footer (signed in or not). */
+    pub.get('/api/v1/public/support-contact', async (_req, reply) => {
+      reply.header('cache-control', 'public, max-age=60');
+      return readSupportContact(prisma);
     });
 
     pub.post('/api/v1/public/waitlist', { config: { rateLimit: { max: 5, timeWindow: '10 minutes' } } }, async (req, reply) => {

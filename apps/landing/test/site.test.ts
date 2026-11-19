@@ -53,8 +53,8 @@ describe("contact", () => {
     expect(contactEmail(raw)).toBeNull()
   })
 
-  it("falls back to Telegram when no email is configured", () => {
-    expect(betaAccessHref("Halo", null)).toBe(SITE.telegramUrl)
+  it("falls back to the Kontak page when no email is configured", () => {
+    expect(betaAccessHref("Halo", null)).toBe("/kontak")
   })
 
   it("builds an encoded mailto link when an email is configured", () => {
@@ -80,7 +80,7 @@ describe("sign-up switch", () => {
 
   it("keeps the invite request when closed", () => {
     expect(ctaHref("Halo", false, "hello@example.com")).toBe(`mailto:hello@example.com?subject=Halo&body=${encodeURIComponent(ACCESS_REQUEST_BODY)}`)
-    expect(ctaHref("Halo", false, null)).toBe(SITE.telegramUrl)
+    expect(ctaHref("Halo", false, null)).toBe("/kontak")
   })
 })
 

@@ -21,16 +21,14 @@ export const SITE = {
   signInUrl: `${DASHBOARD}/sign-in`,
   registerUrl: `${DASHBOARD}/register`,
   docsUrl: "/docs",
-  telegramHandle: "@abib_mohd",
-  telegramUrl: "https://t.me/abib_mohd",
   /** Date shown on the legal pages. Update it whenever their text changes. */
-  legalUpdated: "14 November 2026",
+  legalUpdated: "19 November 2026",
 } as const
 
 /**
  * Public contact address. It comes from the build variable NEXT_PUBLIC_CONTACT_EMAIL (set in Cloudflare
  * Workers Builds) so the address never sits in the public repository. Empty or malformed means
- * "not configured" and the site falls back to Telegram.
+ * "not configured" and the site points to the Kontak page instead. Email is the landing page's only contact channel.
  */
 export function contactEmail(raw: string | undefined = process.env.NEXT_PUBLIC_CONTACT_EMAIL): string | null {
   const value = raw?.trim() ?? ""
@@ -40,7 +38,7 @@ export function contactEmail(raw: string | undefined = process.env.NEXT_PUBLIC_C
 /**
  * Self-service sign-up switch. Open by default (owner decision 2026-11-15): the "Daftar" and "Pilih" buttons
  * link to the dashboard registration. The build variable NEXT_PUBLIC_SIGNUP_OPEN=false closes it again and
- * brings back the invite request (email or Telegram). Changing it needs a rebuild.
+ * brings back the invite request by email. Changing it needs a rebuild.
  */
 export function signupOpen(raw: string | undefined = process.env.NEXT_PUBLIC_SIGNUP_OPEN): boolean {
   return raw?.trim().toLowerCase() !== "false"
@@ -84,15 +82,15 @@ export const ACCESS_REQUEST_BODY = [
   "Agent Hermes mau dipakai untuk apa:",
 ].join("\n")
 
-/** Where "Minta akses beta" goes: a pre-filled email when configured, otherwise Telegram. */
+/** Where "Minta akses beta" goes: a pre-filled email when configured, otherwise the Kontak page. */
 export function betaAccessHref(subject: string, email: string | null = contactEmail()): string {
-  if (!email) return SITE.telegramUrl
+  if (!email) return "/kontak"
   return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(ACCESS_REQUEST_BODY)}`
 }
 
 /**
  * Target of the main call-to-action buttons: the dashboard registration when sign-up is open, the invite
- * request (email or Telegram) otherwise.
+ * request by email otherwise.
  */
 export function ctaHref(
   subject: string,

@@ -131,7 +131,7 @@ export default function SyaratLayananPage() {
                 email ke <a href={`mailto:${email}`}>{email}</a> atau{" "}
               </>
             ) : null}
-            <a href={SITE.telegramUrl}>Telegram {SITE.telegramHandle}</a>, atau lewat halaman <a href="/kontak">Kontak</a>.
+            lewat halaman <a href="/kontak">Kontak</a>.
           </p>
         </section>
       </Prose>

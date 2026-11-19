@@ -483,3 +483,13 @@ model AdminApiKey {
   revokedAt       DateTime? @db.Timestamptz(3)
   lastUsedAt      DateTime? @db.Timestamptz(3)
 }
+
+/// Support contacts shown on the dashboard's Support page, set by an admin on the Pengaturan page (every change audited).
+/// One row only (`id` 1, enforced by a check constraint). Public data: the public API returns it as is.
+model SupportContact {
+  id        Int      @id @default(1)
+  /// WhatsApp number, digits only with the country code (e.g. 628...). Null: not offered.
+  whatsapp  String?
+  email     String?
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}

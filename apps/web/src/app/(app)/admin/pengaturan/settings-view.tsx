@@ -24,7 +24,8 @@ import { AdminTable, TableCell, TableHead, TableRow } from "@/components/app/adm
 import { KeyValue } from "@/components/app/key-value"
 import { PageHeader } from "@/components/app/page-header"
 import { QueryFallback } from "@/components/app/query-fallback"
-import { useAdminApiKeys, useAdminSystem, useCreateApiKey, useRevokeApiKey } from "@/hooks/use-admin"
+import { useAdminApiKeys, useAdminSystem, useCreateApiKey, useRevokeApiKey, useSetSupportContact } from "@/hooks/use-admin"
+import { useSupportContact } from "@/hooks/use-hermes"
 import { formatDateTimeId } from "@/lib/admin-format"
 import { MIN_REASON } from "@/lib/admin-beta"
 import {
@@ -348,6 +349,102 @@ function ApiKeys({ mcpPath }: { mcpPath: string }) {
   )
 }
 
+/** The contacts on the customer Support page and footer. Saved in the database, so a change shows without a rebuild. */
+function SupportContactCard() {
+  const contact = useSupportContact()
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Kontak bantuan</CardTitle>
+        <CardDescription>
+          Tampil di halaman Bantuan dan footer dashboard pelanggan. Kosongkan kolom untuk menyembunyikannya. Halaman landing
+          tetap memakai email dari variabel build-nya sendiri.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {contact.data ? (
+          <SupportContactForm whatsapp={contact.data.whatsapp ?? ""} email={contact.data.email ?? ""} />
+        ) : (
+          <QueryFallback what="kontak bantuan" queries={[contact]} className="h-24 bg-elevated" />
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function SupportContactForm(initial: { whatsapp: string; email: string }) {
+  const save = useSetSupportContact()
+  const [whatsapp, setWhatsapp] = useState(initial.whatsapp)
+  const [email, setEmail] = useState(initial.email)
+  const [reason, setReason] = useState("")
+  const [error, setError] = useState<string | null>(null)
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (reason.trim().length < MIN_REASON) return setError(`Alasan minimal ${MIN_REASON} karakter.`)
+    setError(null)
+    save.mutate(
+      { whatsapp: whatsapp.trim(), email: email.trim(), reason: reason.trim() },
+      {
+        onSuccess: (saved) => {
+          setWhatsapp(saved.whatsapp ?? "")
+          setEmail(saved.email ?? "")
+          setReason("")
+          toast.success("Kontak bantuan disimpan.")
+        },
+        // The backend answers only "Invalid request" for a bad body, so say here what it checks.
+        onError: (err) =>
+          setError(
+            (err as { code?: string }).code === "validation_error"
+              ? "Periksa isian: nomor WhatsApp 8 sampai 15 angka dengan kode negara (bukan 0 di depan), email yang valid."
+              : err instanceof Error
+                ? err.message
+                : "Gagal menyimpan."
+          ),
+      }
+    )
+  }
+
+  return (
+    <form onSubmit={submit} noValidate className="grid gap-4 sm:max-w-xl">
+      <div className="grid gap-2">
+        <Label htmlFor="support-wa">Nomor WhatsApp</Label>
+        <Input
+          id="support-wa"
+          inputMode="tel"
+          autoComplete="off"
+          maxLength={25}
+          placeholder="contoh: 6281234567890"
+          aria-describedby="support-wa-hint"
+          value={whatsapp}
+          onChange={(e) => setWhatsapp(e.target.value)}
+        />
+        <p id="support-wa-hint" className="text-muted-foreground">
+          Dengan kode negara, tanpa 0 di depan. Spasi, tanda hubung dan + boleh.
+        </p>
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="support-email">Email bantuan</Label>
+        <Input id="support-email" type="email" autoComplete="off" maxLength={254} value={email} onChange={(e) => setEmail(e.target.value)} />
+      </div>
+      <div className="grid gap-2">
+        <Label htmlFor="support-reason">Alasan</Label>
+        <Input id="support-reason" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+      </div>
+      {error ? (
+        <Alert variant="destructive" role="alert">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
+      <div>
+        <Button type="submit" disabled={save.isPending}>
+          {save.isPending ? "Menyimpan…" : "Simpan kontak"}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
 export function AdminSettingsView() {
   const system = useAdminSystem()
 
@@ -355,8 +452,9 @@ export function AdminSettingsView() {
     <div className="grid gap-8">
       <PageHeader
         title="Pengaturan"
-        description="Dibaca dari konfigurasi server (.env). Hanya untuk dilihat: ubah di file env server, lalu buat ulang backend. Nilai rahasia tidak pernah ditampilkan."
+        description="Kontak bantuan bisa diubah di sini. Sisanya dibaca dari konfigurasi server (.env): ubah di file env server, lalu buat ulang backend. Nilai rahasia tidak pernah ditampilkan."
       />
+      <SupportContactCard />
       {system.isPending || system.error ? (
         <QueryFallback what="pengaturan" queries={[system]} />
       ) : (

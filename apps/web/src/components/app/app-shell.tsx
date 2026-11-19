@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { getSupabase } from "@/lib/auth/supabase"
 import { useT } from "@/lib/i18n"
-import { SUPPORT } from "@/lib/support"
+import { formatWhatsapp, whatsappUrl } from "@/lib/support"
 import { cn } from "@/lib/utils"
-import { useApiMode, useMe } from "@/hooks/use-hermes"
+import { useApiMode, useMe, useSupportContact } from "@/hooks/use-hermes"
 import { useAdminMe } from "@/hooks/use-admin"
 import { Brand } from "./brand"
 import { PreferenceToggles } from "./preference-toggles"
@@ -157,19 +157,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   )
 }
 
-/** Page footer, shared with the auth screens (signed out too, so it links Telegram rather than the Support page). */
+/**
+ * Page footer, shared with the auth screens: signed out too, so it shows the contacts themselves rather than a link to the
+ * Support page. Nothing is shown until an admin has set a contact.
+ */
 export function SiteFooter({ className }: { className?: string }) {
   const t = useT()
+  const c = useSupportContact().data
+  if (!c?.whatsapp && !c?.email) return null
   return (
     <footer className={cn("border-t py-4 text-muted-foreground", className)}>
-      <div className="mx-auto flex w-full max-w-[1080px] items-center gap-2">
+      <div className="mx-auto flex w-full max-w-[1080px] flex-wrap items-center gap-x-3 gap-y-1">
         <LifeBuoy className="size-4 shrink-0" aria-hidden="true" />
-        <p>
-          {t("Need help? Message us on Telegram:")}{" "}
-          <a href={SUPPORT.telegramUrl} target="_blank" rel="noopener noreferrer" className="text-foreground underline">
-            {SUPPORT.telegramHandle}
+        <span>{t("Need help?")}</span>
+        {c.whatsapp ? (
+          <a href={whatsappUrl(c.whatsapp)} target="_blank" rel="noopener noreferrer" className="text-foreground underline">
+            WhatsApp {formatWhatsapp(c.whatsapp)}
           </a>
-        </p>
+        ) : null}
+        {c.email ? (
+          <a href={`mailto:${c.email}`} className="break-all text-foreground underline">
+            {c.email}
+          </a>
+        ) : null}
       </div>
     </footer>
   )
