@@ -4,6 +4,14 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Display name shown in the sidebar (2026-11-19, branch `claude/account-name-fixes`)
+
+Fixes anti-slop audit 006 (N1-N4) on the Account "Nama" card from PR #81. The name (Supabase `user_metadata.full_name`) was
+saved but shown nowhere; the navigation rail now shows it above the email when set, email only when empty (one shared
+`useDisplayName` hook in `hooks/use-hermes.ts`, so a save updates the rail at once). The card gets loading and error states
+(`QueryFallback`), its duplicate visible "Nama" label is now screen-reader only, and "Simpan" appears only once the name has
+changed. Checks: web typecheck, lint, 193 tests. Not run in a browser with a signed-in user.
+
 ## WhatsApp group link next to the support contacts (2026-11-19, branch `claude/support-group-link`)
 
 Finishes work an earlier session left uncommitted in the main checkout, ported onto `main` after #80 and #82.

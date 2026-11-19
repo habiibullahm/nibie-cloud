@@ -30,6 +30,7 @@ export const ID: Record<string, string> = {
   Email: "Email",
   Billing: "Tagihan",
   orders: "pesanan",
+  name: "nama",
   plans: "plan",
   regions: "region",
 

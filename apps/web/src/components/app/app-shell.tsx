@@ -9,7 +9,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { getSupabase } from "@/lib/auth/supabase"
 import { useT } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
-import { useApiMode, useMe } from "@/hooks/use-hermes"
+import { useApiMode, useDisplayName, useMe } from "@/hooks/use-hermes"
 import { useAdminMe } from "@/hooks/use-admin"
 import { Brand } from "./brand"
 import { PreferenceToggles } from "./preference-toggles"
@@ -76,6 +76,7 @@ function RailFooter() {
   const router = useRouter()
   const mode = useApiMode()
   const me = useMe()
+  const name = useDisplayName()
   const t = useT()
   return (
     <div className="mt-auto flex flex-col gap-3 border-t pt-4 text-muted-foreground">
@@ -88,10 +89,13 @@ function RailFooter() {
         </div>
       )}
       <div className="flex items-center justify-between gap-2">
-        {/* Only the email: there is no real name (Account shows the same); title shows a long, truncated address. */}
-        <p className="min-w-0 truncate text-foreground" title={me.data?.email}>
-          {me.data?.email ?? ""}
-        </p>
+        {/* The name the customer set on Account, never one derived from the email; title shows a truncated address. */}
+        <div className="grid min-w-0">
+          {name.data ? <p className="truncate text-foreground">{name.data}</p> : null}
+          <p className={cn("truncate", name.data ? "text-muted-foreground" : "text-foreground")} title={me.data?.email}>
+            {me.data?.email ?? ""}
+          </p>
+        </div>
         <Button
           variant="ghost"
           size="icon-sm"
