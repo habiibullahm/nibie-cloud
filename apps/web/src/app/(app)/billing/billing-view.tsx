@@ -5,6 +5,7 @@ import { CreditCard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { EmptyState } from "@/components/app/empty-state"
+import { WalletPayButton } from "@/components/app/wallet-pay-button"
 import { PageHeader } from "@/components/app/page-header"
 import { PreviewNote } from "@/components/app/preview-note"
 import { QueryFallback } from "@/components/app/query-fallback"
@@ -29,11 +30,14 @@ function periodText(sub: BillingSubscription, t: T, lang: Lang): string {
 function RowAction({ sub }: { sub: BillingSubscription }) {
   const t = useT()
   const url = payableUrl(sub.latestPayment)
-  if (url) {
+  if (url && sub.latestPayment) {
     return (
-      <Button size="sm" variant="outline" onClick={() => startPayment(url)}>
-        {t("Pay")}
-      </Button>
+      <div className="flex flex-wrap justify-end gap-2">
+        <WalletPayButton paymentId={sub.latestPayment.id} amountIdr={sub.latestPayment.amountIdr} />
+        <Button size="sm" variant="outline" onClick={() => startPayment(url)}>
+          {t("Pay")}
+        </Button>
+      </div>
     )
   }
   // An ended order may still point at its deleted instance.

@@ -1,4 +1,4 @@
-import type { InvoiceKind, Prisma, PrismaClient } from '@prisma/client';
+import type { InvoiceKind, PaymentMethod, Prisma, PrismaClient } from '@prisma/client';
 import { NotFoundError } from '../../shared/errors.js';
 import { isUuid } from '../../shared/uuid.js';
 
@@ -50,17 +50,19 @@ export interface InvoiceView {
   paidAt: Date;
   /** SumoPod's reference for the payment, when it sent one. */
   reference: string | null;
+  /** QRIS, or WALLET for hosting paid from the balance (top-ups are always QRIS). */
+  method: PaymentMethod;
 }
 
 const SELECT = {
   id: true, number: true, kind: true, planName: true, instanceName: true, amountIdr: true, paidAt: true,
-  payment: { select: { reference: true } }, walletTopup: { select: { reference: true } },
+  payment: { select: { reference: true, method: true } }, walletTopup: { select: { reference: true } },
 } as const;
 
 type Row = Prisma.InvoiceGetPayload<{ select: typeof SELECT }>;
 
 function view({ payment, walletTopup, ...r }: Row): InvoiceView {
-  return { ...r, reference: payment?.reference ?? walletTopup?.reference ?? null };
+  return { ...r, reference: payment?.reference ?? walletTopup?.reference ?? null, method: payment?.method ?? 'QRIS' };
 }
 
 export async function listInvoices(prisma: PrismaClient, tenantId: string): Promise<InvoiceView[]> {

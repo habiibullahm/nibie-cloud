@@ -8,6 +8,7 @@ const checkoutBody = z.object({ name: z.string(), planId: z.string().uuid() }).s
 const upgradeBody = z.object({ instanceId: z.string().uuid(), planId: z.string().uuid() }).strict();
 const idempotencyKey = z.string().min(1).max(128);
 const topupBody = z.object({ amountIdr: z.number().int().min(TOPUP_MIN_IDR).max(TOPUP_MAX_IDR) }).strict();
+const autoRenewBody = z.object({ enabled: z.boolean() }).strict();
 
 /** Customer billing routes. Registered inside the customer plugin, so the token and the tenant are already resolved. */
 export function registerBillingRoutes(api: FastifyInstance, billing: BillingService, gate: (email: string) => void | Promise<void> = () => undefined): void {
@@ -64,6 +65,19 @@ export function registerBillingRoutes(api: FastifyInstance, billing: BillingServ
   if (!wallet) return;
 
   api.get('/wallet', async (req) => ({ wallet: await wallet.view(principalOf(req).tenantId) }));
+
+  // Pays an open hosting invoice from the balance; the instance, plan change and receipt follow after the response.
+  api.post<{ Params: { paymentId: string } }>('/payments/:paymentId/pay-with-wallet', { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } }, async (req) => {
+    const p = principalOf(req);
+    await gate(p.email);
+    const { postActions, ...result } = await billing.payWithWallet(p.tenantId, req.params.paymentId);
+    setImmediate(() => void postActions().catch((e: Error) => req.log.error({ errName: e.name }, 'post-payment actions failed')));
+    return result;
+  });
+
+  api.post<{ Params: SubParams }>('/subscriptions/:subscriptionId/auto-renew', async (req) => ({
+    subscription: await billing.setAutoRenew(principalOf(req).tenantId, req.params.subscriptionId, autoRenewBody.parse(req.body).enabled),
+  }));
 
   api.post('/wallet/topups', { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } }, async (req, reply) => {
     const p = principalOf(req);

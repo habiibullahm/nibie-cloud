@@ -18,7 +18,21 @@ import { ComingSoon } from "@/components/app/coming-soon"
 import { KeyValue } from "@/components/app/key-value"
 import { PreviewNote } from "@/components/app/preview-note"
 import { QueryFallback } from "@/components/app/query-fallback"
-import { useApiMode, useInstance, usePlans, useCancelRenewal, useRenew, useSubscriptions, useUpgrade } from "@/hooks/use-hermes"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
+import { WalletPayButton } from "@/components/app/wallet-pay-button"
+import {
+  useApiMode,
+  useInstance,
+  usePlans,
+  useCancelRenewal,
+  useRenew,
+  useSetAutoRenew,
+  useSubscriptions,
+  useUpgrade,
+  useWallet,
+  useWalletPay,
+} from "@/hooks/use-hermes"
 import type { BillingSubscription, Plan } from "@/lib/api"
 import {
   billingNotice,
@@ -44,6 +58,9 @@ export default function BillingPage() {
   const instance = useInstance(id)
   const renew = useRenew()
   const cancel = useCancelRenewal()
+  const wallet = useWallet().data
+  const walletPay = useWalletPay()
+  const setAutoRenew = useSetAutoRenew()
   const mock = useApiMode() === "mock"
   const [confirmCancel, setConfirmCancel] = useState(false)
 
@@ -64,6 +81,7 @@ export default function BillingPage() {
     return <FreeUpgrade instanceId={id} plans={plans.data} pending={pending} />
   }
   const current = plans.data.find((p) => p.id === sub.planId)
+  const walletCoversRenewal = wallet != null && current?.monthlyPriceIdr != null && wallet.balanceIdr >= current.monthlyPriceIdr
   const late = billingNotice(sub) !== null
   const payment = sub.latestPayment
 
@@ -120,13 +138,40 @@ export default function BillingPage() {
             <p>Cancelling stops renewal; the instance stays active until the end of the paid period.</p>
           </div>
         </CardContent>
+        {wallet?.autoRenew && current?.monthlyPriceIdr != null && (sub.status === "ACTIVE" || sub.status === "GRACE") ? (
+          <CardContent className="flex items-start justify-between gap-4 border-t pt-4">
+            <div className="grid gap-1">
+              <Label htmlFor="auto-renew">Renew automatically from balance</Label>
+              <p className="text-muted-foreground">
+                During the last day of the period, {formatPriceIdr(current.monthlyPriceIdr)} is taken from
+                your Nibie Cloud balance (now {formatPriceIdr(wallet.balanceIdr)}). If the balance is short, you get the usual
+                reminders instead.
+              </p>
+            </div>
+            <Switch
+              id="auto-renew"
+              checked={sub.autoRenew}
+              disabled={setAutoRenew.isPending || sub.cancelAtPeriodEnd}
+              onCheckedChange={(enabled) => setAutoRenew.mutate({ subscriptionId: sub.id, enabled })}
+            />
+          </CardContent>
+        ) : null}
         <CardFooter className="flex-wrap items-center gap-3 border-t">
+          {walletCoversRenewal ? (
+            <Button
+              variant={late ? "outline" : "default"}
+              disabled={!canRenew(sub) || renew.isPending || walletPay.isPending}
+              onClick={() => renew.mutate(sub.id, { onSuccess: (r) => walletPay.mutate(r.payment.id) })}
+            >
+              {walletPay.isPending ? "Paying…" : "Renew from balance"}
+            </Button>
+          ) : null}
           <Button
-            variant={late ? "outline" : "default"}
+            variant={late || walletCoversRenewal ? "outline" : "default"}
             disabled={!canRenew(sub) || renew.isPending}
             onClick={() => renew.mutate(sub.id, { onSuccess: (r) => startPayment(r.payment.paymentUrl) })}
           >
-            {renew.isPending ? "Preparing payment…" : "Renew now"}
+            {renew.isPending && !walletPay.isPending ? "Preparing payment…" : walletCoversRenewal ? "Renew with QRIS" : "Renew now"}
           </Button>
           <Button variant="ghost" disabled={!canCancelRenewal(sub) || cancel.isPending} onClick={() => setConfirmCancel(true)}>
             Cancel renewal
@@ -195,6 +240,8 @@ export default function BillingPage() {
  */
 function FreeUpgrade({ instanceId, plans, pending }: { instanceId: string; plans: Plan[]; pending: BillingSubscription | null }) {
   const upgrade = useUpgrade()
+  const balance = useWallet().data?.balanceIdr
+  const walletPay = useWalletPay()
   // One key per plan for this visit: a double click replays the same invoice, another plan is a new request.
   const [visit] = useState(() => crypto.randomUUID())
   const forSale = plans.filter((p) => p.monthlyPriceIdr !== null)
@@ -219,10 +266,13 @@ function FreeUpgrade({ instanceId, plans, pending }: { instanceId: string; plans
                 ? "Finish the payment to apply the new plan. This page updates by itself once it is paid."
                 : "The invoice expired. Choose a plan below to get a new one."}
             </p>
-            {pendingUrl ? (
-              <Button size="sm" variant="outline" className="mt-2" onClick={() => startPayment(pendingUrl)}>
-                Continue payment
-              </Button>
+            {pendingUrl && pending?.latestPayment ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={() => startPayment(pendingUrl)}>
+                  Continue payment
+                </Button>
+                <WalletPayButton paymentId={pending.latestPayment.id} amountIdr={pending.latestPayment.amountIdr} />
+              </div>
             ) : null}
           </AlertDescription>
         </Alert>
@@ -246,25 +296,41 @@ function FreeUpgrade({ instanceId, plans, pending }: { instanceId: string; plans
                   {formatPriceIdr(p.monthlyPriceIdr)} per 30 days
                   {p.includedCreditUsd ? ` · includes US$${p.includedCreditUsd} AI credit` : ""}
                 </p>
-                <Button
-                  variant="outline"
-                  className="mt-auto"
-                  disabled={!p.available || upgrade.isPending}
-                  onClick={() =>
-                    upgrade.mutate(
-                      { instanceId, planId: p.id, idempotencyKey: `${visit}:${p.id}` },
-                      { onSuccess: (r) => startPayment(r.payment.paymentUrl) }
-                    )
-                  }
-                >
-                  {!p.available ? "Not available yet" : upgrade.isPending && upgrade.variables?.planId === p.id ? "Preparing payment…" : `Upgrade to ${p.name}`}
-                </Button>
+                <div className="mt-auto grid gap-2">
+                  {p.available && balance !== undefined && balance >= (p.monthlyPriceIdr ?? Infinity) ? (
+                    <Button
+                      variant="outline"
+                      disabled={upgrade.isPending || walletPay.isPending}
+                      onClick={() =>
+                        upgrade.mutate(
+                          { instanceId, planId: p.id, idempotencyKey: `${visit}:${p.id}` },
+                          { onSuccess: (r) => walletPay.mutate(r.payment.id) }
+                        )
+                      }
+                    >
+                      {walletPay.isPending ? "Paying…" : `Upgrade from balance (${formatPriceIdr(balance)})`}
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant="outline"
+                    disabled={!p.available || upgrade.isPending}
+                    onClick={() =>
+                      upgrade.mutate(
+                        { instanceId, planId: p.id, idempotencyKey: `${visit}:${p.id}` },
+                        { onSuccess: (r) => startPayment(r.payment.paymentUrl) }
+                      )
+                    }
+                  >
+                    {!p.available ? "Not available yet" : upgrade.isPending && upgrade.variables?.planId === p.id ? "Preparing payment…" : `Upgrade to ${p.name} with QRIS`}
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
         )}
         <p className="text-muted-foreground">
-          You pay by QRIS on the SumoPod page. After the payment, the instance restarts once to apply the new plan.
+          You pay from your Nibie Cloud balance or by QRIS on the SumoPod page. After the payment, the instance restarts once to
+          apply the new plan.
         </p>
       </section>
     </div>
