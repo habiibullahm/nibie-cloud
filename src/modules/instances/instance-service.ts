@@ -15,6 +15,7 @@ export interface InstanceView {
   id: string;
   tenantId: string;
   name: string;
+  planId: string;
   status: InstanceStatus;
   statusReason: string | null;
   accessUrl: string | null;
@@ -92,6 +93,7 @@ export function toView(i: Instance): InstanceView {
     id: i.id,
     tenantId: i.tenantId,
     name: i.name,
+    planId: i.planId,
     status: i.status,
     statusReason: i.statusReason,
     accessUrl: reachable ? `http://127.0.0.1:${i.hostPort}` : null,

@@ -7,7 +7,7 @@ import { LineChart } from "@/components/app/line-chart"
 import { SectionTitle } from "@/components/app/page-header"
 import { PreviewNote } from "@/components/app/preview-note"
 import { QueryFallback } from "@/components/app/query-fallback"
-import { useInstanceMeta, usePlans, useUsage } from "@/hooks/use-hermes"
+import { useInstance, usePlans, useUsage } from "@/hooks/use-hermes"
 import { formatDuration, formatMb } from "@/lib/format"
 import { useInstanceId } from "../instance-frame"
 
@@ -19,9 +19,9 @@ export default function MonitorPage() {
   const id = useInstanceId()
   const [range, setRange] = useState<Range>("24h")
   const usage = useUsage(id, range)
-  const meta = useInstanceMeta(id)
+  const inst = useInstance(id)
   const plans = usePlans()
-  const plan = plans.data?.find((p) => p.id === meta.data?.planId)
+  const plan = plans.data?.find((p) => p.id === inst.data?.planId)
   const pts = usage.data?.points ?? []
   const last = pts.at(-1)
   const span = RANGE_LABEL[range]
@@ -31,7 +31,7 @@ export default function MonitorPage() {
       <SectionTitle aside={<PreviewNote what="Resource usage" />}>Resource usage</SectionTitle>
 
       {!usage.data || !plan ? (
-        <QueryFallback what="resource usage" queries={[usage, meta, plans]} className="h-24" />
+        <QueryFallback what="resource usage" queries={[usage, inst, plans]} className="h-24" />
       ) : !last ? (
         <p className="text-muted-foreground">No usage samples for this range yet.</p>
       ) : (
@@ -53,7 +53,7 @@ export default function MonitorPage() {
 
       {!usage.data || !plan ? (
         // A failure is already reported once above, with its retry; here we only show loading.
-        usage.error || meta.error || plans.error ? null : <QueryFallback what="usage charts" queries={[]} />
+        usage.error || inst.error || plans.error ? null : <QueryFallback what="usage charts" queries={[]} />
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {/* Each title says what the chart answers: how close the instance is to its plan limit. */}

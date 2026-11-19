@@ -36,8 +36,10 @@ pairs in `src/lib/api/proxy-rules.ts` (UUID ids only). It never runs in a produc
 holds the operator token and has no user authentication. Local development only.
 
 Sections without a backend endpoint yet (PRD §15): regions, usage, files, console, backups, custom
-domain, account (in `customer` mode provider config, Telegram and logs are real, see below). Each is marked with a
-"Preview data" tag in the UI.
+domain, account (in `customer` mode provider config, Telegram and logs are real, see below). In `mock` and `live` each is
+marked with a "Preview data" tag. `customer` mode never shows sample data: those pages are hidden
+(`CUSTOMER_SECTIONS` in `instance-frame.tsx`) and their API calls answer empty or reject with `501 not_available`
+(`src/lib/api/customer.ts`, tested in `test/customer-api.test.ts`).
 
 ## Design system mapping
 
@@ -161,7 +163,8 @@ Configuration page needs a model name and numeric Telegram user IDs (the backend
 default), asks for the key or token again on every save (the backend never returns them), and shows a
 restart notice while `restartRequired` is true. BYOK presets (`src/lib/api/providers.ts`) are OpenAI,
 OpenRouter and a custom URL; Anthropic is left out because the backend tests a provider with a Bearer
-`GET /models`. NibieRouter is attached by Nibie Cloud, so the customer form cannot select it. Everything else is still preview data. Without the URL or the
+`GET /models`. NibieRouter is attached by Nibie Cloud, so the customer form cannot select it. The plan of an instance comes from its own
+`planId` (or its subscription), never from sample metadata. Features without a backend are hidden, not faked. Without the URL or the
 Supabase variables the app falls back to labelled mock data. Backend prerequisites: `SUPABASE_URL`,
 `DASHBOARD_ORIGIN` (exact origin, for CORS), `BETA_ALLOWED_EMAILS` (creation is refused with 403
 `provisioning_not_enabled` for other accounts) and at least one active plan row.

@@ -62,8 +62,8 @@ export function InstanceFrame({ children }: { children: React.ReactNode }) {
   const plans = usePlans()
   const subs = useSubscriptions()
   const subscription = subscriptionOfInstance(subs.data, id)
-  // Prefer the plan the customer is actually billed for; fall back to the preview metadata.
-  const plan = plans.data?.find((p) => p.id === (subscription?.planId ?? meta.data?.planId))
+  // Prefer the plan the customer is actually billed for; fall back to the instance's own plan.
+  const plan = plans.data?.find((p) => p.id === (subscription?.planId ?? instance?.planId))
   const base = `/instances/${id}`
   const mode = useApiMode()
   const mock = mode === "mock"

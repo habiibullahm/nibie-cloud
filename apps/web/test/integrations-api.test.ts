@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { createCustomerApi } from "../src/lib/api/customer"
 import { parseLogLine } from "../src/lib/api/integrations"
-import { createMockApi } from "../src/lib/api/mock"
 import { providerNameForUrl } from "../src/lib/api/providers"
 
 const ID = "5b0c6a2e-1f1d-4c55-9a7e-0d1f3a000001"
@@ -14,8 +13,7 @@ function json(body: unknown, status = 200) {
 function setup() {
   const fetchMock = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>()
   vi.stubGlobal("fetch", fetchMock)
-  const preview = createMockApi({ empty: true, synthesizeUnknown: true }).preview
-  const api = createCustomerApi({ baseUrl: "https://api.example.test", getToken: async () => "tok", preview })
+  const api = createCustomerApi({ baseUrl: "https://api.example.test", getToken: async () => "tok" })
   return { api, fetchMock }
 }
 

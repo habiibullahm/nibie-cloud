@@ -4,6 +4,24 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## No preview data in customer mode (2026-11-19, branch `claude/no-preview-data`, not committed)
+
+Owner: "pastikan no preview data lagi. we're going live prod". Before this, the customer dashboard still took an instance's plan
+from sample metadata when the instance had no subscription (every free instance), so the header, the free-plan NibieRouter notice
+and the Runtime tab could name the wrong plan; the Runtime tab also showed a fake image (`hermes-agent:2026.11`), a fake isolation
+(`runc`), a "Preview data" tag and a "Backups coming soon" row.
+- **Backend:** `InstanceView` (`toView`) now includes `planId`, on the customer and operator APIs. Additive; no migration.
+- **Dashboard:** instance header, instance cards, the provider form's free-plan check and the Runtime tab use the billed plan, then
+  `instance.planId`. The Runtime tab shows only the plan limits (CPU, memory, storage, processes). `createCustomerApi` no longer
+  takes or spreads the mock: `meta` answers null, `regions` `[]`, and access, usage, files, file content and backups reject with
+  `501 not_available` (test "never serves sample data for endpoints without a backend"). Monitor, files, console, backups, domain and
+  access stay hidden in customer mode.
+- **Deploy order:** backend first. A dashboard built from this branch against an older backend cannot name the plan of a free
+  instance (no subscription), and its Runtime tab keeps loading.
+- **Checks:** backend `tsc`; unit tests 526 pass (2 known Windows `egress-canary` failures); web typecheck, lint, 193 tests, build.
+  Not run: integration suite, e2e. The owner confirmed the Worker `nibie-cloud-web` build var `NEXT_PUBLIC_HERMES_API_MODE=customer` (2026-11-19).
+- **Next (owner's choice, after launch):** real Monitor (CPU, RAM, disk, traffic samples from Docker, customer endpoint).
+
 ## Instance self-management design spec (2026-11-19, branch `claude/self-manage-spec`)
 
 Design only, nothing built: [2026-11-19-instance-self-management-design.md](superpowers/specs/2026-11-19-instance-self-management-design.md).
