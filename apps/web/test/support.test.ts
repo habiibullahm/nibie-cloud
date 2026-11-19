@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { fetchSupportContact, formatWhatsapp, whatsappUrl } from "../src/lib/support"
+import { fetchSupportContact, formatWhatsapp, safeGroupUrl, whatsappUrl } from "../src/lib/support"
 
 describe("support contact", () => {
   it("formats Indonesian numbers in groups and others with a plus", () => {
@@ -12,13 +12,24 @@ describe("support contact", () => {
     const calls: [string, RequestInit | undefined][] = []
     const fetchImpl = (async (url: string, init?: RequestInit) => {
       calls.push([url, init])
-      return new Response(JSON.stringify({ whatsapp: "6281234567890", email: null }), { status: 200 })
+      return new Response(JSON.stringify({ whatsapp: "6281234567890", email: null, groupUrl: "https://chat.whatsapp.com/AbCdEfGhIjKl123" }), { status: 200 })
     }) as typeof fetch
-    expect(await fetchSupportContact("https://api.example.test/", "customer", fetchImpl)).toEqual({ whatsapp: "6281234567890", email: null })
+    expect(await fetchSupportContact("https://api.example.test/", "customer", fetchImpl)).toEqual({
+      whatsapp: "6281234567890",
+      email: null,
+      groupUrl: "https://chat.whatsapp.com/AbCdEfGhIjKl123",
+    })
     expect(calls[0]![0]).toBe("https://api.example.test/api/v1/public/support-contact")
     expect(JSON.stringify(calls[0]![1])).not.toContain("authorization")
-    expect(await fetchSupportContact("https://api.example.test", "mock", fetchImpl)).toEqual({ whatsapp: null, email: null })
+    expect(await fetchSupportContact("https://api.example.test", "mock", fetchImpl)).toEqual({ whatsapp: null, email: null, groupUrl: null })
     expect(calls).toHaveLength(1)
+  })
+
+  it("never turns anything but a WhatsApp invite into a group link", () => {
+    expect(safeGroupUrl("https://chat.whatsapp.com/AbCdEfGhIjKl123")).toBe("https://chat.whatsapp.com/AbCdEfGhIjKl123")
+    for (const bad of ["javascript:alert(1)", "https://evil.example/AbCdEfGhIjKl123", "http://chat.whatsapp.com/AbCdEfGhIjKl123", "https://chat.whatsapp.com.evil.test/AbCdEfGhIjKl123", null, 42]) {
+      expect(safeGroupUrl(bad)).toBeNull()
+    }
   })
 
   it("fails loudly on an error answer so the page shows its error state", async () => {

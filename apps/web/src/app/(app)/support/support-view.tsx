@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { BookOpen, Mail, MessageCircle, Plus, ShieldAlert } from "lucide-react"
+import { BookOpen, Mail, MessageCircle, Plus, ShieldAlert, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/app/page-header"
@@ -86,7 +86,7 @@ export function SupportView() {
           <CardContent>
             {!c ? (
               <QueryFallback what="contacts" queries={[contact]} className="h-20 bg-elevated" />
-            ) : !c.whatsapp && !c.email ? (
+            ) : !c.whatsapp && !c.email && !c.groupUrl ? (
               <p className="text-muted-foreground">{t("Support contacts are not set yet. The guides below cover the common questions.")}</p>
             ) : (
               <ul className="grid">
@@ -109,6 +109,17 @@ export function SupportView() {
                     </span>
                     <a href={`mailto:${c.email}`} className={`${linkClass} break-all`}>
                       {c.email}
+                    </a>
+                  </li>
+                ) : null}
+                {c.groupUrl ? (
+                  <li className={rowClass}>
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Users className="size-4" aria-hidden="true" />
+                      {t("Community")}
+                    </span>
+                    <a href={c.groupUrl} target="_blank" rel="noopener noreferrer" className={linkClass}>
+                      {t("Join the WhatsApp group")}
                     </a>
                   </li>
                 ) : null}

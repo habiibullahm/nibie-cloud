@@ -15,9 +15,16 @@ export interface SupportContact {
   /** Digits with the country code, e.g. 6281234567890. */
   whatsapp: string | null
   email: string | null
+  /** WhatsApp group invite, https://chat.whatsapp.com/<code>. */
+  groupUrl: string | null
 }
 
-const NONE: SupportContact = { whatsapp: null, email: null }
+const NONE: SupportContact = { whatsapp: null, email: null, groupUrl: null }
+
+/** The backend accepts only this shape; checked again here because the value becomes a link for every customer. */
+export function safeGroupUrl(v: unknown): string | null {
+  return typeof v === "string" && /^https:\/\/chat\.whatsapp\.com\/[A-Za-z0-9_-]{10,60}$/.test(v) ? v : null
+}
 
 /**
  * The public support contacts. No token: the footer shows them on the sign-in screens too. Mock and live (dev bridge)
@@ -32,7 +39,7 @@ export async function fetchSupportContact(
   const res = await fetchImpl(`${baseUrl.replace(/\/+$/, "")}/api/v1/public/support-contact`, { headers: { accept: "application/json" } })
   if (!res.ok) throw new ApiError(res.status, "http_error", `Request failed (${res.status})`)
   const body = (await res.json()) as Partial<SupportContact>
-  return { whatsapp: body.whatsapp ?? null, email: body.email ?? null }
+  return { whatsapp: body.whatsapp ?? null, email: body.email ?? null, groupUrl: safeGroupUrl(body.groupUrl) }
 }
 
 /** wa.me chat link for a number stored as digits with the country code. */

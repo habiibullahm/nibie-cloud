@@ -4,6 +4,16 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## WhatsApp group link next to the support contacts (2026-11-19, branch `claude/support-group-link`)
+
+Finishes work an earlier session left uncommitted in the main checkout, ported onto `main` after #80 and #82.
+`SupportContact.groupUrl` (migration `20261119500000_add_support_group_url`; the abandoned copy used `20261119400000`, which
+clashed with the tickets migration). Only `https://chat.whatsapp.com/<code>` is accepted (backend) and rendered (dashboard
+`safeGroupUrl`), since it is a link shown to every customer; an empty value clears it, and a body without `groupUrl` keeps the
+stored link. Admin Pengaturan has a "Grup WhatsApp" field in the minimal form; Bantuan shows "Komunitas: Gabung grup WhatsApp".
+Checks: backend `tsc`, support-contact/support-tickets/admin-api integration 21 pass; web typecheck, lint, 193 tests, build.
+The uncommitted copy in the main checkout is superseded and can be discarded.
+
 ## Support tickets (2026-11-19, branch `claude/support-tickets`)
 
 Owner's choices: two-way thread, email both ways, fields subject + category + optional instance + message.

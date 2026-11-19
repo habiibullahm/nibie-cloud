@@ -39,7 +39,7 @@ describe('support contact', () => {
   it('is empty until an admin sets it, and readable without signing in', async () => {
     const res = await publicContact(app());
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ whatsapp: null, email: null });
+    expect(res.json()).toEqual({ whatsapp: null, email: null, groupUrl: null });
     expect(res.headers['cache-control']).toBe('public, max-age=60');
   });
 
@@ -57,18 +57,22 @@ describe('support contact', () => {
   it('normalizes the number, clears with an empty value and audits each real change once', async () => {
     const a = app();
     const boss = await as(BOSS);
-    const first = await save(a, boss, { whatsapp: '+62 812-3456-7890', email: ' Support@Nibie.app ', reason: 'launch contacts' });
+    const group = 'https://chat.whatsapp.com/AbCdEfGhIjKl123';
+    const first = await save(a, boss, { whatsapp: '+62 812-3456-7890', email: ' Support@Nibie.app ', groupUrl: ` ${group} `, reason: 'launch contacts' });
     expect(first.statusCode).toBe(200);
-    expect(first.json()).toEqual({ whatsapp: '6281234567890', email: 'support@nibie.app' });
-    expect((await publicContact(a)).json()).toEqual({ whatsapp: '6281234567890', email: 'support@nibie.app' });
-    // The same values again change nothing and are not recorded.
-    expect((await save(a, boss, { whatsapp: '6281234567890', email: 'support@nibie.app', reason: 'same again' })).statusCode).toBe(200);
+    expect(first.json()).toEqual({ whatsapp: '6281234567890', email: 'support@nibie.app', groupUrl: group });
+    expect((await publicContact(a)).json()).toEqual({ whatsapp: '6281234567890', email: 'support@nibie.app', groupUrl: group });
+    // The same values again change nothing and are not recorded; leaving groupUrl out keeps the stored link.
+    expect((await save(a, boss, { whatsapp: '6281234567890', email: 'support@nibie.app', reason: 'same again' })).json().groupUrl).toBe(group);
     // No reason: the minimal form sends none; the change is still audited with who and what.
-    expect((await save(a, boss, { whatsapp: '', email: 'support@nibie.app' })).json()).toEqual({ whatsapp: null, email: 'support@nibie.app' });
+    expect((await save(a, boss, { whatsapp: '', email: 'support@nibie.app', groupUrl: group })).json()).toEqual({ whatsapp: null, email: 'support@nibie.app', groupUrl: group });
+    // An empty value clears the link.
+    expect((await save(a, boss, { whatsapp: '', email: 'support@nibie.app', groupUrl: '' })).json().groupUrl).toBeNull();
     const rows = await prisma.auditLog.findMany({ where: { targetType: 'support-contact' }, orderBy: { createdAt: 'asc' } });
     expect(rows.map((r) => [r.reason, r.detail])).toEqual([
-      ['launch contacts', { from: { whatsapp: null, email: null }, to: { whatsapp: '6281234567890', email: 'support@nibie.app' } }],
-      [null, { from: { whatsapp: '6281234567890', email: 'support@nibie.app' }, to: { whatsapp: null, email: 'support@nibie.app' } }],
+      ['launch contacts', { from: { whatsapp: null, email: null, groupUrl: null }, to: { whatsapp: '6281234567890', email: 'support@nibie.app', groupUrl: group } }],
+      [null, { from: { whatsapp: '6281234567890', email: 'support@nibie.app', groupUrl: group }, to: { whatsapp: null, email: 'support@nibie.app', groupUrl: group } }],
+      [null, { from: { whatsapp: null, email: 'support@nibie.app', groupUrl: group }, to: { whatsapp: null, email: 'support@nibie.app', groupUrl: null } }],
     ]);
     expect(rows.every((r) => r.actorEmail === BOSS)).toBe(true);
   });
@@ -83,6 +87,11 @@ describe('support contact', () => {
       { whatsapp: '', email: 'not-an-email' },
       { whatsapp: '6281234567890', email: '', reason: 'x' },
       { whatsapp: '6281234567890', email: '', extra: 1 },
+      // Only WhatsApp's own invite host over https: the link is shown to every customer.
+      { whatsapp: '', email: '', groupUrl: 'https://evil.example/AbCdEfGhIjKl123' },
+      { whatsapp: '', email: '', groupUrl: 'http://chat.whatsapp.com/AbCdEfGhIjKl123' },
+      { whatsapp: '', email: '', groupUrl: 'https://chat.whatsapp.com.evil.test/AbCdEfGhIjKl123' },
+      { whatsapp: '', email: '', groupUrl: 'javascript:alert(1)' },
     ]) {
       expect((await save(a, boss, body)).statusCode, JSON.stringify(body)).toBe(400);
     }

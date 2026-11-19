@@ -360,7 +360,7 @@ function SupportContactCard() {
       </CardHeader>
       <CardContent>
         {contact.data ? (
-          <SupportContactForm whatsapp={contact.data.whatsapp ?? ""} email={contact.data.email ?? ""} />
+          <SupportContactForm whatsapp={contact.data.whatsapp ?? ""} email={contact.data.email ?? ""} groupUrl={contact.data.groupUrl ?? ""} />
         ) : (
           <QueryFallback what="kontak bantuan" queries={[contact]} className="h-24 bg-elevated" />
         )}
@@ -369,28 +369,30 @@ function SupportContactCard() {
   )
 }
 
-function SupportContactForm(initial: { whatsapp: string; email: string }) {
+function SupportContactForm(initial: { whatsapp: string; email: string; groupUrl: string }) {
   const save = useSetSupportContact()
   const [whatsapp, setWhatsapp] = useState(initial.whatsapp)
   const [email, setEmail] = useState(initial.email)
+  const [groupUrl, setGroupUrl] = useState(initial.groupUrl)
   const [error, setError] = useState<string | null>(null)
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     save.mutate(
-      { whatsapp: whatsapp.trim(), email: email.trim() },
+      { whatsapp: whatsapp.trim(), email: email.trim(), groupUrl: groupUrl.trim() },
       {
         onSuccess: (saved) => {
           setWhatsapp(saved.whatsapp ?? "")
           setEmail(saved.email ?? "")
+          setGroupUrl(saved.groupUrl ?? "")
           toast.success("Kontak bantuan disimpan.")
         },
         // The backend answers only "Invalid request" for a bad body, so say here what it checks.
         onError: (err) =>
           setError(
             (err as { code?: string }).code === "validation_error"
-              ? "Nomor WhatsApp pakai kode negara (contoh 6281234567890), email harus valid."
+              ? "Nomor WhatsApp pakai kode negara (contoh 6281234567890), email harus valid, link grup berbentuk https://chat.whatsapp.com/kode."
               : err instanceof Error
                 ? err.message
                 : "Gagal menyimpan."
@@ -417,6 +419,18 @@ function SupportContactForm(initial: { whatsapp: string; email: string }) {
         <div className="grid gap-2">
           <Label htmlFor="support-email">Email</Label>
           <Input id="support-email" type="email" autoComplete="off" maxLength={254} placeholder="support@nibie.app" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+        <div className="grid gap-2 sm:col-span-2">
+          <Label htmlFor="support-group">Grup WhatsApp</Label>
+          <Input
+            id="support-group"
+            inputMode="url"
+            autoComplete="off"
+            maxLength={200}
+            placeholder="https://chat.whatsapp.com/…"
+            value={groupUrl}
+            onChange={(e) => setGroupUrl(e.target.value)}
+          />
         </div>
       </div>
       {error ? (
