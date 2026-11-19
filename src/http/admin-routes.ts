@@ -12,6 +12,8 @@ import { addInvite, INVITE_SELECT, listInvites, maskEmail, maskInvite, normalize
 import { createKey, findActiveKey, isAdminKey, KEY_EXPIRY_DAYS, listKeys, revokeKey } from '../modules/admin/api-keys.js';
 import { hasStock, totalLoad } from '../modules/instances/capacity.js';
 import { readSupportContact, supportContactBody, writeSupportContact } from '../modules/support/contact.js';
+import { addTicketMessage, closeTicket, getTicket, listTickets, ticketMessageBody, ticketStatusQuery } from '../modules/support/tickets.js';
+import { notifyCustomer } from './support-routes.js';
 import { AppError, AuthUnavailableError, ForbiddenError, NotFoundError, QueueUnavailableError, UnauthorizedError } from '../shared/errors.js';
 import { registerAdminMcp } from './admin-mcp.js';
 
@@ -237,12 +239,13 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
     registerAdminMcp(api);
 
     api.get('/overview', async () => {
-      const [customers, instances, subscriptions, pendingPayments, byStatus] = await Promise.all([
+      const [customers, instances, subscriptions, pendingPayments, byStatus, openTickets] = await Promise.all([
         prisma.tenant.count(),
         prisma.instance.count({ where: { deletedAt: null } }),
         prisma.subscription.count(),
         prisma.payment.count({ where: { status: 'PENDING' } }),
         prisma.instance.groupBy({ by: ['status'], where: { deletedAt: null }, _count: { _all: true } }),
+        prisma.supportTicket.count({ where: { status: 'OPEN' } }),
       ]);
       return {
         counts: {
@@ -250,6 +253,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
           instances,
           subscriptions,
           pendingPayments,
+          openTickets,
           activeInstances: byStatus.find((r) => r.status === 'ACTIVE')?._count._all ?? 0,
           failedInstances: byStatus.find((r) => r.status === 'FAILED')?._count._all ?? 0,
         },
@@ -462,6 +466,36 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
         }, tx);
         return next;
       });
+    });
+
+    /** Support tickets from every tenant, newest activity first, with the customer's email. Optional `status` filter. */
+    api.get('/tickets', async (req) => {
+      const { status } = ticketStatusQuery.parse(req.query);
+      return { tickets: await listTickets(prisma, { tenantId: null, status, take: 200 }) };
+    });
+
+    api.get<{ Params: { ticketId: string } }>('/tickets/:ticketId', async (req) => ({
+      ticket: await getTicket(prisma, uuid.parse(req.params.ticketId), null),
+    }));
+
+    /** The team's reply: the ticket becomes ANSWERED and the customer gets an email with a link to it. */
+    api.post<{ Params: { ticketId: string } }>('/tickets/:ticketId/messages', async (req) => {
+      const admin = req.admin!;
+      const id = uuid.parse(req.params.ticketId);
+      const { message } = ticketMessageBody.parse(req.body);
+      const ticket = await addTicketMessage(prisma, { id, tenantId: null, author: 'ADMIN', email: admin.email, message });
+      // The message text stays in the ticket; the audit row records that a reply was sent, not what it said.
+      await audit.record({ actorEmail: admin.email, action: 'POST /tickets/:ticketId/messages', targetType: 'ticket', targetId: id, reason: null, detail: { ...via(req) } });
+      await notifyCustomer({ prisma, config, mailer }, req.log, ticket, message);
+      return { ticket };
+    });
+
+    api.post<{ Params: { ticketId: string } }>('/tickets/:ticketId/close', async (req) => {
+      const admin = req.admin!;
+      const id = uuid.parse(req.params.ticketId);
+      const ticket = await closeTicket(prisma, id, null);
+      await audit.record({ actorEmail: admin.email, action: 'POST /tickets/:ticketId/close', targetType: 'ticket', targetId: id, reason: null, detail: { ...via(req) } });
+      return { ticket };
     });
 
     /**

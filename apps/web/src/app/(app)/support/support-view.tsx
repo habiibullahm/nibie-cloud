@@ -1,15 +1,60 @@
 "use client"
 
-import { BookOpen, Mail, MessageCircle, ShieldAlert } from "lucide-react"
+import Link from "next/link"
+import { BookOpen, Mail, MessageCircle, Plus, ShieldAlert } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageHeader } from "@/components/app/page-header"
 import { QueryFallback } from "@/components/app/query-fallback"
-import { useSupportContact } from "@/hooks/use-hermes"
+import { TicketStatusChip } from "@/components/app/ticket-thread"
+import { useSupportContact, useTickets } from "@/hooks/use-hermes"
+import { formatRelative } from "@/lib/format"
 import { useT } from "@/lib/i18n"
+import { useLang } from "@/lib/prefs"
 import { formatWhatsapp, SUPPORT, whatsappUrl } from "@/lib/support"
+import { CATEGORY, CUSTOMER_STATUS } from "@/lib/ticket-labels"
 
 const linkClass = "text-foreground underline underline-offset-4"
 const rowClass = "flex flex-wrap items-center justify-between gap-3 border-t py-3 first:border-t-0 first:pt-0"
+
+/** The customer's tickets, newest activity first. Each row opens the conversation. */
+function TicketsCard() {
+  const t = useT()
+  const lang = useLang()
+  const tickets = useTickets()
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("Your tickets")}</CardTitle>
+        <CardDescription>{t("Write to our team here. Replies also arrive by email.")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        {!tickets.data ? (
+          <QueryFallback what="tickets" queries={[tickets]} className="h-20 bg-elevated" />
+        ) : tickets.data.length === 0 ? (
+          <p className="text-muted-foreground">{t("No tickets yet.")}</p>
+        ) : (
+          <ul className="grid">
+            {tickets.data.map((k) => (
+              <li key={k.id} className={rowClass}>
+                <span className="grid min-w-0 gap-1">
+                  <Link href={`/support/tickets/${k.id}`} className={`${linkClass} break-words`}>
+                    {k.subject}
+                  </Link>
+                  <span className="text-muted-foreground">
+                    {t(CATEGORY[k.category])}
+                    {k.instance ? ` · ${k.instance.name}` : ""} · {formatRelative(k.lastMessageAt, undefined, lang)}
+                  </span>
+                </span>
+                <TicketStatusChip closed={k.status === "CLOSED"}>{t(CUSTOMER_STATUS[k.status])}</TicketStatusChip>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
 
 export function SupportView() {
   const t = useT()
@@ -20,7 +65,17 @@ export function SupportView() {
       <PageHeader
         title={t("Support")}
         description={t("Questions about an instance, a payment or your account? Reach us here.")}
+        actions={
+          <Button asChild>
+            <Link href="/support/tickets/new">
+              <Plus aria-hidden="true" />
+              {t("Open a ticket")}
+            </Link>
+          </Button>
+        }
       />
+
+      <TicketsCard />
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Card>

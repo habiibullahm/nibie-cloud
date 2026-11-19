@@ -20,6 +20,7 @@ import type {
   AdminSystem,
   AdminWaitlist,
 } from "./admin-types"
+import type { TicketDetail, TicketStatus, TicketSummary } from "./tickets"
 
 export interface AdminFailedJob {
   id: string
@@ -44,6 +45,12 @@ export interface AdminApi {
   setPlanStock(id: string, stockLimit: number | null, reason: string): Promise<Pick<AdminPlan, "id" | "slug" | "stockLimit">>
   /** Changes data: the support contacts on the dashboard's Support page. An empty string clears one. */
   setSupportContact(input: { whatsapp: string; email: string }): Promise<{ whatsapp: string | null; email: string | null }>
+  /** Support tickets of every tenant; `status` filters. */
+  tickets(status?: TicketStatus): Promise<TicketSummary[]>
+  ticket(id: string): Promise<TicketDetail>
+  /** Changes data: the team's reply (ticket becomes ANSWERED, the customer is emailed). */
+  replyTicket(id: string, message: string): Promise<TicketSummary>
+  closeTicket(id: string): Promise<TicketSummary>
   nodes(): Promise<AdminNode[]>
   subscriptions(cursor?: string): Promise<AdminPage<AdminSubscription>>
   payments(cursor?: string): Promise<AdminPage<AdminPayment>>
@@ -116,6 +123,10 @@ export function createAdminApi(opts: {
     setPlanStock: async (id, stockLimit, reason) =>
       (await call<{ plan: Pick<AdminPlan, "id" | "slug" | "stockLimit"> }>(`/plans/${encodeURIComponent(id)}/stock`, { stockLimit, reason })).plan,
     setSupportContact: (input) => call("/support-contact", input),
+    tickets: async (status) => (await call<{ tickets: TicketSummary[] }>(`/tickets${qs({ status })}`)).tickets,
+    ticket: async (id) => (await call<{ ticket: TicketDetail }>(`/tickets/${encodeURIComponent(id)}`)).ticket,
+    replyTicket: async (id, message) => (await call<{ ticket: TicketSummary }>(`/tickets/${encodeURIComponent(id)}/messages`, { message })).ticket,
+    closeTicket: async (id) => (await call<{ ticket: TicketSummary }>(`/tickets/${encodeURIComponent(id)}/close`, {})).ticket,
     nodes: async () => (await call<{ nodes: AdminNode[] }>("/nodes")).nodes,
     subscriptions: async (cursor) => toPage(await call<Paged<"subscriptions", AdminSubscription>>(`/subscriptions${qs({ cursor })}`), "subscriptions"),
     payments: async (cursor) => toPage(await call<Paged<"payments", AdminPayment>>(`/payments${qs({ cursor })}`), "payments"),

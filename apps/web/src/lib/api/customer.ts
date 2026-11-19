@@ -1,6 +1,7 @@
 import { ApiError, type HermesApi } from "./client"
 import { buildIntegrationsApi } from "./integrations"
 import { buildBillingApi, buildInstancesApi, makeCall } from "./live"
+import { buildTicketsApi } from "./tickets"
 import type { Account, Plan } from "./types"
 
 /** Shapes returned by the backend customer API (src/http/customer-routes.ts). */
@@ -79,6 +80,7 @@ export function createCustomerApi(opts: {
     mode: "customer",
     instances: buildInstancesApi(call),
     billing: buildBillingApi(call),
+    tickets: buildTicketsApi(call),
     preview: {
       ...opts.preview,
       ...buildIntegrationsApi(call),

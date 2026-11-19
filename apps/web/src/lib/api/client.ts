@@ -1,3 +1,4 @@
+import type { TicketsApi } from "./tickets"
 import type {
   AccessInfo,
   Account,
@@ -91,5 +92,7 @@ export interface HermesApi {
   mode: ApiMode
   instances: InstancesApi
   billing: BillingApi
+  /** Support tickets: real in customer mode, in memory in mock mode. */
+  tickets: TicketsApi
   preview: PreviewApi
 }

@@ -4,6 +4,25 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Support tickets (2026-11-19, branch `claude/support-tickets`)
+
+Owner's choices: two-way thread, email both ways, fields subject + category + optional instance + message.
+- **Backend:** tables `SupportTicket` and `SupportTicketMessage` (RLS on; migration `20261119400000_add_support_tickets`).
+  Status OPEN (team's turn), ANSWERED (customer's turn), CLOSED (a new customer message reopens it). Customer routes
+  `GET/POST /api/v1/support/tickets`, `GET /support/tickets/:id`, `POST .../messages`, `POST .../close` (tenant-scoped: another
+  tenant's ticket answers 404; opening limited to 5 per 10 minutes, replies to 20). Admin routes `GET /api/v1/admin/tickets[?status]`,
+  `GET /tickets/:id`, `POST /tickets/:id/messages`, `POST /tickets/:id/close` (each write audited without the message text);
+  `openTickets` in `/admin/overview`. Emails (SumoPod SMTP, best effort): new ticket and customer reply to the Kontak bantuan email
+  (else the first `ADMIN_EMAILS`), team reply to the customer with a dashboard link. Caddy forwards `/api/v1/support/tickets[/*]`.
+- **Dashboard:** "Tiket kamu" on Bantuan, `/support/tickets/new`, `/support/tickets/[id]` (thread, reply, close); admin tab "Tiket"
+  (`/admin/tiket`, open tickets first) with detail, reply and "Tandai selesai"; Ringkasan shows "Tiket perlu dibalas". Mock mode
+  keeps tickets in memory (starts empty). The contact footer ("Butuh bantuan? WhatsApp ...") was removed on the owner's word.
+- **Checks:** backend `tsc`; integration `support-tickets` (4) with support-contact, admin, customer and billing API files: 70 pass;
+  unit 544 pass, 2 known Windows-only `egress-canary` failures. Web typecheck, lint, 192 tests, build; mock e2e 30 pass, 1 skipped;
+  mock click-through (open, validation, reply, close, list, 390px, no console errors). Not run: real emails, the admin screens in a
+  browser (need the real backend and MFA).
+- **Go port:** PR #71 needs goose copies of this migration and of `20261119300000_add_support_contact`.
+
 ## Admin panel polish (2026-11-19, branch `claude/admin-polish`)
 
 Fixes A1 to A9 of the anti-slop audit 005 (kept outside git in `anti-slop/`): Ringkasan numbers at heading size and five

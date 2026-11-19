@@ -76,6 +76,8 @@ export interface AdminOverview {
     pendingPayments: number
     activeInstances: number
     failedInstances: number
+    /** Tickets waiting for the team (status OPEN). */
+    openTickets: number
   }
   byStatus: Record<string, number>
   system: { billing: boolean; router: boolean; redis: boolean }

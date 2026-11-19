@@ -8,9 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { getSupabase } from "@/lib/auth/supabase"
 import { useT } from "@/lib/i18n"
-import { formatWhatsapp, whatsappUrl } from "@/lib/support"
 import { cn } from "@/lib/utils"
-import { useApiMode, useMe, useSupportContact } from "@/hooks/use-hermes"
+import { useApiMode, useMe } from "@/hooks/use-hermes"
 import { useAdminMe } from "@/hooks/use-admin"
 import { Brand } from "./brand"
 import { PreferenceToggles } from "./preference-toggles"
@@ -151,36 +150,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main id="main" tabIndex={-1} className="flex-1 px-4 pt-6 pb-12 outline-none sm:px-6 lg:px-8 lg:pt-10">
           <div className="mx-auto w-full max-w-[1080px]">{children}</div>
         </main>
-        <SiteFooter className="px-4 sm:px-6 lg:px-8" />
       </div>
     </div>
-  )
-}
-
-/**
- * Page footer, shared with the auth screens: signed out too, so it shows the contacts themselves rather than a link to the
- * Support page. Nothing is shown until an admin has set a contact.
- */
-export function SiteFooter({ className }: { className?: string }) {
-  const t = useT()
-  const c = useSupportContact().data
-  if (!c?.whatsapp && !c?.email) return null
-  return (
-    <footer className={cn("border-t py-4 text-muted-foreground", className)}>
-      <div className="mx-auto flex w-full max-w-[1080px] flex-wrap items-center gap-x-3 gap-y-1">
-        <LifeBuoy className="size-4 shrink-0" aria-hidden="true" />
-        <span>{t("Need help?")}</span>
-        {c.whatsapp ? (
-          <a href={whatsappUrl(c.whatsapp)} target="_blank" rel="noopener noreferrer" className="text-foreground underline">
-            WhatsApp {formatWhatsapp(c.whatsapp)}
-          </a>
-        ) : null}
-        {c.email ? (
-          <a href={`mailto:${c.email}`} className="break-all text-foreground underline">
-            {c.email}
-          </a>
-        ) : null}
-      </div>
-    </footer>
   )
 }

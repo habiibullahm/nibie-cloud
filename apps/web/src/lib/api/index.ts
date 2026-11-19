@@ -3,9 +3,11 @@ import { createCustomerApi } from "./customer"
 import { authConfigured, getSupabase } from "@/lib/auth/supabase"
 import { createLiveInstancesApi, createUnavailableBillingApi } from "./live"
 import { createMockApi } from "./mock"
+import { createUnavailableTicketsApi } from "./tickets"
 
 export * from "./client"
 export * from "./types"
+export * from "./tickets"
 
 let singleton: HermesApi | null = null
 
@@ -39,6 +41,7 @@ export function getApi(): HermesApi {
       mode: "live",
       instances: createLiveInstancesApi(),
       billing: createUnavailableBillingApi(),
+      tickets: createUnavailableTicketsApi(),
       preview: mock.preview,
     }
   } else {

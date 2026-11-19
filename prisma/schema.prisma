@@ -32,6 +32,7 @@ model Tenant {
   /// NibieRouter user for this tenant (created lazily by the NibieRouter provisioner); the customer never signs in there.
   routerUserId  String?
   creditGrants  CreditGrant[]
+  tickets       SupportTicket[]
 }
 
 /// Customer identity. `id` is the Supabase Auth user id (the token's `sub`); it is not generated here.
@@ -126,6 +127,7 @@ model Instance {
   provider     ProviderConfig?
   telegram     TelegramConnection?
   subscription Subscription?
+  tickets      SupportTicket[]
 
   @@unique([tenantId, idempotencyKey])
   @@index([status])
@@ -492,4 +494,58 @@ model SupportContact {
   whatsapp  String?
   email     String?
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
+
+enum TicketCategory {
+  PAYMENT
+  TECHNICAL
+  ACCOUNT
+  OTHER
+}
+
+/// OPEN: waiting for the team (new, or the customer wrote last). ANSWERED: the team wrote last. CLOSED: done; a new customer
+/// message reopens it.
+enum TicketStatus {
+  OPEN
+  ANSWERED
+  CLOSED
+}
+
+enum TicketAuthor {
+  CUSTOMER
+  ADMIN
+}
+
+/// A support conversation opened by a customer on the dashboard's Support page and answered from the admin panel. Holds
+/// customer-written text, so row level security is enabled (same reasoning as `BetaInvite`).
+model SupportTicket {
+  id             String                 @id @default(uuid()) @db.Uuid
+  tenantId       String                 @db.Uuid
+  /// Email of the customer who opened it (from the verified token); replies are emailed there.
+  createdByEmail String
+  subject        String
+  category       TicketCategory
+  /// Optional: the instance the question is about. Kept null if that instance row is ever removed.
+  instanceId     String?                @db.Uuid
+  status         TicketStatus           @default(OPEN)
+  createdAt      DateTime               @default(now()) @db.Timestamptz(3)
+  lastMessageAt  DateTime               @default(now()) @db.Timestamptz(3)
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  instance       Instance?              @relation(fields: [instanceId], references: [id], onDelete: SetNull)
+  messages       SupportTicketMessage[]
+
+  @@index([tenantId, lastMessageAt])
+  @@index([status, lastMessageAt])
+}
+
+model SupportTicketMessage {
+  id          String        @id @default(uuid()) @db.Uuid
+  ticketId    String        @db.Uuid
+  author      TicketAuthor
+  authorEmail String
+  body        String
+  createdAt   DateTime      @default(now()) @db.Timestamptz(3)
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
 }
