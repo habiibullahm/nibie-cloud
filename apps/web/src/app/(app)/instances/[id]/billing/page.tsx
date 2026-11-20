@@ -39,14 +39,19 @@ import {
   canCancelRenewal,
   canRenew,
   payableUrl,
+  paymentText,
   pendingUpgradeOf,
   subscriptionOfInstance,
 } from "@/lib/billing"
 import { formatCpu, formatDate, formatMb, formatPriceIdr } from "@/lib/format"
+import { useT } from "@/lib/i18n"
+import { useLang } from "@/lib/prefs"
 import { cn } from "@/lib/utils"
 import { useInstanceId } from "../instance-frame"
 
 export default function BillingPage() {
+  const t = useT()
+  const lang = useLang()
   const id = useInstanceId()
   const subs = useSubscriptions()
   // Poll while an upgrade's invoice can still be paid, so the page turns into the subscription once the payment lands.
@@ -63,7 +68,7 @@ export default function BillingPage() {
   const [confirmCancel, setConfirmCancel] = useState(false)
 
   if (!subs.data || !plans.data || !instance.data) {
-    return <QueryFallback what="your subscription" queries={[subs, plans, instance]} className="h-64" />
+    return <QueryFallback what={t("your subscription")} queries={[subs, plans, instance]} className="h-64" />
   }
   const sub = subscriptionOfInstance(subs.data, id)
   if (!sub) {
@@ -71,8 +76,8 @@ export default function BillingPage() {
     if (own && own.monthlyPriceIdr !== null) {
       return (
         <Alert>
-          <AlertTitle>No subscription</AlertTitle>
-          <AlertDescription>This instance is not billed through the dashboard. Contact support with billing questions.</AlertDescription>
+          <AlertTitle>{t("No subscription")}</AlertTitle>
+          <AlertDescription>{t("This instance is not billed through the dashboard. Contact support with billing questions.")}</AlertDescription>
         </Alert>
       )
     }
@@ -81,69 +86,59 @@ export default function BillingPage() {
   const current = plans.data.find((p) => p.id === sub.planId)
   const renewFromBalance = covers(current?.monthlyPriceIdr)
   const late = billingNotice(sub) !== null
+  const date = (iso: string | null) => (iso ? formatDate(iso, lang) : t("Not set"))
   const payment = sub.latestPayment
 
   const periodRow =
     sub.status === "ACTIVE" && !sub.cancelAtPeriodEnd
-      ? { k: "Renews on", v: sub.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : "Not set" }
+      ? { k: t("Renews on"), v: date(sub.currentPeriodEnd) }
       : sub.status === "ACTIVE"
-        ? { k: "Ends on", v: sub.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : "Not set" }
-        : { k: "Paid until", v: sub.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : "Not set" }
+        ? { k: t("Ends on"), v: date(sub.currentPeriodEnd) }
+        : { k: t("Paid until"), v: date(sub.currentPeriodEnd) }
 
   return (
     <div className="grid gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>Subscription</CardTitle>
-          <CardDescription>Hosting only. AI usage is billed separately by NibieRouter or your own provider.</CardDescription>
+          <CardTitle>{t("Subscription")}</CardTitle>
+          <CardDescription>
+            {current?.includedCreditUsd
+              ? t("Includes US${amount} AI credit, given once with the first payment. More AI usage is paid from your AI balance or your own provider.", { amount: current.includedCreditUsd })
+              : t("Hosting only. AI usage is billed separately by NibieRouter or your own provider.")}
+          </CardDescription>
           {mock ? <PreviewNote what="Subscription" /> : null}
         </CardHeader>
         <CardContent className="grid gap-6">
           <KeyValue
             items={[
-              { k: "Plan", v: sub.planName },
-              { k: "Status", v: billingStatusLabel(sub.status, sub.cancelAtPeriodEnd) },
-              { k: "Billing cycle", v: "Monthly (30 days)" },
+              { k: t("Plan"), v: sub.planName },
+              { k: t("Status"), v: t(billingStatusLabel(sub.status, sub.cancelAtPeriodEnd)) },
+              { k: t("Billing cycle"), v: t("Monthly (30 days)") },
               periodRow,
-              ...(sub.status === "GRACE" && sub.graceEndsAt ? [{ k: "Grace ends", v: formatDate(sub.graceEndsAt) }] : []),
+              ...(sub.status === "GRACE" && sub.graceEndsAt ? [{ k: t("Grace ends"), v: date(sub.graceEndsAt) }] : []),
               ...(sub.status === "SUSPENDED" && sub.retentionEndsAt
-                ? [{ k: "Data deleted on", v: formatDate(sub.retentionEndsAt) }]
+                ? [{ k: t("Data deleted on"), v: date(sub.retentionEndsAt) }]
                 : []),
-              { k: "Price", v: current ? formatPriceIdr(current.monthlyPriceIdr) : "Not available" },
-              ...(payment
-                ? [
-                    {
-                      k: "Latest payment",
-                      v: `${formatPriceIdr(payment.amountIdr)} · ${
-                        payment.status === "PAID" && payment.paidAt
-                          ? `paid ${formatDate(payment.paidAt)}`
-                          : payment.status === "PENDING"
-                            ? "waiting for payment"
-                            : payment.status === "FAILED"
-                              ? "failed"
-                              : "expired"
-                      }`,
-                    },
-                  ]
-                : []),
+              { k: t("Price"), v: current ? formatPriceIdr(current.monthlyPriceIdr, lang) : t("Not available") },
+              ...(payment ? [{ k: t("Latest payment"), v: paymentText(payment, t, lang) }] : []),
             ]}
           />
           <div className="grid gap-2 border-t pt-4 text-muted-foreground">
             <p>
-              If a payment is missed, your instance keeps running for a 3-day grace period. After that it is suspended
-              and your data is kept for 30 days, then deleted. Renewing within that window restores it.
+              {t("If a payment is missed, your instance keeps running for a 3-day grace period. After that it is suspended and your data is kept for 30 days, then deleted. Renewing within that window restores it.")}
             </p>
-            <p>Cancelling stops renewal; the instance stays active until the end of the paid period.</p>
+            <p>{t("Cancelling stops renewal; the instance stays active until the end of the paid period.")}</p>
           </div>
         </CardContent>
         {wallet?.autoRenew && current?.monthlyPriceIdr != null && (sub.status === "ACTIVE" || sub.status === "GRACE") ? (
           <CardContent className="flex items-start justify-between gap-4 border-t pt-4">
             <div className="grid gap-1">
-              <Label htmlFor="auto-renew">Renew automatically from balance</Label>
+              <Label htmlFor="auto-renew">{t("Renew automatically from balance")}</Label>
               <p className="text-muted-foreground">
-                During the last day of the period, {formatPriceIdr(current.monthlyPriceIdr)} is taken from
-                your Nibie Cloud balance (now {formatPriceIdr(wallet.balanceIdr)}). If the balance is short, you get the usual
-                reminders instead.
+                {t("During the last day of the period, {price} is taken from your Nibie Cloud balance (now {balance}). If the balance is short, you get the usual reminders instead.", {
+                  price: formatPriceIdr(current.monthlyPriceIdr, lang),
+                  balance: formatPriceIdr(wallet.balanceIdr, lang),
+                })}
               </p>
             </div>
             <Switch
@@ -161,10 +156,10 @@ export default function BillingPage() {
             disabled={!canRenew(sub) || renew.isPending || paying}
             onClick={() => void pay({ amountIdr: current?.monthlyPriceIdr, create: async () => (await renew.mutateAsync(sub.id)).payment })}
           >
-            {paying ? "Paying…" : renew.isPending ? "Preparing payment…" : renewFromBalance ? "Renew from balance" : "Renew now"}
+            {paying ? t("Paying…") : renew.isPending ? t("Preparing payment…") : renewFromBalance ? t("Renew from balance") : t("Renew now")}
           </Button>
           <Button variant="ghost" disabled={!canCancelRenewal(sub) || cancel.isPending} onClick={() => setConfirmCancel(true)}>
-            Cancel renewal
+            {t("Cancel renewal")}
           </Button>
         </CardFooter>
       </Card>
@@ -172,16 +167,17 @@ export default function BillingPage() {
       <AlertDialog open={confirmCancel} onOpenChange={setConfirmCancel}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel renewal?</AlertDialogTitle>
+            <AlertDialogTitle>{t("Cancel renewal?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Your instance keeps running until {sub.currentPeriodEnd ? formatDate(sub.currentPeriodEnd) : "the end of the paid period"}.
-              After that it is suspended and its data is deleted after 30 days. You can renew again at any time before then.
+              {sub.currentPeriodEnd
+                ? t("Your instance keeps running until {date}. After that it is suspended and its data is deleted after 30 days. You can renew again at any time before then.", { date: formatDate(sub.currentPeriodEnd, lang) })
+                : t("Your instance keeps running until the end of the paid period. After that it is suspended and its data is deleted after 30 days. You can renew again at any time before then.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep renewing</AlertDialogCancel>
+            <AlertDialogCancel>{t("Keep renewing")}</AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={() => cancel.mutate(sub.id)}>
-              Cancel renewal
+              {t("Cancel renewal")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -190,7 +186,7 @@ export default function BillingPage() {
       <section className="grid gap-3" aria-labelledby="change-plan-title">
         <div className="flex flex-wrap items-center gap-3">
           <h2 id="change-plan-title" className="type-label">
-            Change plan
+            {t("Change plan")}
           </h2>
           <ComingSoon />
         </div>
@@ -201,23 +197,22 @@ export default function BillingPage() {
               <li key={p.id} className={cn("grid gap-3 rounded-md border bg-card p-4", isCurrent && "border-foreground")}>
                 <div className="flex items-center justify-between gap-2">
                   <span className="type-label">{p.name}</span>
-                  {isCurrent ? <span className="type-label rounded-sm border px-2 py-1 text-muted-foreground">Current</span> : null}
+                  {isCurrent ? <span className="type-label rounded-sm border px-2 py-1 text-muted-foreground">{t("Current")}</span> : null}
                 </div>
                 <p className="type-mono text-muted-foreground">
                   {formatCpu(p.cpuMillis)} · {formatMb(p.memoryMb)} · {formatMb(p.storageMb)}
                 </p>
-                <p className="text-muted-foreground">Price {formatPriceIdr(p.monthlyPriceIdr)}</p>
+                <p className="text-muted-foreground">{t("Price {price}", { price: formatPriceIdr(p.monthlyPriceIdr, lang) })}</p>
                 {/* TODO(billing): plan switching needs payment plus a capacity check (PRD §5.5); the backend has no upgrade yet. */}
                 <Button variant="outline" disabled className="mt-auto">
-                  {isCurrent ? "Current plan" : "Switch plan (coming soon)"}
+                  {isCurrent ? t("Current plan") : t("Switch plan (coming soon)")}
                 </Button>
               </li>
             )
           })}
         </ul>
         <p className="text-muted-foreground">
-          When plan changes arrive, an upgrade will apply after payment and a capacity check. If the new plan does not fit on
-          the current node, we will schedule a migration and tell you first.
+          {t("When plan changes arrive, an upgrade will apply after payment and a capacity check. If the new plan does not fit on the current node, we will schedule a migration and tell you first.")}
         </p>
       </section>
       {confirm}
@@ -230,6 +225,8 @@ export default function BillingPage() {
  * backend changes the plan once the payment is verified; until then this page polls and shows the open invoice.
  */
 function FreeUpgrade({ instanceId, plans, pending }: { instanceId: string; plans: Plan[]; pending: BillingSubscription | null }) {
+  const t = useT()
+  const lang = useLang()
   const upgrade = useUpgrade()
   const { pay, covers, paying, confirm } = usePay()
   // One key per plan for this visit: a double click replays the same invoice, another plan is a new request.
@@ -240,25 +237,24 @@ function FreeUpgrade({ instanceId, plans, pending }: { instanceId: string; plans
   return (
     <div className="grid gap-6">
       <Alert>
-        <AlertTitle>Free beta instance</AlertTitle>
+        <AlertTitle>{t("Free beta instance")}</AlertTitle>
         <AlertDescription>
-          This instance is on the free beta. Upgrade to a paid plan to keep it running after the beta, with everything it
-          already has: your agent, its memory and your Telegram bot.
+          {t("This instance is on the free beta. Upgrade to a paid plan to keep it running after the beta, with everything it already has: your agent, its memory and your Telegram bot.")}
         </AlertDescription>
       </Alert>
 
       {pending ? (
         <Alert>
-          <AlertTitle>Upgrade to {pending.planName} is waiting for payment</AlertTitle>
+          <AlertTitle>{t("Upgrade to {plan} is waiting for payment", { plan: pending.planName })}</AlertTitle>
           <AlertDescription>
             <p>
               {pendingUrl
-                ? "Finish the payment to apply the new plan. This page updates by itself once it is paid."
-                : "The invoice expired. Choose a plan below to get a new one."}
+                ? t("Finish the payment to apply the new plan. This page updates by itself once it is paid.")
+                : t("The invoice expired. Choose a plan below to get a new one.")}
             </p>
             {pendingUrl && pending?.latestPayment ? (
               <div className="mt-2">
-                <PayButton payment={pending.latestPayment} label="Continue payment" />
+                <PayButton payment={pending.latestPayment} label={t("Continue payment")} />
               </div>
             ) : null}
           </AlertDescription>
@@ -267,10 +263,10 @@ function FreeUpgrade({ instanceId, plans, pending }: { instanceId: string; plans
 
       <section className="grid gap-3" aria-labelledby="upgrade-title">
         <h2 id="upgrade-title" className="type-label">
-          Upgrade to a paid plan
+          {t("Upgrade to a paid plan")}
         </h2>
         {forSale.length === 0 ? (
-          <p className="text-muted-foreground">No paid plan is for sale right now.</p>
+          <p className="text-muted-foreground">{t("No paid plan is for sale right now.")}</p>
         ) : (
           <ul className="grid gap-4 md:grid-cols-3">
             {forSale.map((p) => (
@@ -280,8 +276,8 @@ function FreeUpgrade({ instanceId, plans, pending }: { instanceId: string; plans
                   {formatCpu(p.cpuMillis)} · {formatMb(p.memoryMb)} · {formatMb(p.storageMb)}
                 </p>
                 <p className="text-muted-foreground">
-                  {formatPriceIdr(p.monthlyPriceIdr)} per 30 days
-                  {p.includedCreditUsd ? ` · includes US$${p.includedCreditUsd} AI credit` : ""}
+                  {t("{price} per 30 days", { price: formatPriceIdr(p.monthlyPriceIdr, lang) })}
+                  {p.includedCreditUsd ? ` · ${t("includes US${amount} AI credit", { amount: p.includedCreditUsd })}` : ""}
                 </p>
                 <Button
                   variant="outline"
@@ -295,20 +291,19 @@ function FreeUpgrade({ instanceId, plans, pending }: { instanceId: string; plans
                   }
                 >
                   {!p.available
-                    ? "Not available yet"
+                    ? t("Not available yet")
                     : (upgrade.isPending || paying) && upgrade.variables?.planId === p.id
-                      ? "Preparing payment…"
+                      ? t("Preparing payment…")
                       : covers(p.monthlyPriceIdr)
-                        ? `Upgrade to ${p.name} from balance`
-                        : `Upgrade to ${p.name}`}
+                        ? t("Upgrade to {plan} from balance", { plan: p.name })
+                        : t("Upgrade to {plan}", { plan: p.name })}
                 </Button>
               </li>
             ))}
           </ul>
         )}
         <p className="text-muted-foreground">
-          The price is taken from your Nibie Cloud balance when it covers it, otherwise you pay by QRIS on the SumoPod page.
-          After the payment, the instance restarts once to apply the new plan.
+          {t("The price is taken from your Nibie Cloud balance when it covers it, otherwise you pay by QRIS on the SumoPod page. After the payment, the instance restarts once to apply the new plan.")}
         </p>
       </section>
       {confirm}

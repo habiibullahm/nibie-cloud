@@ -29,6 +29,7 @@ import { Label } from "@/components/ui/label"
 import type { Instance } from "@/lib/api/types"
 import { allowedActions, runtimeReachable } from "@/lib/api/status"
 import { useApiMode, useInstanceAction } from "@/hooks/use-hermes"
+import { useT } from "@/lib/i18n"
 
 /** Restart, stop/start, open console, delete. Buttons that are not allowed are hidden, not faked. */
 export function InstanceActions({
@@ -41,6 +42,7 @@ export function InstanceActions({
   /** Subscription suspended: the backend refuses start, so the button is hidden; renewing is the way back. */
   suspended?: boolean
 }) {
+  const t = useT()
   const allowed = allowedActions(instance.status)
   const action = useInstanceAction(instance.id)
   const [confirm, setConfirm] = useState<null | "stop" | "restart">(null)
@@ -55,7 +57,7 @@ export function InstanceActions({
         <Button asChild variant="outline">
           <Link href={`/instances/${instance.id}/console`}>
             <Terminal aria-hidden="true" />
-            Open console
+            {t("Open console")}
           </Link>
         </Button>
       ) : null}
@@ -63,40 +65,40 @@ export function InstanceActions({
       {allowed.has("start") && !suspended ? (
         <Button variant="secondary" disabled={busy} onClick={() => action.mutate("start")}>
           <Play aria-hidden="true" />
-          Start
+          {t("Start")}
         </Button>
       ) : null}
       {allowed.has("restart") ? (
         <Button variant="secondary" disabled={busy} onClick={() => setConfirm("restart")}>
           <RotateCw aria-hidden="true" />
-          Restart
+          {t("Restart")}
         </Button>
       ) : null}
       {allowed.has("stop") ? (
         <Button variant="secondary" disabled={busy} onClick={() => setConfirm("stop")}>
           <Square aria-hidden="true" />
-          Stop
+          {t("Stop")}
         </Button>
       ) : null}
       {allowed.has("delete") && !compact ? (
-        <Button variant="ghost" disabled={busy} onClick={() => setDeleting(true)} aria-label={`Delete ${instance.name}`}>
+        <Button variant="ghost" disabled={busy} onClick={() => setDeleting(true)} aria-label={t("Delete {name}", { name: instance.name })}>
           <Trash2 aria-hidden="true" />
-          Delete
+          {t("Delete")}
         </Button>
       ) : null}
 
       <AlertDialog open={confirm !== null} onOpenChange={(o) => !o && setConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{confirm === "stop" ? "Stop instance?" : "Restart instance?"}</AlertDialogTitle>
+            <AlertDialogTitle>{confirm === "stop" ? t("Stop instance?") : t("Restart instance?")}</AlertDialogTitle>
             <AlertDialogDescription>
               {confirm === "stop"
-                ? `${instance.name} will stop answering until you start it again. Your files and configuration are kept.`
-                : `${instance.name} will be unavailable for a moment while Hermes restarts. Active sessions are interrupted.`}
+                ? t("{name} will stop answering until you start it again. Your files and configuration are kept.", { name: instance.name })
+                : t("{name} will be unavailable for a moment while Hermes restarts. Active sessions are interrupted.", { name: instance.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               variant={confirm === "stop" ? "destructive" : "default"}
               onClick={() => {
@@ -104,7 +106,7 @@ export function InstanceActions({
                 setConfirm(null)
               }}
             >
-              {confirm === "stop" ? "Stop instance" : "Restart"}
+              {confirm === "stop" ? t("Stop instance") : t("Restart")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -124,6 +126,7 @@ export function DeleteInstanceDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const t = useT()
   const [typed, setTyped] = useState("")
   const action = useInstanceAction(instance.id)
   const router = useRouter()
@@ -139,10 +142,9 @@ export function DeleteInstanceDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete instance?</DialogTitle>
+          <DialogTitle>{t("Delete instance?")}</DialogTitle>
           <DialogDescription>
-            This stops {instance.name} and permanently deletes its runtime, files and stored credentials. Backups
-            follow the backup retention policy. This cannot be undone.
+            {t("This stops {name} and permanently deletes its runtime, files and stored credentials. Backups follow the backup retention policy. This cannot be undone.", { name: instance.name })}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -159,7 +161,7 @@ export function DeleteInstanceDialog({
           }}
         >
           <Label htmlFor="confirm-name">
-            Type <span className="type-mono">{instance.name}</span> to confirm
+            {t("Type the name to confirm:")} <span className="type-mono">{instance.name}</span>
           </Label>
           <Input
             id="confirm-name"
@@ -172,12 +174,12 @@ export function DeleteInstanceDialog({
           <DialogFooter className="pt-4">
             <DialogClose asChild>
               <Button type="button" variant="outline">
-                Cancel
+                {t("Cancel")}
               </Button>
             </DialogClose>
             <Button type="submit" variant="destructive" disabled={!matches || action.isPending}>
               <Trash2 aria-hidden="true" />
-              Delete instance
+              {t("Delete instance")}
             </Button>
           </DialogFooter>
         </form>
