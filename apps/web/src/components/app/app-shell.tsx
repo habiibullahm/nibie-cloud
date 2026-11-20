@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useState } from "react"
 import {
+  Bot,
   Boxes,
   ChevronDown,
   ChevronRight,
@@ -49,6 +50,7 @@ const GROUPS = [
     items: [
       { href: "/billing", label: "Billing", icon: CreditCard, match: (p: string) => p.startsWith("/billing") },
       { href: "/api-keys", label: "API keys", icon: KeyRound, match: (p: string) => p.startsWith("/api-keys") },
+      { href: "/ai-models", label: "AI models", icon: Bot, match: (p: string) => p.startsWith("/ai-models") },
       { href: "/account", label: "Account settings", icon: UserRound, match: (p: string) => p.startsWith("/account") },
       { href: "/support", label: "Support", icon: LifeBuoy, match: (p: string) => p.startsWith("/support") },
     ],

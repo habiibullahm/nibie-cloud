@@ -147,6 +147,11 @@ export function ApiKeysView() {
                     <span className="sr-only">{t("Copy base URL")}</span>
                   </Button>
                 </div>
+                <p className="text-muted-foreground">
+                  <Link href="/ai-models" className="text-foreground underline underline-offset-4">
+                    {t("See the list of models")}
+                  </Link>
+                </p>
               </div>
               <form onSubmit={submitCreate} className="grid gap-4 border-t pt-4 sm:max-w-xl" noValidate>
                 <div className="grid gap-2">

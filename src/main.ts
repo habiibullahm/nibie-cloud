@@ -76,12 +76,14 @@ const secretStore = config.secrets
   ? new PrismaSecretStore({ prisma, current: config.secrets.current, previous: config.secrets.previous })
   : null;
 const runtimeConfig = secretStore ? createRuntimeConfigLoader({ prisma, secrets: secretStore }) : noRuntimeConfig;
+// One copy of the router's public model list, shared by the instance model picker and the customer's AI models page.
+const modelCatalog = createModelCatalog({ url: `${NIBIEROUTER_BASE_URL}/models` });
 const integrations: Integrations | null = secretStore && config.secrets
   ? {
       secrets: secretStore,
       kekVersion: config.secrets.current.version,
       telegram: new TelegramService({ prisma, secrets: secretStore, logger }),
-      providers: new ProviderService({ prisma, secrets: secretStore, logger, catalog: createModelCatalog({ url: `${NIBIEROUTER_BASE_URL}/models` }) }),
+      providers: new ProviderService({ prisma, secrets: secretStore, logger, catalog: modelCatalog }),
     }
   : null;
 logger.info({ secretStore: secretStore !== null }, 'secret storage');
@@ -106,7 +108,7 @@ const mailer = createMailer(config.mail, logger);
 const routerClient = config.router ? createNibieRouterClient(config.router) : null;
 // Balance, usage and the AI credit rate need only the admin key (no stored instance key).
 // Buying AI credit takes Rupiah from the wallet, so it exists only with the wallet on.
-const ai = routerClient ? new AiAccountService({ prisma, client: routerClient, logger, buy: config.walletEnabled === true }) : null;
+const ai = routerClient ? new AiAccountService({ prisma, client: routerClient, logger, buy: config.walletEnabled === true, catalog: modelCatalog }) : null;
 // NibieRouter key and credit need the admin key and a place to keep the encrypted instance key (SECRETS_KEK).
 const router = config.router && integrations
   ? new RouterProvisioner({ prisma, client: routerClient!, providers: integrations.providers, cfg: config.router, logger, applyConfig: (t, i) => commands.restart(t, i) })

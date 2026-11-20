@@ -134,6 +134,10 @@ export interface RouterModels {
   freeOnly: boolean
   models: RouterModel[]
 }
+/** GET /ai/models: the models the tenant may use (free models only without an instance on a priced plan). */
+export interface AiModels extends RouterModels {
+  baseUrl: string
+}
 
 export interface ProviderConfig {
   /** Empty while nothing is configured yet (`configured` is false). */

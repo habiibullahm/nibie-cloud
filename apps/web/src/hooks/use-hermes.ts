@@ -24,6 +24,7 @@ export const keys = {
   wallet: ["wallet"] as const,
   ai: ["ai"] as const,
   aiKeys: ["ai", "keys"] as const,
+  aiModels: ["ai", "models"] as const,
   invoices: ["invoices"] as const,
   invoice: (id: string) => ["invoices", id] as const,
   usage: (id: string, r: string) => ["usage", id, r] as const,
@@ -242,6 +243,11 @@ export function useBuyAiCredit() {
 /** The customer's own NibieRouter keys; `data` is null when the backend has no NibieRouter. */
 export function useAiKeys() {
   return useQuery({ queryKey: keys.aiKeys, queryFn: () => getApi().billing.aiKeys() })
+}
+
+/** The NibieRouter models this account may use; `data` is null when the backend has no NibieRouter. */
+export function useAiModels() {
+  return useQuery({ queryKey: keys.aiModels, queryFn: () => getApi().billing.aiModels() })
 }
 
 /** Errors are left to the caller, which shows them next to the form. */

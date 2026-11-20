@@ -166,7 +166,8 @@ Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
   no provider get a key too (no credit), picked up by the billing tick's `runPending`. Rows live in `RouterProvisioning`, the
   billing tick retries them, and a failure never touches the payment. The customer picks the model of a `NIBIEROUTER`
   provider (`GET /instances/:id/models`, `PUT .../providers/model`) from the router's public model list (`model-catalog.ts`,
-  10-minute cache); a free plan gets the free models only. `GET /ai` shows the router balance and usage in Rupiah at the
+  10-minute cache); a free plan gets the free models only. `GET /ai/models` lists the same catalogue for the customer's own API
+  keys (page "Model AI"; free models only without an instance on a priced plan; the keys themselves are not limited). `GET /ai` shows the router balance and usage in Rupiah at the
   AI credit rate (admin override in `BillingSetting`, else the router's `idr_per_usd`; `AiAccountService`), and the billing
   tick sends an hourly-checked low-balance email the customer switches and sets (`PUT /ai/alert`). Customers also make
   their own router keys on the `/api-keys` page (`GET/POST /ai/keys`, `POST /ai/keys/:keyId/revoke`): named `usr-<name>`, at most 5

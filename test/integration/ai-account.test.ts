@@ -6,6 +6,7 @@ import { AuditService } from '../../src/modules/admin/audit-service.js';
 import { IdentityService } from '../../src/modules/auth/identity-service.js';
 import { InstanceService } from '../../src/modules/instances/instance-service.js';
 import { AiAccountService, nanoToIdr } from '../../src/modules/nibierouter/ai-account.js';
+import type { CatalogModel } from '../../src/modules/nibierouter/model-catalog.js';
 import { NANO_PER_USD, type NibieRouterClient, type RouterKeyRow, type RouterUsage } from '../../src/modules/nibierouter/nibierouter-client.js';
 import { RouterUnavailableError } from '../../src/shared/errors.js';
 import { createTestAuth, testConfig } from '../helpers/auth.js';
@@ -61,7 +62,13 @@ let router: FakeRouter;
 let clock: number;
 let ai: AiAccountService;
 
-const service = () => new AiAccountService({ prisma, client: router as unknown as NibieRouterClient, logger: silentLogger, now: () => clock });
+const MODELS: CatalogModel[] = [
+  { id: 'free-model', name: 'Free model', contextLength: null, promptUsdPerM: 0, completionUsdPerM: 0, free: true },
+  { id: 'paid-model', name: 'Paid model', contextLength: 8192, promptUsdPerM: 0.3, completionUsdPerM: 2.16, free: false },
+];
+const catalog = { list: async () => MODELS };
+
+const service = () => new AiAccountService({ prisma, client: router as unknown as NibieRouterClient, logger: silentLogger, catalog, now: () => clock });
 
 function app(withAi = true) {
   const inst = new InstanceService({ prisma, runtime: new FakeRuntime(), image: IMAGE, production: false, logger: silentLogger, masterKey: TEST_MASTER_KEY, diskQuota: 'off', egressPolicy: 'off' });
@@ -192,6 +199,35 @@ describe('AI account (NibieRouter balance in Rupiah)', () => {
     expect((await a.inject({ method: 'POST', url: `${url}/k-1/revoke`, headers: c.headers })).statusCode).toBe(404);
     expect((await a.inject({ method: 'POST', url, headers: c.headers, payload: { name: 'k6' } })).statusCode).toBe(201);
     expect((await a.inject({ method: 'GET', url })).statusCode).toBe(401);
+  });
+
+  it('GET /ai/models: free models only without an instance on a priced plan, all with one; 404 without NibieRouter', async () => {
+    const a = app();
+    const c = await customer(a);
+    const url = '/api/v1/ai/models';
+    const ids = async () => {
+      const res = await a.inject({ method: 'GET', url, headers: c.headers });
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as { baseUrl: string; freeOnly: boolean; models: CatalogModel[] };
+      expect(body.baseUrl).toBe('https://router.nibie.app/v1');
+      return [body.freeOnly, body.models.map((m) => m.id)];
+    };
+    expect(await ids()).toEqual([true, ['free-model']]);
+
+    const freePlan = await prisma.plan.create({ data: { slug: 'free', name: 'Free', cpuMillis: 500, memoryMb: 256, pids: 128, storageMb: 1024, monthlyPriceIdr: null } });
+    const inst = (planId: string) => prisma.instance.create({ data: { tenantId: c.tenantId, planId, nodeId: seeded.node.id, name: `i-${randomUUID().slice(0, 8)}`, idempotencyKey: randomUUID(), image: IMAGE, status: 'ACTIVE' } });
+    await inst(freePlan.id);
+    expect(await ids()).toEqual([true, ['free-model']]);
+
+    const paid = await inst(plan.id);
+    expect(await ids()).toEqual([false, ['free-model', 'paid-model']]);
+    // A deleted paid instance no longer counts; another tenant's paid instance never did.
+    await prisma.instance.update({ where: { id: paid.id }, data: { status: 'DELETED', deletedAt: new Date() } });
+    await prisma.instance.create({ data: { tenantId: seeded.other.id, planId: plan.id, nodeId: seeded.node.id, name: 'other', idempotencyKey: randomUUID(), image: IMAGE, status: 'ACTIVE' } });
+    expect(await ids()).toEqual([true, ['free-model']]);
+
+    expect((await a.inject({ method: 'GET', url })).statusCode).toBe(401);
+    expect((await app(false).inject({ method: 'GET', url, headers: c.headers })).statusCode).toBe(404);
   });
 
   it('PUT /ai/alert saves the switch and threshold, validated, and starts the reminder afresh', async () => {

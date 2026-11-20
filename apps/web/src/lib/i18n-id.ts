@@ -435,4 +435,22 @@ export const ID: Record<string, string> = {
   "You already have {max} active keys. Revoke one first.": "Kamu sudah punya {max} kunci aktif. Cabut satu dulu.",
   "Use 1 to 40 letters, digits, spaces, dots, dashes or underscores.": "Pakai 1 sampai 40 huruf, angka, spasi, titik, tanda hubung, atau garis bawah.",
   "NibieRouter is not reachable right now. Try again in a minute.": "NibieRouter sedang tidak bisa dihubungi. Coba lagi sebentar lagi.",
+  "See the list of models": "Lihat daftar model",
+
+  // AI models (the NibieRouter models the customer may call)
+  "AI models": "Model AI",
+  "The NibieRouter models you can call with your API keys. Prices are in US$ per 1 million tokens.":
+    "Model NibieRouter yang bisa kamu panggil dengan kunci API kamu. Harga dalam US$ per 1 juta token.",
+  "AI models are not available": "Model AI belum tersedia",
+  "OpenAI-compatible: send the model name with a key from": "Kompatibel dengan OpenAI: kirim nama model dengan kunci dari",
+  "Paid models are paid from your AI balance.": "Model berbayar dibayar dari saldo AI kamu.",
+  "Your plan includes the free models. Paid models come with a paid plan.":
+    "Plan kamu mencakup model gratis. Model berbayar tersedia dengan plan berbayar.",
+  "No models right now": "Belum ada model",
+  "Try again in a few minutes.": "Coba lagi beberapa menit lagi.",
+  "Input / 1M tokens": "Input / 1 jt token",
+  "Output / 1M tokens": "Output / 1 jt token",
+  Free: "Gratis",
+  "Pay per use": "Berbayar",
+  "Copy model name {id}": "Salin nama model {id}",
 }

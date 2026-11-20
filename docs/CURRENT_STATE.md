@@ -4,7 +4,7 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
-## NibieRouter step 4: buying AI credit from the wallet in Rupiah (2026-11-20, branch `claude/ai-credit-wallet`, not committed)
+## NibieRouter step 4: buying AI credit from the wallet in Rupiah (2026-11-20, branch `claude/ai-credit-wallet`, merged `de11115`)
 
 Plan: AI credit in Rupiah through NibieRouter, PR C of 3 (owner: "PR C, buying AI credit from saldo in Rupiah"). The customer
 types Rupiah, not US$ as the older wallet plan said, matching the Rupiah AI balance of PR B.
@@ -28,7 +28,26 @@ types Rupiah, not US$ as the older wallet plan said, matching the Rupiah AI bala
 - **Not done:** no admin view of purchases beyond the wallet ledger and the alert; no refund path (admin adjust by hand).
   Not tried against the real router. `WALLET_ENABLED` is still off in production.
 
-## Customer NibieRouter API keys (2026-11-20, branch `claude/customer-ai-keys`, not committed)
+## Customer "AI models" page (2026-11-20, branch `claude/customer-ai-models`, not committed)
+
+Owner: a page listing the NibieRouter models a customer can call with their API keys.
+- **Backend:** `GET /ai/models` (customer plugin, `src/http/ai-routes.ts`) via `AiAccountService.models` answers
+  `{ baseUrl, freeOnly, models }` from the existing `model-catalog.ts` (one shared catalog instance in `main.ts`, so the
+  instance model picker and this page share the 10-minute cache). Same rule as `GET /instances/:id/models`, at tenant level: a
+  tenant without a non-deleted instance on a priced plan gets the free models only. 404 without NibieRouter.
+- **Keys unchanged (owner decision):** `usr-` keys get no `allowed_models`; they can call every model and a balance of 0 is
+  relied on to refuse paid ones. **Not verified on the real router.** Check on a test tenant with balance 0 and a `usr-` key:
+  `POST https://router.nibie.app/v1/chat/completions` with a paid model id must be refused (expect 402/403) and a free model id
+  must answer 200; then see the balance still 0 in the router admin.
+- **Dashboard:** `/ai-models` page (sidebar "AI models"/"Model AI" under Account): base URL with copy, table with model name
+  and id (mono, copy button), input/output price per 1M tokens in US$, a "Free"/"Pay per use" text badge, and the free-plan
+  note. "Lihat daftar model" link on the API keys page. `BillingApi.aiModels()` (customer: 404 -> null; mock: the existing
+  `MOCK_ROUTER_MODELS`; unavailable: null), hook `useAiModels`.
+- **Checks:** backend `tsc`; unit 542 pass, 2 known Windows-only `egress-canary` failures; integration `ai-account` (10) pass.
+  Dashboard typecheck, lint, tests (210), build. Headless Chromium on the built dashboard in mock mode: page renders in
+  Indonesian, 4 rows, sidebar link, link from API keys works, no console errors, no page overflow at 400 px (dark theme).
+
+## Customer NibieRouter API keys (2026-11-20, PR #111, merged `f26b9dc`)
 
 Owner: customers can create their own NibieRouter keys on a new "API keys" page under Akun.
 - **Backend:** `AiAccountService.listKeys/createKey/revokeKey` (`modules/nibierouter/ai-account.ts`); customer routes
