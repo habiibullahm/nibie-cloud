@@ -72,10 +72,16 @@ ok=0; failed=0; ids=()
 for v in $volumes; do
   id=${v#hermes-data-}; ids+=("$id")
   data=$(docker volume inspect -f '{{.Mountpoint}}' "$v")
-  stage="$STAGE_ROOT/$id"; rm -rf "$stage"; mkdir -p "$stage"
+  stage="$STAGE_ROOT/$id"; rm -rf "$stage"; mkdir -p "$stage"; n=; got=
+  # The live SQLite files are excluded only under $data (anchored): an unanchored '*.db' also dropped the consistent
+  # copies in $stage, so until 2026-11-21 no snapshot held a database. The count check below catches that kind of loss.
   if n=$(sqlite_copy "$data" "$stage") && restic backup "$data" "$stage" --tag tenant-vol --tag "inst-$id" --host nibie-cloud \
-       --exclude '*.db' --exclude '*.db-wal' --exclude '*.db-shm' --exclude '*.db-journal' --exclude '*.lock' --exclude '*.sock' --quiet; then
+       --exclude "$data/**/*.db" --exclude "$data/**/*.db-wal" --exclude "$data/**/*.db-shm" --exclude "$data/**/*.db-journal" \
+       --exclude '*.lock' --exclude '*.sock' --quiet \
+     && got=$(restic ls latest --tag "inst-$id" --host nibie-cloud | grep -c "^$stage/.*\.db$" || true) && [ "$got" = "$n" ]; then
     ok=$((ok + 1)); log "OK $id ($n sqlite files)"
+  elif [ -n "${got:-}" ] && [ "$got" != "${n:-}" ]; then
+    failed=$((failed + 1)); log "ERROR $id: snapshot holds ${got} of ${n} sqlite files"
   else
     failed=$((failed + 1)); log "ERROR backing up $id"
   fi

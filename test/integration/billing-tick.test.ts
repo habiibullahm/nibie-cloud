@@ -117,6 +117,20 @@ describe('BillingTick', () => {
     expect(await prisma.instanceEvent.count({ where: { type: 'billing.retention_elapsed' } })).toBe(1);
   });
 
+  it('queues the retention delete once per tick, even while the queued job has not run yet', async () => {
+    await at(33.1);
+    await at(56.5);
+    // Like the job queue: delete only queues, so the instance is not DELETED yet when the enforcement pass looks.
+    const calls: string[] = [];
+    const queued = Object.assign(Object.create(env.commands) as typeof env.commands, {
+      delete: async (_t: string, instanceId: string) => { calls.push(instanceId); return { instance: null as never, jobId: 'queued' }; },
+    });
+    const t = new BillingTick({ prisma, billing: env.billing, commands: queued, mailer: env.mailer, logger: env.logger, now: () => env.clock.now });
+    env.clock.now = new Date(new Date('2026-12-01T00:00:00.000Z').getTime() + 64 * 86_400_000);
+    await t.runOnce();
+    expect(calls).toHaveLength(1);
+  });
+
   it('a cancelled subscription gets no renewal reminders but follows the same path after the period', async () => {
     await env.billing.cancel(s.tenant.id, (await sub()).id);
     await at(29.5);
