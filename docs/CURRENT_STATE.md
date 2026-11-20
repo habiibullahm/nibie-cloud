@@ -4,6 +4,31 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Paid checkout open, Privacy Policy updated (2026-11-21, branch `claude/privacy-policy`, not merged)
+
+- **Paid checkout is open** since 2026-11-20 19:26 UTC (owner: "open aj kn ada stock"): `PAID_CHECKOUT_OPEN=true` on the VPS
+  (backup `/etc/hermes-cloud/backend.env.bak-checkout-20261120T192641Z`), backend recreated with `up -d --no-build backend`;
+  admin settings show `paidCheckoutOpen: true`. Stock 10 `hosting` + 10 `hosting-kredit`. The first real QRIS purchase was
+  proven before the 2026-11-20 clear. To close: set it back to `false` and recreate the backend.
+- **Month-2 lifecycle proven live with real money** (2026-11-20 19:56-23:23 UTC, owner's test account hello.nibie@, instance
+  "Asistant nibie 1", dates moved forward by SQL on the one test subscription, one billing tick per step, dump
+  `hermes-20261120T195848Z.dump` first): upgrade free -> Hosting + Kredit AI by QRIS (Rp 50.000, `INV/2026/11/0001`, US$2 credit);
+  emails `renewal_7d`, `renewal_3d`, `renewal_1d` (all in the inbox, not spam, correct WIB dates); GRACE + `grace_started`;
+  `suspension_warning`; SUSPENDED with the instance STOPPED + `suspended`; renewal paid by QRIS while suspended (Rp 50.000,
+  `INV/2026/11/0002`, "Pembayaran diterima" email) -> ACTIVE, period now + 30 days, the instance restarted by itself and Hermes
+  passed its health check; suspended again (one tick ACTIVE -> GRACE -> SUSPENDED sends only the latest notice, by design);
+  `deletion_warning`; retention over -> ENDED, instance DELETED + `deleted` email. Volume backup `603286c1` (20:00 UTC) of the
+  deleted instance is kept 7 days; restoring it found that tenant snapshots held no SQLite databases (fixed in PR #122, with the
+  restore runbook).
+- Found during the test and fixed in PR #119 (merged `7d4cc16`): the instance pages were English with the switch on ID; "Hosting
+  only" was shown on the plan with AI credit.
+- **Kebijakan Privasi** (`apps/landing/src/app/kebijakan-privasi/page.tsx`, `SITE.legalUpdated` = 21 November 2026): names every
+  processor (Supabase in Singapore, Tencent Cloud Jakarta, SumoPod, Cloudflare incl. Turnstile and R2, Google sign-in,
+  NibieRouter and the upstream AI providers, WhatsApp), states the cross-border storage, concrete retention (volume backups 7 days,
+  database backups about 8 weeks, suspended instances 30 days, payment and invoice records 10 years: owner, 2026-11-21), the
+  UU No. 27/2022 rights, breach notice within 3 x 24 hours, and browser storage (no analytics). Operator stays "nibie.app".
+  Checks: landing typecheck, lint, 67 tests, build; page rendered headless at 1280 and 390 px, no overflow.
+
 ## Back from BYOK to the NibieRouter key (2026-11-21, branch `claude/restore-nibierouter`, not merged)
 
 Owner: own keys (BYOK) may use any model, the default stays NibieRouter, and a customer must be able to go back to it.
@@ -18,7 +43,10 @@ Before, saving BYOK was one-way: the dashboard disabled the NibieRouter choice a
 - Known gap: saving BYOK still does not revoke the `inst-` key on the router at that moment; `restore` cleans it up later.
   Two restores at the same instant can leave one extra unrevoked key whose secret nobody holds (`shortcut:` in the code).
 
-## Router keys of deleted instances are revoked (2026-11-21, branch `claude/revoke-router-key`, not merged)
+## Router keys of deleted instances are revoked (2026-11-21, PR #116, merged `f5c1009`, deployed)
+
+Deployed by pull-deploy (started by hand on the owner's "deploy"); the first tick at 19:24 UTC revoked/cleaned the 7 leftover
+rows of deleted instances with no warning.
 
 Deleting an instance removed its container, volume and stored secrets, but its `inst-<id>` NibieRouter key kept working (a
 customer could have read it out of the container). `RouterProvisioner.runPending` (billing tick, every 5 minutes) now revokes

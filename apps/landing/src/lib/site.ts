@@ -22,7 +22,7 @@ export const SITE = {
   registerUrl: `${DASHBOARD}/register`,
   docsUrl: "/docs",
   /** Date shown on the legal pages. Update it whenever their text changes. */
-  legalUpdated: "19 November 2026",
+  legalUpdated: "21 November 2026",
 } as const
 
 /**
