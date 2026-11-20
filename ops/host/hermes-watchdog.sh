@@ -13,6 +13,7 @@ STATE=${OPS_STATE_DIR:-/var/lib/hermes-watchdog}
 BACKEND=${OPS_BACKEND_CONTAINER:-hermes-cloud-backend-1}
 READYZ=${OPS_READYZ_URL:-http://127.0.0.1:3000/readyz}
 DUMP_DIR=${DUMP_DIR:-/var/backups/hermes-cloud}
+OFFSITE_LOG=${OFFSITE_LOG:-/var/log/hermes-db-offsite.log}
 REPEAT_SECS=3600
 mkdir -p "$STATE"
 # shellcheck disable=SC1090
@@ -82,6 +83,14 @@ done
 newest=$(ls -1t "$DUMP_DIR"/hermes-*.dump 2>/dev/null | head -n1 || true)
 if [ -n "$newest" ] && [ $((now - $(stat -c %Y "$newest"))) -le $((26 * 3600)) ]; then recover backup "backup database harian normal lagi"
 else green=0; alert backup "backup database lokal lebih tua dari 26 jam atau tidak ada"; fi
+
+# 4b. The dump must also reach R2 (hermes-db-offsite, 19:30 UTC), and the weekly restore drill from R2 must pass.
+# A failed oneshot unit stays "failed" until its next successful run, so the alert lasts exactly that long.
+last_ok=$(grep -o '^\[[0-9TZ:-]*\] OK: uploaded' "$OFFSITE_LOG" 2>/dev/null | tail -n1 | cut -d']' -f1 | tr -d '[')
+if [ -n "$last_ok" ] && [ $((now - $(date -d "$last_ok" +%s 2>/dev/null || echo 0))) -le $((26 * 3600)) ]; then recover offsite "salinan backup database ke R2 normal lagi"
+else green=0; alert offsite "salinan backup database ke R2 terakhir berhasil lebih dari 26 jam lalu atau tidak ada; lihat $OFFSITE_LOG"; fi
+if systemctl is-failed --quiet hermes-restore-drill.service; then green=0; alert restore-drill "uji restore database dari R2 gagal; lihat journalctl -u hermes-restore-drill"
+else recover restore-drill "uji restore database dari R2 lulus lagi"; fi
 
 # 5. Public path and certificate age (once an hour is plenty).
 if [ -n "${OPS_API_HOST:-}" ] && [ ! -f "$STATE/public.checked" -o $((now - $(stat -c %Y "$STATE/public.checked" 2>/dev/null || echo 0))) -ge 3600 ]; then
