@@ -21,6 +21,7 @@ import type {
   UsagePoint,
   Wallet,
   AiAccount,
+  AiKey,
 } from "./types"
 
 /**
@@ -816,6 +817,25 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       aiAccount.alert = { ...alert }
       return { ...alert }
     },
+    async aiKeys() {
+      await wait()
+      return { baseUrl: "https://router.nibie.app/v1", hasAccount: true, keys: aiKeys.map((k) => ({ ...k })) }
+    },
+    async createAiKey(name) {
+      await wait()
+      const clean = name.trim()
+      if (!/^[A-Za-z0-9 _.-]{1,40}$/.test(clean)) throw new ApiError(400, "validation_error", "Use 1 to 40 letters, digits, spaces, dots, dashes or underscores.")
+      if (aiKeys.filter((k) => !k.revoked).length >= 5) throw new ApiError(409, "key_limit", "At most 5 active keys")
+      const key: AiKey = { id: uuid(), name: clean, createdAt: new Date().toISOString(), revoked: false }
+      aiKeys.push(key)
+      return { key: { ...key }, secret: `sk-preview-${uuid().replace(/-/g, "")}`, baseUrl: "https://router.nibie.app/v1" }
+    },
+    async revokeAiKey(id) {
+      await wait()
+      const key = aiKeys.find((k) => k.id === id && !k.revoked)
+      if (!key) throw new ApiError(404, "not_found", "Key not found")
+      key.revoked = true
+    },
     async invoices() {
       await wait()
       return [...MOCK_INVOICES]
@@ -851,6 +871,9 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
     ],
     alert: { enabled: true, thresholdIdr: 10_000 },
   }
+
+  // One sample key, so the API keys page has a row in preview mode.
+  const aiKeys: AiKey[] = [{ id: uuid(), name: "my-script", createdAt: new Date(Date.now() - 3 * DAY).toISOString(), revoked: false }]
 
   return { mode: "mock", instances, billing, tickets: createMockTicketsApi(), preview }
 }

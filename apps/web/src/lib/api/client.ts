@@ -25,6 +25,8 @@ import type {
   WalletTopup,
   AiAccount,
   AiAlert,
+  AiKeys,
+  CreatedAiKey,
 } from "./types"
 
 export class ApiError extends Error {
@@ -74,6 +76,10 @@ export interface BillingApi {
   /** The NibieRouter (AI) balance and usage, or null when the backend has no NibieRouter configured. */
   ai(): Promise<AiAccount | null>
   setAiAlert(alert: AiAlert): Promise<AiAlert>
+  /** The customer's own NibieRouter keys, or null when the backend has no NibieRouter configured. */
+  aiKeys(): Promise<AiKeys | null>
+  createAiKey(name: string): Promise<CreatedAiKey>
+  revokeAiKey(id: string): Promise<void>
   /** Invoices of paid hosting and top-ups, newest first. */
   invoices(): Promise<Invoice[]>
   invoice(id: string): Promise<Invoice>

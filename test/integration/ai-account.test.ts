@@ -6,7 +6,7 @@ import { AuditService } from '../../src/modules/admin/audit-service.js';
 import { IdentityService } from '../../src/modules/auth/identity-service.js';
 import { InstanceService } from '../../src/modules/instances/instance-service.js';
 import { AiAccountService, nanoToIdr } from '../../src/modules/nibierouter/ai-account.js';
-import { NANO_PER_USD, type NibieRouterClient, type RouterUsage } from '../../src/modules/nibierouter/nibierouter-client.js';
+import { NANO_PER_USD, type NibieRouterClient, type RouterKeyRow, type RouterUsage } from '../../src/modules/nibierouter/nibierouter-client.js';
 import { RouterUnavailableError } from '../../src/shared/errors.js';
 import { createTestAuth, testConfig } from '../helpers/auth.js';
 import { makeBilling, seedBilling } from '../helpers/billing-env.js';
@@ -19,9 +19,24 @@ const IMAGE = 'hermes-stub:0.2.0';
 const BOSS = 'boss@nibie.app';
 const HOUR = 3_600_000;
 
-/** Only the two calls the AI account uses; the rest are never reached here. */
+/** Only the calls the AI account uses; the rest are never reached here. */
 class FakeRouter {
   balances = new Map<string, bigint>();
+  keys = new Map<string, RouterKeyRow[]>();
+  revoked: string[] = [];
+  private seq = 0;
+  async listKeys(userId: string) {
+    return (this.keys.get(userId) ?? []).map((k) => ({ ...k }));
+  }
+  async createKey(userId: string, input: { name: string; rpmLimit: number }) {
+    const id = `k-${++this.seq}`;
+    this.keys.set(userId, [...(this.keys.get(userId) ?? []), { id, name: input.name, revoked: false, createdAt: null, rpmLimit: input.rpmLimit, settings: {} }]);
+    return { id, secret: `sk-secret-${id}-0123456789` };
+  }
+  async revokeKey(userId: string, keyId: string) {
+    this.revoked.push(keyId);
+    for (const k of this.keys.get(userId) ?? []) if (k.id === keyId) k.revoked = true;
+  }
   rate: number | null = 18_600;
   down = false;
   usageCalls = 0;
@@ -136,6 +151,47 @@ describe('AI account (NibieRouter balance in Rupiah)', () => {
     clock += 61_000;
     expect((await a.inject({ method: 'GET', url: '/api/v1/ai', headers: c.headers })).statusCode).toBe(503);
     expect((await app(false).inject({ method: 'GET', url: '/api/v1/ai', headers: c.headers })).statusCode).toBe(404);
+  });
+
+  it('customer keys: only usr- keys are shown, created with the rpm limit, at most 5 active, revoked only by their tenant', async () => {
+    const a = app();
+    const c = await customer(a);
+    const url = '/api/v1/ai/keys';
+    expect((await a.inject({ method: 'GET', url, headers: c.headers })).json()).toEqual({ baseUrl: 'https://router.nibie.app/v1', hasAccount: false, keys: [] });
+    const none = await a.inject({ method: 'POST', url, headers: c.headers, payload: { name: 'script' } });
+    expect([none.statusCode, none.json().error.code]).toEqual([409, 'ai_account_missing']);
+
+    await prisma.tenant.update({ where: { id: c.tenantId }, data: { routerUserId: 'ru-k' } });
+    router.keys.set('ru-k', [{ id: 'inst-key', name: `inst-${randomUUID()}`, revoked: false, createdAt: null, rpmLimit: 20, settings: {} }]);
+    for (const bad of [{ name: '' }, { name: 'x'.repeat(41) }, { name: 'a/b' }, { name: 'ok', extra: 1 }]) {
+      expect((await a.inject({ method: 'POST', url, headers: c.headers, payload: bad })).statusCode).toBe(400);
+    }
+
+    const made = await a.inject({ method: 'POST', url, headers: c.headers, payload: { name: ' my script ' } });
+    expect(made.statusCode).toBe(201);
+    expect(made.json()).toMatchObject({ key: { id: 'k-1', name: 'my script', revoked: false }, secret: 'sk-secret-k-1-0123456789', baseUrl: 'https://router.nibie.app/v1' });
+    expect(router.keys.get('ru-k')!.find((k) => k.id === 'k-1')).toMatchObject({ name: 'usr-my script', rpmLimit: 20 });
+
+    const list = (await a.inject({ method: 'GET', url, headers: c.headers })).json();
+    expect(list.keys).toEqual([{ id: 'k-1', name: 'my script', createdAt: null, revoked: false }]);
+    expect(JSON.stringify(list)).not.toContain('sk-');
+
+    for (let i = 2; i <= 5; i++) expect((await a.inject({ method: 'POST', url, headers: c.headers, payload: { name: `k${i}` } })).statusCode).toBe(201);
+    const full = await a.inject({ method: 'POST', url, headers: c.headers, payload: { name: 'k6' } });
+    expect([full.statusCode, full.json().error.code]).toEqual([409, 'key_limit']);
+
+    // The instance key and another tenant's key are not this customer's to revoke.
+    expect((await a.inject({ method: 'POST', url: `${url}/inst-key/revoke`, headers: c.headers })).statusCode).toBe(404);
+    const other = await customer(a);
+    await prisma.tenant.update({ where: { id: other.tenantId }, data: { routerUserId: 'ru-other' } });
+    expect((await a.inject({ method: 'POST', url: `${url}/k-1/revoke`, headers: other.headers })).statusCode).toBe(404);
+    expect(router.revoked).toEqual([]);
+
+    expect((await a.inject({ method: 'POST', url: `${url}/k-1/revoke`, headers: c.headers })).statusCode).toBe(204);
+    expect(router.revoked).toEqual(['k-1']);
+    expect((await a.inject({ method: 'POST', url: `${url}/k-1/revoke`, headers: c.headers })).statusCode).toBe(404);
+    expect((await a.inject({ method: 'POST', url, headers: c.headers, payload: { name: 'k6' } })).statusCode).toBe(201);
+    expect((await a.inject({ method: 'GET', url })).statusCode).toBe(401);
   });
 
   it('PUT /ai/alert saves the switch and threshold, validated, and starts the reminder afresh', async () => {

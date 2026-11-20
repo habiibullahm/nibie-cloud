@@ -388,4 +388,44 @@ export const ID: Record<string, string> = {
   "Confirm payment": "Konfirmasi pembayaran",
   "The price is taken from your Nibie Cloud balance and your instance is created right away.":
     "Harga dipotong dari saldo Nibie Cloud kamu dan instance langsung dibuat.",
+
+  // API keys (the customer's own NibieRouter keys)
+  "API keys": "Kunci API",
+  "Call NibieRouter AI models from your own apps and scripts. Usage is paid from your AI balance, like your agents.":
+    "Pakai model AI NibieRouter dari aplikasi dan skrip kamu sendiri. Pemakaiannya dibayar dari saldo AI kamu, sama seperti agen kamu.",
+  "API keys are not available": "Kunci API belum tersedia",
+  "NibieRouter is not set up on this server.": "NibieRouter belum diatur di server ini.",
+  "No AI account yet": "Belum ada akun AI",
+  "Create an instance first: keys are billed from the AI balance it opens.":
+    "Buat instance dulu: kunci dibayar dari saldo AI yang dibuka oleh instance itu.",
+  "Create a key": "Buat kunci",
+  "OpenAI-compatible: use this base URL and the key as a bearer token. At most {max} active keys, 20 requests per minute each.":
+    "Kompatibel dengan OpenAI: pakai base URL ini dan kunci sebagai bearer token. Maksimal {max} kunci aktif, masing-masing 20 permintaan per menit.",
+  "Base URL": "Base URL",
+  "Copy base URL": "Salin base URL",
+  "Key name": "Nama kunci",
+  "Creating…": "Membuat…",
+  "Create key": "Buat kunci",
+  "No keys yet": "Belum ada kunci",
+  "Keys you create show up here.": "Kunci yang kamu buat muncul di sini.",
+  "Your API keys": "Kunci API kamu",
+  Created: "Dibuat",
+  Revoked: "Dicabut",
+  Revoke: "Cabut",
+  "key {name}": "kunci {name}",
+  "Key {name} revoked.": "Kunci {name} dicabut.",
+  "Your new API key": "Kunci API baru kamu",
+  "Copy it now. It is not shown again; if you lose it, revoke it and create a new one.":
+    "Salin sekarang. Kunci ini tidak ditampilkan lagi; kalau hilang, cabut lalu buat yang baru.",
+  "API key": "Kunci API",
+  "Copy key": "Salin kunci",
+  "I have saved it": "Sudah saya simpan",
+  "Revoke key?": "Cabut kunci?",
+  "{name} stops working at once. Apps using it will be refused. This cannot be undone.":
+    "{name} langsung berhenti berlaku. Aplikasi yang memakainya akan ditolak. Ini tidak bisa dibatalkan.",
+  "Revoking…": "Mencabut…",
+  "Revoke key": "Cabut kunci",
+  "You already have {max} active keys. Revoke one first.": "Kamu sudah punya {max} kunci aktif. Cabut satu dulu.",
+  "Use 1 to 40 letters, digits, spaces, dots, dashes or underscores.": "Pakai 1 sampai 40 huruf, angka, spasi, titik, tanda hubung, atau garis bawah.",
+  "NibieRouter is not reachable right now. Try again in a minute.": "NibieRouter sedang tidak bisa dihubungi. Coba lagi sebentar lagi.",
 }
