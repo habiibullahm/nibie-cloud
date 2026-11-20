@@ -161,8 +161,8 @@ restart, delete, `/me`, `/plans`, billing, the AI provider and Telegram settings
 (`src/http/integration-routes.ts`, mapped in `src/lib/api/integrations.ts`) and the container logs. The
 Configuration page needs a model name and numeric Telegram user IDs (the backend denies everyone else by
 default), asks for the key or token again on every save (the backend never returns them), and shows a
-restart notice while `restartRequired` is true. BYOK presets (`src/lib/api/providers.ts`) are OpenAI,
-OpenRouter and a custom URL; Anthropic is left out because the backend tests a provider with a Bearer
+restart notice while `restartRequired` is true. BYOK presets (`src/lib/api/providers.ts`) are NibieRouter
+(own account), OpenAI, OpenRouter, Google Gemini, DeepSeek, Groq, Mistral AI, xAI and a custom URL; Anthropic is left out because the backend tests a provider with a Bearer
 `GET /models`. NibieRouter is attached by Nibie Cloud; a customer on their own key picks NibieRouter and saves to get it
 back (`POST /instances/:id/providers/nibierouter`: a new key, the instance restarts). Once it is attached, a
 "NibieRouter model" card lists the router's models with prices (free models only on a free plan) and saves the choice

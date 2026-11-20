@@ -4,7 +4,15 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
-## Replaced router keys are revoked (2026-11-21, branch `claude/revoke-byok-key`, not merged)
+## More BYOK presets (2026-11-21, branch `claude/byok-presets`, not merged)
+
+Owner: customers mostly want their own provider; low-risk path first (no console, no exposed Hermes dashboard). The dashboard's
+BYOK provider list (`apps/web/src/lib/api/providers.ts`) gains Google Gemini, DeepSeek, Groq, Mistral AI and xAI. Each base URL,
+its Bearer `GET /models` (the connection test) and OpenAI-style `POST /chat/completions` (Hermes runs `provider: custom`) were
+checked in the provider's own docs. Dashboard only: no backend change. Not tested with real keys. xAI calls
+`/v1/chat/completions` a legacy endpoint (still supported).
+
+## Replaced router keys are revoked (2026-11-21, PR #118, merged `d488271`, deployed)
 
 Saving BYOK over the NibieRouter key (or removing the provider) dropped the secret but left the `inst-<id>` key live on the
 router; anyone who had read it out of the container could keep spending the tenant's AI balance. The billing tick
