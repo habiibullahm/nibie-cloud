@@ -91,6 +91,30 @@ describe('createNibieRouterClient', () => {
     expect(JSON.parse(opts.body!)).toEqual({ name: 'inst-1', rpm_limit: 20, max_parallel: 2, allowed_models: null });
   });
 
+  it('getUsage reads balance, 30-day spend, daily and per-model usage in nano-USD', async () => {
+    const f = fakeFetch({
+      user: { id: 'u', balance_nano: 2_500_000_000, email: 't@x.test' },
+      stats: { spend_30d_nano: 120_000_000, requests_30d: 3 },
+      daily: [{ day: '2026-11-19', requests: 3, tokens: 29969, cost_nano: 0 }],
+      models: [{ model_slug: 'nibierouter-free', requests: 3, tokens: 29969, cost_nano: 0 }],
+      estimated: true,
+    });
+    expect(await createNibieRouterClient(cfg, { fetcher: f }).getUsage('u 1')).toEqual({
+      balanceNano: 2_500_000_000n, spend30dNano: 120_000_000n,
+      daily: [{ day: '2026-11-19', requests: 3, costNano: 0n }],
+      models: [{ model: 'nibierouter-free', requests: 3, costNano: 0n }],
+    });
+    expect(lastCall(f)[0]).toBe('https://router.example.test/api/admin/users/u%201');
+    expect(await reason(createNibieRouterClient(cfg, { fetcher: fakeFetch({ user: {} }) }).getUsage('u'))).toBe('unexpected');
+  });
+
+  it('getIdrPerUsd reads only the rate from the payment settings; none is null', async () => {
+    const f = fakeFetch({ idr_per_usd: 18600, live: { api_key_hint: '****-d677' }, pay_currency: 'idr' });
+    expect(await createNibieRouterClient(cfg, { fetcher: f }).getIdrPerUsd()).toBe(18600);
+    expect(lastCall(f)[0]).toBe('https://router.example.test/api/admin/settings/payment');
+    expect(await createNibieRouterClient(cfg, { fetcher: fakeFetch({ pay_currency: 'usd' }) }).getIdrPerUsd()).toBeNull();
+  });
+
   it.each([
     [401, 'rejected'], [403, 'rejected'], [404, 'rejected'], [422, 'rejected'], [429, 'unreachable'], [502, 'unreachable'],
   ])('maps HTTP %i to %s', async (status, expected) => {

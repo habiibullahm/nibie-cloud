@@ -154,6 +154,17 @@ export function useAdminTicketAction(id: string) {
 }
 
 /** Saves the support contacts (empty string clears one); the public contact query is refreshed for every page. */
+export function useSetAiCreditRate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ idrPerUsd, reason }: { idrPerUsd: number | null; reason: string }) => getAdminApi().setAiCreditRate(idrPerUsd, reason),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: adminKeys.system })
+      void qc.invalidateQueries({ queryKey: adminKeys.audit })
+    },
+  })
+}
+
 export function useSetSupportContact() {
   const qc = useQueryClient()
   return useMutation({

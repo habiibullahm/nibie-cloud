@@ -53,6 +53,8 @@ export interface AdminApi {
   plans(): Promise<AdminPlan[]>
   /** Changes data: sets a priced plan's stock (null: no limit). Answers 409 `free_plan_stock` for the free plan. */
   setPlanStock(id: string, stockLimit: number | null, reason: string): Promise<Pick<AdminPlan, "id" | "slug" | "stockLimit">>
+  /** Changes data: Rupiah per US$1 for AI credit (5.000 to 50.000); null goes back to the router's own rate. */
+  setAiCreditRate(idrPerUsd: number | null, reason: string): Promise<{ adminIdrPerUsd: number | null }>
   /** Changes data: the support contacts on the dashboard's Support page. An empty string clears one. */
   setSupportContact(input: { whatsapp: string; email: string; groupUrl: string }): Promise<{ whatsapp: string | null; email: string | null; groupUrl: string | null }>
   /** Support tickets of every tenant; `status` filters. */
@@ -134,6 +136,7 @@ export function createAdminApi(opts: {
     plans: async () => (await call<{ plans: AdminPlan[] }>("/plans")).plans,
     setPlanStock: async (id, stockLimit, reason) =>
       (await call<{ plan: Pick<AdminPlan, "id" | "slug" | "stockLimit"> }>(`/plans/${encodeURIComponent(id)}/stock`, { stockLimit, reason })).plan,
+    setAiCreditRate: (idrPerUsd, reason) => call("/settings/ai-credit-rate", { idrPerUsd, reason }),
     setSupportContact: (input) => call("/support-contact", input),
     tickets: async (status) => (await call<{ tickets: TicketSummary[] }>(`/tickets${qs({ status })}`)).tickets,
     ticket: async (id) => (await call<{ ticket: TicketDetail }>(`/tickets/${encodeURIComponent(id)}`)).ticket,

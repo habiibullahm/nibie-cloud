@@ -23,6 +23,8 @@ import type {
   Usage,
   Wallet,
   WalletTopup,
+  AiAccount,
+  AiAlert,
 } from "./types"
 
 export class ApiError extends Error {
@@ -69,6 +71,9 @@ export interface BillingApi {
   payWithWallet(paymentId: string, captchaToken?: string): Promise<CheckoutResult>
   /** Turns renewal from the wallet on or off for one subscription. */
   setAutoRenew(subscriptionId: string, enabled: boolean): Promise<BillingSubscription>
+  /** The NibieRouter (AI) balance and usage, or null when the backend has no NibieRouter configured. */
+  ai(): Promise<AiAccount | null>
+  setAiAlert(alert: AiAlert): Promise<AiAlert>
   /** Invoices of paid hosting and top-ups, newest first. */
   invoices(): Promise<Invoice[]>
   invoice(id: string): Promise<Invoice>

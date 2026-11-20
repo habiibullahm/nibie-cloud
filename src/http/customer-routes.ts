@@ -14,6 +14,8 @@ import { freeBetaRemaining, hasActiveInvite } from '../modules/instances/free-be
 import { markWaitlistRegistered } from '../modules/waitlist/waitlist.js';
 import { isInvited } from '../modules/beta/invites.js';
 import { registerBillingRoutes } from './billing-routes.js';
+import { registerAiRoutes } from './ai-routes.js';
+import type { AiAccountService } from '../modules/nibierouter/ai-account.js';
 import type { BillingService } from '../modules/billing/billing-service.js';
 import { AppError } from '../shared/errors.js';
 import { isUuid } from '../shared/uuid.js';
@@ -30,7 +32,7 @@ export interface CustomerDeps extends CustomerAuthDeps {
  * Customer API: Supabase access token required, tenant taken from the verified user's membership.
  * Registered in its own plugin so the operator API's bearer hook never applies here, and vice versa.
  */
-export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: CustomerDeps; service: InstanceService; commands: InstanceCommands; config: Config; integrations: Integrations | null; logs: LogService | null; billing: BillingService | null; mailer?: Mailer | null; captcha?: CaptchaVerifier | null }): void {
+export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: CustomerDeps; service: InstanceService; commands: InstanceCommands; config: Config; integrations: Integrations | null; logs: LogService | null; billing: BillingService | null; mailer?: Mailer | null; captcha?: CaptchaVerifier | null; ai?: AiAccountService | null }): void {
   const { service, commands, config } = deps;
   const { prisma } = deps.customer;
   const allowed = new Set(config.betaAllowedEmails);
@@ -168,6 +170,7 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
       }, deps.captcha ?? null);
     }
     registerCustomerIntegrationRoutes(api, deps.integrations, deps.logs);
+    if (deps.ai) registerAiRoutes(api, deps.ai);
     registerCustomerTicketRoutes(api, { prisma, config, mailer: deps.mailer ?? null });
   }, { prefix: '/api/v1' });
 }

@@ -128,10 +128,10 @@ describe('admin api keys', () => {
     const res = await a.inject({ method: 'GET', url: '/api/v1/admin/system', headers: await session() });
     expect(res.statusCode).toBe(200);
     expect(res.json().settings).toEqual({
-      billing: { gateway: 'sumopod', paidCheckoutOpen: true, sumopod: { env: 'sandbox', webhookSigned: true } },
+      billing: { gateway: 'sumopod', paidCheckoutOpen: true, walletEnabled: false, walletAutoRenew: false, sumopod: { env: 'sandbox', webhookSigned: true } },
       email: { configured: true, from: 'noreply@nibie.app' },
       signIn: { supabase: true, adminEmails: 1, betaAllowedEmails: 1, freeBetaSlots: 0, turnstile: true, maxInstancesPerTenant: 1, maxTotalInstances: null },
-      ai: { configured: true, defaultModel: 'nibie/default', userEmailDomain: 'users.nibie.app' },
+      ai: { configured: true, defaultModel: 'nibie/default', userEmailDomain: 'users.nibie.app', creditRate: null },
       mcpPath: '/api/v1/admin/mcp',
     });
     for (const s of secrets) expect(res.body, s).not.toContain(s);

@@ -61,6 +61,11 @@ function buildServer(api: FastifyInstance, authorization: string): McpServer {
     inputSchema: { tenantId: z.string().uuid(), amountIdr: z.number().int().min(-2_000_000).max(2_000_000), reason },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
   }, (a) => call('POST', `/customers/${encodeURIComponent(a.tenantId)}/wallet/adjust`, { amountIdr: a.amountIdr, reason: a.reason }));
+  server.registerTool('set_ai_credit_rate', {
+    description: 'Set the Rupiah per US$1 used to show and sell AI (NibieRouter) credit, 5,000 to 50,000, or null to use the router\'s own rate again. Only when NibieRouter is configured. Changes data: confirm with the human first.',
+    inputSchema: { idrPerUsd: z.number().int().min(5_000).max(50_000).nullable(), reason },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  }, (a) => call('POST', '/settings/ai-credit-rate', { idrPerUsd: a.idrPerUsd, reason: a.reason }));
   server.registerTool('list_instances', {
     description: 'Instances, newest first, optionally filtered by status.',
     inputSchema: { ...page, status: z.enum(['PENDING', 'PROVISIONING', 'CONFIGURING', 'STARTING', 'ACTIVE', 'DEGRADED', 'STOPPING', 'STOPPED', 'FAILED', 'DELETING', 'DELETED']).optional() },

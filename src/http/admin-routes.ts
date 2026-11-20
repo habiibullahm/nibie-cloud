@@ -18,6 +18,7 @@ import { notifyCustomer } from './support-routes.js';
 import { AppError, AuthUnavailableError, ForbiddenError, NotFoundError, QueueUnavailableError, UnauthorizedError } from '../shared/errors.js';
 import { registerAdminMcp } from './admin-mcp.js';
 import { ADJUST_MAX_IDR, assertUnderCap, lockWallet, moveWallet, readWallet } from '../modules/billing/wallet.js';
+import { rateBody, type AiAccountService } from '../modules/nibierouter/ai-account.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -104,8 +105,9 @@ const statusQuery = pageQuery.extend({
  * the client side guards the data. Nothing under `src/http` may import the secret store; the admin
  * routes read only columns that carry no credentials (see `test/unit/secrets-boundary.test.ts`).
  */
-export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDeps; config: Config; mailer?: Mailer | null }): void {
+export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDeps; config: Config; mailer?: Mailer | null; ai?: AiAccountService | null }): void {
   const { config } = deps;
+  const ai = deps.ai ?? null;
   const mailer = deps.mailer ?? null;
   const { prisma, audit } = deps.admin;
   const queue = deps.admin.queue ?? null;
@@ -197,6 +199,13 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
           configured: config.router !== null,
           defaultModel: config.router?.defaultModel ?? null,
           userEmailDomain: config.router?.emailDomain ?? null,
+          // Rupiah per US$1 for AI credit: the admin's override (null: none) and the router's own rate it falls back to.
+          creditRate: ai
+            ? {
+                adminIdrPerUsd: (await prisma.billingSetting.findUnique({ where: { id: 1 } }))?.aiCreditIdrPerUsd ?? null,
+                routerIdrPerUsd: await ai.routerIdrPerUsd(),
+              }
+            : null,
         },
         mcpPath: '/api/v1/admin/mcp',
       },
@@ -487,6 +496,26 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
       });
       return { plan: { id: plan.id, slug: plan.slug, stockLimit: plan.stockLimit } };
     });
+
+    /** Rupiah per US$1 for AI credit. Null clears the override, so the router's own rate is used again. */
+    if (ai) {
+      api.post('/settings/ai-credit-rate', async (req) => {
+        const admin = req.admin!;
+        const body = rateBody.parse(req.body);
+        return prisma.$transaction(async (tx) => {
+          const before = (await tx.billingSetting.findUnique({ where: { id: 1 } }))?.aiCreditIdrPerUsd ?? null;
+          // Setting the same value changes nothing, so it is not recorded as a change.
+          if (before !== body.idrPerUsd) {
+            await tx.billingSetting.upsert({ where: { id: 1 }, create: { id: 1, aiCreditIdrPerUsd: body.idrPerUsd }, update: { aiCreditIdrPerUsd: body.idrPerUsd } });
+            await audit.record({
+              actorEmail: admin.email, action: 'POST /settings/ai-credit-rate', targetType: 'billing-setting', targetId: null,
+              reason: body.reason, detail: { from: before, to: body.idrPerUsd, ...via(req) },
+            }, tx);
+          }
+          return { adminIdrPerUsd: body.idrPerUsd };
+        });
+      });
+    }
 
     /** Support contacts for the dashboard (WhatsApp and email). Empty clears one. Public data, so the audit keeps both values. */
     api.post('/support-contact', async (req) => {

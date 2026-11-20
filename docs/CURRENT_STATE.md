@@ -37,7 +37,30 @@ Owner ran the checks on the VPS with the steps from this session; all read-only,
     password manager, or the R2 backups cannot be read if the VPS is lost. Not confirmed yet.
   - The runbook and the R2 and drill alerts are in the entry above (`claude/backup-alert-runbook`).
 
-## NibieRouter step 2: rpm limit on instance keys, own NibieRouter key in BYOK (2026-11-20, branch `claude/nibierouter-key-limits`, not committed)
+## NibieRouter step 3: AI balance in Rupiah and low-balance reminder (2026-11-20, branch `claude/ai-balance-rupiah`, not committed)
+
+Plan: AI credit in Rupiah through NibieRouter, PR B of 3. Owner: the router's rate by default, an admin can override it;
+reminder is a customer switch with a customer-set amount.
+- **Backend:** migration `20261120400000_ai_balance` (additive): `BillingSetting` (one row, `aiCreditIdrPerUsd`, RLS on) and
+  `Tenant.aiLowAlert` / `aiLowThresholdIdr` / `aiLowNotifiedAt`. New `AiAccountService` (`modules/nibierouter/ai-account.ts`);
+  client `getUsage` (`GET /api/admin/users/:id`) and `getIdrPerUsd` (`GET /api/admin/settings/payment`, only `idr_per_usd`
+  is read), both shapes read on the real router first. Customer `GET /ai`, `PUT /ai/alert`; admin
+  `POST /settings/ai-credit-rate` (aal2, reason, audited) and `settings.ai.creditRate` on `/system`; MCP tool
+  `set_ai_credit_rate`. The billing tick sends `ai_low_balance` (Indonesian) at most once an hour per drop, only to tenants
+  with a DONE `CreditGrant`.
+- **Dashboard:** Billing page "AI balance" card (Rupiah balance, rate and its source, 30-day spend, daily chart, per-model
+  table, reminder switch and amount); the NibieRouter model card shows the balance with a link to Billing; Pengaturan shows
+  the router rate and the rate in use, with a form to override or clear it.
+- **Also fixed:** `test/integration/admin-api-keys.test.ts` expected `/system` without the wallet fields added earlier, so it
+  failed on `main`; the expectation now includes them.
+- **Checks:** backend `tsc`; unit 541 pass (2 known Windows-only `egress-canary` failures); integration on a separate DB
+  `hermes_test_ai`: `ai-account` (8), `billing-tick`, `router-provisioner`, `admin-api`, `admin-api-keys`, `customer-api`,
+  `billing-api`, `wallet` all pass. Dashboard typecheck, lint, tests (210). Not seen in a browser.
+
+## NibieRouter step 2: rpm limit on instance keys, own NibieRouter key in BYOK (2026-11-20, PR #109, merged and deployed `6aeb4ea`)
+
+Deployed by the host's pull deploy after the merge (`OK: backend 6aeb4ea is ready`, no migration). The first billing tick
+gave the existing instance keys `rpm_limit` 20 (checked on 3 tenants at the router; no sweep warning in the backend log).
 
 Plan: AI credit in Rupiah through NibieRouter, PR A of 3 (owner approved; PR B balance and reminder, PR C buying AI credit
 from the wallet, follow).

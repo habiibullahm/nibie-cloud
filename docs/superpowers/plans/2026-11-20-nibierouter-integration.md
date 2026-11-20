@@ -93,6 +93,11 @@ answers the full key row. The router's credit unit is US$ (`idr_per_usd` 18600 i
 
 ## Step 3: AI balance and usage in the dashboard, low-balance email
 
+**Built 2026-11-20 (branch `claude/ai-balance-rupiah`), changed by the owner:** amounts in Rupiah at the router's own rate
+unless an admin sets one; the reminder is a customer switch with a customer-set threshold (Rp 1.000 to 1.000.000, default
+Rp 10.000); dedup by `Tenant.aiLowNotifiedAt` instead of a `BillingNotice` key; the card sits on the Billing page (no separate
+Usage page). `GET /users/:id` and `GET /settings/payment` shapes were read on the router first.
+
 - **Client:** `NibieRouterClient.getUser(userId)` returns `{ balanceNano, spend30dNano, daily[], models[] }`, using the
   shape verified above.
 - **`GET /ai-usage`** (customer API, per tenant): balance in US$, 30-day spend, daily requests and cost, and cost per model.

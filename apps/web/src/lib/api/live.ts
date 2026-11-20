@@ -1,5 +1,5 @@
 import { ApiError, type BillingApi, type InstancesApi } from "./client"
-import type { BillingSubscription, CheckoutResult, Instance, InstanceEvent, InstanceStatusView, Invoice, Wallet, WalletTopup } from "./types"
+import type { AiAccount, AiAlert, BillingSubscription, CheckoutResult, Instance, InstanceEvent, InstanceStatusView, Invoice, Wallet, WalletTopup } from "./types"
 
 const BASE = (process.env.NEXT_PUBLIC_BASE_PATH ?? "") + "/api/hermes"
 
@@ -137,6 +137,23 @@ export function buildBillingApi(call: Call): BillingApi {
           body: JSON.stringify({ enabled }),
         })
       ).subscription,
+    ai: async () => {
+      try {
+        return await call<AiAccount>("/ai")
+      } catch (e) {
+        // 404: NibieRouter is not configured on the backend, so the page hides the AI balance.
+        if (e instanceof ApiError && e.status === 404) return null
+        throw e
+      }
+    },
+    setAiAlert: async (alert) =>
+      (
+        await call<{ alert: AiAlert }>("/ai/alert", {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(alert),
+        })
+      ).alert,
     invoices: async () => (await call<{ invoices: Invoice[] }>("/invoices")).invoices,
     invoice: async (invoiceId) => (await call<{ invoice: Invoice }>(`/invoices/${id(invoiceId)}`)).invoice,
   }
@@ -147,6 +164,7 @@ export function createUnavailableBillingApi(): BillingApi {
   const refuse = () => Promise.reject(new ApiError(404, "billing_unavailable", "Billing is not available in this mode."))
   return {
     list: async () => [], checkout: refuse, upgrade: refuse, renew: refuse, cancel: refuse,
-    wallet: async () => null, topup: refuse, payWithWallet: refuse, setAutoRenew: refuse, invoices: async () => [], invoice: refuse,
+    wallet: async () => null, topup: refuse, payWithWallet: refuse, setAutoRenew: refuse, ai: async () => null, setAiAlert: refuse,
+    invoices: async () => [], invoice: refuse,
   }
 }

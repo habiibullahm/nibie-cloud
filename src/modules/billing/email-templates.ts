@@ -1,6 +1,6 @@
 import type { NoticeKind } from './lifecycle.js';
 
-export type EmailKind = NoticeKind | 'payment_received' | 'topup_received';
+export type EmailKind = NoticeKind | 'payment_received' | 'topup_received' | 'ai_low_balance';
 
 export interface EmailContext {
   instanceName: string;
@@ -9,7 +9,7 @@ export interface EmailContext {
   graceEndsAt?: Date | null;
   retentionEndsAt?: Date | null;
   amountIdr?: number;
-  /** Wallet balance after a top-up (`topup_received`). */
+  /** Wallet balance after a top-up (`topup_received`); the AI balance for `ai_low_balance`, whose `amountIdr` is the threshold. */
   balanceIdr?: number;
   /** Where the customer manages the instance, e.g. `https://cloud.nibie.app/dashboard/instances`. */
   dashboardUrl: string;
@@ -52,6 +52,16 @@ function copyFor(kind: EmailKind, c: EmailContext): Copy {
           'Saldo bukan uang tunai dan tidak dapat dikembalikan atau ditarik.',
         ],
         button: 'Lihat saldo',
+      };
+    case 'ai_low_balance':
+      return {
+        subject: 'Saldo AI hampir habis - Nibie Cloud', heading: 'Saldo AI hampir habis', tag: 'AI',
+        paragraphs: [
+          `Saldo AI Anda sekarang ${fmtIdr(c.balanceIdr ?? 0)}, di bawah batas pengingat ${fmtIdr(c.amountIdr ?? 0)}.`,
+          'Saat saldo AI habis, model berbayar berhenti menjawab. Model gratis tetap bisa dipakai.',
+          'Pengingat ini bisa dimatikan atau diubah batasnya di halaman Tagihan.',
+        ],
+        button: 'Buka Tagihan',
       };
     case 'renewal_7d':
     case 'renewal_3d':
