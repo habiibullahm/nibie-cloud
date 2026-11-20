@@ -5,7 +5,7 @@ import { CreditCard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { EmptyState } from "@/components/app/empty-state"
-import { WalletPayButton } from "@/components/app/wallet-pay-button"
+import { PayButton } from "@/components/app/pay-button"
 import { PageHeader } from "@/components/app/page-header"
 import { PreviewNote } from "@/components/app/preview-note"
 import { QueryFallback } from "@/components/app/query-fallback"
@@ -14,7 +14,6 @@ import type { BillingSubscription } from "@/lib/api/types"
 import { billingStatusLabel, deployAgainHref, isPendingPurchase, payableUrl, paymentText } from "@/lib/billing"
 import { formatDate } from "@/lib/format"
 import { useT, type T } from "@/lib/i18n"
-import { startPayment } from "@/lib/pay"
 import { useLang, type Lang } from "@/lib/prefs"
 import { InvoicesCard } from "./invoices-card"
 import { WalletCard } from "./wallet-card"
@@ -30,16 +29,7 @@ function periodText(sub: BillingSubscription, t: T, lang: Lang): string {
 function RowAction({ sub }: { sub: BillingSubscription }) {
   const t = useT()
   const url = payableUrl(sub.latestPayment)
-  if (url && sub.latestPayment) {
-    return (
-      <div className="flex flex-wrap justify-end gap-2">
-        <WalletPayButton paymentId={sub.latestPayment.id} amountIdr={sub.latestPayment.amountIdr} />
-        <Button size="sm" variant="outline" onClick={() => startPayment(url)}>
-          {t("Pay")}
-        </Button>
-      </div>
-    )
-  }
+  if (url && sub.latestPayment) return <PayButton payment={sub.latestPayment} label={t("Pay")} />
   // An ended order may still point at its deleted instance.
   if (sub.instanceId && sub.status !== "ENDED") {
     return (

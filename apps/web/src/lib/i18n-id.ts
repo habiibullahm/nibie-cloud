@@ -359,11 +359,9 @@ export const ID: Record<string, string> = {
 
   // Paying hosting from the wallet.
   "Paying…": "Membayar…",
-  "Pay from balance ({balance})": "Bayar pakai saldo ({balance})",
-  "Pay with": "Bayar dengan",
+  "Pay from balance": "Bayar pakai saldo",
+  "Pay for {name} from balance": "Bayar {name} pakai saldo",
   "Nibie Cloud balance": "Saldo Nibie Cloud",
-  "Balance {balance}": "Saldo {balance}",
-  "Balance {balance}: not enough. Top up on the Billing page.": "Saldo {balance}: belum cukup. Top up di halaman Tagihan.",
   "Pay from your balance": "Bayar pakai saldo",
   "The price is taken from your Nibie Cloud balance and your instance is created right away.":
     "Harga dipotong dari saldo Nibie Cloud kamu dan instance langsung dibuat.",
