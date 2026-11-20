@@ -5,7 +5,7 @@ import { OutboundBlockedError, OutboundFailedError } from '../../shared/errors.j
 import { isForbiddenAddress } from './ip-ranges.js';
 
 export interface SafeFetchOptions {
-  method?: 'GET' | 'POST' | 'PUT';
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   headers?: Record<string, string>;
   body?: string;
   /** Whole-request deadline, connection and body included. */

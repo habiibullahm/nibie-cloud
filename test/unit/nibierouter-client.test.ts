@@ -72,13 +72,13 @@ describe('createNibieRouterClient', () => {
   it('listKeys marks revoked keys and keeps the limit settings, nothing else', async () => {
     const f = fakeFetch({ keys: [
       { id: 'k1', name: 'a', revoked_at: null, rpm_limit: null, max_parallel: 2, allowed_models: null, key_prefix: 'sk-****-x', usage_nano: 5 },
-      { id: 'k2', name: 'b', revoked_at: '2026-01-01T00:00:00Z', rpm_limit: 20 },
+      { id: 'k2', name: 'b', revoked_at: '2026-01-01T00:00:00Z', created_at: '2025-12-01T00:00:00Z', rpm_limit: 20 },
       { id: 'k3', name: 'c' },
     ] });
     expect(await createNibieRouterClient(cfg, { fetcher: f }).listKeys('u')).toEqual([
-      { id: 'k1', name: 'a', revoked: false, rpmLimit: null, settings: { rpm_limit: null, max_parallel: 2, allowed_models: null } },
-      { id: 'k2', name: 'b', revoked: true, rpmLimit: 20, settings: { rpm_limit: 20 } },
-      { id: 'k3', name: 'c', revoked: false, rpmLimit: null, settings: {} },
+      { id: 'k1', name: 'a', revoked: false, createdAt: null, rpmLimit: null, settings: { rpm_limit: null, max_parallel: 2, allowed_models: null } },
+      { id: 'k2', name: 'b', revoked: true, createdAt: '2025-12-01T00:00:00Z', rpmLimit: 20, settings: { rpm_limit: 20 } },
+      { id: 'k3', name: 'c', revoked: false, createdAt: null, rpmLimit: null, settings: {} },
     ]);
   });
 
@@ -89,6 +89,17 @@ describe('createNibieRouterClient', () => {
     expect(url).toBe('https://router.example.test/api/admin/users/u%201/keys/k%2F1');
     expect(opts.method).toBe('PUT');
     expect(JSON.parse(opts.body!)).toEqual({ name: 'inst-1', rpm_limit: 20, max_parallel: 2, allowed_models: null });
+  });
+
+  it('revokeKey DELETEs the key and accepts an empty or JSON answer', async () => {
+    const f = fakeFetch('', 204);
+    await createNibieRouterClient(cfg, { fetcher: f }).revokeKey('u 1', 'k/1');
+    const [url, opts] = lastCall(f);
+    expect(url).toBe('https://router.example.test/api/admin/users/u%201/keys/k%2F1');
+    expect(opts.method).toBe('DELETE');
+    expect(opts.body).toBeUndefined();
+    await createNibieRouterClient(cfg, { fetcher: fakeFetch({ ok: true }) }).revokeKey('u', 'k');
+    expect(await reason(createNibieRouterClient(cfg, { fetcher: fakeFetch({}, 404) }).revokeKey('u', 'k'))).toBe('rejected');
   });
 
   it('getUsage reads balance, 30-day spend, daily and per-model usage in nano-USD', async () => {

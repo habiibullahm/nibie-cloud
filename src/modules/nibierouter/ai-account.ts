@@ -4,9 +4,10 @@ import { z } from 'zod';
 import { AppError, ConflictError, NotFoundError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import { lockWallet, moveWallet } from '../billing/wallet.js';
+import { NIBIEROUTER_BASE_URL } from '../integrations/provider-service.js';
 import { applyGrant } from './credit-grant.js';
 import { NANO_PER_USD, type NibieRouterClient, type RouterUsage } from './nibierouter-client.js';
-import { MAX_ATTEMPTS } from './router-provisioner.js';
+import { KEY_RPM_LIMIT, MAX_ATTEMPTS } from './router-provisioner.js';
 
 /** Bounds of an admin-set rate (Rupiah per US$1); the database checks the same range. */
 export const RATE_MIN_IDR = 5_000;
@@ -27,6 +28,19 @@ const CHECK_EVERY_MS = 60 * 60_000;
 
 export const alertBody = z.object({ enabled: z.boolean(), thresholdIdr: z.number().int().min(ALERT_MIN_IDR).max(ALERT_MAX_IDR) }).strict();
 export const buyBody = z.object({ amountIdr: z.number().int().min(BUY_MIN_IDR).max(BUY_MAX_IDR), captchaToken: z.string().max(2048).optional() }).strict();
+/** The customer's own router keys carry this prefix; instance keys (`inst-`) are never shown to or revoked by the customer. */
+export const CUSTOMER_KEY_PREFIX = 'usr-';
+/** Unrevoked customer keys per tenant. */
+export const MAX_CUSTOMER_KEYS = 5;
+export const keyBody = z.object({ name: z.string().trim().min(1).max(40).regex(/^[A-Za-z0-9 _.-]+$/) }).strict();
+
+export interface CustomerKey {
+  id: string;
+  name: string;
+  createdAt: string | null;
+  revoked: boolean;
+}
+
 export const rateBody = z.object({ idrPerUsd: z.number().int().min(RATE_MIN_IDR).max(RATE_MAX_IDR).nullable(), reason: z.string().trim().min(3).max(500) }).strict();
 
 /** Rupiah for an amount in nano-USD, rounded down. */
@@ -148,7 +162,7 @@ export class AiAccountService {
     const tenant = await this.d.prisma.tenant.findUnique({ where: { id: i.tenantId }, select: { routerUserId: true } });
     if (!tenant) throw new NotFoundError('Tenant not found');
     // Credit goes to the tenant's router user, made with its first NibieRouter instance; none yet: nothing to top up.
-    if (!tenant.routerUserId) throw new AppError('No AI account yet: it is created with your first instance on NibieRouter', 409, 'no_ai_account');
+    if (!tenant.routerUserId) throw new AppError('No AI account yet: it is created with your first instance on NibieRouter', 409, 'ai_account_missing');
     const userId = tenant.routerUserId;
     // Read before the transaction: the router rate may need a network call, which must not hold the wallet lock.
     const { idrPerUsd } = await this.rate();
@@ -211,6 +225,48 @@ export class AiAccountService {
       select: { aiLowAlert: true, aiLowThresholdIdr: true },
     });
     return { enabled: row.aiLowAlert, thresholdIdr: row.aiLowThresholdIdr };
+  }
+
+  /** The customer's own NibieRouter keys (never the instance keys) and the URL to call with them. */
+  async listKeys(tenantId: string): Promise<{ baseUrl: string; hasAccount: boolean; keys: CustomerKey[] }> {
+    const userId = await this.routerUser(tenantId);
+    if (!userId) return { baseUrl: NIBIEROUTER_BASE_URL, hasAccount: false, keys: [] };
+    return { baseUrl: NIBIEROUTER_BASE_URL, hasAccount: true, keys: await this.customerKeys(userId) };
+  }
+
+  /** Makes a key billed from the tenant's AI balance. The secret is in this answer only: the router never shows it again. */
+  async createKey(tenantId: string, raw: unknown): Promise<{ key: CustomerKey; secret: string; baseUrl: string }> {
+    const { name } = keyBody.parse(raw);
+    const userId = await this.routerUser(tenantId);
+    if (!userId) throw new AppError('There is no AI account yet: create an instance first', 409, 'ai_account_missing');
+    // shortcut: two parallel creates can pass this check together and make a 6th key; add a per-tenant lock if that matters.
+    if ((await this.customerKeys(userId)).filter((k) => !k.revoked).length >= MAX_CUSTOMER_KEYS) {
+      throw new AppError(`At most ${MAX_CUSTOMER_KEYS} active keys`, 409, 'key_limit');
+    }
+    const key = await this.d.client.createKey(userId, { name: CUSTOMER_KEY_PREFIX + name, rpmLimit: KEY_RPM_LIMIT });
+    this.d.logger.info({ tenantId, keyId: key.id }, 'customer AI key created');
+    return { key: { id: key.id, name, createdAt: new Date(this.now()).toISOString(), revoked: false }, secret: key.secret, baseUrl: NIBIEROUTER_BASE_URL };
+  }
+
+  /** Only one of the tenant's own `usr-` keys; anything else (an instance key, another tenant's key) is 404. */
+  async revokeKey(tenantId: string, keyId: string): Promise<void> {
+    const userId = await this.routerUser(tenantId);
+    const key = userId ? (await this.customerKeys(userId)).find((k) => k.id === keyId && !k.revoked) : undefined;
+    if (!userId || !key) throw new NotFoundError('Key not found');
+    await this.d.client.revokeKey(userId, keyId);
+    this.d.logger.info({ tenantId, keyId }, 'customer AI key revoked');
+  }
+
+  private async routerUser(tenantId: string): Promise<string | null> {
+    const tenant = await this.d.prisma.tenant.findUnique({ where: { id: tenantId }, select: { routerUserId: true } });
+    if (!tenant) throw new NotFoundError('Tenant not found');
+    return tenant.routerUserId;
+  }
+
+  private async customerKeys(userId: string): Promise<CustomerKey[]> {
+    return (await this.d.client.listKeys(userId))
+      .filter((k) => k.name.startsWith(CUSTOMER_KEY_PREFIX))
+      .map((k) => ({ id: k.id, name: k.name.slice(CUSTOMER_KEY_PREFIX.length), createdAt: k.createdAt, revoked: k.revoked }));
   }
 
   private async cachedUsage(userId: string): Promise<RouterUsage> {

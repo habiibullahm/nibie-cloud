@@ -282,6 +282,28 @@ export interface AiAlert {
   thresholdIdr: number
 }
 
+/** One of the customer's own NibieRouter keys. The secret is never listed: it is shown once, when the key is made. */
+export interface AiKey {
+  id: string
+  name: string
+  createdAt: string | null
+  revoked: boolean
+}
+
+/** GET /ai/keys. `hasAccount` is false until an instance uses NibieRouter; keys can be made only after that. */
+export interface AiKeys {
+  baseUrl: string
+  hasAccount: boolean
+  keys: AiKey[]
+}
+
+/** POST /ai/keys: the only answer that carries the secret. */
+export interface CreatedAiKey {
+  key: AiKey
+  secret: string
+  baseUrl: string
+}
+
 /**
  * Mirrors AiAccountView: the tenant's NibieRouter (AI) balance and usage. Rupiah fields are null when no rate is known;
  * the page then shows US$. `rate.source` says whether an admin set the rate or the router's own rate is used.

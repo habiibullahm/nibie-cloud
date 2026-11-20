@@ -168,7 +168,9 @@ Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
   provider (`GET /instances/:id/models`, `PUT .../providers/model`) from the router's public model list (`model-catalog.ts`,
   10-minute cache); a free plan gets the free models only. `GET /ai` shows the router balance and usage in Rupiah at the
   AI credit rate (admin override in `BillingSetting`, else the router's `idr_per_usd`; `AiAccountService`), and the billing
-  tick sends an hourly-checked low-balance email the customer switches and sets (`PUT /ai/alert`). Every `CreditGrant` (plan
+  tick sends an hourly-checked low-balance email the customer switches and sets (`PUT /ai/alert`). Customers also make
+  their own router keys on the `/api-keys` page (`GET/POST /ai/keys`, `POST /ai/keys/:keyId/revoke`): named `usr-<name>`, at most 5
+  active, `rpm_limit` 20, secret shown once; only `usr-` keys are listed or revocable, never the `inst-` instance keys. Every `CreditGrant` (plan
   credit or wallet purchase) goes through `applyGrant` (`credit-grant.ts`: compare-and-set on `attempts`, history check on retry). Not verified against the real router: see
   `docs/architecture.md`, "Known gaps" 9b, and run `test/validation/nibierouter-live.ts` first.
 - **Disk quota and egress** (`runtime/volume-quota.ts`, `runtime/egress-canary.ts`, `ops/egress/`):

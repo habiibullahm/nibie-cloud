@@ -26,6 +26,8 @@ import type {
   AiAccount,
   AiAlert,
   AiPurchase,
+  AiKeys,
+  CreatedAiKey,
 } from "./types"
 
 export class ApiError extends Error {
@@ -77,6 +79,10 @@ export interface BillingApi {
   setAiAlert(alert: AiAlert): Promise<AiAlert>
   /** Buys AI credit with `amountIdr` from the wallet; `captchaToken` is a solved Turnstile, when configured. */
   buyAiCredit(amountIdr: number, idempotencyKey: string, captchaToken?: string): Promise<AiPurchase>
+  /** The customer's own NibieRouter keys, or null when the backend has no NibieRouter configured. */
+  aiKeys(): Promise<AiKeys | null>
+  createAiKey(name: string): Promise<CreatedAiKey>
+  revokeAiKey(id: string): Promise<void>
   /** Invoices of paid hosting and top-ups, newest first. */
   invoices(): Promise<Invoice[]>
   invoice(id: string): Promise<Invoice>

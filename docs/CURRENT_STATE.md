@@ -28,6 +28,23 @@ types Rupiah, not US$ as the older wallet plan said, matching the Rupiah AI bala
 - **Not done:** no admin view of purchases beyond the wallet ledger and the alert; no refund path (admin adjust by hand).
   Not tried against the real router. `WALLET_ENABLED` is still off in production.
 
+## Customer NibieRouter API keys (2026-11-20, branch `claude/customer-ai-keys`, not committed)
+
+Owner: customers can create their own NibieRouter keys on a new "API keys" page under Akun.
+- **Backend:** `AiAccountService.listKeys/createKey/revokeKey` (`modules/nibierouter/ai-account.ts`); customer routes
+  `GET /ai/keys`, `POST /ai/keys` (201, the only answer with the `sk-` secret), `POST /ai/keys/:keyId/revoke` (204). Keys are
+  router keys named `usr-<name>` under the tenant's router user, `rpm_limit` 20, at most 5 active (`409 key_limit`); no router
+  user yet answers `409 ai_account_missing`. Only `usr-` keys are listed or revocable, so instance keys (`inst-`) cannot be
+  touched; nothing is stored in our database. New client call `revokeKey` = `DELETE /api/admin/users/:id/keys/:keyId`, taken
+  from docs.sumorouter.com/api/admin and **not yet tried on the real router**; `created_at` on a key row is read when present.
+- **Dashboard:** `/api-keys` page (base URL with copy, create form, secret shown once in a dialog, table, revoke confirm),
+  sidebar link under Account, Indonesian strings; mock mode has one sample key.
+- **Checks:** backend `tsc`; unit pass except the 2 known Windows-only `egress-canary` failures; integration `ai-account` (9),
+  `router-provisioner`, `customer-api` pass. Dashboard typecheck, lint, tests (210), build. Headless Chromium on the built
+  dashboard in mock mode: list, name validation, create with secret shown once and gone after the dialog, revoke, 400 px width.
+- **Before relying on it:** create, call `GET https://router.nibie.app/v1/models` with the key, revoke and see it refused, on a
+  test tenant.
+
 ## Backup alerts for R2 and the restore drill; restore runbook (2026-11-20, branch `claude/backup-alert-runbook`, not merged, not installed)
 
 Owner: "mulai", for the open items of the entry below.

@@ -1,5 +1,5 @@
 import { ApiError, type BillingApi, type InstancesApi } from "./client"
-import type { AiAccount, AiAlert, AiPurchase, BillingSubscription, CheckoutResult, Instance, InstanceEvent, InstanceStatusView, Invoice, Wallet, WalletTopup } from "./types"
+import type { AiAccount, AiAlert, AiKeys, AiPurchase, BillingSubscription, CreatedAiKey, CheckoutResult, Instance, InstanceEvent, InstanceStatusView, Invoice, Wallet, WalletTopup } from "./types"
 
 const BASE = (process.env.NEXT_PUBLIC_BASE_PATH ?? "") + "/api/hermes"
 
@@ -162,6 +162,23 @@ export function buildBillingApi(call: Call): BillingApi {
           body: JSON.stringify(captchaToken ? { amountIdr, captchaToken } : { amountIdr }),
         })
       ).purchase,
+    aiKeys: async () => {
+      try {
+        return await call<AiKeys>("/ai/keys")
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 404) return null
+        throw e
+      }
+    },
+    createAiKey: async (name) =>
+      call<CreatedAiKey>("/ai/keys", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name }),
+      }),
+    revokeAiKey: async (keyId) => {
+      await call<unknown>(`/ai/keys/${id(keyId)}/revoke`, { method: "POST" })
+    },
     invoices: async () => (await call<{ invoices: Invoice[] }>("/invoices")).invoices,
     invoice: async (invoiceId) => (await call<{ invoice: Invoice }>(`/invoices/${id(invoiceId)}`)).invoice,
   }
@@ -173,6 +190,7 @@ export function createUnavailableBillingApi(): BillingApi {
   return {
     list: async () => [], checkout: refuse, upgrade: refuse, renew: refuse, cancel: refuse,
     wallet: async () => null, topup: refuse, payWithWallet: refuse, setAutoRenew: refuse, ai: async () => null, setAiAlert: refuse, buyAiCredit: refuse,
+    aiKeys: async () => null, createAiKey: refuse, revokeAiKey: refuse,
     invoices: async () => [], invoice: refuse,
   }
 }

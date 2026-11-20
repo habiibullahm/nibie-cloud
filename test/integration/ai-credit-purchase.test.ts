@@ -120,7 +120,7 @@ describe('buying AI credit from the wallet (Rupiah)', () => {
     await prisma.tenant.update({ where: { id: c.tenantId }, data: { routerUserId: null } });
     const none = await buy(a, c.headers, 10_000);
     expect(none.statusCode).toBe(409);
-    expect(none.json().error.code).toBe('no_ai_account');
+    expect(none.json().error.code).toBe('ai_account_missing');
     expect(router.grants).toHaveLength(0);
   });
 

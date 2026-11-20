@@ -26,6 +26,8 @@ export interface RouterKeyRow {
   id: string;
   name: string;
   revoked: boolean;
+  /** ISO time the router made the key, when it sends one. */
+  createdAt: string | null;
   /** Requests per minute; null means no limit. */
   rpmLimit: number | null;
   settings: RouterKeySettings;
@@ -53,6 +55,8 @@ export interface NibieRouterClient {
   listKeys(userId: string): Promise<RouterKeyRow[]>;
   /** Replaces the key's name and every limit setting with these values. */
   updateKey(userId: string, keyId: string, input: { name: string; settings: RouterKeySettings }): Promise<void>;
+  /** The key stops working at once and cannot be restored. */
+  revokeKey(userId: string, keyId: string): Promise<void>;
   getUsage(userId: string): Promise<RouterUsage>;
   /** The router's own Rupiah per US$1 (`idr_per_usd` in its payment settings), or null when it has none. */
   getIdrPerUsd(): Promise<number | null>;
@@ -70,7 +74,7 @@ const creditAnswer = z.object({ balance_nano: z.number().int() });
 const keyAnswer = wrapped(z.object({ id, key: z.string().regex(/^sk-[A-Za-z0-9_-]{8,}$/) }), 'api_key');
 const listOf = (item: z.ZodTypeAny) => z.union([z.array(item), z.object({ items: z.array(item) }).transform((v) => v.items), z.object({ keys: z.array(item) }).transform((v) => v.keys), z.object({ history: z.array(item) }).transform((v) => v.history)]);
 const keyRow = z
-  .object({ id, name: z.string(), revoked_at: z.string().nullable().optional(), rpm_limit: z.number().int().positive().nullable().optional() })
+  .object({ id, name: z.string(), revoked_at: z.string().nullable().optional(), created_at: z.string().max(40).nullable().optional(), rpm_limit: z.number().int().positive().nullable().optional() })
   .passthrough();
 // The docs list `kind, amount_nano, reference, actor_email, created_at` for a balance entry and no `note` field: the note of an
 // admin credit is expected in `reference`. Both are accepted until the live check shows which one carries it.
@@ -95,7 +99,7 @@ export function createNibieRouterClient(cfg: RouterConfig, deps: { fetcher?: Fet
   const origin = new URL(cfg.apiUrl);
   const base = `${origin.origin}/api/admin`;
 
-  async function call(method: 'GET' | 'POST' | 'PUT', path: string, body?: unknown): Promise<unknown> {
+  async function call(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, body?: unknown): Promise<unknown> {
     let res: SafeFetchResult;
     try {
       res = await fetcher(base + path, {
@@ -114,6 +118,8 @@ export function createNibieRouterClient(cfg: RouterConfig, deps: { fetcher?: Fet
     if (res.status === 401 || res.status === 403) throw new RouterUnavailableError('rejected');
     if (res.status === 429 || res.status >= 500) throw new RouterUnavailableError('unreachable');
     if (res.status < 200 || res.status >= 300) throw new RouterUnavailableError('rejected');
+    // A DELETE may answer with no body at all.
+    if (res.body.trim() === '') return null;
     try {
       return JSON.parse(res.body);
     } catch {
@@ -154,12 +160,17 @@ export function createNibieRouterClient(cfg: RouterConfig, deps: { fetcher?: Fet
         id: r.id,
         name: r.name,
         revoked: r.revoked_at != null,
+        createdAt: r.created_at ?? null,
         rpmLimit: r.rpm_limit ?? null,
         settings: Object.fromEntries(KEY_SETTINGS.filter((k) => k in r).map((k) => [k, (r as Record<string, unknown>)[k]])),
       }));
     },
     async updateKey(userId, keyId, input) {
       await call('PUT', `/users/${enc(userId)}/keys/${enc(keyId)}`, { ...input.settings, name: input.name });
+    },
+    async revokeKey(userId, keyId) {
+      // Documented as DELETE on the key (docs.sumorouter.com/api/admin, 2026-11-20); not yet tried on the real router.
+      await call('DELETE', `/users/${enc(userId)}/keys/${enc(keyId)}`);
     },
     async getUsage(userId) {
       const out = parse(usageAnswer, await call('GET', `/users/${enc(userId)}`));

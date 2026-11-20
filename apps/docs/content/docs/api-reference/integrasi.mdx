@@ -92,7 +92,7 @@ Body `PUT`:
   saldo AI bertambah `amountIdr` dibagi kurs. Jawabannya `201` dengan `purchase` (`id`, `amountIdr`, `amountUsd`, `status`).
   `status` `PENDING` berarti saldo sudah dipotong dan kredit masuk dalam beberapa menit. Kirim ulang dengan
   `Idempotency-Key` yang sama tidak membeli dua kali. Saldo kurang: `409 insufficient_balance`. Belum punya akun AI (belum
-  ada instance yang memakai NibieRouter): `409 no_ai_account`. Kredit AI tidak bisa dikembalikan menjadi saldo. Hanya ada
+  ada instance yang memakai NibieRouter): `409 ai_account_missing`. Kredit AI tidak bisa dikembalikan menjadi saldo. Hanya ada
   kalau saldo Nibie Cloud aktif; kalau tidak, `GET /ai` berisi `buy: null`.
 - NibieRouter tidak diaktifkan di server: `404`. NibieRouter tidak bisa dihubungi: `503 router_unavailable`.
 

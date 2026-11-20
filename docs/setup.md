@@ -391,7 +391,7 @@ the balance is back above the threshold). Without `NIBIEROUTER_ADMIN_KEY` these 
 rounded down to the nano-US$. One transaction under the wallet lock writes a `CreditGrant` without a subscription
 (`amountIdr`, `idempotencyKey`, note `nibie-cloud wallet <id>`) and the `AI_CREDIT` wallet entry keyed on its id; the router
 call follows. Same gate as checkout (`billing_not_open`) and the Turnstile check of `pay-with-wallet`. Errors:
-`409 insufficient_balance`, `409 no_ai_account` (the tenant has no router user yet, so there is nothing to credit),
+`409 insufficient_balance`, `409 ai_account_missing` (the tenant has no router user yet, so there is nothing to credit),
 `503 ai_rate_unavailable`, `409 conflict` (key reused with another amount). A router failure still answers 201 with
 `status: PENDING`: the wallet is charged and the billing tick delivers the grant (only grants untouched for 2 minutes, at most
 24 attempts, the `credit-grant:` alert from 5). Every grant (plan credit or purchase) takes its attempt with a compare-and-set,

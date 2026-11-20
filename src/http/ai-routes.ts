@@ -8,9 +8,9 @@ import { principalOf } from './customer-auth.js';
 const idempotencyKey = z.string().min(1).max(128);
 
 /**
- * The tenant's NibieRouter (AI) balance and usage in Rupiah, the low-balance reminder, and buying AI credit from the wallet.
- * Registered inside the customer plugin (Supabase token, `no-store`, per-user rate limit). Only when NibieRouter is
- * configured; otherwise 404. Buying exists only with the wallet on (`ai.canBuy`).
+ * The tenant's NibieRouter (AI) balance and usage in Rupiah, the low-balance reminder, the customer's own router keys, and
+ * buying AI credit from the wallet. Registered inside the customer plugin (Supabase token, `no-store`, per-user rate limit).
+ * Only when NibieRouter is configured; otherwise 404. Buying exists only with the wallet on (`ai.canBuy`).
  */
 export function registerAiRoutes(
   api: FastifyInstance,
@@ -19,6 +19,13 @@ export function registerAiRoutes(
 ): void {
   api.get('/ai', async (req) => ai.view(principalOf(req).tenantId));
   api.put('/ai/alert', async (req) => ({ alert: await ai.setAlert(principalOf(req).tenantId, req.body) }));
+  // The customer's own NibieRouter keys. The secret is only in the create answer.
+  api.get('/ai/keys', async (req) => ai.listKeys(principalOf(req).tenantId));
+  api.post('/ai/keys', async (req, reply) => reply.code(201).send(await ai.createKey(principalOf(req).tenantId, req.body)));
+  api.post<{ Params: { keyId: string } }>('/ai/keys/:keyId/revoke', async (req, reply) => {
+    await ai.revokeKey(principalOf(req).tenantId, req.params.keyId);
+    return reply.code(204).send();
+  });
   if (!ai.canBuy) return;
 
   // Rupiah from the wallet to AI credit, at the rate shown on the Billing page. Same gate and Turnstile as other spending.
