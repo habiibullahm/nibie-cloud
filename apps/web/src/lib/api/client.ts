@@ -27,6 +27,7 @@ import type {
   AiAlert,
   AiPurchase,
   AiKeys,
+  AiModels,
   CreatedAiKey,
 } from "./types"
 
@@ -83,6 +84,8 @@ export interface BillingApi {
   aiKeys(): Promise<AiKeys | null>
   createAiKey(name: string): Promise<CreatedAiKey>
   revokeAiKey(id: string): Promise<void>
+  /** The NibieRouter models this account may use, or null when the backend has no NibieRouter configured. */
+  aiModels(): Promise<AiModels | null>
   /** Invoices of paid hosting and top-ups, newest first. */
   invoices(): Promise<Invoice[]>
   invoice(id: string): Promise<Invoice>

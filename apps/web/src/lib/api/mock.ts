@@ -859,6 +859,10 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       if (!key) throw new ApiError(404, "not_found", "Key not found")
       key.revoked = true
     },
+    async aiModels() {
+      await wait()
+      return { baseUrl: "https://router.nibie.app/v1", freeOnly: false, models: MOCK_ROUTER_MODELS.map((m) => ({ ...m })) }
+    },
     async invoices() {
       await wait()
       return [...MOCK_INVOICES]

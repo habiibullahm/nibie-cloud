@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import type { CreditGrant, CreditGrantStatus, PrismaClient } from '@prisma/client';
 import { z } from 'zod';
-import { AppError, ConflictError, NotFoundError } from '../../shared/errors.js';
+import { AppError, ConflictError, NotFoundError, RouterUnavailableError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import { lockWallet, moveWallet } from '../billing/wallet.js';
 import { NIBIEROUTER_BASE_URL } from '../integrations/provider-service.js';
 import { applyGrant } from './credit-grant.js';
+import type { CatalogModel, ModelCatalog } from './model-catalog.js';
 import { NANO_PER_USD, type NibieRouterClient, type RouterUsage } from './nibierouter-client.js';
 import { KEY_RPM_LIMIT, MAX_ATTEMPTS } from './router-provisioner.js';
 
@@ -95,7 +96,7 @@ export class AiAccountService {
   private lastCheck = 0;
 
   /** `buy`: the wallet is on, so AI credit can be bought from it. */
-  constructor(private readonly d: { prisma: PrismaClient; client: NibieRouterClient; logger: Logger; buy?: boolean; now?: () => number }) {}
+  constructor(private readonly d: { prisma: PrismaClient; client: NibieRouterClient; logger: Logger; buy?: boolean; catalog?: ModelCatalog; now?: () => number }) {}
 
   get canBuy(): boolean {
     return this.d.buy === true;
@@ -255,6 +256,19 @@ export class AiAccountService {
     if (!userId || !key) throw new NotFoundError('Key not found');
     await this.d.client.revokeKey(userId, keyId);
     this.d.logger.info({ tenantId, keyId }, 'customer AI key revoked');
+  }
+
+  /**
+   * The router models the tenant may use, with the same rule as `GET /instances/:id/models`: a free plan has a router
+   * balance of 0, so a tenant without an instance on a priced plan gets the free models only. The keys themselves are not
+   * limited to these models (owner, 2026-11-20); a balance of 0 is what refuses the paid ones.
+   */
+  async models(tenantId: string): Promise<{ baseUrl: string; freeOnly: boolean; models: CatalogModel[] }> {
+    if (!this.d.catalog) throw new RouterUnavailableError('unreachable');
+    const paid = await this.d.prisma.instance.count({ where: { tenantId, deletedAt: null, plan: { monthlyPriceIdr: { not: null } } } });
+    const freeOnly = paid === 0;
+    const all = await this.d.catalog.list();
+    return { baseUrl: NIBIEROUTER_BASE_URL, freeOnly, models: freeOnly ? all.filter((m) => m.free) : all };
   }
 
   private async routerUser(tenantId: string): Promise<string | null> {
