@@ -99,7 +99,36 @@ export class RouterProvisioner {
     let done = 0;
     for (const r of rows) if ((await this.run(r.instanceId)) !== 'pending') done += 1;
     if (!this.oldKeysLimited) await this.limitOldKeys();
+    await this.revokeDeleted();
     return done;
+  }
+
+  /**
+   * A deleted instance's key must stop working: a customer may have read it out of the container. Revokes the
+   * `inst-<id>` key of every DELETED instance that still has a provisioning row, then drops the row, which is what marks
+   * it done. Never throws: a router failure leaves the row, and the next tick tries again.
+   */
+  private async revokeDeleted(): Promise<void> {
+    // shortcut: first 500 rows only; query deleted instances directly past a few hundred live ones.
+    const rows = await this.d.prisma.routerProvisioning.findMany({ select: { instanceId: true, tenantId: true }, take: 500 });
+    if (rows.length === 0) return;
+    const deleted = await this.d.prisma.instance.findMany({
+      where: { id: { in: rows.map((r) => r.instanceId) }, status: 'DELETED' }, select: { id: true, tenantId: true }, take: 20,
+    });
+    for (const i of deleted) {
+      try {
+        const tenant = await this.d.prisma.tenant.findUnique({ where: { id: i.tenantId }, select: { routerUserId: true } });
+        if (tenant?.routerUserId) {
+          for (const k of await this.d.client.listKeys(tenant.routerUserId)) {
+            if (k.name === `inst-${i.id}` && !k.revoked) await this.d.client.revokeKey(tenant.routerUserId, k.id);
+          }
+        }
+        await this.d.prisma.routerProvisioning.delete({ where: { instanceId: i.id } });
+        this.d.logger.info({ instanceId: i.id }, 'router key of a deleted instance revoked');
+      } catch (e) {
+        this.d.logger.warn({ instanceId: i.id, errName: (e as Error).name }, 'router key of a deleted instance not revoked yet; the next tick tries again');
+      }
+    }
   }
 
   /**

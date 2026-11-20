@@ -18,7 +18,20 @@ Before, saving BYOK was one-way: the dashboard disabled the NibieRouter choice a
 - Known gap: saving BYOK still does not revoke the `inst-` key on the router at that moment; `restore` cleans it up later.
   Two restores at the same instant can leave one extra unrevoked key whose secret nobody holds (`shortcut:` in the code).
 
-## Host capacity on the admin Node page (2026-11-21, branch `claude/node-capacity`, not merged)
+## Router keys of deleted instances are revoked (2026-11-21, branch `claude/revoke-router-key`, not merged)
+
+Deleting an instance removed its container, volume and stored secrets, but its `inst-<id>` NibieRouter key kept working (a
+customer could have read it out of the container). `RouterProvisioner.runPending` (billing tick, every 5 minutes) now revokes
+the key of every `DELETED` instance that still has a `RouterProvisioning` row, then deletes the row (that marks it done; no
+migration). A router failure is logged and retried on the next tick. Test: `test/integration/router-provisioner.test.ts`
+("runPending revokes the key of a deleted instance once ..."). Until this is deployed, revoke by hand as on 2026-11-20.
+
+Also done on the VPS (owner: "selesaikan yg masih terbuka"): `/opt/hermes` of the old standalone agent was archived to
+`/root/opt-hermes-agent-20261120.tar.gz` (root only, 8.9 MB) and removed. Paid checkout: a real QRIS purchase was paid and
+activated before the 2026-11-20 clear (the owner's test; its rows were cleared with the rest). `PAID_CHECKOUT_OPEN` is still
+`false` (only `ADMIN_EMAILS` can buy).
+
+## Host capacity on the admin Node page (2026-11-21, PR #115, merged `8104fe5`, deployed)
 
 Owner: "buat kapasitas di Node", without adding backend load.
 - `ops/host/hermes-usage.sh` (the existing 5-minute timer) also replaces `/var/lib/hermes-usage/node.json`: RAM total/used/available,
@@ -30,9 +43,10 @@ Owner: "buat kapasitas di Node", without adding backend load.
   CPU load, the snapshot age (marked old after 15 minutes) and an estimate of how many more instances fit under the 70 % RAM
   rule (`apps/web/src/lib/host-capacity.ts`: average of the running instances, or 400 MB idle when none run).
 - Host scripts installed on the VPS on the owner's word ("install drill and install usage", 2026-11-20 18:39 UTC; old copies
-  `/usr/local/sbin/*.bak-20261120T183928Z`). `node.json` is written. The Node page shows it once the backend is recreated
-  with the new mount (the deploy after merge). The first drill install was CRLF (from the Windows worktree) and failed
+  `/usr/local/sbin/*.bak-20261120T183928Z`). The first drill install was CRLF (from the Windows worktree) and failed
   `bash -n`; reinstalled as LF a minute later, and `.gitattributes` now forces LF for `ops/host/*`.
+- Deployed by the pull-deploy timer (backend `8104fe5`, `/var/lib/hermes-usage` mounted `ro`); `GET /admin/nodes` returns `host`
+  and the owner saw the card live. The `host` integration test was first run on 2026-11-21 (backend CI runs unit tests only).
 
 ## Caddy allowlist missed the AI routes (2026-11-21, branch `claude/caddy-ai-routes`, not deployed)
 
