@@ -40,19 +40,34 @@ milestones A and B (`edb7d62`); see "Verified" and "Not verified" below. The ope
    a `..` path and `/%2e%2e/...`; `/api/v1/plans` without a token is 401; a CORS preflight from any origin
    other than `DASHBOARD_ORIGIN` gets no `Access-Control-Allow-Origin`.
 
-## Automatic deploy from main (since 2026-11-19)
+## Automatic deploy from main (since 2026-11-19; pulled by the host since 2026-11-20)
 
-- **Backend:** `.github/workflows/deploy.yml` runs when the `ci` workflow passes on a push to `main`. It connects with a key that
-  is used for nothing else; on the VPS that key is locked in `~ubuntu/.ssh/authorized_keys` with
-  `restrict,command="bash /usr/local/sbin/hermes-auto-deploy"`, so it can only start a deploy of `origin/main`.
+- **Backend:** the host pulls. The `hermes-pull-deploy` timer (`ops/host/hermes-pull-deploy.service` and `.timer`, every 2 minutes,
+  as `ubuntu`) runs `hermes-auto-deploy`, so no inbound port is needed. The VPS provider limits inbound SSH since 2026-11-20, and
+  GitHub runners time out on port 22.
 - `hermes-auto-deploy` (copy of `ops/host/hermes-auto-deploy.sh`; reinstall with
-  `sudo install -m 755 ops/host/hermes-auto-deploy.sh /usr/local/sbin/hermes-auto-deploy` after changing it) takes a lock, skips
-  the run when nothing under `src`, `prisma`, `package.json`, `pnpm-lock.yaml`, `tsconfig.json` or `deploy` changed since the
-  running `BACKEND_TAG`, and otherwise runs `deploy.sh origin/main` (dump, build, migrate, recreate, readiness, rollback).
-- The repository and its Actions logs are public, so only the step lines go back to GitHub. The full log is in
-  `/var/log/hermes-deploy/<time>-<commit>.log` on the host.
-- Repository secrets: `DEPLOY_SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_KNOWN_HOSTS`. To stop automatic deploys, delete the
-  `github-actions-deploy nibie-cloud` line from `authorized_keys` (or disable the workflow); manual `deploy.sh` keeps working.
+  `sudo install -m 755 ops/host/hermes-auto-deploy.sh /usr/local/sbin/hermes-auto-deploy` after changing it):
+  1. takes a lock;
+  2. skips the run when nothing under `src`, `prisma`, `package.json`, `pnpm-lock.yaml`, `tsconfig.json` or `deploy` changed since
+     the running `BACKEND_TAG`;
+  3. skips a commit whose deploy failed before (marker `/var/lib/hermes-deploy/failed-<commit>`; delete it to retry);
+  4. skips a commit whose `ci` run is not `success` yet (public GitHub API, no token);
+  5. otherwise runs `deploy.sh origin/main` (dump, build, migrate, recreate, readiness, rollback).
+- Install or update:
+
+  ```bash
+  cd /opt/hermes-cloud && git pull --ff-only   # or let deploy.sh check out the commit
+  sudo install -m 755 ops/host/hermes-auto-deploy.sh /usr/local/sbin/hermes-auto-deploy
+  sudo install -m 644 ops/host/hermes-pull-deploy.service ops/host/hermes-pull-deploy.timer /etc/systemd/system/
+  sudo systemctl daemon-reload && sudo systemctl enable --now hermes-pull-deploy.timer
+  journalctl -u hermes-pull-deploy -n 20 --no-pager   # "nothing to deploy", "ci ... is pending", or the deploy step lines
+  ```
+
+- Stop automatic deploys: `sudo systemctl disable --now hermes-pull-deploy.timer`. A manual `deploy.sh` keeps working.
+- The full log of each deploy is in `/var/log/hermes-deploy/<time>-<commit>.log` on the host.
+- `.github/workflows/deploy.yml` (SSH from GitHub with a key locked in `~ubuntu/.ssh/authorized_keys` to
+  `restrict,command="bash /usr/local/sbin/hermes-auto-deploy"`) is manual only (`workflow_dispatch`) until SSH reaches the host
+  another way (Tailscale is planned). Repository secrets: `DEPLOY_SSH_KEY`, `DEPLOY_HOST`, `DEPLOY_KNOWN_HOSTS`.
 - **Every merge to main that touches those paths applies its migrations to production by itself.** The dump taken first is the
   way back; migrations are never rolled back.
 - **Dashboard, landing, docs:** Cloudflare Workers Builds deploy each app from `main` (see each app's README).
