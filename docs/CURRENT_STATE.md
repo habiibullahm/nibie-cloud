@@ -4,7 +4,7 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
-## More BYOK presets (2026-11-21, branch `claude/byok-presets`, not merged)
+## More BYOK presets (2026-11-21, PR #120, merged `a1ed3a7`)
 
 Owner: customers mostly want their own provider; low-risk path first (no console, no exposed Hermes dashboard). The dashboard's
 BYOK provider list (`apps/web/src/lib/api/providers.ts`) gains Google Gemini, DeepSeek, Groq, Mistral AI and xAI. Each base URL,
