@@ -4,8 +4,8 @@
  *   NIBIEROUTER_ADMIN_KEY=sk-admin-... pnpm tsx test/validation/nibierouter-live.ts [--credit-usd 0.01]
  *
  * Run it from the machine whose address the admin key is allowed from (the VPS). It creates ONE throwaway
- * router user, then tries, in order: create a key for that user, list the user's keys, grant a small credit
- * and read the balance history. It prints, per step, only whether it worked and the FIELD NAMES of the answer,
+ * router user, then tries, in order: create a key for that user (with an rpm limit), list the user's keys, change the
+ * key's limit, grant a small credit, read the balance history and read the user (balance and usage). It prints, per step, only whether it worked and the FIELD NAMES of the answer,
  * never the admin key or the created key. The throwaway user stays at the router (delete it in the NibieRouter
  * admin dashboard); the credit is small (default US$0.01).
  *
@@ -33,7 +33,7 @@ if (!(creditUsd > 0 && creditUsd <= 1)) {
   process.exit(1);
 }
 
-async function call(method: 'GET' | 'POST', path: string, body?: unknown): Promise<{ status: number; json: unknown }> {
+async function call(method: 'GET' | 'POST' | 'PUT', path: string, body?: unknown): Promise<{ status: number; json: unknown }> {
   const res = await fetch(`${origin}/api/admin${path}`, {
     method,
     headers: { authorization: `Bearer ${adminKey}`, accept: 'application/json', ...(body !== undefined ? { 'content-type': 'application/json' } : {}) },
@@ -78,12 +78,19 @@ if (!userId) {
 }
 console.log(`throwaway user: ${email} (id ${userId})`);
 
-const key = await call('POST', `/users/${encodeURIComponent(userId)}/keys`, { name: 'live-check' });
+const key = await call('POST', `/users/${encodeURIComponent(userId)}/keys`, { name: 'live-check', rpm_limit: 20 });
 const secret = key.json && typeof key.json === 'object' ? ((key.json as Record<string, unknown>).key ?? ((key.json as Record<string, unknown>).api_key as Record<string, unknown> | undefined)?.key) : undefined;
 note('create key for user', key.status >= 200 && key.status < 300 && typeof secret === 'string' && secret.startsWith('sk-'), `HTTP ${key.status}; fields: ${names(key.json)}${errText(key)}`);
 
 const keys = await call('GET', `/users/${encodeURIComponent(userId)}/keys`);
-note('list keys', keys.status >= 200 && keys.status < 300, `HTTP ${keys.status}; fields: ${names(Array.isArray(keys.json) ? keys.json : (keys.json as Record<string, unknown> | null)?.keys ?? (keys.json as Record<string, unknown> | null)?.items)}`);
+const keyRows = (Array.isArray(keys.json) ? keys.json : (keys.json as Record<string, unknown> | null)?.keys ?? (keys.json as Record<string, unknown> | null)?.items) as Record<string, unknown>[] | undefined;
+const made = keyRows?.find((k) => k.name === 'live-check');
+note('list keys (new key has rpm_limit 20)', keys.status >= 200 && keys.status < 300 && made?.rpm_limit === 20, `HTTP ${keys.status}; fields: ${names(keyRows)}`);
+
+// The update replaces every setting with exactly what is sent (RouterKeySettings in the client).
+const keyId = typeof made?.id === 'string' ? made.id : '';
+const upd = await call('PUT', `/users/${encodeURIComponent(userId)}/keys/${encodeURIComponent(keyId)}`, { name: 'live-check', rpm_limit: 25, max_parallel: null, credit_limit_nano: null, budget_period: null, allowed_models: null, allowed_ips: null, expires_at: null, redact_secrets: false });
+note('update key limit', upd.status >= 200 && upd.status < 300 && (upd.json as Record<string, unknown> | null)?.rpm_limit === 25, `HTTP ${upd.status}; fields: ${names(upd.json)}${errText(upd)}`);
 
 const nano = BigInt(Math.round(creditUsd * 1e9));
 const credit = await call('POST', `/users/${encodeURIComponent(userId)}/credit`, { delta_nano: Number(nano), note: `nibie-cloud live check ${email}` });
@@ -94,6 +101,10 @@ const hist = await call('GET', `/users/${encodeURIComponent(userId)}/balance-his
 const rows = Array.isArray(hist.json) ? hist.json : ((hist.json as Record<string, unknown> | null)?.history ?? (hist.json as Record<string, unknown> | null)?.items);
 const found = Array.isArray(rows) && rows.some((r) => { const o = r as Record<string, unknown>; const want = `nibie-cloud live check ${email}`; return o?.note === want || o?.reference === want; });
 note('balance history shows the credit note', hist.status >= 200 && hist.status < 300 && found, `HTTP ${hist.status}; fields: ${names(rows)}`);
+
+const got = await call('GET', `/users/${encodeURIComponent(userId)}`);
+const g = got.json as { user?: { balance_nano?: unknown }; stats?: { spend_30d_nano?: unknown }; daily?: unknown; models?: unknown } | null;
+note('read user (balance, 30-day spend, daily, models)', got.status >= 200 && got.status < 300 && typeof g?.user?.balance_nano === 'number' && typeof g?.stats?.spend_30d_nano === 'number' && Array.isArray(g?.daily) && Array.isArray(g?.models), `HTTP ${got.status}; fields: ${names(got.json)}${errText(got)}`);
 
 console.log('\nSummary:');
 for (const [step, r] of results) console.log(`  ${r.padEnd(6)} ${step}`);

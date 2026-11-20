@@ -74,6 +74,11 @@ One PR per step, each shippable alone. Step 1 makes the Kredit plan usable, so i
 
 ## Step 2: limits on the instance keys
 
+**Done 2026-11-20 (branch `claude/nibierouter-key-limits`).** Owner: `rpm_limit` 20, no `max_parallel`; the 50 requests a
+day of the free models stays on the router worker. Checked on the router with a throwaway user (disabled after): create
+accepts `rpm_limit` in the body, so new keys get it at once; `PUT /api/admin/users/:id/keys/:keyId` replaces every setting and
+answers the full key row. The router's credit unit is US$ (`idr_per_usd` 18600 in its payment settings, 2026-11-20).
+
 - **`NibieRouterClient`:**
   - `listKeys` also returns `id` and the limit fields.
   - New `updateKey(userId, keyId, settings)`. Its request shape is verified first (see "Not verified").

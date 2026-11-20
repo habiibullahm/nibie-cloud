@@ -2,8 +2,8 @@ import { randomBytes } from 'node:crypto';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createPrisma } from '../../src/db/client.js';
 import { ProviderService } from '../../src/modules/integrations/provider-service.js';
-import { NANO_PER_USD, type NibieRouterClient } from '../../src/modules/nibierouter/nibierouter-client.js';
-import { MAX_ATTEMPTS, RouterProvisioner } from '../../src/modules/nibierouter/router-provisioner.js';
+import { NANO_PER_USD, type NibieRouterClient, type RouterKeySettings } from '../../src/modules/nibierouter/nibierouter-client.js';
+import { KEY_RPM_LIMIT, MAX_ATTEMPTS, RouterProvisioner } from '../../src/modules/nibierouter/router-provisioner.js';
 import { PrismaSecretStore } from '../../src/modules/secrets/secret-store.js';
 import { RouterUnavailableError } from '../../src/shared/errors.js';
 import { createLogger } from '../../src/shared/logger.js';
@@ -17,10 +17,10 @@ const CREDIT = 2n * NANO_PER_USD;
 
 class FakeRouter implements NibieRouterClient {
   users = 0;
-  keys: { userId: string; name: string; revoked: boolean }[] = [];
+  keys: { userId: string; id: string; name: string; revoked: boolean; settings: RouterKeySettings }[] = [];
   history: { userId: string; note: string; delta: bigint }[] = [];
   balance = 0n;
-  failNext: ('createUser' | 'createKey' | 'grantCredit' | 'hasCreditNote' | 'listKeys')[] = [];
+  failNext: ('createUser' | 'createKey' | 'grantCredit' | 'hasCreditNote' | 'listKeys' | 'updateKey')[] = [];
   /** grantCredit reaches the ledger but the answer is lost. */
   loseGrantAnswer = false;
   calls: string[] = [];
@@ -39,12 +39,25 @@ class FakeRouter implements NibieRouterClient {
     return { balanceNano: this.balance };
   }
   async hasCreditNote(userId: string, note: string) { this.maybeFail('hasCreditNote'); return this.history.some((h) => h.userId === userId && h.note === note); }
-  async createKey(userId: string, input: { name: string }) {
+  async createKey(userId: string, input: { name: string; rpmLimit: number }) {
     this.maybeFail('createKey');
-    this.keys.push({ userId, name: input.name, revoked: false });
-    return { id: `k-${this.keys.length}`, secret: `sk-fake-${input.name}-0123456789` };
+    const id = `k-${this.keys.length + 1}`;
+    this.keys.push({ userId, id, name: input.name, revoked: false, settings: { rpm_limit: input.rpmLimit } });
+    return { id, secret: `sk-fake-${input.name}-0123456789` };
   }
-  async listKeys(userId: string) { this.maybeFail('listKeys'); return this.keys.filter((k) => k.userId === userId).map((k) => ({ name: k.name, revoked: k.revoked })); }
+  async listKeys(userId: string) {
+    this.maybeFail('listKeys');
+    return this.keys
+      .filter((k) => k.userId === userId)
+      .map((k) => ({ id: k.id, name: k.name, revoked: k.revoked, rpmLimit: (k.settings.rpm_limit as number | null | undefined) ?? null, settings: k.settings }));
+  }
+  /** Like the router: the settings are replaced with exactly what is sent. */
+  async updateKey(userId: string, keyId: string, input: { name: string; settings: RouterKeySettings }) {
+    this.maybeFail('updateKey');
+    const k = this.keys.find((x) => x.userId === userId && x.id === keyId)!;
+    k.name = input.name;
+    k.settings = { ...input.settings };
+  }
 }
 
 let s: Awaited<ReturnType<typeof seedBilling>>;
@@ -88,7 +101,7 @@ describe('RouterProvisioner', () => {
     const { instance, sub } = await mk();
     expect(await prov.begin({ tenantId: s.tenant.id, instanceId: instance.id, subscriptionId: sub.id })).toBe('done');
     expect((await prisma.tenant.findUniqueOrThrow({ where: { id: s.tenant.id } })).routerUserId).toBe('ru-1');
-    expect(router.keys).toEqual([{ userId: 'ru-1', name: `inst-${instance.id}`, revoked: false }]);
+    expect(router.keys).toEqual([{ userId: 'ru-1', id: 'k-1', name: `inst-${instance.id}`, revoked: false, settings: { rpm_limit: KEY_RPM_LIMIT } }]);
     expect(router.history).toEqual([{ userId: 'ru-1', note: `nibie-cloud credit ${sub.id}`, delta: CREDIT }]);
     const cfg = await prisma.providerConfig.findUniqueOrThrow({ where: { instanceId: instance.id } });
     expect(cfg).toMatchObject({ kind: 'NIBIEROUTER', model: 'model-x' });
@@ -331,6 +344,29 @@ describe('RouterProvisioner', () => {
     await prov.runPending();
     expect(router.keys.filter((k) => k.name === `inst-${later.id}`)).toHaveLength(1);
     expect(await prisma.providerConfig.count({ where: { instanceId: later.id } })).toBe(0);
+  });
+
+  it('runPending gives old instance keys the rpm limit once, keeps their other settings and leaves set limits and other keys alone', async () => {
+    await prisma.tenant.update({ where: { id: s.tenant.id }, data: { routerUserId: 'ru-old' } });
+    router.keys = [
+      { userId: 'ru-old', id: 'old-1', name: 'inst-a', revoked: false, settings: { rpm_limit: null, max_parallel: 3, allowed_models: null } },
+      { userId: 'ru-old', id: 'old-2', name: 'inst-b', revoked: false, settings: { rpm_limit: 5 } },
+      { userId: 'ru-old', id: 'old-3', name: 'inst-c', revoked: true, settings: {} },
+      { userId: 'ru-old', id: 'old-4', name: 'manual', revoked: false, settings: {} },
+    ];
+    // A router outage during the sweep: nothing breaks, the next tick tries again.
+    router.failNext = ['updateKey'];
+    await prov.runPending();
+    expect(router.keys[0]!.settings.rpm_limit).toBeNull();
+
+    await prov.runPending();
+    expect(router.keys.map((k) => k.settings)).toEqual([
+      { rpm_limit: KEY_RPM_LIMIT, max_parallel: 3, allowed_models: null }, { rpm_limit: 5 }, {}, {},
+    ]);
+    // Done once per process: a later tick does not list the keys again.
+    const calls = router.calls.length;
+    await prov.runPending();
+    expect(router.calls).toHaveLength(calls);
   });
 
   it('never stores the router secret in the provisioning row or leaks it in lastError', async () => {

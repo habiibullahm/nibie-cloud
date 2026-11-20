@@ -16,6 +16,22 @@ export interface RouterKey {
 }
 
 /**
+ * The router's per-key limit settings, copied from a key row as they are. Updating a key replaces all of them with exactly
+ * what is sent (an omitted one is removed), so an update sends back every one it read. Verified on the router 2026-11-20.
+ */
+const KEY_SETTINGS = ['rpm_limit', 'max_parallel', 'credit_limit_nano', 'budget_period', 'allowed_models', 'allowed_ips', 'expires_at', 'redact_secrets'] as const;
+export type RouterKeySettings = Partial<Record<(typeof KEY_SETTINGS)[number], unknown>>;
+
+export interface RouterKeyRow {
+  id: string;
+  name: string;
+  revoked: boolean;
+  /** Requests per minute; null means no limit. */
+  rpmLimit: number | null;
+  settings: RouterKeySettings;
+}
+
+/**
  * What the control plane needs from NibieRouter (a SumoRouter instance, https://docs.sumorouter.com, admin API).
  * Calls that are not idempotent on the router (`grantCredit`) are guarded by the caller, not here.
  */
@@ -24,8 +40,10 @@ export interface NibieRouterClient {
   grantCredit(userId: string, deltaNano: bigint, note: string): Promise<{ balanceNano: bigint }>;
   /** True when the user's balance history already holds an entry with exactly this note. */
   hasCreditNote(userId: string, note: string): Promise<boolean>;
-  createKey(userId: string, input: { name: string }): Promise<RouterKey>;
-  listKeys(userId: string): Promise<{ name: string; revoked: boolean }[]>;
+  createKey(userId: string, input: { name: string; rpmLimit: number }): Promise<RouterKey>;
+  listKeys(userId: string): Promise<RouterKeyRow[]>;
+  /** Replaces the key's name and every limit setting with these values. */
+  updateKey(userId: string, keyId: string, input: { name: string; settings: RouterKeySettings }): Promise<void>;
 }
 
 type Fetcher = (url: string, opts: SafeFetchOptions) => Promise<SafeFetchResult>;
@@ -39,7 +57,9 @@ const creditAnswer = z.object({ balance_nano: z.number().int() });
 // The shape is accepted loosely: the id and an `sk-` secret are what matters.
 const keyAnswer = wrapped(z.object({ id, key: z.string().regex(/^sk-[A-Za-z0-9_-]{8,}$/) }), 'api_key');
 const listOf = (item: z.ZodTypeAny) => z.union([z.array(item), z.object({ items: z.array(item) }).transform((v) => v.items), z.object({ keys: z.array(item) }).transform((v) => v.keys), z.object({ history: z.array(item) }).transform((v) => v.history)]);
-const keyRow = z.object({ name: z.string(), revoked_at: z.string().nullable().optional() });
+const keyRow = z
+  .object({ id, name: z.string(), revoked_at: z.string().nullable().optional(), rpm_limit: z.number().int().positive().nullable().optional() })
+  .passthrough();
 // The docs list `kind, amount_nano, reference, actor_email, created_at` for a balance entry and no `note` field: the note of an
 // admin credit is expected in `reference`. Both are accepted until the live check shows which one carries it.
 const noteRow = z.object({ note: z.string().nullable().optional(), reference: z.string().nullable().optional() });
@@ -54,7 +74,7 @@ export function createNibieRouterClient(cfg: RouterConfig, deps: { fetcher?: Fet
   const origin = new URL(cfg.apiUrl);
   const base = `${origin.origin}/api/admin`;
 
-  async function call(method: 'GET' | 'POST', path: string, body?: unknown): Promise<unknown> {
+  async function call(method: 'GET' | 'POST' | 'PUT', path: string, body?: unknown): Promise<unknown> {
     let res: SafeFetchResult;
     try {
       res = await fetcher(base + path, {
@@ -104,12 +124,21 @@ export function createNibieRouterClient(cfg: RouterConfig, deps: { fetcher?: Fet
       return rows.some((r) => r.note === note || r.reference === note);
     },
     async createKey(userId, input) {
-      const out = parse(keyAnswer, await call('POST', `/users/${enc(userId)}/keys`, { name: input.name }));
+      const out = parse(keyAnswer, await call('POST', `/users/${enc(userId)}/keys`, { name: input.name, rpm_limit: input.rpmLimit }));
       return { id: out.id, secret: out.key };
     },
     async listKeys(userId) {
-      const rows = parse(listOf(keyRow), await call('GET', `/users/${enc(userId)}/keys`)) as { name: string; revoked_at?: string | null }[];
-      return rows.map((r) => ({ name: r.name, revoked: r.revoked_at != null }));
+      const rows = parse(listOf(keyRow), await call('GET', `/users/${enc(userId)}/keys`)) as z.infer<typeof keyRow>[];
+      return rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        revoked: r.revoked_at != null,
+        rpmLimit: r.rpm_limit ?? null,
+        settings: Object.fromEntries(KEY_SETTINGS.filter((k) => k in r).map((k) => [k, (r as Record<string, unknown>)[k]])),
+      }));
+    },
+    async updateKey(userId, keyId, input) {
+      await call('PUT', `/users/${enc(userId)}/keys/${enc(keyId)}`, { ...input.settings, name: input.name });
     },
   };
 }

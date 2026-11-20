@@ -37,6 +37,23 @@ Owner ran the checks on the VPS with the steps from this session; all read-only,
     password manager, or the R2 backups cannot be read if the VPS is lost. Not confirmed yet.
   - The runbook and the R2 and drill alerts are in the entry above (`claude/backup-alert-runbook`).
 
+## NibieRouter step 2: rpm limit on instance keys, own NibieRouter key in BYOK (2026-11-20, branch `claude/nibierouter-key-limits`, not committed)
+
+Plan: AI credit in Rupiah through NibieRouter, PR A of 3 (owner approved; PR B balance and reminder, PR C buying AI credit
+from the wallet, follow).
+- **Backend:** every new instance key is created with `rpm_limit` 20 (`KEY_RPM_LIMIT`); older `inst-*` keys without a limit get
+  it once per backend start from `runPending`, keeping their other settings; a limit set by hand is left alone. Client:
+  `createKey` sends `rpm_limit`, `listKeys` returns id, limit and settings, new `updateKey` (PUT). `safeFetch` allows `PUT`.
+  The free models' 50 requests a day stay configured on the router worker (owner).
+- **Router checked by hand** with a throwaway user (keys revoked, user disabled): create with `rpm_limit` and PUT update work
+  as built. `test/validation/nibierouter-live.ts` now also tries the update and reads the user.
+- **Dashboard:** BYOK offers "NibieRouter (own account)" (`https://router.nibie.app/v1`) with a "Create one at
+  router.nibie.app" link; the BYOK picker still defaults to OpenAI. The locked NibieRouter card says to bring an own NibieRouter
+  key instead of "Contact support". Such a key is a normal BYOK key on the customer's own router account.
+- **Checks:** backend `tsc`; unit tests pass except the 2 known Windows-only `egress-canary` failures; integration
+  `router-provisioner` (21 tests). Dashboard typecheck, lint, tests (206). Not seen in a browser; whether router.nibie.app
+  lets anyone sign up was not checked.
+
 ## NibieRouter step 1: the customer chooses the model (2026-11-20, branch `claude/nibierouter-model-choice`, PR #105, deployed `d798b01`)
 
 Deployed by the owner by hand on 2026-11-20 (`deploy.sh`: database dump, build, no pending migrations, backend and caddy

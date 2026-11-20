@@ -365,7 +365,7 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
               disabled={routerLocked && cfg.kind !== "nibierouter"}
             >
               {routerLocked && cfg.kind !== "nibierouter"
-                ? "Added by Nibie Cloud with your plan. Contact support to switch back."
+                ? "Added by Nibie Cloud with your plan. To use NibieRouter again, bring your own NibieRouter key."
                 : "Works out of the box. Usage is attributed to your account and billed by NibieRouter."}
             </ChoiceCard>
             <ChoiceCard id="kind-byok" value="byok" selected={kind === "byok"} title="Bring your own key">
@@ -437,6 +437,15 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
                 <p id="byok-key-hint" className="text-muted-foreground">
                   Stored encrypted and never shown again, so paste the key each time you save.
                 </p>
+                {preset?.keyUrl ? (
+                  <p className="text-muted-foreground">
+                    No key yet? Create one at{" "}
+                    <a href={preset.keyUrl} target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-4">
+                      router.nibie.app
+                    </a>
+                    , then paste it here.
+                  </p>
+                ) : null}
               </div>
               {cfg.kind === "nibierouter" && cfg.configured ? (
                 <p className="text-muted-foreground md:col-span-2">
