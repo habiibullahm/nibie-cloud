@@ -158,7 +158,9 @@ describe('wallet payments', () => {
   describe('routes', () => {
     let auth: Awaited<ReturnType<typeof createTestAuth>>;
     beforeAll(async () => { auth = await createTestAuth(); });
-    const app = (walletEnabled: boolean) => buildServer({
+    // A stand-in for Cloudflare: "good" passes, "down" is an outage, anything else is a failed check.
+    const captcha = async (token: string | undefined) => (token === 'good' ? 'ok' as const : token === 'down' ? 'unavailable' as const : 'invalid' as const);
+    const app = (walletEnabled: boolean, withCaptcha = false) => buildServer({
       service: env.service, commands: env.commands, logger: silentLogger,
       config: testConfig('hermes-stub:0.2.0', TEST_MASTER_KEY, {
         walletEnabled,
@@ -166,6 +168,27 @@ describe('wallet payments', () => {
       }),
       customer: { verify: auth.verify, identity: new IdentityService({ prisma }), prisma },
       billing: env.billing,
+      captcha: withCaptcha ? captcha : null,
+    });
+
+    it('needs a solved Turnstile when one is configured, and answers with the new instance', async () => {
+      const me = { authorization: `Bearer ${await auth.signToken({ sub: randomUUID(), email: 'buyer@example.test', aal: 'aal1' })}` };
+      const a = app(true, true);
+      const { tenantId } = (await a.inject({ method: 'GET', url: '/api/v1/me', headers: me })).json() as { tenantId: string };
+      s = { ...s, tenant: await prisma.tenant.findUniqueOrThrow({ where: { id: tenantId } }) };
+      await credit(PRICE);
+      const r = await checkout();
+      const url = `/api/v1/payments/${r.payment.id}/pay-with-wallet`;
+
+      expect((await a.inject({ method: 'POST', url, headers: me })).json().error.code).toBe('captcha_failed');
+      expect((await a.inject({ method: 'POST', url, headers: me, payload: { captchaToken: 'wrong' } })).statusCode).toBe(400);
+      expect((await a.inject({ method: 'POST', url, headers: me, payload: { captchaToken: 'down' } })).statusCode).toBe(503);
+      expect(await balance()).toBe(PRICE); // nothing charged by a refused check
+
+      const paid = await a.inject({ method: 'POST', url, headers: me, payload: { captchaToken: 'good' } });
+      expect(paid.statusCode).toBe(200);
+      expect(paid.json().subscription.instanceId).toMatch(/^[0-9a-f-]{36}$/);
+      expect(await balance()).toBe(0);
     });
 
     it('pays with the wallet and toggles auto-renew; 404 when the wallet is off', async () => {

@@ -57,7 +57,7 @@ export default function BillingPage() {
   const renew = useRenew()
   const cancel = useCancelRenewal()
   const wallet = useWallet().data
-  const { pay, covers, paying } = usePay()
+  const { pay, covers, paying, confirm } = usePay()
   const setAutoRenew = useSetAutoRenew()
   const mock = useApiMode() === "mock"
   const [confirmCancel, setConfirmCancel] = useState(false)
@@ -159,7 +159,7 @@ export default function BillingPage() {
           <Button
             variant={late ? "outline" : "default"}
             disabled={!canRenew(sub) || renew.isPending || paying}
-            onClick={() => renew.mutate(sub.id, { onSuccess: (r) => pay(r.payment) })}
+            onClick={() => void pay({ amountIdr: current?.monthlyPriceIdr, create: async () => (await renew.mutateAsync(sub.id)).payment })}
           >
             {paying ? "Paying…" : renew.isPending ? "Preparing payment…" : renewFromBalance ? "Renew from balance" : "Renew now"}
           </Button>
@@ -220,6 +220,7 @@ export default function BillingPage() {
           the current node, we will schedule a migration and tell you first.
         </p>
       </section>
+      {confirm}
     </div>
   )
 }
@@ -230,7 +231,7 @@ export default function BillingPage() {
  */
 function FreeUpgrade({ instanceId, plans, pending }: { instanceId: string; plans: Plan[]; pending: BillingSubscription | null }) {
   const upgrade = useUpgrade()
-  const { pay, covers, paying } = usePay()
+  const { pay, covers, paying, confirm } = usePay()
   // One key per plan for this visit: a double click replays the same invoice, another plan is a new request.
   const [visit] = useState(() => crypto.randomUUID())
   const forSale = plans.filter((p) => p.monthlyPriceIdr !== null)
@@ -287,7 +288,10 @@ function FreeUpgrade({ instanceId, plans, pending }: { instanceId: string; plans
                   className="mt-auto"
                   disabled={!p.available || upgrade.isPending || paying}
                   onClick={() =>
-                    upgrade.mutate({ instanceId, planId: p.id, idempotencyKey: `${visit}:${p.id}` }, { onSuccess: (r) => pay(r.payment) })
+                    void pay({
+                      amountIdr: p.monthlyPriceIdr,
+                      create: async () => (await upgrade.mutateAsync({ instanceId, planId: p.id, idempotencyKey: `${visit}:${p.id}` })).payment,
+                    })
                   }
                 >
                   {!p.available
@@ -307,6 +311,7 @@ function FreeUpgrade({ instanceId, plans, pending }: { instanceId: string; plans
           After the payment, the instance restarts once to apply the new plan.
         </p>
       </section>
+      {confirm}
     </div>
   )
 }

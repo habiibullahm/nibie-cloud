@@ -15,6 +15,7 @@ import { PageHeader, SectionTitle } from "@/components/app/page-header"
 import { PreviewNote } from "@/components/app/preview-note"
 import { PayButton, usePay } from "@/components/app/pay-button"
 import { errorMessage, useApiMode, useCheckout, useCreateInstance, usePlans, useRegions, useSubscriptions } from "@/hooks/use-hermes"
+import type { CheckoutResult } from "@/lib/api"
 import { isPendingPurchase, payableUrl } from "@/lib/billing"
 import { cn } from "@/lib/utils"
 import { formatCpu, formatMb, formatPriceIdr } from "@/lib/format"
@@ -58,7 +59,9 @@ export function DeployForm() {
   const nameError = validateInstanceName(name)
   const priced = plan !== undefined && plan.monthlyPriceIdr !== null
   // No choice to make: the balance pays when it covers the price, otherwise QRIS (owner decision 2026-11-20).
-  const { pay, covers, paying } = usePay()
+  const { pay, covers, paying, confirm } = usePay()
+  // After a balance payment the backend has already created the instance: open its overview.
+  const openPaid = (r: CheckoutResult) => router.push(r.subscription.instanceId ? `/instances/${r.subscription.instanceId}` : "/instances")
   const fromBalance = priced && covers(plan?.monthlyPriceIdr)
   const busy = create.isPending || checkout.isPending || paying
   const failure = create.error ?? checkout.error
@@ -69,10 +72,12 @@ export function DeployForm() {
     if (nameError || !plan || !regionReady) return
     if (priced) {
       // A paid plan: the backend creates the instance only after the first payment (QRIS confirmed, or the balance).
-      checkout.mutate(
-        { input: { name: name.trim(), planId: plan.id }, idempotencyKey },
-        { onSuccess: (r) => pay(r.payment, () => router.push("/instances")) }
-      )
+      // The same Idempotency-Key makes a retried confirmation reuse the order instead of starting another.
+      void pay({
+        amountIdr: plan.monthlyPriceIdr,
+        create: async () => (await checkout.mutateAsync({ input: { name: name.trim(), planId: plan.id }, idempotencyKey })).payment,
+        onPaid: openPaid,
+      })
       return
     }
     create.mutate(
@@ -290,7 +295,7 @@ export function DeployForm() {
                     payment={openOrder.latestPayment}
                     label={t("Pay for {name} instead", { name: openOrder.name })}
                     walletLabel={t("Pay for {name} from balance", { name: openOrder.name })}
-                    onPaid={() => router.push("/instances")}
+                    onPaid={openPaid}
                   />
                 ) : null}
               </AlertDescription>
@@ -316,6 +321,7 @@ export function DeployForm() {
           </Button>
         </aside>
       </div>
+      {confirm}
     </form>
   )
 }

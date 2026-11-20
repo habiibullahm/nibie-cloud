@@ -4,7 +4,23 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
-## One pay button: balance when it covers the price, else QRIS (2026-11-20, branch `claude/one-pay-button`, not merged)
+## Balance payments: confirmation with Turnstile, open the new instance (2026-11-20, branch `claude/wallet-confirm`, not merged)
+
+Owner: "should have confirmation payment with turnstile widget" and "its not redirected to overview instance".
+- **Backend:** `POST /payments/:id/pay-with-wallet` takes `{ captchaToken }` and, when `TURNSTILE_SECRET_KEY` is set (it is on
+  production), checks it before anything is read or written: `400 captcha_failed`, `503 captcha_unavailable` (fails closed).
+  The route now creates a new purchase's instance before answering (`ensureInstance`; the post actions and the billing tick still
+  repair a failure), so `subscription.instanceId` is in the response. `CaptchaFailedError` moved to `modules/waitlist/turnstile.ts`.
+- **Dashboard:** a balance payment opens a dialog (amount, balance now, balance after, Turnstile widget, "Konfirmasi
+  pembayaran"); the order is created only after the confirmation, and a retry reuses it (same Idempotency-Key, or the open
+  renewal/upgrade invoice). After paying a purchase the dashboard opens `/instances/<id>`.
+- **Checks:** backend `tsc`; integration (own DB `hermes_test_wallet`): every billing and waitlist test file plus `admin-api`, 13
+  files, 230 tests, including a new route test (no token / wrong token 400, outage 503, nothing charged, then paid with
+  `instanceId`); unit tests pass except the 2 known Windows-only `egress-canary` failures. Dashboard typecheck, lint, tests (203),
+  `next build`. The production dashboard bundle carries a Turnstile site key. The dialog was not seen in a browser (preview
+  plans have no price).
+
+## One pay button: balance when it covers the price, else QRIS (2026-11-20, branch `claude/one-pay-button`, PR #100, merged `4af2244`)
 
 Owner chose option A ("1"): no choice between balance and QRIS. Dashboard only (backend unchanged): Deploy, the unpaid-order
 notice, the Billing table, renew and upgrade on the instance Billing tab each have one button that pays from the balance when it

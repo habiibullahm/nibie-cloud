@@ -123,7 +123,12 @@ export function buildBillingApi(call: Call): BillingApi {
           body: JSON.stringify({ amountIdr }),
         })
       ).topup,
-    payWithWallet: (paymentId) => call<CheckoutResult>(`/payments/${id(paymentId)}/pay-with-wallet`, { method: "POST" }),
+    payWithWallet: (paymentId, captchaToken) =>
+      call<CheckoutResult>(`/payments/${id(paymentId)}/pay-with-wallet`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(captchaToken ? { captchaToken } : {}),
+      }),
     setAutoRenew: async (subscriptionId, enabled) =>
       (
         await call<{ subscription: BillingSubscription }>(`/subscriptions/${id(subscriptionId)}/auto-renew`, {

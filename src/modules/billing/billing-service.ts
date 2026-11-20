@@ -521,6 +521,13 @@ export class BillingService {
       }
       return this.chargeWallet(tx, payment, 'HOSTING', now);
     });
+    // The customer is waiting on this response: create a new purchase's instance now, so the dashboard can open it. The
+    // post actions call this again (a no-op then); a failure here is repaired by them or by the billing tick.
+    try {
+      await this.ensureInstance(found.subscriptionId);
+    } catch (e) {
+      this.d.logger.error({ subscriptionId: found.subscriptionId, errName: (e as Error).name }, 'instance after wallet payment not created yet; retried');
+    }
     const payment = await this.d.prisma.payment.findUniqueOrThrow({ where: { id: found.id } });
     return { subscription: await this.viewOf(found.subscriptionId), payment: paymentView(payment, now), postActions: () => this.afterActivation(activation) };
   }

@@ -45,7 +45,7 @@ export function buildServer(deps: {
   readiness?: Record<string, ReadinessCheck>;
   /** Sends the waiting-list confirmation emails. Null, absent or disabled: `POST /public/waitlist` answers 503. */
   mailer?: Mailer | null;
-  /** Captcha check for the waiting-list form (Turnstile). Null or absent: no captcha is asked. */
+  /** Turnstile check for the waiting-list form and for paying from the wallet. Null or absent: no captcha is asked. */
   captcha?: CaptchaVerifier | null;
 }): FastifyInstance {
   const { service, config, logger, customer } = deps;
@@ -96,7 +96,7 @@ export function buildServer(deps: {
   registerOperatorRoutes(app, { service, commands, queue: deps.queue ?? null, config, integrations });
   const billing = deps.billing ?? null;
   if (customer) registerPublicRoutes(app, { prisma: customer.prisma, config, mailer: deps.mailer ?? null, captcha: deps.captcha ?? null });
-  if (customer) registerCustomerRoutes(app, { customer, service, commands, config, integrations, logs: deps.logs ?? null, billing, mailer: deps.mailer ?? null });
+  if (customer) registerCustomerRoutes(app, { customer, service, commands, config, integrations, logs: deps.logs ?? null, billing, mailer: deps.mailer ?? null, captcha: deps.captcha ?? null });
   if (deps.admin) registerAdminRoutes(app, { admin: deps.admin, config, mailer: deps.mailer ?? null });
   if (billing) registerSumoPodWebhook(app, { billing, logger });
 

@@ -219,7 +219,8 @@ export function useTopup() {
 export function useWalletPay() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (paymentId: string) => getApi().billing.payWithWallet(paymentId),
+    mutationFn: ({ paymentId, captchaToken }: { paymentId: string; captchaToken?: string }) =>
+      getApi().billing.payWithWallet(paymentId, captchaToken),
     onSuccess: () => {
       for (const key of [keys.subscriptions, keys.wallet, keys.invoices, keys.instances]) void qc.invalidateQueries({ queryKey: key })
       toast.success("Paid from your balance.")
