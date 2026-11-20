@@ -20,7 +20,7 @@ class FakeRouter implements NibieRouterClient {
   keys: { userId: string; id: string; name: string; revoked: boolean; settings: RouterKeySettings }[] = [];
   history: { userId: string; note: string; delta: bigint }[] = [];
   balance = 0n;
-  failNext: ('createUser' | 'createKey' | 'grantCredit' | 'hasCreditNote' | 'listKeys' | 'updateKey')[] = [];
+  failNext: ('createUser' | 'createKey' | 'grantCredit' | 'hasCreditNote' | 'listKeys' | 'updateKey' | 'revokeKey')[] = [];
   /** grantCredit reaches the ledger but the answer is lost. */
   loseGrantAnswer = false;
   calls: string[] = [];
@@ -51,7 +51,10 @@ class FakeRouter implements NibieRouterClient {
       .filter((k) => k.userId === userId)
       .map((k) => ({ id: k.id, name: k.name, revoked: k.revoked, createdAt: null, rpmLimit: (k.settings.rpm_limit as number | null | undefined) ?? null, settings: k.settings }));
   }
-  async revokeKey() { throw new Error('not used by the provisioner'); }
+  async revokeKey(userId: string, keyId: string) {
+    this.maybeFail('revokeKey');
+    this.keys.find((k) => k.userId === userId && k.id === keyId)!.revoked = true;
+  }
   async getUsage() { return { balanceNano: this.balance, spend30dNano: 0n, daily: [], models: [] }; }
   async getIdrPerUsd() { return 18_600; }
   /** Like the router: the settings are replaced with exactly what is sent. */
@@ -244,6 +247,29 @@ describe('RouterProvisioner', () => {
     await prisma.instance.update({ where: { id: instance.id }, data: { status: 'DELETED' } });
     expect(await prov.begin({ tenantId: s.tenant.id, instanceId: instance.id, subscriptionId: sub.id })).toBe('skipped');
     expect(router.calls).toEqual([]);
+  });
+
+  it('runPending revokes the key of a deleted instance once, keeps other keys, and retries after a router failure', async () => {
+    const a = await mk({ credit: null });
+    const b = await mk({ credit: null });
+    await prov.begin({ tenantId: s.tenant.id, instanceId: a.instance.id, subscriptionId: a.sub.id });
+    await prov.begin({ tenantId: s.tenant.id, instanceId: b.instance.id, subscriptionId: b.sub.id });
+    await prisma.instance.update({ where: { id: a.instance.id }, data: { status: 'DELETED' } });
+    await prisma.subscription.update({ where: { id: a.sub.id }, data: { status: 'ENDED' } });
+
+    router.failNext = ['revokeKey'];
+    await prov.runPending();
+    expect(router.keys.find((k) => k.name === `inst-${a.instance.id}`)?.revoked).toBe(false);
+    expect(await prisma.routerProvisioning.count({ where: { instanceId: a.instance.id } })).toBe(1);
+
+    await prov.runPending();
+    expect(router.keys.find((k) => k.name === `inst-${a.instance.id}`)?.revoked).toBe(true);
+    expect(router.keys.find((k) => k.name === `inst-${b.instance.id}`)?.revoked).toBe(false);
+    expect(await prisma.routerProvisioning.count({ where: { instanceId: a.instance.id } })).toBe(0);
+
+    const calls = router.calls.length;
+    await prov.runPending();
+    expect(router.calls.slice(calls)).not.toContain('revokeKey');
   });
 
   it('runPending creates the row for an instance that was linked but never recorded, and stops at MAX_ATTEMPTS', async () => {
