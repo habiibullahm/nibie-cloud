@@ -85,15 +85,25 @@ describe("customer API: AI provider", () => {
     expect(JSON.stringify(saved)).not.toContain("sk-test")
   })
 
-  it("rejects before any request when the model or key is missing, or NibieRouter is chosen", async () => {
+  it("rejects before any request when the model or key is missing", async () => {
     const { api, fetchMock } = setup()
     const base = { kind: "byok" as const, baseUrl: "https://api.openai.com/v1", model: "m", apiKey: "sk-test-1234567890" }
     await expect(api.preview.saveProvider(ID, { ...base, model: "" })).rejects.toMatchObject({ status: 400 })
     await expect(api.preview.saveProvider(ID, { ...base, model: "bad model!" })).rejects.toMatchObject({ status: 400 })
     await expect(api.preview.saveProvider(ID, { ...base, apiKey: "" })).rejects.toMatchObject({ status: 400 })
     await expect(api.preview.saveProvider(ID, { ...base, baseUrl: "" })).rejects.toMatchObject({ status: 400 })
-    await expect(api.preview.saveProvider(ID, { kind: "nibierouter" })).rejects.toMatchObject({ code: "not_supported" })
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("goes back to NibieRouter with POST .../providers/nibierouter and no body", async () => {
+    const { api, fetchMock } = setup()
+    fetchMock.mockResolvedValue(json({ provider: { ...providerBody, kind: "NIBIEROUTER", baseUrl: "https://router.nibie.app/v1", keyHint: null } }))
+    const saved = await api.preview.saveProvider(ID, { kind: "nibierouter" })
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe(`https://api.example.test/api/v1/instances/${ID}/providers/nibierouter`)
+    expect(init!.method).toBe("POST")
+    expect(init!.body).toBeUndefined()
+    expect(saved).toMatchObject({ kind: "nibierouter", restartRequired: true })
   })
 
   it("tests the connection with POST and explains a failure", async () => {

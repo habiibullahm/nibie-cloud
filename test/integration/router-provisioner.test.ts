@@ -398,6 +398,61 @@ describe('RouterProvisioner', () => {
     expect(router.calls).toHaveLength(calls);
   });
 
+  describe('restore (back from BYOK to the NibieRouter key)', () => {
+    async function onByok() {
+      const { instance, sub } = await mk({ credit: null });
+      await prov.begin({ tenantId: s.tenant.id, instanceId: instance.id, subscriptionId: sub.id });
+      await providers.put(s.tenant.id, instance.id, { baseUrl: 'https://llm.example.com/v1', model: 'own', apiKey: 'sk-own-key-0123456789' });
+      applied = [];
+      return instance;
+    }
+
+    it('revokes the old instance key, attaches a new one with the default model and restarts once', async () => {
+      const instance = await onByok();
+      const view = await prov.restore(s.tenant.id, instance.id);
+      expect(view).toMatchObject({ kind: 'NIBIEROUTER', model: 'model-x', restartRequired: true });
+      const name = `inst-${instance.id}`;
+      expect(router.keys.map((k) => [k.name, k.revoked])).toEqual([[name, true], [name, false]]);
+      expect(await prisma.providerConfig.findUniqueOrThrow({ where: { instanceId: instance.id } })).toMatchObject({ kind: 'NIBIEROUTER', model: 'model-x' });
+      expect(applied).toEqual([instance.id]);
+    });
+
+    it('is a no-op when the instance is already on NibieRouter', async () => {
+      const instance = await onByok();
+      await prov.restore(s.tenant.id, instance.id);
+      const calls = router.calls.length;
+      expect(await prov.restore(s.tenant.id, instance.id)).toMatchObject({ kind: 'NIBIEROUTER' });
+      expect(router.calls).toHaveLength(calls);
+      expect(applied).toEqual([instance.id]);
+    });
+
+    it('works for an instance that never had a router key, and refuses another tenant\'s or a deleted instance', async () => {
+      const { instance } = await mk({ credit: null });
+      await providers.put(s.tenant.id, instance.id, { baseUrl: 'https://llm.example.com/v1', model: 'own', apiKey: 'sk-own-key-0123456789' });
+      expect(await prov.restore(s.tenant.id, instance.id)).toMatchObject({ kind: 'NIBIEROUTER' });
+      expect(router.keys).toHaveLength(1);
+
+      await expect(prov.restore(crypto.randomUUID(), instance.id)).rejects.toThrow('Instance not found');
+      await prisma.instance.update({ where: { id: instance.id }, data: { status: 'DELETED' } });
+      await expect(prov.restore(s.tenant.id, instance.id)).rejects.toThrow('Instance not found');
+    });
+
+    it('does not start a stopped (or suspended) instance: the key waits for the next start', async () => {
+      const instance = await onByok();
+      await prisma.instance.update({ where: { id: instance.id }, data: { status: 'STOPPED' } });
+      expect(await prov.restore(s.tenant.id, instance.id)).toMatchObject({ kind: 'NIBIEROUTER', restartRequired: true });
+      expect(applied).toEqual([]);
+    });
+
+    it('a router outage leaves the customer\'s own key in place', async () => {
+      const instance = await onByok();
+      router.failNext = ['createKey'];
+      await expect(prov.restore(s.tenant.id, instance.id)).rejects.toThrow(RouterUnavailableError);
+      expect((await prisma.providerConfig.findUniqueOrThrow({ where: { instanceId: instance.id } })).kind).toBe('BYOK');
+      expect(applied).toEqual([]);
+    });
+  });
+
   it('never stores the router secret in the provisioning row or leaks it in lastError', async () => {
     const { instance, sub } = await mk();
     router.failNext = ['grantCredit'];

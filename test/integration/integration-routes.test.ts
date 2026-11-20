@@ -41,7 +41,7 @@ const fetcher: Fetcher = async (url) => {
 };
 
 const runtime = new FakeRuntime();
-function app(withSecrets = true) {
+function app(withSecrets = true, router: Parameters<typeof buildServer>[0]['router'] = null) {
   const service = new InstanceService({
     prisma, runtime, image: IMAGE, production: false, logger: silentLogger,
     masterKey: TEST_MASTER_KEY, diskQuota: 'off', egressPolicy: 'off', pollIntervalMs: 10, healthTimeoutMs: 2000,
@@ -55,6 +55,7 @@ function app(withSecrets = true) {
     integrations: withSecrets
       ? { secrets, kekVersion: 1, telegram: new TelegramService({ prisma, secrets, logger: silentLogger, fetcher }), providers: new ProviderService({ prisma, secrets, logger: silentLogger, fetcher, catalog: { list: async () => CATALOG } }) }
       : null,
+    router,
   });
 }
 
@@ -177,6 +178,22 @@ describe('integration routes', () => {
     expect(ok.statusCode).toBe(200);
     expect(ok.json().provider).toMatchObject({ kind: 'NIBIEROUTER', model: 'paid-model', restartRequired: true });
     expect(ok.body).not.toContain(KEY2);
+  });
+
+  it('POST providers/nibierouter: restores for the signed-in tenant, 401 without a token, 404 without NibieRouter', async () => {
+    const seen: string[][] = [];
+    const a = app(true, { restore: async (tenantId, instanceId) => { seen.push([tenantId, instanceId]); return { kind: 'NIBIEROUTER' } as never; } });
+    const u = await userWithInstance(a);
+    const url = `/api/v1/instances/${u.instanceId}/providers/nibierouter`;
+    expect((await a.inject({ method: 'POST', url })).statusCode).toBe(401);
+    const r = await a.inject({ method: 'POST', url, headers: u.headers });
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toEqual({ provider: { kind: 'NIBIEROUTER' } });
+    expect(seen).toEqual([[u.tenantId, u.instanceId]]);
+
+    const none = app();
+    const v = await userWithInstance(none, 'carol@example.test');
+    expect((await none.inject({ method: 'POST', url: `/api/v1/instances/${v.instanceId}/providers/nibierouter`, headers: v.headers })).statusCode).toBe(404);
   });
 
   it('answers 503 secrets_unavailable when no key-encryption key is configured', async () => {

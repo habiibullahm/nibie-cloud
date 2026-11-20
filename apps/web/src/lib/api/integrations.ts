@@ -161,9 +161,10 @@ export function buildIntegrationsApi(
       return providers[0] ? toProvider(providers[0]) : NOT_CONFIGURED_PROVIDER
     },
     saveProvider: async (i, input) => {
-      // The customer API only accepts a customer-supplied key; the NibieRouter key is attached by Nibie Cloud.
+      // Back to the NibieRouter key that comes with Nibie Cloud: the backend makes a new key and restarts the instance.
       if (input.kind !== "byok") {
-        throw new ApiError(400, "not_supported", "NibieRouter is attached by Nibie Cloud. Choose your own key to change it.")
+        const { provider } = await call<{ provider: ProviderBody }>(`/instances/${id(i)}/providers/nibierouter`, { method: "POST" })
+        return toProvider(provider)
       }
       const baseUrl = input.baseUrl?.trim() ?? ""
       const model = input.model?.trim() ?? ""

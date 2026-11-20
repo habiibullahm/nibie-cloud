@@ -10,6 +10,7 @@ import type { Integrations } from '../modules/integrations/types.js';
 import { isDatabaseUnavailable } from '../db/errors.js';
 import type { BillingService } from '../modules/billing/billing-service.js';
 import type { AiAccountService } from '../modules/nibierouter/ai-account.js';
+import type { RouterProvisioner } from '../modules/nibierouter/router-provisioner.js';
 import type { Mailer } from '../modules/billing/mailer.js';
 import type { CaptchaVerifier } from '../modules/waitlist/turnstile.js';
 import { registerSumoPodWebhook } from './sumopod-callback.js';
@@ -50,6 +51,8 @@ export function buildServer(deps: {
   captcha?: CaptchaVerifier | null;
   /** NibieRouter balance, usage and AI credit rate. Null or absent: `/ai` and the admin rate route do not exist (404). */
   ai?: AiAccountService | null;
+  /** Gives an instance its NibieRouter key back. Null or absent: `POST .../providers/nibierouter` answers 404. */
+  router?: Pick<RouterProvisioner, 'restore'> | null;
 }): FastifyInstance {
   const { service, config, logger, customer } = deps;
   const integrations = deps.integrations ?? null;
@@ -99,7 +102,7 @@ export function buildServer(deps: {
   registerOperatorRoutes(app, { service, commands, queue: deps.queue ?? null, config, integrations });
   const billing = deps.billing ?? null;
   if (customer) registerPublicRoutes(app, { prisma: customer.prisma, config, mailer: deps.mailer ?? null, captcha: deps.captcha ?? null });
-  if (customer) registerCustomerRoutes(app, { customer, service, commands, config, integrations, logs: deps.logs ?? null, billing, mailer: deps.mailer ?? null, captcha: deps.captcha ?? null, ai: deps.ai ?? null });
+  if (customer) registerCustomerRoutes(app, { customer, service, commands, config, integrations, logs: deps.logs ?? null, billing, mailer: deps.mailer ?? null, captcha: deps.captcha ?? null, ai: deps.ai ?? null, router: deps.router ?? null });
   if (deps.admin) registerAdminRoutes(app, { admin: deps.admin, config, mailer: deps.mailer ?? null, ai: deps.ai ?? null });
   if (billing) registerSumoPodWebhook(app, { billing, logger });
 
