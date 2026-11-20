@@ -4,7 +4,7 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
-## SumoPod gaps closed (2026-11-20, branch `claude/sumopod-gaps`, not committed, not deployed)
+## SumoPod gaps closed (2026-11-20, branch `claude/sumopod-gaps`, PR #99, not deployed)
 
 Owner asked to analyse SumoPod against the code and close the gaps. Facts were read from docs.sumopod.com, the
 SumoPod dashboard Quick Start (Live, read-only) and the production admin MCP.
@@ -43,7 +43,8 @@ SumoPod dashboard Quick Start (Live, read-only) and the production admin MCP.
     `billing-upgrade` and `invoices` pass, 125 tests.
   - Two early runs had 1 to 3 unrelated `billing-api` failures, a different test each time (for example "rejects a
     body over 16 KB"). Later runs passed 3 times alone and once in the full set. This looks like a flaky shared
-    database.
+    database. The wallet-pay entry below confirms that another session was running tests on `hermes_test` at the
+    same time.
 - **Open:**
   - Is a resent delivery signed with a fresh timestamp? Our Svix window is 5 minutes. Resending one old Success row
     answers it.
@@ -55,7 +56,24 @@ SumoPod dashboard Quick Start (Live, read-only) and the production admin MCP.
   - NibieRouter integration (low-balance alert, per-key limits, usage page, model choice, AI credit from the wallet)
     is a separate plan.
 
-## Invoices for every payment (2026-11-20, branch `claude/invoices`, not merged, not deployed)
+## Wallet part 2: pay hosting from the balance, auto-renew (2026-11-20, branch `claude/wallet-pay`, not merged, not deployed)
+
+Owner: "lanjut part 2" and, about the unpaid-order notice on Deploy, "beli arahkan ke dompet".
+- **Built:** migration `20261120300000_wallet_pay` (`Payment.method` QRIS|WALLET, `Subscription.autoRenew` default true);
+  `POST /payments/:id/pay-with-wallet` (purchase, upgrade, renewal; same subscription lock as the webhook; shared `activate`
+  step with the webhook, so invoices and periods are identical); a QRIS payment of an invoice already paid from the wallet goes to
+  the wallet (`credited_to_wallet`); auto-renew in the billing tick behind `WALLET_AUTO_RENEW` (default off), once per period;
+  `POST /subscriptions/:id/auto-renew`; `GET /wallet` says whether auto-renew is on; invoices show the payment method.
+  Dashboard: "Bayar dengan" saldo/QRIS on Deploy (saldo is the default when it covers the price), "Bayar pakai saldo" on the
+  unpaid-order notice, the Billing table and a pending upgrade, "Renew from balance" and "Upgrade from balance" on the instance
+  Billing tab, and the auto-renew switch there (only when `WALLET_AUTO_RENEW` is on and the plan has a price).
+- **Not built:** renewal reminder emails do not mention the balance or auto-renew yet; AI credit (part 3).
+- **Checks (Windows, own local DB `hermes_test_wallet`, because another session was running tests on `hermes_test`):** backend
+  `tsc`; integration `wallet-pay` (new, 9) plus every billing test file, `admin-api` and `schema`: 13 files, 227 tests pass; unit
+  tests pass except the 2 known Windows-only `egress-canary` failures. Dashboard typecheck, lint, tests (203), `next build`. The
+  priced flows were not checked in the browser: preview (mock) plans have no price.
+
+## Invoices for every payment (2026-11-20, branch `claude/invoices`, PR #97, deployed `9291fdf`)
 
 Owner: "yaa buatkan invoice nibie". Owner decisions: seller "Nibie Cloud / nibie.app" (no address, no NPWP), numbers sequential per
 month, no PPN line.

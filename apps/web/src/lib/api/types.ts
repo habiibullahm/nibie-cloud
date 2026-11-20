@@ -194,11 +194,15 @@ export interface BillingPayment {
   subscriptionId: string
   status: PaymentStatus
   purpose: PaymentPurpose
+  /** QRIS through SumoPod, or WALLET when paid from the Nibie Cloud balance. */
+  method: PaymentMethod
   amountIdr: number
   paymentUrl: string | null
   expiresAt: string
   paidAt: string | null
 }
+
+export type PaymentMethod = "QRIS" | "WALLET"
 
 /** Mirrors SubscriptionView. `instanceId` is null until the first payment is verified. */
 export interface BillingSubscription {
@@ -210,6 +214,8 @@ export interface BillingSubscription {
   status: BillingStatus
   currentPeriodEnd: string | null
   cancelAtPeriodEnd: boolean
+  /** Renew from the wallet near the end of the period (when the backend has auto-renew on). */
+  autoRenew: boolean
   graceEndsAt: string | null
   retentionEndsAt: string | null
   createdAt: string
@@ -247,6 +253,8 @@ export interface WalletEntry {
 /** Mirrors WalletView: the balance (saldo, whole rupiah), its limits, and recent history. */
 export interface Wallet {
   balanceIdr: number
+  /** The backend renews subscriptions from this balance (WALLET_AUTO_RENEW). */
+  autoRenew: boolean
   limits: { topupMinIdr: number; topupMaxIdr: number; maxBalanceIdr: number }
   entries: WalletEntry[]
   topups: WalletTopup[]
@@ -266,6 +274,7 @@ export interface Invoice {
   paidAt: string
   /** SumoPod's payment reference, when it sent one. */
   reference: string | null
+  method: PaymentMethod
   /** Only on `GET /invoices/:id`: the account owner's email. */
   billedTo?: string | null
 }

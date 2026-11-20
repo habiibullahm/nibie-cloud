@@ -1,6 +1,6 @@
 import type { RouterProvisioner } from '../nibierouter/router-provisioner.js';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
-import type { Payment, PaymentPurpose, PaymentStatus, Plan, Prisma, PrismaClient, Subscription, SubscriptionStatus } from '@prisma/client';
+import type { Payment, PaymentMethod, PaymentPurpose, PaymentStatus, Plan, Prisma, PrismaClient, Subscription, SubscriptionStatus } from '@prisma/client';
 import { AppError, CapacityFullError, ConflictError, InstanceLimitError, NotFoundError, PlanSoldOutError, ValidationError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import { isUuid } from '../../shared/uuid.js';
@@ -14,7 +14,7 @@ import type { PaymentClient } from './payment-client.js';
 import { SUMOPOD_MIN_AMOUNT_IDR } from './sumopod-client.js';
 import { verifySvixSignature, type SvixHeaders } from './svix.js';
 import { getInvoice, issueInvoice, listInvoices, type InvoiceView } from './invoices.js';
-import { moveWallet, WalletService } from './wallet.js';
+import { InsufficientBalanceError, moveWallet, WalletService } from './wallet.js';
 
 /** How long an invoice stays payable. QRIS allows 60 minutes at most. */
 export const INVOICE_EXPIRY_MINUTES = 60;
@@ -30,6 +30,7 @@ export interface PaymentView {
   subscriptionId: string;
   status: PaymentStatus;
   purpose: PaymentPurpose;
+  method: PaymentMethod;
   amountIdr: number;
   /** Only while the invoice can still be paid. */
   paymentUrl: string | null;
@@ -46,6 +47,8 @@ export interface SubscriptionView {
   status: SubscriptionStatus;
   currentPeriodEnd: Date | null;
   cancelAtPeriodEnd: boolean;
+  /** Renew from the wallet near the end of the period. */
+  autoRenew: boolean;
   graceEndsAt: Date | null;
   retentionEndsAt: Date | null;
   createdAt: Date;
@@ -72,6 +75,8 @@ export interface BillingDeps {
   router?: Pick<RouterProvisioner, 'begin'>;
   /** `WALLET_ENABLED`: the customer wallet routes exist. A paid top-up is credited by the webhook either way. */
   walletEnabled?: boolean;
+  /** `WALLET_AUTO_RENEW` (with the wallet on): shown to the dashboard; the billing tick does the renewing. */
+  walletAutoRenew?: boolean;
   now?: () => Date;
 }
 
@@ -83,7 +88,7 @@ export interface SumoPodCredentials {
 }
 
 export type CallbackOutcome =
-  | 'activated' | 'topped_up' | 'duplicate' | 'unknown_order' | 'amount_mismatch' | 'failed' | 'ignored_failure' | 'already_paid' | 'paid_after_end'
+  | 'activated' | 'topped_up' | 'credited_to_wallet' | 'duplicate' | 'unknown_order' | 'amount_mismatch' | 'failed' | 'ignored_failure' | 'already_paid' | 'paid_after_end'
   | 'ignored_event';
 
 export type CallbackResult =
@@ -101,6 +106,9 @@ const unpaidStatus = (resultCode: string): PaymentStatus => (resultCode === 'exp
 
 const none = async (): Promise<void> => undefined;
 
+/** Auto-renew charges the wallet at most this long before the paid period ends. */
+const AUTO_RENEW_WINDOW_MS = 86_400_000;
+
 const newOrderId = (): string => `nc-${randomUUID().replaceAll('-', '')}`;
 
 const sha256 = (s: string): Buffer => createHash('sha256').update(s).digest();
@@ -113,7 +121,7 @@ function tokenMatches(given: string, expected: string): boolean {
 export function paymentView(p: Payment, now: Date): PaymentView {
   const payable = p.status === 'PENDING' && p.expiresAt.getTime() > now.getTime();
   return {
-    id: p.id, subscriptionId: p.subscriptionId, status: p.status, purpose: p.purpose, amountIdr: p.amountIdr,
+    id: p.id, subscriptionId: p.subscriptionId, status: p.status, purpose: p.purpose, method: p.method, amountIdr: p.amountIdr,
     paymentUrl: payable ? p.paymentUrl : null, expiresAt: p.expiresAt, paidAt: p.paidAt,
   };
 }
@@ -121,7 +129,7 @@ export function paymentView(p: Payment, now: Date): PaymentView {
 function subscriptionView(s: Subscription & { plan: Plan; payments: Payment[] }, now: Date): SubscriptionView {
   return {
     id: s.id, planId: s.planId, planName: s.plan.name, instanceId: s.instanceId, name: s.intendedName, status: s.status,
-    currentPeriodEnd: s.currentPeriodEnd, cancelAtPeriodEnd: s.cancelAtPeriodEnd, graceEndsAt: s.graceEndsAt,
+    currentPeriodEnd: s.currentPeriodEnd, cancelAtPeriodEnd: s.cancelAtPeriodEnd, autoRenew: s.autoRenew, graceEndsAt: s.graceEndsAt,
     retentionEndsAt: s.retentionEndsAt, createdAt: s.createdAt,
     latestPayment: s.payments[0] ? paymentView(s.payments[0], now) : null,
   };
@@ -135,7 +143,7 @@ export class BillingService {
   constructor(private readonly d: BillingDeps) {
     this.now = d.now ?? (() => new Date());
     this.wallet = d.walletEnabled
-      ? new WalletService({ prisma: d.prisma, paymentClient: d.paymentClient, dashboardOrigin: d.dashboardOrigin, now: this.now })
+      ? new WalletService({ prisma: d.prisma, paymentClient: d.paymentClient, dashboardOrigin: d.dashboardOrigin, autoRenew: d.walletAutoRenew, now: this.now })
       : null;
   }
 
@@ -434,15 +442,34 @@ export class BillingService {
       where: { id: payment.id, status: { not: 'PAID' } },
       data: { status: 'PAID', resultCode: c.resultCode, reference: c.reference || payment.reference, paidAt: now },
     });
-    if (marked.count === 0) return finish('already_paid');
+    if (marked.count === 0) {
+      // Re-read under the subscription lock: the invoice may have been paid from the wallet since it was first read.
+      const current = await tx.payment.findUniqueOrThrow({ where: { id: payment.id }, include: { subscription: { select: { tenantId: true } } } });
+      if (current.method !== 'WALLET') return finish('already_paid');
+      // Paid twice, from the wallet and then by this QRIS invoice: the second payment goes to the wallet, never lost.
+      const back = await moveWallet(tx, {
+        tenantId: current.subscription.tenantId, amountIdr: payment.amountIdr, kind: 'TOPUP', refId: `qris:${payment.id}`,
+        note: 'Pembayaran QRIS ganda, masuk ke saldo',
+      });
+      return finish(back.applied ? 'credited_to_wallet' : 'already_paid');
+    }
 
+    const activation = await this.activate(tx, payment, now);
+    return activation ? finish('activated', activation) : finish('paid_after_end');
+  }
+
+  /**
+   * What a paid hosting invoice buys, inside the transaction that marked it paid: its invoice, then 30 more days (from
+   * the end of a running period, else from now). Null when the subscription had already ended: the money was received
+   * (so the invoice is still issued) but nothing is reactivated; the operator refunds.
+   */
+  private async activate(tx: Prisma.TransactionClient, payment: Payment, now: Date): Promise<Activation | null> {
     const sub = await tx.subscription.findUniqueOrThrow({ where: { id: payment.subscriptionId }, include: { plan: { select: { name: true } } } });
-    // Money was received, so an invoice is issued even when the subscription already ended (the operator then refunds).
     await issueInvoice(tx, {
       tenantId: sub.tenantId, kind: payment.purpose === 'RENEWAL' ? 'HOSTING_RENEWAL' : 'HOSTING_NEW', amountIdr: payment.amountIdr,
       paidAt: now, planName: sub.plan.name, instanceName: sub.intendedName, paymentId: payment.id,
     });
-    if (sub.status === 'ENDED') return finish('paid_after_end');
+    if (sub.status === 'ENDED') return null;
     const { end } = periodAfterPayment({ now, status: sub.status, currentPeriodEnd: sub.currentPeriodEnd });
     await tx.subscription.update({
       where: { id: sub.id },
@@ -451,10 +478,98 @@ export class BillingService {
         ...(sub.status === 'SUSPENDED' ? { restartPending: true } : {}),
       },
     });
-    return finish('activated', {
+    return {
       subscriptionId: sub.id, tenantId: sub.tenantId, wasSuspended: sub.status === 'SUSPENDED', instanceId: sub.instanceId,
       periodEnd: end, amountIdr: payment.amountIdr,
+    };
+  }
+
+  // ---- wallet payments -----------------------------------------------------------------------
+
+  /**
+   * Debits the wallet for one hosting invoice and activates it, inside the caller's transaction, which must hold the
+   * subscription row lock. The ledger entry is keyed on the payment id, so an invoice is charged at most once; a balance
+   * that is too low throws `insufficient_balance` and the transaction rolls back.
+   */
+  private async chargeWallet(tx: Prisma.TransactionClient, payment: Payment, kind: 'HOSTING' | 'AUTO_RENEW', now: Date): Promise<Activation> {
+    const sub = await tx.subscription.findUniqueOrThrow({ where: { id: payment.subscriptionId }, select: { tenantId: true, status: true } });
+    if (sub.status === 'ENDED') throw new AppError('This subscription has ended', 409, 'subscription_ended');
+    await moveWallet(tx, {
+      tenantId: sub.tenantId, amountIdr: -payment.amountIdr, kind, refId: payment.id,
+      note: kind === 'AUTO_RENEW' ? 'Perpanjangan otomatis' : 'Pembayaran hosting',
     });
+    const paid = await tx.payment.update({ where: { id: payment.id }, data: { status: 'PAID', method: 'WALLET', resultCode: '00', paidAt: now } });
+    return (await this.activate(tx, paid, now))!;
+  }
+
+  /**
+   * Pays an open hosting invoice (a purchase, an upgrade or a renewal) from the wallet instead of QRIS. Only an invoice
+   * that is still payable: an expired purchase gets a new invoice first, so capacity and stock are checked again. The
+   * returned `postActions` (instance, plan change, receipt) run after the response, like the webhook's.
+   */
+  async payWithWallet(tenantId: string, paymentId: string): Promise<{ subscription: SubscriptionView; payment: PaymentView; postActions: () => Promise<void> }> {
+    if (!isUuid(paymentId)) throw new NotFoundError('Payment not found');
+    const found = await this.d.prisma.payment.findFirst({ where: { id: paymentId, subscription: { tenantId } } });
+    if (!found) throw new NotFoundError('Payment not found');
+    const now = this.now();
+    const activation = await this.d.prisma.$transaction(async (tx) => {
+      // The same lock as the webhook: a QRIS payment and a wallet payment of one invoice can never both apply.
+      await tx.$queryRaw`SELECT id FROM "Subscription" WHERE id = ${found.subscriptionId}::uuid FOR UPDATE`;
+      const payment = await tx.payment.findUniqueOrThrow({ where: { id: found.id } });
+      if (payment.status !== 'PENDING' || payment.expiresAt.getTime() <= now.getTime()) {
+        throw new AppError('This invoice can no longer be paid', 409, 'payment_not_payable');
+      }
+      return this.chargeWallet(tx, payment, 'HOSTING', now);
+    });
+    const payment = await this.d.prisma.payment.findUniqueOrThrow({ where: { id: found.id } });
+    return { subscription: await this.viewOf(found.subscriptionId), payment: paymentView(payment, now), postActions: () => this.afterActivation(activation) };
+  }
+
+  /**
+   * Renews from the wallet when the paid period ends within a day (or already ended, in grace), the customer left
+   * auto-renew on and the balance covers the price. The order id names the period it renews, so each period is charged
+   * at most once however many ticks or replicas run. A short balance changes nothing: the usual reminders and grace follow.
+   */
+  async autoRenew(subscriptionId: string, now: Date): Promise<boolean> {
+    const sub = await this.d.prisma.subscription.findUnique({ where: { id: subscriptionId }, include: { plan: true } });
+    if (!sub || !sub.autoRenew || sub.cancelAtPeriodEnd || !sub.currentPeriodEnd) return false;
+    if (sub.status !== 'ACTIVE' && sub.status !== 'GRACE') return false;
+    if (sub.currentPeriodEnd.getTime() - now.getTime() > AUTO_RENEW_WINDOW_MS) return false;
+    const price = sub.plan.monthlyPriceIdr;
+    if (price === null || price < SUMOPOD_MIN_AMOUNT_IDR) return false;
+    const balance = (await this.d.prisma.wallet.findUnique({ where: { tenantId: sub.tenantId } }))?.balanceIdr ?? 0;
+    if (balance < price) return false;
+
+    const periodEnd = sub.currentPeriodEnd;
+    let activation: Activation | null;
+    try {
+      activation = await this.d.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM "Subscription" WHERE id = ${sub.id}::uuid FOR UPDATE`;
+        const fresh = await tx.subscription.findUniqueOrThrow({ where: { id: sub.id } });
+        const unchanged = fresh.currentPeriodEnd?.getTime() === periodEnd.getTime() && (fresh.status === 'ACTIVE' || fresh.status === 'GRACE');
+        if (!unchanged || !fresh.autoRenew || fresh.cancelAtPeriodEnd) return null; // paid or changed meanwhile
+        const payment = await tx.payment.create({
+          data: { ...this.newPayment(sub.id, 'RENEWAL', price, now), merchantOrderId: `ar-${sub.id.replaceAll('-', '')}-${periodEnd.getTime()}` },
+        });
+        // An open QRIS renewal invoice is not needed any more; if it is paid anyway, that payment still counts.
+        await tx.payment.updateMany({ where: { subscriptionId: sub.id, purpose: 'RENEWAL', status: 'PENDING', id: { not: payment.id } }, data: { status: 'EXPIRED' } });
+        return this.chargeWallet(tx, payment, 'AUTO_RENEW', now);
+      });
+    } catch (e) {
+      // Spent meanwhile, or this period was already renewed by another tick: nothing to do.
+      if (e instanceof InsufficientBalanceError || (e as { code?: string }).code === 'P2002') return false;
+      throw e;
+    }
+    if (!activation) return false;
+    await this.afterActivation(activation);
+    return true;
+  }
+
+  /** The customer's auto-renew switch for one subscription. */
+  async setAutoRenew(tenantId: string, subscriptionId: string, enabled: boolean): Promise<SubscriptionView> {
+    const sub = await this.findOwned(tenantId, subscriptionId);
+    await this.d.prisma.subscription.update({ where: { id: sub.id }, data: { autoRenew: enabled } });
+    return this.viewOf(sub.id);
   }
 
   private async afterActivation(a: Activation): Promise<void> {

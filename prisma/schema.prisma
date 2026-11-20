@@ -253,6 +253,8 @@ model Subscription {
   /// Set when a verified payment reinstates a suspended subscription, cleared once the instance was started
   /// again. A crash in between is repaired by the billing tick.
   restartPending    Boolean            @default(false)
+  /// Renew from the wallet balance near the end of the period (owner decision: on by default, the customer can turn it off).
+  autoRenew         Boolean            @default(true)
   createdAt         DateTime           @default(now()) @db.Timestamptz(3)
   updatedAt         DateTime           @updatedAt @db.Timestamptz(3)
 
@@ -272,6 +274,11 @@ enum PaymentPurpose {
   RENEWAL
 }
 
+enum PaymentMethod {
+  QRIS
+  WALLET
+}
+
 enum PaymentStatus {
   PENDING
   PAID
@@ -287,6 +294,8 @@ model Payment {
   amountIdr       Int
   purpose         PaymentPurpose
   status          PaymentStatus  @default(PENDING)
+  /// How it was paid: QRIS through the gateway, or from the wallet balance (then no gateway reference).
+  method          PaymentMethod  @default(QRIS)
   reference       String?
   paymentUrl      String?
   resultCode      String?

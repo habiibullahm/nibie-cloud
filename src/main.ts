@@ -117,9 +117,15 @@ const billing = config.billing && config.dashboardOrigin
       dashboardOrigin: config.dashboardOrigin, maxInstancesPerTenant: config.maxInstancesPerTenant, maxTotalInstances: config.maxTotalInstances, logger,
       ...(router ? { router } : {}),
       walletEnabled: config.walletEnabled === true,
+      walletAutoRenew: config.walletEnabled === true && config.walletAutoRenew === true,
     })
   : null;
-const billingTick = billing ? new BillingTick({ prisma, billing, commands, mailer, logger, ...(router ? { router } : {}) }) : null;
+const billingTick = billing
+  ? new BillingTick({
+      prisma, billing, commands, mailer, logger, ...(router ? { router } : {}),
+      autoRenew: config.walletEnabled === true && config.walletAutoRenew === true,
+    })
+  : null;
 // Automatic waiting list: invites the oldest waiting entry whenever a free beta slot opens. Needs the free slots and email.
 const waitlistInviter = customer && config.freeBetaSlots > 0
   ? new WaitlistInviter({ prisma, mailer, logger, slots: config.freeBetaSlots, registerUrl: `${config.dashboardOrigin ?? 'https://cloud.nibie.app'}/dashboard/register` })

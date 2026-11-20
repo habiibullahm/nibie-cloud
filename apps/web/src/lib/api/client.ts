@@ -64,6 +64,10 @@ export interface BillingApi {
   wallet(): Promise<Wallet | null>
   /** Starts a QRIS top-up; the caller sends the customer to `paymentUrl`. */
   topup(amountIdr: number, idempotencyKey: string): Promise<WalletTopup>
+  /** Pays an open hosting invoice from the wallet balance instead of QRIS. */
+  payWithWallet(paymentId: string): Promise<CheckoutResult>
+  /** Turns renewal from the wallet on or off for one subscription. */
+  setAutoRenew(subscriptionId: string, enabled: boolean): Promise<BillingSubscription>
   /** Invoices of paid hosting and top-ups, newest first. */
   invoices(): Promise<Invoice[]>
   invoice(id: string): Promise<Invoice>

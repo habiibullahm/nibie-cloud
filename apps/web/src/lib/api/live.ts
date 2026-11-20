@@ -123,6 +123,15 @@ export function buildBillingApi(call: Call): BillingApi {
           body: JSON.stringify({ amountIdr }),
         })
       ).topup,
+    payWithWallet: (paymentId) => call<CheckoutResult>(`/payments/${id(paymentId)}/pay-with-wallet`, { method: "POST" }),
+    setAutoRenew: async (subscriptionId, enabled) =>
+      (
+        await call<{ subscription: BillingSubscription }>(`/subscriptions/${id(subscriptionId)}/auto-renew`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ enabled }),
+        })
+      ).subscription,
     invoices: async () => (await call<{ invoices: Invoice[] }>("/invoices")).invoices,
     invoice: async (invoiceId) => (await call<{ invoice: Invoice }>(`/invoices/${id(invoiceId)}`)).invoice,
   }
@@ -133,6 +142,6 @@ export function createUnavailableBillingApi(): BillingApi {
   const refuse = () => Promise.reject(new ApiError(404, "billing_unavailable", "Billing is not available in this mode."))
   return {
     list: async () => [], checkout: refuse, upgrade: refuse, renew: refuse, cancel: refuse,
-    wallet: async () => null, topup: refuse, invoices: async () => [], invoice: refuse,
+    wallet: async () => null, topup: refuse, payWithWallet: refuse, setAutoRenew: refuse, invoices: async () => [], invoice: refuse,
   }
 }

@@ -22,6 +22,7 @@ export interface TickSummary {
   repaired: number;
   emails: number;
   routerProvisioned: number;
+  autoRenewed: number;
 }
 
 export interface BillingTickDeps {
@@ -35,6 +36,8 @@ export interface BillingTickDeps {
   now?: () => Date;
   /** `run()` does nothing when called again sooner than this (the scheduler ticks every 15 s). Default 5 minutes. */
   minIntervalMs?: number;
+  /** WALLET_ENABLED and WALLET_AUTO_RENEW: renew from the wallet before the period ends. */
+  autoRenew?: boolean;
 }
 
 /**
@@ -65,7 +68,7 @@ export class BillingTick {
   }
 
   async runOnce(): Promise<TickSummary> {
-    const sum: TickSummary = { expiredPayments: 0, abandoned: 0, graced: 0, suspended: 0, ended: 0, repaired: 0, emails: 0, routerProvisioned: 0 };
+    const sum: TickSummary = { expiredPayments: 0, abandoned: 0, graced: 0, suspended: 0, ended: 0, repaired: 0, emails: 0, routerProvisioned: 0, autoRenewed: 0 };
     const now = this.now();
     const { prisma } = this.d;
 
@@ -139,6 +142,12 @@ export class BillingTick {
     if (sub.instance && sub.instance.planId !== sub.planId) {
       await this.d.billing.applyPlanChange(sub.id);
       sum.repaired += 1;
+    }
+
+    // Renewed from the wallet before the period runs out, so no grace or reminder follows.
+    if (this.d.autoRenew && (await this.d.billing.autoRenew(sub.id, now))) {
+      sum.autoRenewed += 1;
+      sub = await prisma.subscription.findUniqueOrThrow({ where: { id: subscriptionId }, include: { instance: true } });
     }
 
     for (let guard = 0; guard < 4; guard++) {

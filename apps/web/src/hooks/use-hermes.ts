@@ -215,6 +215,29 @@ export function useTopup() {
   })
 }
 
+/** Pays an open hosting invoice from the wallet; the balance, subscriptions and invoices refresh. */
+export function useWalletPay() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (paymentId: string) => getApi().billing.payWithWallet(paymentId),
+    onSuccess: () => {
+      for (const key of [keys.subscriptions, keys.wallet, keys.invoices, keys.instances]) void qc.invalidateQueries({ queryKey: key })
+      toast.success("Paid from your balance.")
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+}
+
+export function useSetAutoRenew() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ subscriptionId, enabled }: { subscriptionId: string; enabled: boolean }) =>
+      getApi().billing.setAutoRenew(subscriptionId, enabled),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.subscriptions }),
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+}
+
 export function useInvoices() {
   return useQuery({ queryKey: keys.invoices, queryFn: () => getApi().billing.invoices() })
 }
