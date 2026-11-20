@@ -4,7 +4,27 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
-## NibieRouter step 1: the customer chooses the model (2026-11-20, branch `claude/nibierouter-model-choice`, not merged)
+## Database backup to R2 checked, restore drill passed (2026-11-20, VPS, no code)
+
+Owner ran the checks on the VPS with the steps from this session; all read-only, production untouched.
+- **Timers:** `hermes-db-backup.timer` (03:00 CST = 19:00 UTC) and `hermes-db-offsite.timer` (03:30 CST) both active, last
+  run 2026-11-19 19:00/19:30 UTC.
+- **R2 upload:** `/var/log/hermes-db-offsite.log` has `OK: uploaded` every day from 2026-11-16 to 2026-11-19 and no `ERROR`.
+  The `Load(<lock/...>) ... The specified key does not exist` lines at the end of the log come from the `forget --prune` /
+  `check` step after the upload and resolved on retry.
+- **Restore drill:** `sudo /usr/local/sbin/hermes-restore-drill --from-r2` restored `hermes-20261119T192859Z.dump` from R2
+  into a throwaway Postgres with no network: rows (plans|tenants|instances|users) `3|6|10|7`, `restore drill OK`, exit 0.
+- **Still open:**
+  - The restic password and R2 credentials live only in `/etc/restic/r2/env` on the VPS. The owner must keep a copy in the
+    password manager, or the R2 backups cannot be read if the VPS is lost. Not confirmed yet.
+  - There is no written runbook to restore the production database from R2.
+  - There is no alert when a backup or upload fails.
+
+## NibieRouter step 1: the customer chooses the model (2026-11-20, branch `claude/nibierouter-model-choice`, PR #105, deployed `d798b01`)
+
+Deployed by the owner by hand on 2026-11-20 (`deploy.sh`: database dump, build, no pending migrations, backend and caddy
+recreated, `OK: backend d798b01 is ready`). The image tag was already `d798b01` before that run. Not yet checked in the
+dashboard by a customer.
 
 Owner: "mulai langkah 1" of `docs/superpowers/plans/2026-11-20-nibierouter-integration.md`.
 - **Backend:** new `src/modules/nibierouter/model-catalog.ts` reads the router's public `/v1/models` (no key, router host
