@@ -4,9 +4,11 @@
  * provider with `GET {baseUrl}/models` and a Bearer token, which Anthropic's own API does not accept.
  */
 export const BYOK_PROVIDERS = [
-  { value: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1", modelHint: "gpt-4o-mini" },
-  { value: "openrouter", label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", modelHint: "openai/gpt-4o-mini" },
-  { value: "custom", label: "OpenAI-compatible (custom URL)", baseUrl: null, modelHint: "model-name" },
+  // The customer's own NibieRouter account: they create the key on the router's site and paste it here.
+  { value: "nibierouter", label: "NibieRouter (own account)", baseUrl: "https://router.nibie.app/v1", modelHint: "model-name", keyUrl: "https://router.nibie.app" },
+  { value: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1", modelHint: "gpt-4o-mini", keyUrl: null },
+  { value: "openrouter", label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1", modelHint: "openai/gpt-4o-mini", keyUrl: null },
+  { value: "custom", label: "OpenAI-compatible (custom URL)", baseUrl: null, modelHint: "model-name", keyUrl: null },
 ] as const
 
 export type ByokProviderName = (typeof BYOK_PROVIDERS)[number]["value"]

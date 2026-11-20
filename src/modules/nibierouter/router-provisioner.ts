@@ -7,6 +7,11 @@ import type { NibieRouterClient, RouterConfig } from './nibierouter-client.js';
 
 /** A run that keeps failing is left for an operator after this many attempts (the billing tick retries every 5 minutes). */
 export const MAX_ATTEMPTS = 24;
+/**
+ * Requests per minute for every instance key (owner, 2026-11-20). A key read out of a container can then not use up the
+ * shared free capacity. The daily request limit of the free models is set on the router itself, not here.
+ */
+export const KEY_RPM_LIMIT = 20;
 
 export interface RouterProvisionerDeps {
   prisma: PrismaClient;
@@ -32,6 +37,9 @@ class OrphanKeyError extends Error {}
  * payment or the instance: it only leaves the row PENDING with a short machine code.
  */
 export class RouterProvisioner {
+  /** Set once a sweep found every instance key limited; see `limitOldKeys`. */
+  private oldKeysLimited = false;
+
   constructor(private readonly d: RouterProvisionerDeps) {}
 
   /** Records that this instance needs provisioning (once) and tries it. Never throws. */
@@ -89,7 +97,30 @@ export class RouterProvisioner {
     });
     let done = 0;
     for (const r of rows) if ((await this.run(r.instanceId)) !== 'pending') done += 1;
+    if (!this.oldKeysLimited) await this.limitOldKeys();
     return done;
+  }
+
+  /**
+   * Keys made before `KEY_RPM_LIMIT` existed have no limit: give each unrevoked `inst-*` key without one the limit, keeping
+   * its other settings. A limit already set (by an operator in the router dashboard) is left alone. Never throws: a failure
+   * is logged and the next tick tries again.
+   * shortcut: one pass per process, every tenant with a router user; turn it into a per-tenant flag once there are many tenants.
+   */
+  private async limitOldKeys(): Promise<void> {
+    try {
+      const tenants = await this.d.prisma.tenant.findMany({ where: { routerUserId: { not: null } }, select: { routerUserId: true } });
+      for (const t of tenants) {
+        const userId = t.routerUserId as string;
+        for (const k of await this.d.client.listKeys(userId)) {
+          if (k.revoked || k.rpmLimit !== null || !k.name.startsWith('inst-')) continue;
+          await this.d.client.updateKey(userId, k.id, { name: k.name, settings: { ...k.settings, rpm_limit: KEY_RPM_LIMIT } });
+        }
+      }
+      this.oldKeysLimited = true;
+    } catch (e) {
+      this.d.logger.warn({ errName: (e as Error).name }, 'router key limits not applied yet; the next tick tries again');
+    }
   }
 
   /**
@@ -202,7 +233,7 @@ export class RouterProvisioner {
     // A key with this name that we hold no secret for: the router shows a secret only once, so a duplicate is
     // never created silently. An operator revokes the orphan in the NibieRouter dashboard, then the next run proceeds.
     if ((await this.d.client.listKeys(userId)).some((k) => k.name === name && !k.revoked)) throw new OrphanKeyError();
-    const key = await this.d.client.createKey(userId, { name });
+    const key = await this.d.client.createKey(userId, { name, rpmLimit: KEY_RPM_LIMIT });
     await this.d.providers.attachNibieRouter(tenantId, instanceId, { apiKey: key.secret, model: this.d.cfg.defaultModel });
     try {
       await this.d.applyConfig?.(tenantId, instanceId);

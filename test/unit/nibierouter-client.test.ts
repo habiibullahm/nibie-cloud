@@ -61,18 +61,34 @@ describe('createNibieRouterClient', () => {
     expect(lastCall(f)[0]).toBe('https://router.example.test/api/admin/users/u/balance-history?limit=200');
   });
 
-  it('createKey returns the id and the secret; a body without an sk- secret is unexpected', async () => {
-    const ok = createNibieRouterClient(cfg, { fetcher: fakeFetch({ id: 'k1', key: 'sk-abcdefghijkl' }) });
-    expect(await ok.createKey('u', { name: 'inst-1' })).toEqual({ id: 'k1', secret: 'sk-abcdefghijkl' });
+  it('createKey sends the rpm limit and returns the id and the secret; a body without an sk- secret is unexpected', async () => {
+    const f = fakeFetch({ id: 'k1', key: 'sk-abcdefghijkl' });
+    expect(await createNibieRouterClient(cfg, { fetcher: f }).createKey('u', { name: 'inst-1', rpmLimit: 20 })).toEqual({ id: 'k1', secret: 'sk-abcdefghijkl' });
+    expect(JSON.parse(lastCall(f)[1].body!)).toEqual({ name: 'inst-1', rpm_limit: 20 });
     const bad = createNibieRouterClient(cfg, { fetcher: fakeFetch({ id: 'k1', key: 'not-a-secret' }) });
-    expect(await reason(bad.createKey('u', { name: 'inst-1' }))).toBe('unexpected');
+    expect(await reason(bad.createKey('u', { name: 'inst-1', rpmLimit: 20 }))).toBe('unexpected');
   });
 
-  it('listKeys marks revoked keys', async () => {
-    const f = fakeFetch({ keys: [{ name: 'a', revoked_at: null }, { name: 'b', revoked_at: '2026-01-01T00:00:00Z' }, { name: 'c' }] });
+  it('listKeys marks revoked keys and keeps the limit settings, nothing else', async () => {
+    const f = fakeFetch({ keys: [
+      { id: 'k1', name: 'a', revoked_at: null, rpm_limit: null, max_parallel: 2, allowed_models: null, key_prefix: 'sk-****-x', usage_nano: 5 },
+      { id: 'k2', name: 'b', revoked_at: '2026-01-01T00:00:00Z', rpm_limit: 20 },
+      { id: 'k3', name: 'c' },
+    ] });
     expect(await createNibieRouterClient(cfg, { fetcher: f }).listKeys('u')).toEqual([
-      { name: 'a', revoked: false }, { name: 'b', revoked: true }, { name: 'c', revoked: false },
+      { id: 'k1', name: 'a', revoked: false, rpmLimit: null, settings: { rpm_limit: null, max_parallel: 2, allowed_models: null } },
+      { id: 'k2', name: 'b', revoked: true, rpmLimit: 20, settings: { rpm_limit: 20 } },
+      { id: 'k3', name: 'c', revoked: false, rpmLimit: null, settings: {} },
     ]);
+  });
+
+  it('updateKey PUTs the name and every setting given', async () => {
+    const f = fakeFetch({ id: 'k1', name: 'inst-1', rpm_limit: 20 });
+    await createNibieRouterClient(cfg, { fetcher: f }).updateKey('u 1', 'k/1', { name: 'inst-1', settings: { rpm_limit: 20, max_parallel: 2, allowed_models: null } });
+    const [url, opts] = lastCall(f);
+    expect(url).toBe('https://router.example.test/api/admin/users/u%201/keys/k%2F1');
+    expect(opts.method).toBe('PUT');
+    expect(JSON.parse(opts.body!)).toEqual({ name: 'inst-1', rpm_limit: 20, max_parallel: 2, allowed_models: null });
   });
 
   it.each([

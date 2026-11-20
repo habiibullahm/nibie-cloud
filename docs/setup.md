@@ -382,7 +382,9 @@ plan credit); when it is empty the router refuses the requests, the instance its
   manager). Without them nothing changes. `SECRETS_KEK` must be set too.
 - **Check the real router first** (done once on 2026-11-15, all admin calls passed): on the VPS,
   `NIBIEROUTER_ADMIN_KEY=... pnpm tsx test/validation/nibierouter-live.ts` creates one throwaway user and tries
-  create key, list keys, a US$0.01 credit and the balance history. It prints only OK/FAILED and field names.
+  create key (with `rpm_limit` 20), list keys, change the key's limit, a US$0.01 credit, the balance history and reading the
+  user. It prints only OK/FAILED and field names. Key create and key update (`PUT /api/admin/users/:id/keys/:keyId`, every
+  setting replaced with what is sent) were also checked by hand on 2026-11-20 with a throwaway user (since disabled).
 - **Admin key IP restriction:** the router checks `allowed_ips` against the `X-Real-IP` header its reverse proxy sets, and
   refuses a restricted key when the header is missing or wrong (HTTP 403, seen on 2026-11-15). Restrict the key to the
   VPS address only after the router's proxy passes the real client IP in `X-Real-IP`; otherwise use an unrestricted key and
@@ -392,6 +394,10 @@ plan credit); when it is empty the router refuses the requests, the instance its
   `UPDATE hermes."Plan" SET "monthlyPriceIdr" = 50000, "includedCreditNano" = 2000000000 WHERE slug = '<hosting+credit slug>';`
   (US$1 = 1_000_000_000 nano; `GET /plans` shows it as `includedCreditUsd`). Put the credit plan on sale only after the
   live check above passed.
+- **Key limits:** every instance key gets `rpm_limit` 20 (`KEY_RPM_LIMIT` in `router-provisioner.ts`) when it is created.
+  Keys made before that get it once per backend start from the billing tick (`runPending`); a limit already set in the
+  router dashboard is left alone, and the key's other settings are sent back unchanged. The free models' daily request
+  limit is configured on the router, not here.
 - **Stuck row:** `SELECT * FROM hermes."RouterProvisioning" WHERE status = 'PENDING';`. `orphan_key` means a key named
   `inst-<instanceId>` exists at the router but no secret is stored here (the router shows a secret once): revoke that key
   in the NibieRouter dashboard and the next tick creates a new one.
