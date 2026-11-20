@@ -23,6 +23,7 @@ export const keys = {
   subscriptions: ["subscriptions"] as const,
   wallet: ["wallet"] as const,
   ai: ["ai"] as const,
+  aiKeys: ["ai", "keys"] as const,
   invoices: ["invoices"] as const,
   invoice: (id: string) => ["invoices", id] as const,
   usage: (id: string, r: string) => ["usage", id, r] as const,
@@ -221,6 +222,28 @@ export function useSetAiAlert() {
       toast.success("Reminder saved.")
     },
     onError: (e) => toast.error(errorMessage(e)),
+  })
+}
+
+/** The customer's own NibieRouter keys; `data` is null when the backend has no NibieRouter. */
+export function useAiKeys() {
+  return useQuery({ queryKey: keys.aiKeys, queryFn: () => getApi().billing.aiKeys() })
+}
+
+/** Errors are left to the caller, which shows them next to the form. */
+export function useCreateAiKey() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) => getApi().billing.createAiKey(name),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.aiKeys }),
+  })
+}
+
+export function useRevokeAiKey() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => getApi().billing.revokeAiKey(id),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.aiKeys }),
   })
 }
 

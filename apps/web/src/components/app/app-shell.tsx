@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronRight,
   CreditCard,
+  KeyRound,
   LifeBuoy,
   ListChecks,
   LogOut,
@@ -47,6 +48,7 @@ const GROUPS = [
     label: "Account",
     items: [
       { href: "/billing", label: "Billing", icon: CreditCard, match: (p: string) => p.startsWith("/billing") },
+      { href: "/api-keys", label: "API keys", icon: KeyRound, match: (p: string) => p.startsWith("/api-keys") },
       { href: "/account", label: "Account settings", icon: UserRound, match: (p: string) => p.startsWith("/account") },
       { href: "/support", label: "Support", icon: LifeBuoy, match: (p: string) => p.startsWith("/support") },
     ],
