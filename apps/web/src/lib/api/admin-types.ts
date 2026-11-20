@@ -205,6 +205,22 @@ export interface AdminNode {
   instanceCount: number
 }
 
+/** Host snapshot written every 5 minutes by the hermes-usage timer on the VPS. Sizes in MB. */
+export interface AdminHostUsage {
+  ts: string
+  cpus: number
+  load1: number
+  memTotalMb: number
+  memUsedMb: number
+  memAvailableMb: number
+  diskTotalMb: number
+  diskUsedMb: number
+  volumesTotalMb: number
+  volumesUsedMb: number
+  tenants: number
+  tenantMemMb: number
+}
+
 export interface AdminSubscription {
   id: string
   status: string

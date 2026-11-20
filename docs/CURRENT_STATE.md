@@ -4,11 +4,47 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Host capacity on the admin Node page (2026-11-21, branch `claude/node-capacity`, not merged)
+
+Owner: "buat kapasitas di Node", without adding backend load.
+- `ops/host/hermes-usage.sh` (the existing 5-minute timer) also replaces `/var/lib/hermes-usage/node.json`: RAM total/used/available,
+  1-minute load and core count, disk of `/` and of `/var/lib/docker/volumes`, running tenants and their summed RAM.
+- `deploy/compose.prod.yaml` mounts `/var/lib/hermes-usage` read-only into the backend. `GET /api/v1/admin/nodes` adds `host`
+  (`src/modules/admin/host-usage.ts`: one small file read per request, zod-checked, null when missing or malformed). The
+  backend runs no `docker stats` and polls nothing for this. One snapshot for the one host (shortcut until multi-node).
+- Dashboard Node page: "Kapasitas host" card with RAM, system disk and customer-volume disk bars (numbers and percent in text),
+  CPU load, the snapshot age (marked old after 15 minutes) and an estimate of how many more instances fit under the 70 % RAM
+  rule (`apps/web/src/lib/host-capacity.ts`: average of the running instances, or 400 MB idle when none run).
+- Host scripts installed on the VPS on the owner's word ("install drill and install usage", 2026-11-20 18:39 UTC; old copies
+  `/usr/local/sbin/*.bak-20261120T183928Z`). `node.json` is written. The Node page shows it once the backend is recreated
+  with the new mount (the deploy after merge). The first drill install was CRLF (from the Windows worktree) and failed
+  `bash -n`; reinstalled as LF a minute later, and `.gitattributes` now forces LF for `ops/host/*`.
+
 ## Caddy allowlist missed the AI routes (2026-11-21, branch `claude/caddy-ai-routes`, not deployed)
 
 The dashboard showed CORS errors on `GET /api/v1/ai` and `GET /api/v1/ai/models`. Cause: `deploy/Caddyfile` did not forward
 `/api/v1/ai*`, so Caddy answered its own `404 not found` with no CORS headers. Fix: `/api/v1/ai` and `/api/v1/ai/*` added to
 the `@public` matcher, plus a test in `test/integration/billing-api.test.ts`. The VPS Caddy needs the new file and a reload.
+
+## Production test data cleaned (2026-11-20)
+
+Owner: "clean all testing data" (all test instances; keep accounts; keep billing records; dump first).
+- Dump `/var/backups/hermes-cloud/hermes-20261120T135124Z.dump` taken first (`hermes-db-backup`).
+- The 3 test instances (`aaaa`, `free plan testing`, `Habib testing paid 25k`) deleted through the operator API on the host:
+  all `DELETED`, no tenant container, volume or network left on jkt-1. Their subscriptions were set `ENDED` by SQL (the
+  operator delete does not call `endForInstance`; only the customer route does).
+- Their `inst-` NibieRouter keys, plus a leftover one of instance `8bf59a00` (deleted 2026-11-18), were revoked by hand:
+  **instance delete does not revoke the router key** (gap, not fixed).
+- Kept: all 6 customer accounts and router users. Later the same day the owner cleared the billing and admin history too
+  (owner ran the SQL in the Supabase SQL editor after a fresh dump `hermes-20261120T180400Z.dump`): `Payment`, `PaymentEvent`,
+  `Invoice`, `InvoiceCounter` (the next invoice is number 1), `WalletEntry`, `WalletTopup`, `BillingNotice`, `Subscription`,
+  `WaitlistEntry`, `BetaInvite`, `AuditLog` are empty; wallet balances 0.
+- Host: the old standalone `hermes-agent` (compose project `hermes` in `/opt/hermes`, from 2026-11-11, not a tenant) was
+  removed with `docker compose down`; its files in `/opt/hermes` are kept. 11 unattached volumes were removed by name
+  (6 Postgres data dirs, 3 old Hermes data dirs, `v-ws4b-runsc`, `ws4-runsc-vol`); left: Caddy x2, Redis,
+  `hermes-dns-resolv-conf` (managed, unattached by design: never `docker volume prune`).
+- Cause of the Postgres leftovers: `ops/host/hermes-restore-drill.sh` removed its container without `-v`; fixed to
+  `docker rm -fv` on branch `claude/node-capacity`; the installed `/usr/local/sbin/hermes-restore-drill` needs reinstalling.
 
 ## NibieRouter step 4: buying AI credit from the wallet in Rupiah (2026-11-20, branch `claude/ai-credit-wallet`, merged `de11115`)
 

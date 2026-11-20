@@ -8,6 +8,7 @@ import type {
   AdminCustomer,
   AdminCustomerDetail,
   AdminCustomerInstance,
+  AdminHostUsage,
   AdminInstance,
   AdminInstanceDetail,
   AdminMe,
@@ -63,7 +64,8 @@ export interface AdminApi {
   /** Changes data: the team's reply (ticket becomes ANSWERED, the customer is emailed). */
   replyTicket(id: string, message: string): Promise<TicketSummary>
   closeTicket(id: string): Promise<TicketSummary>
-  nodes(): Promise<AdminNode[]>
+  /** `host` is null when the VPS has no snapshot yet (or on an older backend). */
+  nodes(): Promise<{ nodes: AdminNode[]; host: AdminHostUsage | null }>
   subscriptions(cursor?: string): Promise<AdminPage<AdminSubscription>>
   payments(cursor?: string): Promise<AdminPage<AdminPayment>>
   audit(cursor?: string): Promise<AdminPage<AdminAuditEntry>>
@@ -142,7 +144,10 @@ export function createAdminApi(opts: {
     ticket: async (id) => (await call<{ ticket: TicketDetail }>(`/tickets/${encodeURIComponent(id)}`)).ticket,
     replyTicket: async (id, message) => (await call<{ ticket: TicketSummary }>(`/tickets/${encodeURIComponent(id)}/messages`, { message })).ticket,
     closeTicket: async (id) => (await call<{ ticket: TicketSummary }>(`/tickets/${encodeURIComponent(id)}/close`, {})).ticket,
-    nodes: async () => (await call<{ nodes: AdminNode[] }>("/nodes")).nodes,
+    nodes: async () => {
+      const r = await call<{ nodes: AdminNode[]; host?: AdminHostUsage | null }>("/nodes")
+      return { nodes: r.nodes, host: r.host ?? null }
+    },
     subscriptions: async (cursor) => toPage(await call<Paged<"subscriptions", AdminSubscription>>(`/subscriptions${qs({ cursor })}`), "subscriptions"),
     payments: async (cursor) => toPage(await call<Paged<"payments", AdminPayment>>(`/payments${qs({ cursor })}`), "payments"),
     audit: async (cursor) => toPage(await call<Paged<"entries", AdminAuditEntry>>(`/audit${qs({ cursor })}`), "entries"),

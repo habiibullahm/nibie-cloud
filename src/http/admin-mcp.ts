@@ -98,7 +98,7 @@ function buildServer(api: FastifyInstance, authorization: string): McpServer {
     inputSchema: { planId: z.string().uuid(), stockLimit: z.number().int().min(0).max(100000).nullable(), reason },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   }, (a) => call('POST', `/plans/${encodeURIComponent(a.planId)}/stock`, { stockLimit: a.stockLimit, reason: a.reason }));
-  server.registerTool('list_nodes', { description: 'Runtime nodes with their instance counts.', annotations: ro },
+  server.registerTool('list_nodes', { description: 'Runtime nodes with their instance counts, plus the host RAM, CPU load and disk snapshot (refreshed every 5 minutes; null when missing).', annotations: ro },
     () => call('GET', '/nodes'));
   server.registerTool('list_failed_jobs', { description: 'Background jobs that exhausted their retries.', annotations: ro },
     () => call('GET', '/jobs/failed'));

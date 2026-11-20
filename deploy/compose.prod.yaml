@@ -40,6 +40,8 @@ services:
       - "${DOCKER_GID:?set DOCKER_GID in /etc/hermes-cloud/backend.env}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      # Host RAM/CPU/disk snapshot written by the hermes-usage timer, shown on the admin Node page.
+      - /var/lib/hermes-usage:/var/lib/hermes-usage:ro
     security_opt:
       - no-new-privileges:true
     cap_drop:

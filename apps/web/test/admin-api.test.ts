@@ -78,7 +78,7 @@ describe("admin client", () => {
     const plans = await client((async () => jsonResponse({ plans: [{ slug: "p" }] })) as unknown as typeof fetch).plans()
     expect(plans).toEqual([{ slug: "p" }])
     const nodes = await client((async () => jsonResponse({ nodes: [{ name: "local" }] })) as unknown as typeof fetch).nodes()
-    expect(nodes).toEqual([{ name: "local" }])
+    expect(nodes).toEqual({ nodes: [{ name: "local" }], host: null })
   })
 })
 

@@ -9,7 +9,7 @@ umask 077
 DUMP_DIR=${DUMP_DIR:-/var/backups/hermes-cloud}
 NAME=hc-restore-drill
 work=$(mktemp -d)
-cleanup() { docker rm -f "$NAME" >/dev/null 2>&1 || true; rm -rf "$work"; }
+cleanup() { docker rm -fv "$NAME" >/dev/null 2>&1 || true; rm -rf "$work"; }  # -v: postgres:17 makes an anonymous data volume
 trap cleanup EXIT
 
 if [ "${1:-}" = "--from-r2" ]; then
