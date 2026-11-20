@@ -4,6 +4,20 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Back from BYOK to the NibieRouter key (2026-11-21, branch `claude/restore-nibierouter`, not merged)
+
+Owner: own keys (BYOK) may use any model, the default stays NibieRouter, and a customer must be able to go back to it.
+Before, saving BYOK was one-way: the dashboard disabled the NibieRouter choice and the provisioner never ran again.
+- `POST /api/v1/instances/:id/providers/nibierouter` (customer, 5 per minute) calls `RouterProvisioner.restore`: revokes every
+  unrevoked `inst-<id>` key of the tenant's router user (BYOK had dropped its secret but left it live), creates a new one,
+  attaches it as `NIBIEROUTER` with `NIBIEROUTER_DEFAULT_MODEL` and restarts the instance if it is running (a stopped or
+  suspended one is not started; the key applies on its next start). Already on NibieRouter: no change.
+  A router error leaves the customer's own key in place.
+- Dashboard: the NibieRouter choice on Configuration is no longer locked; saving it calls the route.
+- Model rules unchanged: BYOK has no model limit; the default provider on a free plan offers free models only.
+- Known gap: saving BYOK still does not revoke the `inst-` key on the router at that moment; `restore` cleans it up later.
+  Two restores at the same instant can leave one extra unrevoked key whose secret nobody holds (`shortcut:` in the code).
+
 ## Host capacity on the admin Node page (2026-11-21, branch `claude/node-capacity`, not merged)
 
 Owner: "buat kapasitas di Node", without adding backend load.

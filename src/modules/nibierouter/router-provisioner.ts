@@ -1,8 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import type { PrismaClient } from '@prisma/client';
-import { RouterUnavailableError } from '../../shared/errors.js';
+import { NotFoundError, RouterUnavailableError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
-import type { ProviderService } from '../integrations/provider-service.js';
+import type { ProviderService, ProviderView } from '../integrations/provider-service.js';
 import { applyGrant } from './credit-grant.js';
 import type { NibieRouterClient, RouterConfig } from './nibierouter-client.js';
 
@@ -17,7 +17,7 @@ export const KEY_RPM_LIMIT = 20;
 export interface RouterProvisionerDeps {
   prisma: PrismaClient;
   client: NibieRouterClient;
-  providers: Pick<ProviderService, 'attachNibieRouter'>;
+  providers: Pick<ProviderService, 'attachNibieRouter' | 'list'>;
   cfg: Pick<RouterConfig, 'defaultModel' | 'emailDomain'>;
   logger: Logger;
   /**
@@ -229,13 +229,46 @@ export class RouterProvisioner {
     );
   }
 
+  /**
+   * The customer goes back from their own key (BYOK) to the NibieRouter key that comes with Nibie Cloud. The instance key
+   * left on the router when BYOK replaced it (its secret is gone) is revoked, a new one is attached with the default model,
+   * and the instance restarts. Already on NibieRouter: nothing happens.
+   * shortcut: no lock, so two requests at the same moment can leave one extra unrevoked `inst-` key whose secret nobody
+   * holds (the next restore revokes it); add a per-instance lock if this route is ever called concurrently on purpose.
+   */
+  async restore(tenantId: string, instanceId: string): Promise<ProviderView> {
+    const instance = await this.d.prisma.instance.findFirst({ where: { id: instanceId, tenantId }, select: { status: true } });
+    if (!instance || instance.status === 'DELETING' || instance.status === 'DELETED') throw new NotFoundError('Instance not found');
+    const now = (await this.d.providers.list(tenantId, instanceId))[0];
+    if (now?.kind === 'NIBIEROUTER') return now;
+
+    const userId = await this.ensureUser(tenantId);
+    const name = `inst-${instanceId}`;
+    for (const k of await this.d.client.listKeys(userId)) {
+      if (k.name === name && !k.revoked) await this.d.client.revokeKey(userId, k.id);
+    }
+    const view = await this.attachNewKey(userId, tenantId, instanceId);
+    this.d.logger.info({ instanceId }, 'customer went back to the NibieRouter key');
+    // Restarting a STOPPED instance starts it, past the suspension guard of the start route: only a running one restarts here.
+    if (instance.status === 'ACTIVE' || instance.status === 'DEGRADED') await this.applyConfig(tenantId, instanceId);
+    return view;
+  }
+
   private async ensureKey(userId: string, tenantId: string, instanceId: string): Promise<void> {
     const name = `inst-${instanceId}`;
     // A key with this name that we hold no secret for: the router shows a secret only once, so a duplicate is
     // never created silently. An operator revokes the orphan in the NibieRouter dashboard, then the next run proceeds.
     if ((await this.d.client.listKeys(userId)).some((k) => k.name === name && !k.revoked)) throw new OrphanKeyError();
-    const key = await this.d.client.createKey(userId, { name, rpmLimit: KEY_RPM_LIMIT });
-    await this.d.providers.attachNibieRouter(tenantId, instanceId, { apiKey: key.secret, model: this.d.cfg.defaultModel });
+    await this.attachNewKey(userId, tenantId, instanceId);
+    await this.applyConfig(tenantId, instanceId);
+  }
+
+  private async attachNewKey(userId: string, tenantId: string, instanceId: string): Promise<ProviderView> {
+    const key = await this.d.client.createKey(userId, { name: `inst-${instanceId}`, rpmLimit: KEY_RPM_LIMIT });
+    return this.d.providers.attachNibieRouter(tenantId, instanceId, { apiKey: key.secret, model: this.d.cfg.defaultModel });
+  }
+
+  private async applyConfig(tenantId: string, instanceId: string): Promise<void> {
     try {
       await this.d.applyConfig?.(tenantId, instanceId);
     } catch (e) {

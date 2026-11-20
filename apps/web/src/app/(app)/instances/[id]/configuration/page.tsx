@@ -281,8 +281,6 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
   // A free instance gets its NibieRouter key from the backend shortly after it becomes active.
   const routerComing =
     mode === "customer" && !cfg.configured && plans.data?.find((p) => p.id === instance.data?.planId)?.monthlyPriceIdr === null
-  // Only the in-browser mock can switch to NibieRouter; on the real API that key is attached by Nibie Cloud.
-  const routerLocked = mode !== "mock"
   const [kind, setKind] = useState<ProviderKind>(cfg.configured ? cfg.kind : "byok")
   const [providerName, setProviderName] = useState<ByokProviderName>(
     cfg.kind === "byok" && cfg.providerName ? (cfg.providerName as ByokProviderName) : "openai"
@@ -308,7 +306,11 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
       )
       qc.setQueryData(keys.provider(id), next)
       setApiKey("")
-      toast.success("Provider saved. Restart your instance to apply it, then test the connection.")
+      toast.success(
+        kind === "byok"
+          ? "Provider saved. Restart your instance to apply it, then test the connection."
+          : "NibieRouter connected. A running instance restarts to apply it; a stopped one uses it on the next start."
+      )
     } catch (err) {
       setFormError(errorMessage(err))
     } finally {
@@ -376,10 +378,9 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
               value="nibierouter"
               selected={kind === "nibierouter"}
               title="NibieRouter"
-              disabled={routerLocked && cfg.kind !== "nibierouter"}
             >
-              {routerLocked && cfg.kind !== "nibierouter"
-                ? "Added by Nibie Cloud with your plan. To use NibieRouter again, bring your own NibieRouter key."
+              {cfg.configured && cfg.kind !== "nibierouter"
+                ? "Included with Nibie Cloud. Saving replaces your own key and restarts your instance."
                 : "Works out of the box. Usage is attributed to your account and billed by NibieRouter."}
             </ChoiceCard>
             <ChoiceCard id="kind-byok" value="byok" selected={kind === "byok"} title="Bring your own key">
@@ -477,7 +478,7 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
           ) : null}
         </CardContent>
         <CardFooter className="flex-wrap border-t">
-          <Button type="submit" disabled={saving || (kind === "nibierouter" && routerLocked)}>
+          <Button type="submit" disabled={saving}>
             {saving ? "Saving…" : "Save provider"}
           </Button>
           <Button type="button" variant="outline" onClick={test} disabled={testing || !cfg.configured}>

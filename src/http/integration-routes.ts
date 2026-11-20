@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { LogService } from '../modules/integrations/log-service.js';
 import type { Integrations } from '../modules/integrations/types.js';
+import type { RouterProvisioner } from '../modules/nibierouter/router-provisioner.js';
 import { NotFoundError, SecretsUnavailableError } from '../shared/errors.js';
 import { principalOf } from './customer-auth.js';
 
@@ -24,7 +25,12 @@ function need(i: Integrations | null): Integrations {
  * Supabase-token hook, `no-store` and the per-user rate limit already apply. Bodies are strict; secrets
  * are accepted on PUT and never appear in any response, only a short `keyHint`.
  */
-export function registerCustomerIntegrationRoutes(api: FastifyInstance, integrations: Integrations | null, logs: LogService | null): void {
+export function registerCustomerIntegrationRoutes(
+  api: FastifyInstance,
+  integrations: Integrations | null,
+  logs: LogService | null,
+  router: Pick<RouterProvisioner, 'restore'> | null = null,
+): void {
   type P = { instanceId: string };
   const ids = (p: P) => uuid.parse(p.instanceId);
 
@@ -48,6 +54,11 @@ export function registerCustomerIntegrationRoutes(api: FastifyInstance, integrat
   api.post<{ Params: P }>('/instances/:instanceId/providers/test', OUTBOUND_LIMIT, async (req) => ({
     provider: await need(integrations).providers.test(principalOf(req).tenantId, ids(req.params)),
   }));
+  // Back from the customer's own key to the NibieRouter key that comes with Nibie Cloud (new key, instance restarts).
+  api.post<{ Params: P }>('/instances/:instanceId/providers/nibierouter', OUTBOUND_LIMIT, async (req) => {
+    if (!router) throw new NotFoundError('Route not found');
+    return { provider: await router.restore(principalOf(req).tenantId, ids(req.params)) };
+  });
   api.delete<{ Params: P & { providerConfigId: string } }>('/instances/:instanceId/providers/:providerConfigId', async (req) =>
     need(integrations).providers.remove(principalOf(req).tenantId, ids(req.params), uuid.parse(req.params.providerConfigId)),
   );

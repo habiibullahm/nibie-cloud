@@ -160,7 +160,7 @@ const readiness = {
   docker: async () => { await docker.ping(); },
   ...(readyRedis ? { redis: async () => { if (readyRedis.status === 'wait') await readyRedis.connect(); await readyRedis.ping(); } } : {}),
 };
-const app = buildServer({ service, commands, queue, config, logger, integrations, logs: logService, billing, readiness, mailer, captcha, ai, ...(customer ? { customer } : {}), ...(admin ? { admin } : {}) });
+const app = buildServer({ service, commands, queue, config, logger, integrations, logs: logService, billing, readiness, mailer, captcha, ai, router, ...(customer ? { customer } : {}), ...(admin ? { admin } : {}) });
 
 let stopReconciler: () => void | Promise<void> = () => undefined;
 let stopWorker: (() => Promise<void>) | undefined;
