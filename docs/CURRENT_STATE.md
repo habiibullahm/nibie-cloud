@@ -4,6 +4,27 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Tenant backups now hold the SQLite databases; restore procedure (2026-11-21, branch `claude/tenant-backup-db`, not merged)
+
+Found while restoring the owner's deleted test instance "Asistant nibie 1" (owner: "restore", then "fix backup").
+- **Bug:** `hermes-tenant-backup.sh` copied each volume's SQLite files consistently into the staging folder, but the same
+  `restic backup` call had an unanchored `--exclude '*.db'`, which also dropped those copies. All 9 tenant snapshots held 0
+  databases (`state.db` with conversation history and search, `kanban.db`, `response_store.db`, ...); `--verify` passed
+  because it only checks the databases it finds.
+- **Fix:** the `*.db*` excludes are anchored to the volume path (`"$data/**/*.db"`, tested with a throwaway restic repo), and
+  after each backup the script counts the `.db` files in the new snapshot and fails the run when they differ from the copies.
+  Run by hand on the VPS 2026-11-20 23:33 UTC: snapshot `db323efa` holds all 5 databases. Installed at
+  `/usr/local/sbin/hermes-tenant-backup` (old copy `.bak-20261120T233503Z`).
+- **Restore:** new `ops/host/hermes-tenant-restore.sh` (installed as `/usr/local/sbin/hermes-tenant-restore`) and
+  `docs/runbook-tenant-restore.md`. Rehearsed twice on production: the deleted instance's snapshot `603286c1` into a new free
+  instance `4819e2fc` (362 files; its databases were lost, see the bug), then `db323efa` back into the same instance (5
+  databases, `state.db` integrity ok, ACTIVE).
+- **Duplicate delete job (same branch):** when retention ended a subscription, the billing tick queued the delete and then its
+  enforcement pass, in the same tick, queued a twin while the first job still ran; the twin failed with `ConflictError` and the
+  watchdog sent "Job delete gagal" (2026-11-20 23:23 UTC, the instance itself was deleted correctly). `runOnce` now skips in
+  the enforcement pass any subscription whose delete it queued this tick; test "queues the retention delete once per tick"
+  (fails without the fix: 2 calls). The stale failed job was retried (no-op on a DELETED instance) to clear the list.
+
 ## More BYOK presets (2026-11-21, PR #120, merged `a1ed3a7`)
 
 Owner: customers mostly want their own provider; low-risk path first (no console, no exposed Hermes dashboard). The dashboard's

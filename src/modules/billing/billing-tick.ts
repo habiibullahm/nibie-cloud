@@ -97,9 +97,12 @@ export class BillingTick {
     const subs = await prisma.subscription.findMany({
       where: { status: { in: ['ACTIVE', 'GRACE', 'SUSPENDED'] } }, include: { instance: true }, orderBy: { updatedAt: 'asc' }, take: BATCH,
     });
+    // Subscriptions whose delete this tick already queued: the enforcement pass below must not queue a twin while the
+    // first job still runs (the twin loses the race with a ConflictError and shows up as a failed job).
+    const deleteQueued = new Set<string>();
     for (const sub of subs) {
       try {
-        await this.processOne(sub.id, now, sum);
+        await this.processOne(sub.id, now, sum, deleteQueued);
       } catch (e) {
         // One bad row must not stop the others; the next tick retries it.
         this.d.logger.error({ subscriptionId: sub.id, errName: (e as Error).name }, 'billing tick failed for a subscription');
@@ -112,7 +115,7 @@ export class BillingTick {
       include: { instance: true }, take: BATCH,
     });
     for (const sub of ended) {
-      if (!sub.instance) continue;
+      if (!sub.instance || deleteQueued.has(sub.id)) continue;
       await this.tryInstance(() => this.d.commands.delete(sub.tenantId, sub.instance!.id), sub.id, 'delete');
     }
     // Router provisioning that failed once (router down, key pending) keeps being retried until it is done.
@@ -129,7 +132,7 @@ export class BillingTick {
     return sum;
   }
 
-  private async processOne(subscriptionId: string, now: Date, sum: TickSummary): Promise<void> {
+  private async processOne(subscriptionId: string, now: Date, sum: TickSummary, deleteQueued: Set<string>): Promise<void> {
     const { prisma } = this.d;
     let sub = await prisma.subscription.findUniqueOrThrow({ where: { id: subscriptionId }, include: { instance: true } });
     if (!['ACTIVE', 'GRACE', 'SUSPENDED'].includes(sub.status)) return;
@@ -182,7 +185,10 @@ export class BillingTick {
         if (sub.instanceId) await recordEvent(prisma, sub.instanceId, 'billing.retention_elapsed', 'Instance deleted: the 30-day retention after suspension ended');
         // The final notice is sent once; the delete itself is retried by the enforcement pass if it conflicts.
         await this.notify(sub.tenantId, sub.id, 'deleted', sub.currentPeriodEnd ?? now, { periodEnd: sub.currentPeriodEnd, retentionEndsAt: sub.retentionEndsAt }, sum);
-        if (sub.instance) await this.tryInstance(() => this.d.commands.delete(sub.tenantId, sub.instanceId!), sub.id, 'delete');
+        if (sub.instance) {
+          deleteQueued.add(sub.id);
+          await this.tryInstance(() => this.d.commands.delete(sub.tenantId, sub.instanceId!), sub.id, 'delete');
+        }
         return;
       }
       sub = await prisma.subscription.findUniqueOrThrow({ where: { id: subscriptionId }, include: { instance: true } });
