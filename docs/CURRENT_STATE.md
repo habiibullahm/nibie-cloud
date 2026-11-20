@@ -4,7 +4,18 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
-## Back from BYOK to the NibieRouter key (2026-11-21, branch `claude/restore-nibierouter`, not merged)
+## Replaced router keys are revoked (2026-11-21, branch `claude/revoke-byok-key`, not merged)
+
+Saving BYOK over the NibieRouter key (or removing the provider) dropped the secret but left the `inst-<id>` key live on the
+router; anyone who had read it out of the container could keep spending the tenant's AI balance. The billing tick
+(`RouterProvisioner.runPending`, every 5 minutes) now revokes it for every live instance whose `RouterProvisioning` row is `DONE`
+and whose provider is no longer `NIBIEROUTER`, then sets the new column `keyRevokedAt` (migration
+`20261121100000_router_key_revoked`, additive, nullable) so the router is not asked again. Attaching a new key (provisioning or
+`restore`) clears it. The provider is checked again right before revoking; a restore finishing in that same moment can still
+lose its new key (`shortcut:` in the code; saving NibieRouter again fixes it). A router failure is retried on the next tick.
+Exposure after a switch: up to 5 minutes. Owner chose this over one shared key per tenant.
+
+## Back from BYOK to the NibieRouter key (2026-11-21, PR #117, merged `cab3c7f`, deployed)
 
 Owner: own keys (BYOK) may use any model, the default stays NibieRouter, and a customer must be able to go back to it.
 Before, saving BYOK was one-way: the dashboard disabled the NibieRouter choice and the provisioner never ran again.
@@ -15,10 +26,9 @@ Before, saving BYOK was one-way: the dashboard disabled the NibieRouter choice a
   A router error leaves the customer's own key in place.
 - Dashboard: the NibieRouter choice on Configuration is no longer locked; saving it calls the route.
 - Model rules unchanged: BYOK has no model limit; the default provider on a free plan offers free models only.
-- Known gap: saving BYOK still does not revoke the `inst-` key on the router at that moment; `restore` cleans it up later.
-  Two restores at the same instant can leave one extra unrevoked key whose secret nobody holds (`shortcut:` in the code).
+- The key left live by BYOK is now revoked by the billing tick (entry above). Two restores at the same instant can leave one extra unrevoked key whose secret nobody holds (`shortcut:` in the code).
 
-## Router keys of deleted instances are revoked (2026-11-21, branch `claude/revoke-router-key`, not merged)
+## Router keys of deleted instances are revoked (2026-11-21, merged `36cb0d3`, deployed with `cab3c7f`)
 
 Deleting an instance removed its container, volume and stored secrets, but its `inst-<id>` NibieRouter key kept working (a
 customer could have read it out of the container). `RouterProvisioner.runPending` (billing tick, every 5 minutes) now revokes
@@ -48,7 +58,7 @@ Owner: "buat kapasitas di Node", without adding backend load.
 - Deployed by the pull-deploy timer (backend `8104fe5`, `/var/lib/hermes-usage` mounted `ro`); `GET /admin/nodes` returns `host`
   and the owner saw the card live. The `host` integration test was first run on 2026-11-21 (backend CI runs unit tests only).
 
-## Caddy allowlist missed the AI routes (2026-11-21, branch `claude/caddy-ai-routes`, not deployed)
+## Caddy allowlist missed the AI routes (2026-11-21, PR #114, merged `16a0e33`, deployed)
 
 The dashboard showed CORS errors on `GET /api/v1/ai` and `GET /api/v1/ai/models`. Cause: `deploy/Caddyfile` did not forward
 `/api/v1/ai*`, so Caddy answered its own `404 not found` with no CORS headers. Fix: `/api/v1/ai` and `/api/v1/ai/*` added to

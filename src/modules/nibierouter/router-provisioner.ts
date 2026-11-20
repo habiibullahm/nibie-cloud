@@ -100,7 +100,43 @@ export class RouterProvisioner {
     for (const r of rows) if ((await this.run(r.instanceId)) !== 'pending') done += 1;
     if (!this.oldKeysLimited) await this.limitOldKeys();
     await this.revokeDeleted();
+    await this.revokeReplaced();
     return done;
+  }
+
+  /**
+   * The customer replaced the NibieRouter key with their own (BYOK) or removed the provider: the `inst-<id>` key must stop
+   * working too, since it may have been read out of the container. Marks the row with `keyRevokedAt`; attaching a new key
+   * clears it. Never throws: a router failure leaves the row unmarked, and the next tick tries again.
+   * shortcut: the provider is checked again just before revoking, but a restore finishing in that same moment can still lose
+   * its new key (the customer saves NibieRouter again); add a per-instance lock if that is ever seen.
+   */
+  private async revokeReplaced(): Promise<void> {
+    const rows = await this.d.prisma.routerProvisioning.findMany({ where: { status: 'DONE', keyRevokedAt: null }, select: { instanceId: true }, take: 500 });
+    if (rows.length === 0) return;
+    const onRouter = async (ids: string[]) =>
+      new Set((await this.d.prisma.providerConfig.findMany({ where: { instanceId: { in: ids }, kind: 'NIBIEROUTER' }, select: { instanceId: true } })).map((c) => c.instanceId));
+    const ids = rows.map((r) => r.instanceId);
+    const using = await onRouter(ids);
+    const replaced = await this.d.prisma.instance.findMany({
+      where: { id: { in: ids.filter((id) => !using.has(id)) }, status: { notIn: ['DELETING', 'DELETED'] } },
+      select: { id: true, tenantId: true },
+      take: 20,
+    });
+    for (const i of replaced) {
+      try {
+        const tenant = await this.d.prisma.tenant.findUnique({ where: { id: i.tenantId }, select: { routerUserId: true } });
+        if (tenant?.routerUserId) {
+          const keys = (await this.d.client.listKeys(tenant.routerUserId)).filter((k) => k.name === `inst-${i.id}` && !k.revoked);
+          if (keys.length > 0 && (await onRouter([i.id])).size > 0) continue; // went back to NibieRouter meanwhile
+          for (const k of keys) await this.d.client.revokeKey(tenant.routerUserId, k.id);
+        }
+        await this.d.prisma.routerProvisioning.update({ where: { instanceId: i.id }, data: { keyRevokedAt: new Date() } });
+        this.d.logger.info({ instanceId: i.id }, 'router key replaced by the customer revoked');
+      } catch (e) {
+        this.d.logger.warn({ instanceId: i.id, errName: (e as Error).name }, 'replaced router key not revoked yet; the next tick tries again');
+      }
+    }
   }
 
   /**
@@ -294,7 +330,10 @@ export class RouterProvisioner {
 
   private async attachNewKey(userId: string, tenantId: string, instanceId: string): Promise<ProviderView> {
     const key = await this.d.client.createKey(userId, { name: `inst-${instanceId}`, rpmLimit: KEY_RPM_LIMIT });
-    return this.d.providers.attachNibieRouter(tenantId, instanceId, { apiKey: key.secret, model: this.d.cfg.defaultModel });
+    const view = await this.d.providers.attachNibieRouter(tenantId, instanceId, { apiKey: key.secret, model: this.d.cfg.defaultModel });
+    // A live key again: if the customer replaces it later, `revokeReplaced` revokes it.
+    await this.d.prisma.routerProvisioning.updateMany({ where: { instanceId }, data: { keyRevokedAt: null } });
+    return view;
   }
 
   private async applyConfig(tenantId: string, instanceId: string): Promise<void> {
