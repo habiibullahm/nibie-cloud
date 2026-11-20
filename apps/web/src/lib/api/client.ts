@@ -25,6 +25,7 @@ import type {
   WalletTopup,
   AiAccount,
   AiAlert,
+  AiPurchase,
 } from "./types"
 
 export class ApiError extends Error {
@@ -74,6 +75,8 @@ export interface BillingApi {
   /** The NibieRouter (AI) balance and usage, or null when the backend has no NibieRouter configured. */
   ai(): Promise<AiAccount | null>
   setAiAlert(alert: AiAlert): Promise<AiAlert>
+  /** Buys AI credit with `amountIdr` from the wallet; `captchaToken` is a solved Turnstile, when configured. */
+  buyAiCredit(amountIdr: number, idempotencyKey: string, captchaToken?: string): Promise<AiPurchase>
   /** Invoices of paid hosting and top-ups, newest first. */
   invoices(): Promise<Invoice[]>
   invoice(id: string): Promise<Invoice>

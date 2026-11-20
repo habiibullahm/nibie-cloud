@@ -4,6 +4,30 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## NibieRouter step 4: buying AI credit from the wallet in Rupiah (2026-11-20, branch `claude/ai-credit-wallet`, not committed)
+
+Plan: AI credit in Rupiah through NibieRouter, PR C of 3 (owner: "PR C, buying AI credit from saldo in Rupiah"). The customer
+types Rupiah, not US$ as the older wallet plan said, matching the Rupiah AI balance of PR B.
+- **Backend:** migration `20261120500000_ai_credit_purchase` (additive): `CreditGrant.subscriptionId` nullable, new
+  `amountIdr`, `idempotencyKey`, unique `(tenantId, idempotencyKey)`, and a CHECK that a row is either a plan credit or a
+  purchase. `POST /ai/credit` (`Idempotency-Key`, `{ amountIdr, captchaToken? }`, Rp 10.000 to 1.000.000, only with
+  `WALLET_ENABLED`): one transaction under the wallet lock writes the grant and the `AI_CREDIT` wallet entry; the router call
+  follows. Router down: 201 with `PENDING`, the billing tick delivers it (`AiAccountService.retryPurchases`). New
+  `credit-grant.ts` `applyGrant` is used for plan credit too: `attempts` is now taken by compare-and-set, so two runs never
+  post one grant twice. `GET /ai` has `buy` (limits, or null). The `credit-grant:` alert names purchases. Same gate and
+  Turnstile check as `pay-with-wallet`.
+- **Dashboard:** Billing page, AI balance card: "Top up saldo AI" (only with the wallet on, a router account and a rate)
+  opens a dialog with presets Rp 20.000 / 50.000 / 100.000 / 200.000, a custom amount, both balances before and after, the
+  US$ credit, "Saldo tidak cukup" (button off), Turnstile when configured, and a no-refund line. Mock mode moves sample
+  Rupiah between the two balances.
+- **Docs:** `setup.md` (NibieRouter section), `AGENTS.md`, customer API reference `api-reference/integrasi.mdx`.
+- **Checks:** backend `tsc`; unit 541 pass (2 known Windows-only `egress-canary` failures); integration on a separate DB
+  `hermes_test_aicredit`: `ai-credit-purchase` (6, new), `ai-account` (8), `router-provisioner` (21) pass; the full integration
+  run had not finished when the PR was opened. Dashboard typecheck, lint, tests (213). Dialog seen headless in mock mode
+  (desktop and 390 px): presets, short balance (button off), purchase moves Rp 50.000 between the two balances.
+- **Not done:** no admin view of purchases beyond the wallet ledger and the alert; no refund path (admin adjust by hand).
+  Not tried against the real router. `WALLET_ENABLED` is still off in production.
+
 ## Backup alerts for R2 and the restore drill; restore runbook (2026-11-20, branch `claude/backup-alert-runbook`, not merged, not installed)
 
 Owner: "mulai", for the open items of the entry below.

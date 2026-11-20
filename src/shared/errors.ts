@@ -140,7 +140,7 @@ export class PaymentProviderRejectedError extends AppError {
 
 /** NibieRouter could not be reached, timed out, or refused the call. Fixed text on purpose: no router message is passed on. */
 export class RouterUnavailableError extends AppError {
-  constructor(readonly reason: 'unreachable' | 'rejected' | 'unexpected' = 'unreachable') {
+  constructor(readonly reason: 'unreachable' | 'rejected' | 'unexpected' | 'busy' = 'unreachable') {
     super('The AI router is temporarily unavailable', 503, 'router_unavailable');
   }
 }

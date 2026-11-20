@@ -296,6 +296,17 @@ export interface AiAccount {
   daily: { day: string; requests: number; costUsd: number; costIdr: number | null }[]
   models: { model: string; requests: number; costUsd: number; costIdr: number | null }[]
   alert: AiAlert
+  /** Buying AI credit from the wallet, in whole rupiah; null when the backend has the wallet off. */
+  buy: { minIdr: number; maxIdr: number } | null
+}
+
+/** Mirrors AiPurchaseView. PENDING: the balance was charged and the credit is still on its way to NibieRouter. */
+export interface AiPurchase {
+  id: string
+  amountIdr: number
+  amountUsd: number
+  status: "PENDING" | "DONE"
+  createdAt: string
 }
 
 export type InvoiceKind = "HOSTING_NEW" | "HOSTING_RENEWAL" | "TOPUP"

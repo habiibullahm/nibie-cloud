@@ -3,6 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 import { RouterUnavailableError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import type { ProviderService } from '../integrations/provider-service.js';
+import { applyGrant } from './credit-grant.js';
 import type { NibieRouterClient, RouterConfig } from './nibierouter-client.js';
 
 /** A run that keeps failing is left for an operator after this many attempts (the billing tick retries every 5 minutes). */
@@ -250,15 +251,7 @@ export class RouterProvisioner {
       create: { tenantId, subscriptionId: g.subscriptionId, amountNano: g.amountNano, note },
       update: {},
     });
-    if (row.status === 'DONE') return;
-    // An earlier attempt may have reached the router and only its answer got lost: look before posting again.
-    if (row.attempts > 0 && (await this.d.client.hasCreditNote(userId, row.note))) {
-      await this.d.prisma.creditGrant.update({ where: { id: row.id }, data: { status: 'DONE' } });
-      return;
-    }
-    // Raised before the call, so a crash after the call leaves a trace and the next run checks the history first.
-    await this.d.prisma.creditGrant.update({ where: { id: row.id }, data: { attempts: { increment: 1 } } });
-    const { balanceNano } = await this.d.client.grantCredit(userId, row.amountNano, row.note);
-    await this.d.prisma.creditGrant.update({ where: { id: row.id }, data: { status: 'DONE', balanceAfterNano: balanceNano } });
+    // Another run holds the attempt: keep this row PENDING so a later run confirms the grant before calling it done.
+    if ((await applyGrant(this.d.prisma, this.d.client, userId, row)) === 'busy') throw new RouterUnavailableError('busy');
   }
 }

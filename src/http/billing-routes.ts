@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { BillingService } from '../modules/billing/billing-service.js';
 import { TOPUP_MAX_IDR, TOPUP_MIN_IDR } from '../modules/billing/wallet.js';
@@ -13,6 +13,17 @@ const idempotencyKey = z.string().min(1).max(128);
 const topupBody = z.object({ amountIdr: z.number().int().min(TOPUP_MIN_IDR).max(TOPUP_MAX_IDR) }).strict();
 const autoRenewBody = z.object({ enabled: z.boolean() }).strict();
 const walletPayBody = z.object({ captchaToken: z.string().max(2048).optional() }).strict();
+
+/**
+ * Spending money needs a solved Turnstile when the backend has a secret, checked before anything is read or written; an
+ * outage fails closed. Null `captcha`: none asked.
+ */
+export async function requireCaptcha(captcha: CaptchaVerifier | null, token: string | undefined, req: FastifyRequest): Promise<void> {
+  if (!captcha) return;
+  const outcome = await captcha(token, clientIp(req));
+  if (outcome === 'invalid') throw new CaptchaFailedError();
+  if (outcome === 'unavailable') throw new AppError('The anti-bot check is unavailable. Please try again later.', 503, 'captcha_unavailable');
+}
 
 /** Customer billing routes. Registered inside the customer plugin, so the token and the tenant are already resolved. */
 export function registerBillingRoutes(
@@ -76,17 +87,12 @@ export function registerBillingRoutes(
 
   api.get('/wallet', async (req) => ({ wallet: await wallet.view(principalOf(req).tenantId) }));
 
-  // Pays an open hosting invoice from the balance; the plan change and receipt follow after the response. Spending money
-  // needs a solved Turnstile when the backend has a secret, checked before anything is read or written; an outage fails closed.
+  // Pays an open hosting invoice from the balance; the plan change and receipt follow after the response.
   api.post<{ Params: { paymentId: string } }>('/payments/:paymentId/pay-with-wallet', { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } }, async (req) => {
     const p = principalOf(req);
     await gate(p.email);
     const body = walletPayBody.parse(req.body ?? {});
-    if (captcha) {
-      const outcome = await captcha(body.captchaToken, clientIp(req));
-      if (outcome === 'invalid') throw new CaptchaFailedError();
-      if (outcome === 'unavailable') throw new AppError('The anti-bot check is unavailable. Please try again later.', 503, 'captcha_unavailable');
-    }
+    await requireCaptcha(captcha, body.captchaToken, req);
     const { postActions, ...result } = await billing.payWithWallet(p.tenantId, req.params.paymentId);
     setImmediate(() => void postActions().catch((e: Error) => req.log.error({ errName: e.name }, 'post-payment actions failed')));
     return result;

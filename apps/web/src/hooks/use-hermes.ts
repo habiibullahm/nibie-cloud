@@ -224,6 +224,20 @@ export function useSetAiAlert() {
   })
 }
 
+/** Buys AI credit from the wallet; both balances refresh. A PENDING purchase is delivered by the backend shortly after. */
+export function useBuyAiCredit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ amountIdr, idempotencyKey, captchaToken }: { amountIdr: number; idempotencyKey: string; captchaToken?: string }) =>
+      getApi().billing.buyAiCredit(amountIdr, idempotencyKey, captchaToken),
+    onSuccess: (p) => {
+      for (const key of [keys.wallet, keys.ai]) void qc.invalidateQueries({ queryKey: key })
+      toast.success(p.status === "DONE" ? "AI credit added." : "Paid. The AI credit arrives in a few minutes.")
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  })
+}
+
 /** Starts a top-up; the caller sends the customer to `paymentUrl`. */
 export function useTopup() {
   const qc = useQueryClient()

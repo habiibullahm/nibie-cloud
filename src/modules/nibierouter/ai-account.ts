@@ -1,8 +1,12 @@
-import type { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
+import type { CreditGrant, CreditGrantStatus, PrismaClient } from '@prisma/client';
 import { z } from 'zod';
-import { NotFoundError } from '../../shared/errors.js';
+import { AppError, ConflictError, NotFoundError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
+import { lockWallet, moveWallet } from '../billing/wallet.js';
+import { applyGrant } from './credit-grant.js';
 import { NANO_PER_USD, type NibieRouterClient, type RouterUsage } from './nibierouter-client.js';
+import { MAX_ATTEMPTS } from './router-provisioner.js';
 
 /** Bounds of an admin-set rate (Rupiah per US$1); the database checks the same range. */
 export const RATE_MIN_IDR = 5_000;
@@ -11,11 +15,18 @@ export const RATE_MAX_IDR = 50_000;
 export const ALERT_MIN_IDR = 1_000;
 export const ALERT_MAX_IDR = 1_000_000;
 
+/** One purchase of AI credit from the wallet, in whole rupiah. */
+export const BUY_MIN_IDR = 10_000;
+export const BUY_MAX_IDR = 1_000_000;
+
 const USAGE_TTL_MS = 60_000;
+/** A purchase left PENDING is retried by the tick only after this long, so the request that made it has finished its call. */
+const RETRY_AFTER_MS = 2 * 60_000;
 const RATE_TTL_MS = 10 * 60_000;
 const CHECK_EVERY_MS = 60 * 60_000;
 
 export const alertBody = z.object({ enabled: z.boolean(), thresholdIdr: z.number().int().min(ALERT_MIN_IDR).max(ALERT_MAX_IDR) }).strict();
+export const buyBody = z.object({ amountIdr: z.number().int().min(BUY_MIN_IDR).max(BUY_MAX_IDR), captchaToken: z.string().max(2048).optional() }).strict();
 export const rateBody = z.object({ idrPerUsd: z.number().int().min(RATE_MIN_IDR).max(RATE_MAX_IDR).nullable(), reason: z.string().trim().min(3).max(500) }).strict();
 
 /** Rupiah for an amount in nano-USD, rounded down. */
@@ -42,7 +53,22 @@ export interface AiAccountView {
   daily: { day: string; requests: number; costUsd: number; costIdr: number | null }[];
   models: { model: string; requests: number; costUsd: number; costIdr: number | null }[];
   alert: { enabled: boolean; thresholdIdr: number };
+  /** Buying AI credit from the wallet; null when the wallet is off (WALLET_ENABLED). */
+  buy: { minIdr: number; maxIdr: number } | null;
 }
+
+/** One purchase. PENDING: the wallet was charged and the router credit is still on its way (the billing tick retries it). */
+export interface AiPurchaseView {
+  id: string;
+  amountIdr: number;
+  amountUsd: number;
+  status: CreditGrantStatus;
+  createdAt: Date;
+}
+
+const purchaseView = (g: CreditGrant): AiPurchaseView => ({
+  id: g.id, amountIdr: g.amountIdr ?? 0, amountUsd: nanoToUsd(g.amountNano), status: g.status, createdAt: g.createdAt,
+});
 
 /**
  * The tenant's NibieRouter balance and usage shown in Rupiah, the low-balance reminder, and the AI credit rate. The rate is
@@ -54,7 +80,12 @@ export class AiAccountService {
   private routerRate: { at: number; value: number | null } | null = null;
   private lastCheck = 0;
 
-  constructor(private readonly d: { prisma: PrismaClient; client: NibieRouterClient; logger: Logger; now?: () => number }) {}
+  /** `buy`: the wallet is on, so AI credit can be bought from it. */
+  constructor(private readonly d: { prisma: PrismaClient; client: NibieRouterClient; logger: Logger; buy?: boolean; now?: () => number }) {}
+
+  get canBuy(): boolean {
+    return this.d.buy === true;
+  }
 
   private now(): number {
     return this.d.now ? this.d.now() : Date.now();
@@ -102,7 +133,73 @@ export class AiAccountService {
       daily: (usage?.daily ?? []).map((x) => ({ day: x.day, requests: x.requests, costUsd: nanoToUsd(x.costNano), costIdr: idr(x.costNano) })),
       models: (usage?.models ?? []).map((x) => ({ model: x.model, requests: x.requests, costUsd: nanoToUsd(x.costNano), costIdr: idr(x.costNano) })),
       alert: { enabled: tenant.aiLowAlert, thresholdIdr: tenant.aiLowThresholdIdr },
+      buy: this.canBuy ? { minIdr: BUY_MIN_IDR, maxIdr: BUY_MAX_IDR } : null,
     };
+  }
+
+  /**
+   * Buys AI credit with Rupiah from the wallet at the current rate (credit rounded down to the nano-USD). The wallet debit
+   * and the `CreditGrant` are written in one transaction, so money never leaves the wallet without a grant to deliver; the
+   * router call follows outside it. A router failure leaves the grant PENDING for the billing tick, never a refund (an
+   * admin adjusts by hand if it is ever given up). Replaying the `Idempotency-Key` returns the same purchase.
+   */
+  async buyCredit(i: { tenantId: string; amountIdr: number; idempotencyKey: string }): Promise<AiPurchaseView> {
+    if (!this.canBuy) throw new NotFoundError('Not found');
+    const tenant = await this.d.prisma.tenant.findUnique({ where: { id: i.tenantId }, select: { routerUserId: true } });
+    if (!tenant) throw new NotFoundError('Tenant not found');
+    // Credit goes to the tenant's router user, made with its first NibieRouter instance; none yet: nothing to top up.
+    if (!tenant.routerUserId) throw new AppError('No AI account yet: it is created with your first instance on NibieRouter', 409, 'no_ai_account');
+    const userId = tenant.routerUserId;
+    // Read before the transaction: the router rate may need a network call, which must not hold the wallet lock.
+    const { idrPerUsd } = await this.rate();
+    const id = randomUUID();
+    const { grant, created } = await this.d.prisma.$transaction(async (tx) => {
+      await lockWallet(tx, i.tenantId);
+      const existing = await tx.creditGrant.findUnique({ where: { tenantId_idempotencyKey: { tenantId: i.tenantId, idempotencyKey: i.idempotencyKey } } });
+      if (existing) {
+        if (existing.amountIdr !== i.amountIdr) throw new ConflictError('Idempotency-Key was already used with a different request');
+        return { grant: existing, created: false };
+      }
+      if (!idrPerUsd) throw new AppError('AI credit cannot be bought right now', 503, 'ai_rate_unavailable');
+      const amountNano = (BigInt(i.amountIdr) * NANO_PER_USD) / BigInt(idrPerUsd);
+      const row = await tx.creditGrant.create({
+        data: { id, tenantId: i.tenantId, amountNano, amountIdr: i.amountIdr, idempotencyKey: i.idempotencyKey, note: `nibie-cloud wallet ${id}` },
+      });
+      await moveWallet(tx, { tenantId: i.tenantId, amountIdr: -i.amountIdr, kind: 'AI_CREDIT', refId: id, note: `Kredit AI US$${nanoToUsd(amountNano).toFixed(2)}` });
+      return { grant: row, created: true };
+    }, { maxWait: 15_000, timeout: 30_000 });
+    // A replay only reports: the first request may still be calling the router, and a second call could credit twice.
+    if (!created) return purchaseView(grant);
+    await this.deliver(userId, grant);
+    return purchaseView(await this.d.prisma.creditGrant.findUniqueOrThrow({ where: { id: grant.id } }));
+  }
+
+  /** The tick's retry of purchases still PENDING. Returns how many were delivered. Never throws. */
+  async retryPurchases(): Promise<number> {
+    let done = 0;
+    try {
+      const rows = await this.d.prisma.creditGrant.findMany({
+        where: { status: 'PENDING', subscriptionId: null, attempts: { lt: MAX_ATTEMPTS }, updatedAt: { lt: new Date(this.now() - RETRY_AFTER_MS) } },
+        include: { tenant: { select: { routerUserId: true } } },
+        orderBy: { updatedAt: 'asc' },
+        take: 50,
+      });
+      for (const g of rows) if (g.tenant.routerUserId && (await this.deliver(g.tenant.routerUserId, g))) done += 1;
+    } catch (e) {
+      this.d.logger.error({ errName: (e as Error).name }, 'AI credit purchases not retried');
+    }
+    return done;
+  }
+
+  private async deliver(userId: string, grant: CreditGrant): Promise<boolean> {
+    try {
+      const out = await applyGrant(this.d.prisma, this.d.client, userId, grant);
+      if (out === 'done') this.usage.delete(userId);
+      return out === 'done';
+    } catch (e) {
+      this.d.logger.warn({ grantId: grant.id, errName: (e as Error).name }, 'AI credit not delivered yet; the billing tick retries it');
+      return false;
+    }
   }
 
   /** Saving the reminder starts it afresh: a balance already below the new threshold is reported at the next check. */

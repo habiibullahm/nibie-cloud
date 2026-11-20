@@ -136,8 +136,9 @@ Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
   the same subscription row lock as the webhook (`Payment.method = WALLET`, ledger `HOSTING` keyed on the payment id); a QRIS payment
   of an invoice already paid from the wallet is put back into the wallet (`credited_to_wallet`). With `WALLET_AUTO_RENEW` (default
   off) the billing tick renews during the last day of a period when `Subscription.autoRenew` (default on, customer switch) and the
-  balance allow it, once per period (order id `ar-<sub>-<periodEnd>`). Buying AI credit is planned, not built
-  (`docs/superpowers/plans/2026-11-20-wallet-topup.md`).
+  balance allow it, once per period (order id `ar-<sub>-<periodEnd>`). `POST /ai/credit { amountIdr }` buys AI credit with
+  Rupiah from it at the AI credit rate (`AiAccountService.buyCredit`): the `AI_CREDIT` entry and a `CreditGrant` without a
+  subscription are written in one transaction, the router call follows, and a PENDING grant is retried by the billing tick.
 - **Invoices** (`src/modules/billing/invoices.ts`, `GET /invoices`, `GET /invoices/:id`): one `Invoice` per paid `Payment` or paid
   `WalletTopup`, issued in the webhook transaction that marks it paid (unique source id, so never twice; issued even for
   `paid_after_end`). Number `INV/<yyyy>/<mm>/<seq>` per month in Asia/Jakarta, from `InvoiceCounter` bumped in the same
@@ -167,7 +168,8 @@ Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
   provider (`GET /instances/:id/models`, `PUT .../providers/model`) from the router's public model list (`model-catalog.ts`,
   10-minute cache); a free plan gets the free models only. `GET /ai` shows the router balance and usage in Rupiah at the
   AI credit rate (admin override in `BillingSetting`, else the router's `idr_per_usd`; `AiAccountService`), and the billing
-  tick sends an hourly-checked low-balance email the customer switches and sets (`PUT /ai/alert`). Not verified against the real router: see
+  tick sends an hourly-checked low-balance email the customer switches and sets (`PUT /ai/alert`). Every `CreditGrant` (plan
+  credit or wallet purchase) goes through `applyGrant` (`credit-grant.ts`: compare-and-set on `attempts`, history check on retry). Not verified against the real router: see
   `docs/architecture.md`, "Known gaps" 9b, and run `test/validation/nibierouter-live.ts` first.
 - **Disk quota and egress** (`runtime/volume-quota.ts`, `runtime/egress-canary.ts`, `ops/egress/`):
   `HERMES_DISK_QUOTA` and `HERMES_EGRESS_POLICY` are `enforce|off` (`off` refused in production). Tenant

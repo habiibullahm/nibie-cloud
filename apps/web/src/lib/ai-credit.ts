@@ -12,6 +12,14 @@ export function parseAiThreshold(text: string): number | null {
   return n >= AI_ALERT_MIN_IDR && n <= AI_ALERT_MAX_IDR ? n : null
 }
 
+/** Quick picks on the "Top up AI balance" dialog; any amount within the backend's limits is also accepted. */
+export const AI_BUY_PRESETS = [20_000, 50_000, 100_000, 200_000] as const
+
+/** US$ credit for a Rupiah amount at the rate, rounded down to the cent as the router shows it (the backend keeps nano-USD). */
+export function aiCreditUsd(amountIdr: number, idrPerUsd: number): number {
+  return Math.floor((amountIdr * 100) / idrPerUsd) / 100
+}
+
 /** Rupiah when a rate is known, otherwise US$ with cents (the router counts in US$). */
 export function formatAiAmount(idr: number | null, usd: number, lang: "en" | "id" = "en"): string {
   if (idr !== null) return formatPriceIdr(idr, lang)

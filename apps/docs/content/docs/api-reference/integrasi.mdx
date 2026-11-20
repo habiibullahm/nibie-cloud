@@ -81,12 +81,19 @@ Body `PUT`:
 | --- | --- |
 | `GET /ai` | Saldo dan pemakaian NibieRouter tenant kamu, dalam Rupiah. |
 | `PUT /ai/alert` | Mengatur email pengingat saldo AI. Body `{ "enabled": true, "thresholdIdr": 10000 }`. |
+| `POST /ai/credit` | Membeli kredit AI dari saldo Nibie Cloud. Header `Idempotency-Key`, body `{ "amountIdr": 50000 }`. |
 
 - `GET /ai` berisi `rate` (`idrPerUsd` dan `source`: `admin` atau `router`), `hasAccount`, `balanceUsd`, `balanceIdr`,
   `spend30dUsd`, `spend30dIdr`, `daily` (per hari: `day`, `requests`, `costUsd`, `costIdr`), `models` (per model) dan
   `alert`. Field Rupiah bernilai `null` kalau kurs tidak tersedia.
 - `thresholdIdr` antara 1.000 dan 1.000.000. Email dikirim sekali setiap saldo turun di bawah batas itu, paling sering
   sekali per jam, dan hanya untuk akun yang pernah menerima kredit AI.
+- `POST /ai/credit`: `amountIdr` bilangan bulat antara 10.000 dan 1.000.000. Saldo Nibie Cloud dipotong sebesar itu, dan
+  saldo AI bertambah `amountIdr` dibagi kurs. Jawabannya `201` dengan `purchase` (`id`, `amountIdr`, `amountUsd`, `status`).
+  `status` `PENDING` berarti saldo sudah dipotong dan kredit masuk dalam beberapa menit. Kirim ulang dengan
+  `Idempotency-Key` yang sama tidak membeli dua kali. Saldo kurang: `409 insufficient_balance`. Belum punya akun AI (belum
+  ada instance yang memakai NibieRouter): `409 no_ai_account`. Kredit AI tidak bisa dikembalikan menjadi saldo. Hanya ada
+  kalau saldo Nibie Cloud aktif; kalau tidak, `GET /ai` berisi `buy: null`.
 - NibieRouter tidak diaktifkan di server: `404`. NibieRouter tidak bisa dihubungi: `503 router_unavailable`.
 
 ## Log
