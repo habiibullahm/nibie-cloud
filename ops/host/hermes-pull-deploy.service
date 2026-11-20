@@ -1,0 +1,12 @@
+[Unit]
+Description=Hermes Cloud: deploy origin/main when its backend changed and CI passed
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# The checkout and deploy.sh belong to ubuntu, which has passwordless sudo for docker and the env file.
+User=ubuntu
+ExecStart=/usr/local/sbin/hermes-auto-deploy
+TimeoutStartSec=45min
+Nice=10

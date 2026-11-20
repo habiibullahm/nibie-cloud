@@ -25,7 +25,20 @@ Owner: "mulai langkah 1" of `docs/superpowers/plans/2026-11-20-nibierouter-integ
 - **Not done (later steps):** key rate limits (step 2), AI balance and usage page (step 3), buying AI credit (step 4).
   The balance is not shown next to the picker until step 3.
 
-## Balance payments: confirmation with Turnstile, open the new instance (2026-11-20, branch `claude/wallet-confirm`, not merged)
+## Backend deploys pulled by the host (2026-11-20, branch `claude/pull-deploy`, not merged, not installed)
+
+The GitHub deploy for #103 failed twice: `ssh: connect to host *** port 22: Connection timed out`. The host's `ufw` allows 22 and
+`sshd` listens; the owner said the VPS provider now limits inbound SSH ("kena security port vps"). #103 was deployed by hand from
+the owner's workstation (owner: "deploy #103"; `f34269e`, ready, no errors). Owner: "buat pull deploy", Tailscale later.
+- **Built:** `ops/host/hermes-pull-deploy.service` + `.timer` (every 2 minutes, as `ubuntu`) run `hermes-auto-deploy`, which now
+  also skips a commit whose `ci` run is not `success` (public GitHub API via `curl` + `jq`, both on the host) and marks a failed
+  deploy (`/var/lib/hermes-deploy/failed-<commit>`) so it is not retried every 2 minutes. `.github/workflows/deploy.yml` is
+  `workflow_dispatch` only until SSH reaches the host another way. Install steps: `deploy/README.md`.
+- **Checks:** `bash -n` on the script; the CI query ran on the host against the current `main` and answered `success`. Not
+  installed or run on the host yet.
+- **Until it is installed:** each backend merge needs a manual deploy from an allowed IP.
+
+## Balance payments: confirmation with Turnstile, open the new instance (2026-11-20, branch `claude/wallet-confirm`, PR #103, deployed `f34269e` by hand)
 
 Owner: "should have confirmation payment with turnstile widget" and "its not redirected to overview instance".
 - **Backend:** `POST /payments/:id/pay-with-wallet` takes `{ captchaToken }` and, when `TURNSTILE_SECRET_KEY` is set (it is on
