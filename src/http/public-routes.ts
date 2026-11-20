@@ -8,7 +8,7 @@ import { freeBetaRemaining } from '../modules/instances/free-beta.js';
 import { renderWaitlistConfirm } from '../modules/billing/email-templates.js';
 import type { Mailer } from '../modules/billing/mailer.js';
 import { CONFIRM_TOKEN_PATTERN, confirmWaitlist, forgetConfirmSend, joinWaitlist } from '../modules/waitlist/waitlist.js';
-import type { CaptchaVerifier } from '../modules/waitlist/turnstile.js';
+import { CaptchaFailedError, type CaptchaVerifier } from '../modules/waitlist/turnstile.js';
 import { readSupportContact } from '../modules/support/contact.js';
 import { AppError } from '../shared/errors.js';
 import { ipv6Groups } from '../shared/ip.js';
@@ -65,13 +65,6 @@ class WaitlistFullError extends AppError {
 class WaitlistUnavailableError extends AppError {
   constructor() {
     super('The waiting list cannot take entries right now. Please try again later.', 503, 'waitlist_unavailable');
-  }
-}
-
-/** The captcha was missing, wrong, expired or already used. The form shows a fresh one. */
-class CaptchaFailedError extends AppError {
-  constructor() {
-    super('The anti-bot check failed. Please try again.', 400, 'captcha_failed');
   }
 }
 

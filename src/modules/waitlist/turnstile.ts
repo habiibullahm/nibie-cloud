@@ -1,4 +1,12 @@
+import { AppError } from '../../shared/errors.js';
 import { safeFetch, type SafeFetchOptions, type SafeFetchResult } from '../net/safe-fetch.js';
+
+/** The captcha was missing, wrong, expired or already used. The form shows a fresh one. */
+export class CaptchaFailedError extends AppError {
+  constructor() {
+    super('The anti-bot check failed. Please try again.', 400, 'captcha_failed');
+  }
+}
 
 const HOST = 'challenges.cloudflare.com';
 const SITEVERIFY = `https://${HOST}/turnstile/v0/siteverify`;

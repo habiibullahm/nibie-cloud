@@ -2,16 +2,26 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { BillingService } from '../modules/billing/billing-service.js';
 import { TOPUP_MAX_IDR, TOPUP_MIN_IDR } from '../modules/billing/wallet.js';
+import { CaptchaFailedError, type CaptchaVerifier } from '../modules/waitlist/turnstile.js';
+import { AppError } from '../shared/errors.js';
 import { principalOf } from './customer-auth.js';
+import { clientIp } from './public-routes.js';
 
 const checkoutBody = z.object({ name: z.string(), planId: z.string().uuid() }).strict();
 const upgradeBody = z.object({ instanceId: z.string().uuid(), planId: z.string().uuid() }).strict();
 const idempotencyKey = z.string().min(1).max(128);
 const topupBody = z.object({ amountIdr: z.number().int().min(TOPUP_MIN_IDR).max(TOPUP_MAX_IDR) }).strict();
 const autoRenewBody = z.object({ enabled: z.boolean() }).strict();
+const walletPayBody = z.object({ captchaToken: z.string().max(2048).optional() }).strict();
 
 /** Customer billing routes. Registered inside the customer plugin, so the token and the tenant are already resolved. */
-export function registerBillingRoutes(api: FastifyInstance, billing: BillingService, gate: (email: string) => void | Promise<void> = () => undefined): void {
+export function registerBillingRoutes(
+  api: FastifyInstance,
+  billing: BillingService,
+  gate: (email: string) => void | Promise<void> = () => undefined,
+  /** Turnstile check for paying from the wallet; null: none asked. */
+  captcha: CaptchaVerifier | null = null,
+): void {
   type SubParams = { subscriptionId: string };
 
   api.get('/subscriptions', async (req) => ({ subscriptions: await billing.list(principalOf(req).tenantId) }));
@@ -66,10 +76,17 @@ export function registerBillingRoutes(api: FastifyInstance, billing: BillingServ
 
   api.get('/wallet', async (req) => ({ wallet: await wallet.view(principalOf(req).tenantId) }));
 
-  // Pays an open hosting invoice from the balance; the instance, plan change and receipt follow after the response.
+  // Pays an open hosting invoice from the balance; the plan change and receipt follow after the response. Spending money
+  // needs a solved Turnstile when the backend has a secret, checked before anything is read or written; an outage fails closed.
   api.post<{ Params: { paymentId: string } }>('/payments/:paymentId/pay-with-wallet', { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } }, async (req) => {
     const p = principalOf(req);
     await gate(p.email);
+    const body = walletPayBody.parse(req.body ?? {});
+    if (captcha) {
+      const outcome = await captcha(body.captchaToken, clientIp(req));
+      if (outcome === 'invalid') throw new CaptchaFailedError();
+      if (outcome === 'unavailable') throw new AppError('The anti-bot check is unavailable. Please try again later.', 503, 'captcha_unavailable');
+    }
     const { postActions, ...result } = await billing.payWithWallet(p.tenantId, req.params.paymentId);
     setImmediate(() => void postActions().catch((e: Error) => req.log.error({ errName: e.name }, 'post-payment actions failed')));
     return result;

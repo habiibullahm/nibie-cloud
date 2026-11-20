@@ -363,6 +363,13 @@ export const ID: Record<string, string> = {
   "Pay for {name} from balance": "Bayar {name} pakai saldo",
   "Nibie Cloud balance": "Saldo Nibie Cloud",
   "Pay from your balance": "Bayar pakai saldo",
+  "Pay from your balance?": "Bayar pakai saldo?",
+  "The amount is taken from your Nibie Cloud balance right away.": "Jumlah ini langsung dipotong dari saldo Nibie Cloud kamu.",
+  "Balance now": "Saldo sekarang",
+  "Balance after": "Saldo sesudah bayar",
+  "The check expired. Solve it again.": "Pemeriksaan kedaluwarsa. Selesaikan lagi.",
+  "The check could not load. Reload the page and try again.": "Pemeriksaan tidak bisa dimuat. Muat ulang halaman lalu coba lagi.",
+  "Confirm payment": "Konfirmasi pembayaran",
   "The price is taken from your Nibie Cloud balance and your instance is created right away.":
     "Harga dipotong dari saldo Nibie Cloud kamu dan instance langsung dibuat.",
 }
