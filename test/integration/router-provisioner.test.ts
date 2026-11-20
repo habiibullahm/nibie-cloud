@@ -453,6 +453,50 @@ describe('RouterProvisioner', () => {
     });
   });
 
+  describe('revoking a key the customer replaced', () => {
+    async function provisioned() {
+      const { instance, sub } = await mk({ credit: null });
+      await prov.begin({ tenantId: s.tenant.id, instanceId: instance.id, subscriptionId: sub.id });
+      return instance;
+    }
+    const live = (id: string) => router.keys.filter((k) => k.name === `inst-${id}` && !k.revoked);
+
+    it('the tick revokes the instance key once BYOK replaced it, marks the row and does not call the router again', async () => {
+      const instance = await provisioned();
+      await providers.put(s.tenant.id, instance.id, { baseUrl: 'https://llm.example.com/v1', model: 'own', apiKey: 'sk-own-key-0123456789' });
+      await prov.runPending();
+      expect(live(instance.id)).toHaveLength(0);
+      expect((await rowOf(instance.id)).keyRevokedAt).not.toBeNull();
+      const calls = router.calls.length;
+      await prov.runPending();
+      expect(router.calls).toHaveLength(calls);
+    });
+
+    it('leaves the key of an instance still on NibieRouter alone, and a restored key stays live', async () => {
+      const instance = await provisioned();
+      await prov.runPending();
+      expect(live(instance.id)).toHaveLength(1);
+
+      await providers.put(s.tenant.id, instance.id, { baseUrl: 'https://llm.example.com/v1', model: 'own', apiKey: 'sk-own-key-0123456789' });
+      await prov.runPending();
+      await prov.restore(s.tenant.id, instance.id);
+      expect((await rowOf(instance.id)).keyRevokedAt).toBeNull();
+      await prov.runPending();
+      expect(live(instance.id)).toHaveLength(1);
+    });
+
+    it('a router failure leaves the row unmarked, and the next tick revokes the key', async () => {
+      const instance = await provisioned();
+      await providers.put(s.tenant.id, instance.id, { baseUrl: 'https://llm.example.com/v1', model: 'own', apiKey: 'sk-own-key-0123456789' });
+      router.failNext = ['revokeKey'];
+      await prov.runPending();
+      expect(live(instance.id)).toHaveLength(1);
+      expect((await rowOf(instance.id)).keyRevokedAt).toBeNull();
+      await prov.runPending();
+      expect(live(instance.id)).toHaveLength(0);
+    });
+  });
+
   it('never stores the router secret in the provisioning row or leaks it in lastError', async () => {
     const { instance, sub } = await mk();
     router.failNext = ['grantCredit'];

@@ -487,6 +487,9 @@ model RouterProvisioning {
   attempts       Int                      @default(0)
   /// Short machine code of the last failure, never provider text.
   lastError      String?
+  /// Set once the instance's `inst-` key was revoked because the customer replaced it (own key, or none). Attaching a
+  /// new NibieRouter key clears it.
+  keyRevokedAt   DateTime?                @db.Timestamptz(3)
   createdAt      DateTime                 @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime                 @updatedAt @db.Timestamptz(3)
 }
