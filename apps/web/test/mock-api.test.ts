@@ -96,6 +96,17 @@ describe("mock preview API", () => {
     ).rejects.toThrow(/https/)
   })
 
+  it("changes the NibieRouter model only on a NibieRouter provider and only to a listed model", async () => {
+    const api = fresh()
+    const i = await api.instances.create({ name: "demo", planId: PLANS[0]!.id }, "k")
+    await api.preview.saveProvider(i.id, { kind: "byok", providerName: "openai", baseUrl: "https://api.openai.com/v1", model: "m", apiKey: "sk-test-1234567890abcd" })
+    await expect(api.preview.setRouterModel(i.id, "sample-fast")).rejects.toMatchObject({ code: "not_nibierouter" })
+    await api.preview.saveProvider(i.id, { kind: "nibierouter" })
+    await expect(api.preview.setRouterModel(i.id, "not-listed")).rejects.toMatchObject({ status: 400 })
+    expect(await api.preview.setRouterModel(i.id, "sample-fast")).toMatchObject({ model: "sample-fast", restartRequired: true })
+    expect((await api.preview.routerModels(i.id)).models.some((m) => m.free)).toBe(true)
+  })
+
   it("rejects malformed Telegram tokens and stores only a hint", async () => {
     const api = fresh()
     const i = await api.instances.create({ name: "demo", planId: PLANS[0]!.id }, "k")

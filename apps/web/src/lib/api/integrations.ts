@@ -8,7 +8,7 @@ import {
   TELEGRAM_USER_ID_FORMAT,
   providerNameForUrl,
 } from "./providers"
-import type { LogLevel, LogLine, ProviderConfig, TelegramConfig } from "./types"
+import type { LogLevel, LogLine, ProviderConfig, RouterModels, TelegramConfig } from "./types"
 
 /** Shapes returned by src/http/integration-routes.ts (ProviderView, TelegramView). */
 interface ProviderBody {
@@ -146,6 +146,8 @@ export function buildIntegrationsApi(
   | "provider"
   | "saveProvider"
   | "testProvider"
+  | "routerModels"
+  | "setRouterModel"
   | "telegram"
   | "saveTelegram"
   | "verifyTelegram"
@@ -177,6 +179,15 @@ export function buildIntegrationsApi(
     },
     testProvider: async (i) =>
       toProvider((await call<{ provider: ProviderBody }>(`/instances/${id(i)}/providers/test`, { method: "POST" })).provider),
+    routerModels: (i) => call<RouterModels>(`/instances/${id(i)}/models`),
+    setRouterModel: async (i, model) => {
+      if (!MODEL_FORMAT.test(model)) throw bad("Choose a model from the list.")
+      const { provider } = await call<{ provider: ProviderBody }>(`/instances/${id(i)}/providers/model`, {
+        method: "PUT",
+        ...json({ model }),
+      })
+      return toProvider(provider)
+    },
     telegram: async (i) => toTelegram((await call<{ telegram: TelegramBody }>(`/instances/${id(i)}/telegram`)).telegram),
     saveTelegram: async (i, input) => {
       const allowedUserIds = [...new Set(input.allowlist.map((s) => s.trim()).filter(Boolean))]

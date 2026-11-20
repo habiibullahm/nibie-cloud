@@ -26,6 +26,7 @@ export const keys = {
   usage: (id: string, r: string) => ["usage", id, r] as const,
   logs: (id: string, level: string, q: string) => ["logs", id, level, q] as const,
   provider: (id: string) => ["provider", id] as const,
+  routerModels: (id: string) => ["router-models", id] as const,
   telegram: (id: string) => ["telegram", id] as const,
   files: (id: string, path: string) => ["files", id, path] as const,
   file: (id: string, path: string) => ["file", id, path] as const,
@@ -265,6 +266,16 @@ export function useProvider(id: string) {
     queryFn: () => getApi().preview.provider(id),
     // Also while no provider is set: a free instance gets its NibieRouter key from the backend shortly after it starts.
     refetchInterval: (q) => (q.state.data?.restartRequired || q.state.data?.configured === false ? POLL_MS * 3 : false),
+  })
+}
+
+/** The router's model list changes rarely (the backend caches it for 10 minutes), so it is not polled. */
+export function useRouterModels(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: keys.routerModels(id),
+    queryFn: () => getApi().preview.routerModels(id),
+    enabled,
+    staleTime: 5 * 60_000,
   })
 }
 

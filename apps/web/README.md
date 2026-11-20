@@ -163,7 +163,9 @@ Configuration page needs a model name and numeric Telegram user IDs (the backend
 default), asks for the key or token again on every save (the backend never returns them), and shows a
 restart notice while `restartRequired` is true. BYOK presets (`src/lib/api/providers.ts`) are OpenAI,
 OpenRouter and a custom URL; Anthropic is left out because the backend tests a provider with a Bearer
-`GET /models`. NibieRouter is attached by Nibie Cloud, so the customer form cannot select it. The plan of an instance comes from its own
+`GET /models`. NibieRouter is attached by Nibie Cloud, so the customer form cannot select it; once it is attached, a
+"NibieRouter model" card lists the router's models with prices (free models only on a free plan) and saves the choice
+(`GET /instances/:id/models`, `PUT /instances/:id/providers/model`). The plan of an instance comes from its own
 `planId` (or its subscription), never from sample metadata. Features without a backend are hidden, not faked. Without the URL or the
 Supabase variables the app falls back to labelled mock data. Backend prerequisites: `SUPABASE_URL`,
 `DASHBOARD_ORIGIN` (exact origin, for CORS), `BETA_ALLOWED_EMAILS` (creation is refused with 403

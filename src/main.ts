@@ -11,11 +11,12 @@ import { InstanceService } from './modules/instances/instance-service.js';
 import { DiskMonitor } from './modules/instances/disk-monitor.js';
 import { InstanceCommands } from './modules/instances/instance-commands.js';
 import { LogService } from './modules/integrations/log-service.js';
-import { ProviderService } from './modules/integrations/provider-service.js';
+import { NIBIEROUTER_BASE_URL, ProviderService } from './modules/integrations/provider-service.js';
 import { purgeIntegrations } from './modules/integrations/purge.js';
 import { createRuntimeConfigLoader, noRuntimeConfig } from './modules/integrations/runtime-env.js';
 import { TelegramService } from './modules/integrations/telegram-service.js';
 import type { Integrations } from './modules/integrations/types.js';
+import { createModelCatalog } from './modules/nibierouter/model-catalog.js';
 import { createNibieRouterClient } from './modules/nibierouter/nibierouter-client.js';
 import { RouterProvisioner } from './modules/nibierouter/router-provisioner.js';
 import { PrismaSecretStore } from './modules/secrets/secret-store.js';
@@ -79,7 +80,7 @@ const integrations: Integrations | null = secretStore && config.secrets
       secrets: secretStore,
       kekVersion: config.secrets.current.version,
       telegram: new TelegramService({ prisma, secrets: secretStore, logger }),
-      providers: new ProviderService({ prisma, secrets: secretStore, logger }),
+      providers: new ProviderService({ prisma, secrets: secretStore, logger, catalog: createModelCatalog({ url: `${NIBIEROUTER_BASE_URL}/models` }) }),
     }
   : null;
 logger.info({ secretStore: secretStore !== null }, 'secret storage');

@@ -16,6 +16,7 @@ import type {
   Plan,
   ProviderConfig,
   Region,
+  RouterModel,
   TelegramConfig,
   UsagePoint,
   Wallet,
@@ -31,6 +32,14 @@ import type {
 export const MOCK_PAYMENT_URL = "mock://payment"
 
 export const MOCK_TENANT_ID = "00000000-0000-4000-8000-000000000001"
+
+/** Sample NibieRouter catalogue: the default free model plus a few priced ones (US$ per 1M tokens). */
+export const MOCK_ROUTER_MODELS: RouterModel[] = [
+  { id: "nibierouter-free", name: "NibieRouter Free", contextLength: 131072, promptUsdPerM: 0, completionUsdPerM: 0, free: true },
+  { id: "qwen4-max:free", name: "Qwen4 Max (free)", contextLength: 131072, promptUsdPerM: 0, completionUsdPerM: 0, free: true },
+  { id: "sample-fast", name: "Sample Fast", contextLength: 262144, promptUsdPerM: 0.3, completionUsdPerM: 2.16, free: false },
+  { id: "sample-pro", name: "Sample Pro", contextLength: 200000, promptUsdPerM: 3, completionUsdPerM: 15, free: false },
+]
 
 export const PLANS: Plan[] = [
   {
@@ -555,6 +564,26 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       await delay(latency > 0 ? 600 : 0)
       const prev = providers.get(id)!
       const next: ProviderConfig = { ...prev, status: "connected", statusMessage: null, lastTestedAt: iso() }
+      providers.set(id, next)
+      return next
+    },
+    async routerModels(id) {
+      await wait()
+      previewRow(id)
+      return { freeOnly: false, models: MOCK_ROUTER_MODELS }
+    },
+    async setRouterModel(id, model) {
+      await wait()
+      previewRow(id)
+      const prev = providers.get(id)!
+      if (prev.kind !== "nibierouter" || !prev.configured) {
+        throw new ApiError(409, "not_nibierouter", "Only the NibieRouter provider has a model to choose here")
+      }
+      if (!MOCK_ROUTER_MODELS.some((m) => m.id === model)) {
+        throw new ApiError(400, "validation_error", "NibieRouter does not offer this model")
+      }
+      if (prev.model === model) return prev
+      const next: ProviderConfig = { ...prev, model, restartRequired: true }
       providers.set(id, next)
       return next
     },

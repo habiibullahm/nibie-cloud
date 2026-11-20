@@ -1,8 +1,9 @@
 import { isIP } from 'node:net';
 import type { PrismaClient } from '@prisma/client';
-import { NotFoundError, OutboundBlockedError, OutboundFailedError, ValidationError } from '../../shared/errors.js';
+import { AppError, NotFoundError, OutboundBlockedError, OutboundFailedError, RouterUnavailableError, ValidationError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import { isForbiddenAddress } from '../net/ip-ranges.js';
+import type { CatalogModel, ModelCatalog } from '../nibierouter/model-catalog.js';
 import type { SecretStore } from '../secrets/secret-store.js';
 import { defaultFetcher, type Fetcher } from './fetcher.js';
 
@@ -37,6 +38,8 @@ interface Deps {
   secrets: SecretStore;
   logger: Logger;
   fetcher?: Fetcher;
+  /** NibieRouter's model list. Without it the customer cannot choose a NibieRouter model (503 router_unavailable). */
+  catalog?: ModelCatalog;
 }
 
 export class ProviderService {
@@ -65,6 +68,38 @@ export class ProviderService {
     const apiKey = validateKey(input.apiKey);
     await this.instance(tenantId, instanceId);
     return this.store(tenantId, instanceId, { kind: 'NIBIEROUTER', baseUrl: NIBIEROUTER_BASE_URL, model, apiKey });
+  }
+
+  /** The NibieRouter models this instance may choose. A free plan has a router balance of 0, so it gets the free models only. */
+  async models(tenantId: string, instanceId: string): Promise<{ freeOnly: boolean; models: CatalogModel[] }> {
+    const freeOnly = await this.onFreePlan(tenantId, instanceId);
+    const all = await this.catalog().list();
+    return { freeOnly, models: freeOnly ? all.filter((m) => m.free) : all };
+  }
+
+  /**
+   * Changes the model of the instance's NibieRouter provider. The key stays; the revision is bumped so the next start
+   * or restart writes the new `model:` block. Saving the model that is already set changes nothing.
+   */
+  async setModel(tenantId: string, instanceId: string, raw: unknown): Promise<ProviderView> {
+    const model = validateModel(raw);
+    const freeOnly = await this.onFreePlan(tenantId, instanceId);
+    const cfg = await this.d.prisma.providerConfig.findUnique({ where: { instanceId }, select: { kind: true, model: true } });
+    if (cfg?.kind !== 'NIBIEROUTER') throw new AppError('Only the NibieRouter provider has a model to choose here', 409, 'not_nibierouter');
+    if (cfg.model !== model) {
+      const offered = (await this.catalog().list()).find((m) => m.id === model);
+      if (!offered) throw new ValidationError('NibieRouter does not offer this model');
+      if (freeOnly && !offered.free) throw new ValidationError('A free plan can only use the free models');
+      await this.d.prisma.$transaction(async (tx) => {
+        await tx.instance.update({ where: { id: instanceId }, data: { configRevision: { increment: 1 } } });
+        // The kind is checked again under the instance row lock: a BYOK key saved meanwhile must not get a router model.
+        const { count } = await tx.providerConfig.updateMany({ where: { instanceId, kind: 'NIBIEROUTER' }, data: { model } });
+        if (count === 0) throw new AppError('Only the NibieRouter provider has a model to choose here', 409, 'not_nibierouter');
+      });
+      this.d.logger.info({ instanceId, model }, 'nibierouter model changed');
+    }
+    const inst = await this.instance(tenantId, instanceId);
+    return (await this.view(instanceId, inst.configRevision > inst.appliedRevision))!;
   }
 
   async remove(tenantId: string, instanceId: string, providerConfigId: string): Promise<{ restartRequired: boolean }> {
@@ -139,6 +174,18 @@ export class ProviderService {
     const inst = await this.d.prisma.instance.findFirst({ where: { id: instanceId, tenantId, deletedAt: null }, select: { id: true, configRevision: true, appliedRevision: true } });
     if (!inst) throw new NotFoundError('Instance not found');
     return inst;
+  }
+
+  /** Free means the instance's own plan has no price (an upgrade switches `planId` only once it is paid). */
+  private async onFreePlan(tenantId: string, instanceId: string): Promise<boolean> {
+    const inst = await this.d.prisma.instance.findFirst({ where: { id: instanceId, tenantId, deletedAt: null }, select: { plan: { select: { monthlyPriceIdr: true } } } });
+    if (!inst) throw new NotFoundError('Instance not found');
+    return inst.plan.monthlyPriceIdr === null;
+  }
+
+  private catalog(): ModelCatalog {
+    if (!this.d.catalog) throw new RouterUnavailableError('unreachable');
+    return this.d.catalog;
   }
 
   private async view(instanceId: string, restartRequired: boolean): Promise<ProviderView | null> {

@@ -22,6 +22,10 @@ const TOKEN = '123456789:AAHcanaryTOKENvalue0123456789abcdefg';
 const KEY = 'sk-canary-provider-key-0123456789';
 const KEY2 = 'sk-canary-router-key-0123456789ab';
 const ALICE = 'alice@example.test';
+const CATALOG = [
+  { id: 'nibierouter-free', name: 'Free', contextLength: null, promptUsdPerM: 0, completionUsdPerM: 0, free: true },
+  { id: 'paid-model', name: 'Paid', contextLength: 1000, promptUsdPerM: 0.3, completionUsdPerM: 2.16, free: false },
+];
 
 let auth: Awaited<ReturnType<typeof createTestAuth>>;
 let s: Awaited<ReturnType<typeof seed>>;
@@ -49,7 +53,7 @@ function app(withSecrets = true) {
     config: testConfig(IMAGE, TEST_MASTER_KEY, { betaAllowedEmails: [ALICE] }),
     customer: { verify: auth.verify, identity: new IdentityService({ prisma }), prisma },
     integrations: withSecrets
-      ? { secrets, kekVersion: 1, telegram: new TelegramService({ prisma, secrets, logger: silentLogger, fetcher }), providers: new ProviderService({ prisma, secrets, logger: silentLogger, fetcher }) }
+      ? { secrets, kekVersion: 1, telegram: new TelegramService({ prisma, secrets, logger: silentLogger, fetcher }), providers: new ProviderService({ prisma, secrets, logger: silentLogger, fetcher, catalog: { list: async () => CATALOG } }) }
       : null,
   });
 }
@@ -74,6 +78,7 @@ describe('integration routes', () => {
       ['GET', `/api/v1/instances/${id}/providers`], ['PUT', `/api/v1/instances/${id}/providers`], ['POST', `/api/v1/instances/${id}/providers/test`],
       ['DELETE', `/api/v1/instances/${id}/providers/${id}`], ['GET', `/api/v1/instances/${id}/telegram`], ['PUT', `/api/v1/instances/${id}/telegram`],
       ['POST', `/api/v1/instances/${id}/telegram/verify`], ['DELETE', `/api/v1/instances/${id}/telegram`],
+      ['GET', `/api/v1/instances/${id}/models`], ['PUT', `/api/v1/instances/${id}/providers/model`],
     ] as const) {
       expect((await a.inject({ method, url })).statusCode, `${method} ${url}`).toBe(401);
     }
@@ -121,6 +126,7 @@ describe('integration routes', () => {
       ['GET', `${t}/providers`], ['PUT', `${t}/providers`, { baseUrl: 'https://llm.example.com/v1', model: 'm', apiKey: KEY }], ['POST', `${t}/providers/test`],
       ['DELETE', `${t}/providers/${randomUUID()}`], ['GET', `${t}/telegram`], ['PUT', `${t}/telegram`, { token: TOKEN, allowedUserIds: ['1'] }],
       ['POST', `${t}/telegram/verify`], ['DELETE', `${t}/telegram`],
+      ['GET', `${t}/models`], ['PUT', `${t}/providers/model`, { model: 'nibierouter-free' }],
     ];
     for (const [method, url, payload] of calls) {
       const r = await a.inject({ method: method as 'GET', url, headers: bob.headers, ...(payload ? { payload } : {}) });
@@ -151,6 +157,26 @@ describe('integration routes', () => {
     }
     expect((await a.inject({ method: 'GET', url: '/api/v1/instances/not-a-uuid/telegram', headers: u.headers })).statusCode).toBe(400);
     expect((await a.inject({ method: 'PUT', url: p, headers: u.headers, payload: { baseUrl: 'http://llm.example.com', model: 'm', apiKey: KEY } })).statusCode).toBe(400);
+  });
+
+  it('chooses a NibieRouter model: free plan sees free models only, paid plan can save a paid model', async () => {
+    const a = app();
+    const u = await userWithInstance(a);
+    const url = `/api/v1/tenants/${u.tenantId}/instances/${u.instanceId}/providers/nibierouter`;
+    await a.inject({ method: 'PUT', url, headers: admin, payload: { apiKey: KEY2, model: 'nibierouter-free' } });
+    const models = `/api/v1/instances/${u.instanceId}/models`;
+    const put = `/api/v1/instances/${u.instanceId}/providers/model`;
+    expect((await a.inject({ method: 'GET', url: models, headers: u.headers })).json()).toEqual({ freeOnly: true, models: [CATALOG[0]] });
+    const refused = await a.inject({ method: 'PUT', url: put, headers: u.headers, payload: { model: 'paid-model' } });
+    expect(refused.statusCode).toBe(400);
+    expect((await a.inject({ method: 'PUT', url: put, headers: u.headers, payload: { model: 'paid-model', apiKey: KEY } })).statusCode).toBe(400);
+
+    await prisma.plan.update({ where: { id: s.plan.id }, data: { monthlyPriceIdr: 50_000 } });
+    expect((await a.inject({ method: 'GET', url: models, headers: u.headers })).json().models).toHaveLength(2);
+    const ok = await a.inject({ method: 'PUT', url: put, headers: u.headers, payload: { model: 'paid-model' } });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json().provider).toMatchObject({ kind: 'NIBIEROUTER', model: 'paid-model', restartRequired: true });
+    expect(ok.body).not.toContain(KEY2);
   });
 
   it('answers 503 secrets_unavailable when no key-encryption key is configured', async () => {

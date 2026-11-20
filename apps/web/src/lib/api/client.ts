@@ -18,6 +18,7 @@ import type {
   ProviderConfig,
   ProviderKind,
   Region,
+  RouterModels,
   TelegramConfig,
   Usage,
   Wallet,
@@ -88,6 +89,10 @@ export interface PreviewApi {
     input: { kind: ProviderKind; providerName?: string; baseUrl?: string; model?: string; apiKey?: string }
   ): Promise<ProviderConfig>
   testProvider(instanceId: string): Promise<ProviderConfig>
+  /** NibieRouter models this instance may use (free models only on a free plan). */
+  routerModels(instanceId: string): Promise<RouterModels>
+  /** Changes the NibieRouter model; the key stays. Applies after a restart (`restartRequired`). */
+  setRouterModel(instanceId: string, model: string): Promise<ProviderConfig>
   telegram(instanceId: string): Promise<TelegramConfig>
   saveTelegram(instanceId: string, input: { token: string; allowlist: string[] }): Promise<TelegramConfig>
   verifyTelegram(instanceId: string): Promise<TelegramConfig>

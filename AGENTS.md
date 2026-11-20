@@ -163,7 +163,9 @@ Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
   (attached through `ProviderService.attachNibieRouter`, then the instance restarts) and, for a plan with `includedCreditNano`, a
   one-time credit guarded by the unique `CreditGrant` row (the router has no idempotency). Free-plan instances that are `ACTIVE` with
   no provider get a key too (no credit), picked up by the billing tick's `runPending`. Rows live in `RouterProvisioning`, the
-  billing tick retries them, and a failure never touches the payment. Not verified against the real router: see
+  billing tick retries them, and a failure never touches the payment. The customer picks the model of a `NIBIEROUTER`
+  provider (`GET /instances/:id/models`, `PUT .../providers/model`) from the router's public model list (`model-catalog.ts`,
+  10-minute cache); a free plan gets the free models only. Not verified against the real router: see
   `docs/architecture.md`, "Known gaps" 9b, and run `test/validation/nibierouter-live.ts` first.
 - **Disk quota and egress** (`runtime/volume-quota.ts`, `runtime/egress-canary.ts`, `ops/egress/`):
   `HERMES_DISK_QUOTA` and `HERMES_EGRESS_POLICY` are `enforce|off` (`off` refused in production). Tenant

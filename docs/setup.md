@@ -295,6 +295,7 @@ algorithms only) and derives the tenant from the user's membership. Routes, all 
 `GET /me`, `GET /plans`, `POST /instances` (needs `Idempotency-Key`), `GET /instances[/:id[/status|/events]]`,
 `POST /instances/:id/{start,stop,restart}`, `DELETE /instances/:id`, and per instance (when `SECRETS_KEK` is set):
 `GET|PUT /instances/:id/providers`, `POST .../providers/test`, `DELETE .../providers/:providerConfigId`,
+`GET .../models` and `PUT .../providers/model` (NibieRouter model choice, see [NibieRouter](#nibierouter-key-and-credit)),
 `GET|PUT|DELETE .../telegram`, `POST .../telegram/verify`, `GET .../logs?tail=` (redacted, at most 500 lines).
 The test and verify routes are limited to 5 per minute. Operator-only: `PUT /api/v1/tenants/:t/instances/:i/providers/nibierouter`,
 `GET /api/v1/secrets/health`, `POST /api/v1/secrets/rewrap`. Limits: 120 requests per minute
@@ -367,6 +368,14 @@ instances once (`runNewFree`), and a failure is left to the billing tick, which 
 set is never replaced, and a row is made once per instance, so a provider removed later is not put back. The fast path
 does not need a payment gateway; the retries do. The default model must be one a router user with no balance can call,
 or free agents get errors.
+
+**The customer chooses the model** (owner decision, 2026-11-20). `GET /instances/:id/models` lists the chat models of the
+router's public `https://router.nibie.app/v1/models` (no key; `ModelCatalog` keeps it in memory for 10 minutes and serves
+the last copy while the router is down). A plan without a price gets the free models only (every price 0). `PUT
+/instances/:id/providers/model` changes `ProviderConfig.model` of a `NIBIEROUTER` provider and bumps `configRevision`; the
+key stays, and the next start or restart writes the new `model:` block. A BYOK instance gets `409 not_nibierouter`. The
+default for new keys is still `NIBIEROUTER_DEFAULT_MODEL`. A paid model is paid from the tenant's router balance (the
+plan credit); when it is empty the router refuses the requests, the instance itself is not touched.
 
 - **Turn it on:** put `NIBIEROUTER_ADMIN_KEY` and `NIBIEROUTER_DEFAULT_MODEL` in the backend environment on the host
   (the admin key is created in the NibieRouter admin dashboard, kept in the password
