@@ -1,5 +1,5 @@
 [Unit]
-Description=Nibie Cloud host watchdog (readyz, containers, disk, backups, certificate)
+Description=Nibie Cloud host watchdog (readyz, containers, disk, backups and R2 copy, restore drill, certificate)
 After=docker.service
 
 [Service]

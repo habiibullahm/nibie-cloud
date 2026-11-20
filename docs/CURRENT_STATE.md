@@ -4,6 +4,24 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Backup alerts for R2 and the restore drill; restore runbook (2026-11-20, branch `claude/backup-alert-runbook`, not merged, not installed)
+
+Owner: "mulai", for the open items of the entry below.
+- **Alerts:** `ops/host/hermes-watchdog.sh` step 4b raises a Telegram alert when the last `OK: uploaded` in
+  `/var/log/hermes-db-offsite.log` is older than 26 hours or missing, and when `hermes-restore-drill.service` is `failed`. It
+  sends a recovery message when that is fixed. Telegram is configured on the VPS (both `OPS_TELEGRAM_*` names set, checked
+  without reading values). The installed watchdog matched the repository before this change.
+- **Runbook:** new `docs/runbook-restore.md`: what is backed up, the daily check, a safe restore test, restoring the production
+  `hermes` schema (never `auth`), and what to repair after a restore. The production restore is **not rehearsed**.
+- **Checks:** `bash -n` on the watchdog. The R2 freshness parser was run on fake logs: a fresh upload recovers; an old upload,
+  a log without `OK` and a missing log all alert. The quoting of the runbook's RLS query was checked in a shell.
+- **To install on the VPS after merge** (the pull deploy updates only the backend):
+  `cd /opt/hermes-cloud && git fetch -q origin && git show origin/main:ops/host/hermes-watchdog.sh > /tmp/hermes-watchdog && sudo install -m 755 /tmp/hermes-watchdog /usr/local/sbin/hermes-watchdog`
+  (the checkout is a detached HEAD after `deploy.sh`, so `git pull` is not used). Check: `sudo /usr/local/sbin/hermes-watchdog` prints
+  no `ALERT offsite` or `ALERT restore-drill`.
+- **Still open:** confirming that the restic password and R2 credentials are in the password manager (owner).
+  `hermes-db-backup` is installed on the VPS but not kept in this repository.
+
 ## Database backup to R2 checked, restore drill passed (2026-11-20, VPS, no code)
 
 Owner ran the checks on the VPS with the steps from this session; all read-only, production untouched.
@@ -17,8 +35,7 @@ Owner ran the checks on the VPS with the steps from this session; all read-only,
 - **Still open:**
   - The restic password and R2 credentials live only in `/etc/restic/r2/env` on the VPS. The owner must keep a copy in the
     password manager, or the R2 backups cannot be read if the VPS is lost. Not confirmed yet.
-  - There is no written runbook to restore the production database from R2.
-  - There is no alert when a backup or upload fails.
+  - The runbook and the R2 and drill alerts are in the entry above (`claude/backup-alert-runbook`).
 
 ## NibieRouter step 1: the customer chooses the model (2026-11-20, branch `claude/nibierouter-model-choice`, PR #105, deployed `d798b01`)
 

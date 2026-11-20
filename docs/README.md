@@ -19,6 +19,7 @@ real tool output win, then CURRENT_STATE, then everything else.
 | [egress-host-notes.md](egress-host-notes.md) | What was and was not verified about the egress ruleset, bridge names and the canary. Its "no tenant traffic yet" notes are superseded by the VPS checks in CURRENT_STATE. |
 | [runbook-egress.md](runbook-egress.md) | Operator runbook: check the rules, add an exception, what to do when the canary or `network_policy_missing` fails. |
 | [runbook-payments.md](runbook-payments.md) | Operator runbook for SumoPod payments: daily check, resending webhooks, what each webhook outcome means, settings that must not change. |
+| [runbook-restore.md](runbook-restore.md) | Database backups: what runs when, the daily check, a safe restore test, and restoring the production `hermes` schema (not rehearsed). |
 | [billing-go-live.md](billing-go-live.md) | Setting up or switching the SumoPod gateway: variables, VPS steps, sandbox to production, rollback. |
 | [../deploy/README.md](../deploy/README.md) | Single-VPS production deployment (Compose, Caddy, XFS quota, egress): order of work, what was verified on a real host and what was not. |
 | [adr/](adr) | Architecture decision records: [0001](adr/0001-docker-direct-no-orchestrator.md), [0002](adr/0002-hardened-container-baseline.md), [0003](adr/0003-hermes-config-delivery.md). |
