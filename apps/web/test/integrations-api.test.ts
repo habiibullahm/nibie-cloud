@@ -153,6 +153,11 @@ describe("customer API: AI provider", () => {
   it("recognises preset base URLs", () => {
     expect(providerNameForUrl("https://openrouter.ai/api/v1")).toBe("openrouter")
     expect(providerNameForUrl("https://api.openai.com/v1/")).toBe("openai")
+    expect(providerNameForUrl("https://generativelanguage.googleapis.com/v1beta/openai/")).toBe("gemini")
+    expect(providerNameForUrl("https://api.deepseek.com/")).toBe("deepseek")
+    expect(providerNameForUrl("https://api.groq.com/openai/v1")).toBe("groq")
+    expect(providerNameForUrl("https://api.mistral.ai/v1")).toBe("mistral")
+    expect(providerNameForUrl("https://api.x.ai/v1")).toBe("xai")
     expect(providerNameForUrl("https://llm.example.com/v1")).toBe("custom")
   })
 })
