@@ -2,7 +2,8 @@
 
 Owner decision of 2026-11-17: **SumoPod Managed Payment** is the gateway. Duitku was removed from the code on
 2026-11-19 (`BILLING_GATEWAY` and `DUITKU_*` are ignored if still set). Nothing in this file contains a credential; the real
-values live only in `/etc/hermes-cloud/backend.env` (mode 600) and in the gateway dashboards.
+values live only in `/etc/hermes-cloud/backend.env` (mode 600) and in the gateway dashboards. Day-to-day checks and what
+to do when a payment did not arrive: [runbook-payments.md](runbook-payments.md).
 
 ## State before go-live (checked 2026-11-17)
 
@@ -14,8 +15,9 @@ values live only in `/etc/hermes-cloud/backend.env` (mode 600) and in the gatewa
 - Plans in the database match the landing: `hosting` Rp 25.000 and `hosting-kredit` Rp 50.000 (beta), 1 CPU,
   1 GB RAM, 1 GB storage; `hosting-kredit` grants a one-time US$2 NibieRouter credit.
 - The dashboard Worker `nibie-cloud-web` already runs in `customer` mode against `https://api.cloud.nibie.app`.
-- Checkout must return the payment URL. The fix is in the owner's uncommitted `billing-service.ts` change
-  (return the updated payment row); it must be on `main` before the first real check-out.
+
+Since then (2026-11-20, read through the admin MCP): production runs `SUMOPOD_ENV=production` with a signing secret,
+and real hosting invoices have reached `PAID`.
 
 ## Variables to set (names only)
 
@@ -29,7 +31,8 @@ values live only in `/etc/hermes-cloud/backend.env` (mode 600) and in the gatewa
 | `SUMOPOD_SMTP_*`, `MAIL_FROM` | all five or none | all five (receipts and reminders) |
 
 The return URL after payment is built from `DASHBOARD_ORIGIN` (`https://cloud.nibie.app`, already https).
-The webhook URL is also entered in the SumoPod dashboard; the variable only has to be a valid https URL.
+`SUMOPOD_CALLBACK_URL` is never sent to SumoPod: it only records the webhook URL, which is set in the SumoPod
+dashboard (Settings, Webhook), and only has to be a valid https URL.
 
 ## Steps on the VPS (operator)
 
@@ -39,9 +42,11 @@ The webhook URL is also entered in the SumoPod dashboard; the variable only has 
    (`restart` does not re-read `env_file`). A wrong or half-set group makes the backend refuse to start; read
    `docker logs` and fix the variable named in the message.
 4. From outside: `POST https://api.cloud.nibie.app/api/v1/billing/sumopod/webhook` without the token must answer
-   401/403, not 404. A 404 means the SumoPod variables are not all set.
-5. In the SumoPod dashboard set the webhook URL to the same address and press "Save & Test"; a `payment.test`
-   delivery must answer 200.
+   400 (`invalid_webhook`), not 404. A 404 means the SumoPod variables are not all set.
+5. In the SumoPod dashboard, signed in with the Nibie Cloud SumoPod account (NibieRouter uses a separate one), set the
+   webhook URL to the same address and press "Save & Test"; a `payment.test` delivery must answer 200.
+6. In Settings, Fee Settings, leave **Charge fee to customer** OFF: with the fee added on top, the paid amount no
+   longer equals the invoice and every payment is refused as `amount_mismatch`.
 
 ## Sandbox test, then production
 

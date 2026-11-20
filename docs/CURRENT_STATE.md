@@ -4,6 +4,58 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## SumoPod gaps closed (2026-11-20, branch `claude/sumopod-gaps`, PR #99, not deployed)
+
+Owner asked to analyse SumoPod against the code and close the gaps. Facts were read from docs.sumopod.com, the
+SumoPod dashboard Quick Start (Live, read-only) and the production admin MCP.
+- **SumoPod facts:**
+  - The documented events are `payment.completed`, `payment.failed`, `payment.expired` and `payment.test`; a paid
+    payload has `status: "completed"`.
+  - The invoice response always has `payment_link_url` (`https://pay.sumopod.com/pay/<payment_id>`).
+  - `expires_in_hours` is optional, defaults to 24 and has a maximum of 24.
+  - A failed delivery is not retried; it waits for a manual Resend in the Webhooks tab.
+  - "Charge fee to customer" is OFF on the Nibie Cloud account: a Rp 10.000 top-up shows a Rp 370 fee on our side.
+  - NibieRouter takes its payments (`SR-` orders) through a separate SumoPod account.
+- **Production (admin MCP):** `SUMOPOD_ENV=production` with a signing secret. Real hosting invoices reached `PAID` on
+  2026-11-17 and 2026-11-18, so the "not verified" note further down (2026-11-16 entry) is outdated.
+- **Code:**
+  - The webhook decides from a known `event_type`. A body without one still uses the status word. Anything unknown
+    is answered 200, changes nothing and is logged as a warning (`ignored_event`); before, an unknown status word
+    marked the invoice FAILED.
+  - `amount_mismatch` is now logged as an error and `unknown_order` as a warning.
+  - The `sumopod webhook processed` line now carries `merchantOrderId`.
+  - The client requires `payment_link_url`; the invented `app.sumopod.com/pay/<payment_code>` fallback is gone.
+  - `payment.expired` now sets EXPIRED, not FAILED. SumoPod now expires the QR together with our row, so its webhook
+    often arrives before the one-minute billing tick.
+  - The client now sends `expires_in_hours` (1 for our 60-minute invoices and top-ups). Before, a QR stayed payable
+    for 24 hours after our row expired: on 2026-11-20, three `nc-` invoices that had expired on our side were still
+    Pending at SumoPod.
+- **Docs:**
+  - New [runbook-payments.md](runbook-payments.md).
+  - [billing-go-live.md](billing-go-live.md): the webhook answers 400, not 401/403. The stale "uncommitted checkout
+    fix" line is removed. Fee setting and account note added.
+  - `SUMOPOD_CALLBACK_URL` is described as what it is: never sent to SumoPod.
+- **Checks (Windows, local `hermes_test`):**
+  - Backend `tsc` clean.
+  - Unit: 532 pass. The only failures are the 2 known Windows-only `egress-canary` tests. New:
+    `test/unit/sumopod-client.test.ts` (4 tests) and 2 tests in `sumopod-webhook.test.ts`.
+  - Integration: `sumopod-webhook` (17: 3 new, and the amount-mismatch test now also checks the error log), `billing-api`, `billing-service`, `wallet` (1 new), `billing-tick`,
+    `billing-upgrade` and `invoices` pass, 125 tests.
+  - Two early runs had 1 to 3 unrelated `billing-api` failures, a different test each time (for example "rejects a
+    body over 16 KB"). Later runs passed 3 times alone and once in the full set. This looks like a flaky shared
+    database. The wallet-pay entry below confirms that another session was running tests on `hermes_test` at the
+    same time.
+- **Open:**
+  - Is a resent delivery signed with a fresh timestamp? Our Svix window is 5 minutes. Resending one old Success row
+    answers it.
+  - No admin action marks a hosting invoice paid when its webhook cannot be resent.
+  - `amount_mismatch` reaches only the log, not the operator alerts.
+  - On 2026-11-20 the admin MCP showed `nc-f44c…` still `PENDING` after its `expiresAt` (check the billing tick).
+  - `nc-0ff9…` (`PAID` 2026-11-17) does not appear in the Nibie Cloud SumoPod account's payments or webhook log
+    (unexplained).
+  - NibieRouter integration (low-balance alert, per-key limits, usage page, model choice, AI credit from the wallet)
+    is a separate plan.
+
 ## Wallet part 2: pay hosting from the balance, auto-renew (2026-11-20, branch `claude/wallet-pay`, not merged, not deployed)
 
 Owner: "lanjut part 2" and, about the unpaid-order notice on Deploy, "beli arahkan ke dompet".

@@ -88,14 +88,21 @@ export interface SumoPodCredentials {
 }
 
 export type CallbackOutcome =
-  | 'activated' | 'topped_up' | 'credited_to_wallet' | 'duplicate' | 'unknown_order' | 'amount_mismatch' | 'failed' | 'ignored_failure' | 'already_paid' | 'paid_after_end';
+  | 'activated' | 'topped_up' | 'credited_to_wallet' | 'duplicate' | 'unknown_order' | 'amount_mismatch' | 'failed' | 'ignored_failure' | 'already_paid' | 'paid_after_end'
+  | 'ignored_event';
 
 export type CallbackResult =
   | { accepted: false }
-  | { accepted: true; outcome: CallbackOutcome; postActions: () => Promise<void> };
+  | { accepted: true; outcome: CallbackOutcome; merchantOrderId?: string; postActions: () => Promise<void> };
 
-/** SumoPod `status` values that mean the money arrived. */
+/** SumoPod `status` values that mean the money arrived (only read for a body without `event_type`). */
 const SUMOPOD_PAID_STATUSES = new Set(['paid', 'completed', 'success', 'succeeded', 'settled']);
+/** SumoPod `status` values that mean the money will not arrive (only read for a body without `event_type`). */
+const SUMOPOD_UNPAID_STATUSES = new Set(['failed', 'expired', 'cancelled', 'canceled']);
+/** SumoPod's documented event types (dashboard Quick Start, 2026-11-20) and the `resultCode` each one stores. */
+const SUMOPOD_EVENTS = new Map([['payment.completed', '00'], ['payment.failed', 'failed'], ['payment.expired', 'expired']]);
+/** SumoPod's QR expires with our own row, so its `payment.expired` often lands before the billing tick: keep it EXPIRED. */
+const unpaidStatus = (resultCode: string): PaymentStatus => (resultCode === 'expired' ? 'EXPIRED' : 'FAILED');
 
 const none = async (): Promise<void> => undefined;
 
@@ -346,29 +353,42 @@ export class BillingService {
     // SumoPod's "Save & Test" sends event_type payment.test with no order: acknowledge, never apply.
     if (body.event_type === 'payment.test') return { accepted: true, outcome: 'ignored_failure', postActions: none };
     const { order_id, payment_id, amount: rawAmount, status } = envelope;
-    if (typeof order_id !== 'string' || typeof status !== 'string') return { accepted: false };
+    const eventType = typeof body.event_type === 'string' ? body.event_type : undefined;
+    if (typeof order_id !== 'string' || (eventType === undefined && typeof status !== 'string')) return { accepted: false };
     const amountIdr = typeof rawAmount === 'number' ? rawAmount : (typeof rawAmount === 'string' ? parseAmount(rawAmount) : null);
     if (amountIdr === null || order_id.length > 128) return { accepted: false };
     const reference = (typeof payment_id === 'string' ? payment_id : '').slice(0, 100);
-    // SumoPod reports a word (`paid`/`completed`/`failed`). Stored as `resultCode` '00' for paid (the convention of the
-    // existing PaymentEvent and Payment rows), so the apply path keeps its single '00 means paid' rule.
-    const resultCode = SUMOPOD_PAID_STATUSES.has(status.toLowerCase()) ? '00' : status.slice(0, 10);
+    // Stored as `resultCode` '00' for paid (the convention of the existing PaymentEvent and Payment rows), so the apply
+    // path keeps its single '00 means paid' rule. A known event type decides; only a body without one falls back to the
+    // status word. Anything not known to mean paid or unpaid is acknowledged and left alone, never written FAILED.
+    const word = typeof status === 'string' ? status.toLowerCase() : '';
+    const resultCode = eventType !== undefined
+      ? SUMOPOD_EVENTS.get(eventType)
+      : SUMOPOD_PAID_STATUSES.has(word) ? '00' : SUMOPOD_UNPAID_STATUSES.has(word) ? word.slice(0, 10) : undefined;
+    if (resultCode === undefined) {
+      this.d.logger.warn({ merchantOrderId: order_id, eventType: eventType?.slice(0, 64), status: word.slice(0, 32) }, 'sumopod webhook ignored: unknown event or status');
+      return { accepted: true, outcome: 'ignored_event', merchantOrderId: order_id, postActions: none };
+    }
 
     let result: { outcome: CallbackOutcome; activation?: Activation; topup?: TopupCredit };
     try {
       result = await this.d.prisma.$transaction(async (tx) => this.applyInTransaction(tx, { merchantOrderId: order_id, reference, resultCode, amountIdr }));
     } catch (e) {
-      if ((e as { code?: string }).code === 'P2002') return { accepted: true, outcome: 'duplicate', postActions: none };
+      if ((e as { code?: string }).code === 'P2002') return { accepted: true, outcome: 'duplicate', merchantOrderId: order_id, postActions: none };
       throw e;
     }
     if (result.outcome === 'paid_after_end') {
       this.d.logger.error({ merchantOrderId: order_id }, 'payment received for an ended subscription: operator must refund or reinstate');
+    } else if (result.outcome === 'amount_mismatch') {
+      this.d.logger.error({ merchantOrderId: order_id, amountIdr }, 'sumopod payment amount mismatch: paid but not credited, check the SumoPod fee setting');
+    } else if (result.outcome === 'unknown_order') {
+      this.d.logger.warn({ merchantOrderId: order_id }, 'sumopod webhook for an unknown order: wrong SumoPod project or mode?');
     }
     const { activation, topup } = result;
     let postActions = none;
     if (activation) postActions = () => this.afterActivation(activation);
     else if (topup) postActions = () => this.afterTopup(topup);
-    return { accepted: true, outcome: result.outcome, postActions };
+    return { accepted: true, outcome: result.outcome, merchantOrderId: order_id, postActions };
   }
 
   private async applyInTransaction(
@@ -391,7 +411,7 @@ export class BillingService {
       if (!topup) return finish('unknown_order');
       if (c.amountIdr !== topup.amountIdr) return finish('amount_mismatch');
       if (c.resultCode !== '00') {
-        const changed = await tx.walletTopup.updateMany({ where: { id: topup.id, status: 'PENDING' }, data: { status: 'FAILED', resultCode: c.resultCode } });
+        const changed = await tx.walletTopup.updateMany({ where: { id: topup.id, status: 'PENDING' }, data: { status: unpaidStatus(c.resultCode), resultCode: c.resultCode } });
         return finish(changed.count === 1 ? 'failed' : 'ignored_failure');
       }
       // Money arrived: credited in full even after expiry or above the wallet cap, so a payment is never lost.
@@ -413,7 +433,7 @@ export class BillingService {
 
     if (c.resultCode !== '00') {
       // Anything but 00 is "not paid". A paid invoice is never downgraded.
-      const changed = await tx.payment.updateMany({ where: { id: payment.id, status: 'PENDING' }, data: { status: 'FAILED', resultCode: c.resultCode } });
+      const changed = await tx.payment.updateMany({ where: { id: payment.id, status: 'PENDING' }, data: { status: unpaidStatus(c.resultCode), resultCode: c.resultCode } });
       return finish(changed.count === 1 ? 'failed' : 'ignored_failure');
     }
 

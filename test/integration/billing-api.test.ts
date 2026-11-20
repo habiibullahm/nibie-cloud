@@ -266,6 +266,7 @@ describe('billing API', () => {
       await post(a, webhookBody({ orderId }), { 'x-webhook-token': 'wrong-token-in-log-check' });
       await settle();
       expect(logs).toContain('sumopod webhook processed');
+      expect(logs).toContain(orderId); // our own order id, so an operator can match a SumoPod row to the log
       expect(logs).not.toContain(WEBHOOK_TOKEN);
       expect(logs).not.toContain('wrong-token-in-log-check');
       expect(logs).not.toContain('pay_log_check');
