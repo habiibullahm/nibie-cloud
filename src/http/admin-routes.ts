@@ -12,6 +12,7 @@ import { renderBetaInvite } from '../modules/billing/email-templates.js';
 import { addInvite, INVITE_SELECT, listInvites, maskEmail, maskInvite, normalizeEmail } from '../modules/beta/invites.js';
 import { createKey, findActiveKey, isAdminKey, KEY_EXPIRY_DAYS, listKeys, revokeKey } from '../modules/admin/api-keys.js';
 import { hasStock, totalLoad } from '../modules/instances/capacity.js';
+import { readHostUsage } from '../modules/admin/host-usage.js';
 import { readSupportContact, supportContactBody, writeSupportContact } from '../modules/support/contact.js';
 import { addTicketMessage, closeTicket, getTicket, listTickets, ticketMessageBody, ticketStatusQuery } from '../modules/support/tickets.js';
 import { notifyCustomer } from './support-routes.js';
@@ -35,6 +36,8 @@ export interface AdminDeps {
   audit: AuditService;
   /** The job queue behind `commands`, for the failed-job view. Null: those routes answer 503. */
   queue?: JobQueue | null;
+  /** Host snapshot for the Node page. Absent: the production path `HOST_USAGE_FILE`. */
+  hostUsageFile?: string;
 }
 
 const BEARER = /^Bearer ([^\s]+)$/;
@@ -655,7 +658,9 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
         orderBy: { name: 'asc' },
         select: { id: true, name: true, region: true, schedulable: true, _count: { select: { instances: { where: { deletedAt: null } } } } },
       });
-      return { nodes: nodes.map((n) => ({ id: n.id, name: n.name, region: n.region, schedulable: n.schedulable, instanceCount: n._count.instances })) };
+      // shortcut: one snapshot for the one host the backend runs on; per-node snapshots come with multi-node scheduling.
+      const host = await readHostUsage(deps.admin.hostUsageFile);
+      return { nodes: nodes.map((n) => ({ id: n.id, name: n.name, region: n.region, schedulable: n.schedulable, instanceCount: n._count.instances })), host };
     });
 
     api.get('/subscriptions', async (req) => {

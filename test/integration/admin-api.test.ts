@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Config } from '../../src/config/env.js';
 import { createPrisma } from '../../src/db/client.js';
@@ -126,6 +129,26 @@ describe('admin read API', () => {
     const { nodes } = res.json() as { nodes: { name: string; instanceCount: number }[] };
     expect(nodes).toHaveLength(1);
     expect(nodes[0]).toMatchObject({ name: 'local', instanceCount: 1 });
+  });
+
+  it('adds the host snapshot to the node list, or null when the file is missing or malformed', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'host-usage-'));
+    const file = join(dir, 'node.json');
+    const withFile = (f: string) => buildServer({
+      service: new InstanceService({ prisma, runtime: new FakeRuntime(), image: IMAGE, production: false, logger: silentLogger, masterKey: TEST_MASTER_KEY, diskQuota: 'off', egressPolicy: 'off' }),
+      logger: silentLogger, config: testConfig(IMAGE, TEST_MASTER_KEY, { adminEmails: [BOSS] }),
+      admin: { verify: auth.verify, prisma, audit: new AuditService({ prisma }), hostUsageFile: f },
+    });
+    const snap = {
+      ts: '2026-11-21T00:00:00Z', cpus: 4, load1: 0.08, memTotalMb: 15485, memUsedMb: 1103, memAvailableMb: 14000,
+      diskTotalMb: 222000, diskUsedMb: 35000, volumesTotalMb: 102000, volumesUsedMb: 700, tenants: 2, tenantMemMb: 480,
+    };
+    await writeFile(file, JSON.stringify(snap));
+    expect((await read(withFile(file), '/api/v1/admin/nodes', await boss())).json().host).toEqual(snap);
+    await writeFile(file, '{"ts":"not a date"}');
+    expect((await read(withFile(file), '/api/v1/admin/nodes', await boss())).json().host).toBeNull();
+    expect((await read(withFile(join(dir, 'missing.json')), '/api/v1/admin/nodes', await boss())).json().host).toBeNull();
+    await rm(dir, { recursive: true, force: true });
   });
 
   it('reports an overview: counts by status and the billing/router switches', async () => {

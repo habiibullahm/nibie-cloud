@@ -24,5 +24,9 @@ one host row to `/var/log/hermes-usage.csv`: `ts_utc,kind,name,cpu_pct,mem_mb,me
 sudo awk -F, '$2=="tenant" {if ($5>m[$3]) m[$3]=$5} END {for (k in m) print m[k], k}' /var/log/hermes-usage.csv | sort -rn | head
 ```
 
+The same run replaces `/var/lib/hermes-usage/node.json` (host RAM, load, disk of `/` and of the volume image, running tenants and
+their RAM). The backend mounts that folder read-only and the admin **Node** page shows it, with an estimate of how many more
+instances fit under the 70 % rule below. The backend only reads the file when the page asks; it measures nothing itself.
+
 Rule of thumb for the decision: grow the server when the sum of the peak memory of all instances reaches 70 % of host RAM, or the host
 load stays above the number of cores for an hour.
