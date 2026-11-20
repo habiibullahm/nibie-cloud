@@ -4,6 +4,14 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## One pay button: balance when it covers the price, else QRIS (2026-11-20, branch `claude/one-pay-button`, not merged)
+
+Owner chose option A ("1"): no choice between balance and QRIS. Dashboard only (backend unchanged): Deploy, the unpaid-order
+notice, the Billing table, renew and upgrade on the instance Billing tab each have one button that pays from the balance when it
+covers the amount ("… from balance") and otherwise opens QRIS. Shared in `components/app/pay-button.tsx` (`usePay`, `PayButton`),
+which replaces `wallet-pay-button.tsx` and the "Bayar dengan" radio. Checks: dashboard typecheck, lint, tests (203), `next build`.
+Priced flows not seen in a browser (preview plans have no price).
+
 ## SumoPod gaps closed (2026-11-20, branch `claude/sumopod-gaps`, PR #99, deployed `3abc2fd`)
 
 Deployed by the auto-deploy after the merge: the host log says "backend 3abc2fd is ready", the backend is healthy, and the
@@ -64,7 +72,7 @@ SumoPod dashboard Quick Start (Live, read-only) and the production admin MCP.
   - NibieRouter integration (low-balance alert, per-key limits, usage page, model choice, AI credit from the wallet)
     is a separate plan.
 
-## Wallet part 2: pay hosting from the balance, auto-renew (2026-11-20, branch `claude/wallet-pay`, not merged, not deployed)
+## Wallet part 2: pay hosting from the balance, auto-renew (2026-11-20, branch `claude/wallet-pay`, PR #98, deployed `5bbbc76`, `WALLET_AUTO_RENEW` off)
 
 Owner: "lanjut part 2" and, about the unpaid-order notice on Deploy, "beli arahkan ke dompet".
 - **Built:** migration `20261120300000_wallet_pay` (`Payment.method` QRIS|WALLET, `Subscription.autoRenew` default true);

@@ -180,7 +180,7 @@ Plan, including the part not built yet (buying AI credit):
 - **Paying hosting from the wallet:** `POST /payments/:paymentId/pay-with-wallet` pays an open (still payable) invoice of a
   purchase, an upgrade or a renewal: `409 insufficient_balance` when short, `409 payment_not_payable` when it expired or was
   already paid. The dashboard creates the invoice as usual (checkout, upgrade, renew) and then pays it from the balance when the
-  customer chose that. If the QRIS invoice of the same payment is paid later anyway, the webhook puts that money into the
+  balance covers it, otherwise it opens QRIS: the customer has one button, no choice (owner, 2026-11-20). If the QRIS invoice of the same payment is paid later anyway, the webhook puts that money into the
   wallet (outcome `credited_to_wallet`).
 - **Auto-renew:** `WALLET_AUTO_RENEW=true` (only with `WALLET_ENABLED`, default off) lets the billing tick renew an `ACTIVE` or
   `GRACE` subscription during the last day of its period when its `autoRenew` switch is on (default on;
