@@ -59,6 +59,22 @@ Body `PUT`:
   tidak lewat endpoint ini.
 - Hasil `test` hanya mengubah `status` dan `lastErrorCode`. Penyedia yang gangguan tidak mengubah status instance.
 
+### Model NibieRouter
+
+| Endpoint | Fungsi |
+| --- | --- |
+| `GET /instances/:instanceId/models` | `{ "freeOnly": true, "models": [ … ] }`: model chat yang boleh dipakai instance ini. |
+| `PUT /instances/:instanceId/providers/model` | Mengganti model NibieRouter. Body `{ "model": "<id>" }`. Key tidak berubah. |
+
+- Setiap model berisi `id`, `name`, `contextLength`, `promptUsdPerM`, `completionUsdPerM` (US$ per 1 juta token) dan
+  `free`.
+- Plan gratis (`freeOnly: true`) hanya mendapat model gratis. Model berbayar memakai saldo AI; kalau saldo habis,
+  permintaan ke model itu gagal.
+- Model yang tidak ada di daftar, atau model berbayar di plan gratis, mendapat `400`. Instance dengan API key sendiri
+  mendapat `409 not_nibierouter`. Daftar model tidak bisa diambil: `503 router_unavailable`.
+- `PUT` mengembalikan `{ "provider": { … } }` dengan `restartRequired: true`. Model baru dipakai setelah instance
+  di-restart.
+
 ## Log
 
 `GET /instances/:instanceId/logs?tail=100` mengembalikan baris terakhir output container, dengan kredensial

@@ -4,6 +4,27 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## NibieRouter step 1: the customer chooses the model (2026-11-20, branch `claude/nibierouter-model-choice`, not merged)
+
+Owner: "mulai langkah 1" of `docs/superpowers/plans/2026-11-20-nibierouter-integration.md`.
+- **Backend:** new `src/modules/nibierouter/model-catalog.ts` reads the router's public `/v1/models` (no key, router host
+  only, 10-minute cache, last copy served while the router is down, embedding models dropped, malformed entries
+  skipped). `ProviderService.models` and `setModel`; customer routes `GET /instances/:id/models` (`{ freeOnly, models }`)
+  and `PUT /instances/:id/providers/model` (`{ model }`). A free plan (`monthlyPriceIdr` null) gets the free models only;
+  an unknown model or a paid one on a free plan is 400; a BYOK or unconfigured instance is `409 not_nibierouter`. Saving
+  bumps `configRevision` and keeps the key; the same model again changes nothing. Default model unchanged
+  (`NIBIEROUTER_DEFAULT_MODEL`).
+- **Dashboard:** Configuration, AI provider tab: a "NibieRouter model" card under the provider form when NibieRouter is
+  attached: search, a list with prices per 1M tokens and a "Free" label, a note on free plans, a note that a paid model
+  uses the AI balance, "Save model", then the existing restart notice. Mock mode has four sample models.
+- **Docs:** `setup.md` (NibieRouter section, route list), customer API reference `api-reference/integrasi.mdx`,
+  `apps/web/README.md`, `AGENTS.md`.
+- **Checks:** backend `tsc`; unit tests pass except the 2 known Windows-only `egress-canary` failures (new
+  `model-catalog.test.ts`, 5 tests); integration (own DB `hermes_test_sumopod`) `provider-service` and
+  `integration-routes`, 48 tests. Dashboard typecheck, lint, tests (206). The card was not seen in a browser.
+- **Not done (later steps):** key rate limits (step 2), AI balance and usage page (step 3), buying AI credit (step 4).
+  The balance is not shown next to the picker until step 3.
+
 ## Balance payments: confirmation with Turnstile, open the new instance (2026-11-20, branch `claude/wallet-confirm`, not merged)
 
 Owner: "should have confirmation payment with turnstile widget" and "its not redirected to overview instance".

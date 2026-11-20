@@ -119,6 +119,22 @@ export interface LogLine {
 }
 
 export type ProviderKind = "nibierouter" | "byok"
+
+/** One chat model NibieRouter offers (backend `GET /instances/:id/models`). Prices are US$ per 1 million tokens. */
+export interface RouterModel {
+  id: string
+  name: string
+  contextLength: number | null
+  promptUsdPerM: number
+  completionUsdPerM: number
+  free: boolean
+}
+export interface RouterModels {
+  /** The instance is on a free plan: only free models are listed and allowed. */
+  freeOnly: boolean
+  models: RouterModel[]
+}
+
 export interface ProviderConfig {
   /** Empty while nothing is configured yet (`configured` is false). */
   id: string

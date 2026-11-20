@@ -4,6 +4,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createPrisma } from '../../src/db/client.js';
 import { ProviderService, NIBIEROUTER_BASE_URL } from '../../src/modules/integrations/provider-service.js';
 import type { Fetcher } from '../../src/modules/integrations/fetcher.js';
+import { createRuntimeConfigLoader } from '../../src/modules/integrations/runtime-env.js';
 import { PrismaSecretStore } from '../../src/modules/secrets/secret-store.js';
 import { NotFoundError, OutboundBlockedError, OutboundFailedError, ValidationError } from '../../src/shared/errors.js';
 import { createLogger } from '../../src/shared/logger.js';
@@ -191,6 +192,75 @@ describe('ProviderService', () => {
     const everything = JSON.stringify({ lines, errors, events: await prisma.instanceEvent.findMany(), secrets: await prisma.secret.findMany(), cfg: await prisma.providerConfig.findMany() });
     expect(everything).not.toContain(KEY);
     expect(everything).not.toContain(KEY2);
+  });
+
+  describe('NibieRouter model choice', () => {
+    const FREE = { id: 'nibierouter-free', name: 'Free', contextLength: null, promptUsdPerM: 0, completionUsdPerM: 0, free: true };
+    const PAID = { id: 'paid-model', name: 'Paid', contextLength: 1000, promptUsdPerM: 0.3, completionUsdPerM: 2.16, free: false };
+    let routerSvc: ProviderService;
+    beforeEach(() => {
+      routerSvc = new ProviderService({ prisma, secrets, logger: createLogger({ level: 'silent' }), fetcher, catalog: { list: async () => [FREE, PAID] } });
+    });
+    const routerInstance = async () => {
+      const inst = await mkInstance(s.tenant.id);
+      await routerSvc.attachNibieRouter(s.tenant.id, inst.id, { apiKey: KEY2, model: FREE.id });
+      return inst;
+    };
+    const paidPlan = () => prisma.plan.update({ where: { id: s.plan.id }, data: { monthlyPriceIdr: 50_000 } });
+    const revision = async (id: string) => (await prisma.instance.findUniqueOrThrow({ where: { id } })).configRevision;
+
+    it('lists the free models only on a free plan, and every model on a paid one', async () => {
+      const inst = await routerInstance();
+      expect(await routerSvc.models(s.tenant.id, inst.id)).toEqual({ freeOnly: true, models: [FREE] });
+      await paidPlan();
+      expect(await routerSvc.models(s.tenant.id, inst.id)).toEqual({ freeOnly: false, models: [FREE, PAID] });
+    });
+
+    it('a free plan cannot choose a paid model, and nothing changes', async () => {
+      const inst = await routerInstance();
+      const before = await revision(inst.id);
+      await expect(routerSvc.setModel(s.tenant.id, inst.id, PAID.id)).rejects.toThrow('free models');
+      expect(await revision(inst.id)).toBe(before);
+      expect((await prisma.providerConfig.findUniqueOrThrow({ where: { instanceId: inst.id } })).model).toBe(FREE.id);
+    });
+
+    it('refuses a model the router does not offer, and a malformed name', async () => {
+      const inst = await routerInstance();
+      await paidPlan();
+      await expect(routerSvc.setModel(s.tenant.id, inst.id, 'gpt-unknown')).rejects.toBeInstanceOf(ValidationError);
+      await expect(routerSvc.setModel(s.tenant.id, inst.id, 'bad model')).rejects.toBeInstanceOf(ValidationError);
+    });
+
+    it('a BYOK or unconfigured instance answers 409 not_nibierouter', async () => {
+      const inst = await mkInstance(s.tenant.id);
+      await expect(routerSvc.setModel(s.tenant.id, inst.id, FREE.id)).rejects.toMatchObject({ status: 409, code: 'not_nibierouter' });
+      await routerSvc.put(s.tenant.id, inst.id, { baseUrl: BASE, model: 'm', apiKey: KEY });
+      await expect(routerSvc.setModel(s.tenant.id, inst.id, FREE.id)).rejects.toMatchObject({ status: 409, code: 'not_nibierouter' });
+    });
+
+    it('saves the model, keeps the key, bumps the revision, and the next container start gets the new model', async () => {
+      const inst = await routerInstance();
+      await paidPlan();
+      const secretBefore = (await prisma.providerConfig.findUniqueOrThrow({ where: { instanceId: inst.id } })).secretId;
+      const before = await revision(inst.id);
+      const v = await routerSvc.setModel(s.tenant.id, inst.id, PAID.id);
+      expect(v).toMatchObject({ kind: 'NIBIEROUTER', model: PAID.id, restartRequired: true, keyHint: null });
+      expect(await revision(inst.id)).toBe(before + 1);
+      expect((await prisma.providerConfig.findUniqueOrThrow({ where: { instanceId: inst.id } })).secretId).toBe(secretBefore);
+      const loaded = await createRuntimeConfigLoader({ prisma, secrets })(s.tenant.id, inst.id);
+      expect(loaded.model).toMatchObject({ default: PAID.id, baseUrl: NIBIEROUTER_BASE_URL });
+      expect(loaded.revision).toBe(before + 1);
+      // The same model again is a no-op: no new revision, so no restart is asked for.
+      await routerSvc.setModel(s.tenant.id, inst.id, PAID.id);
+      expect(await revision(inst.id)).toBe(before + 1);
+    });
+
+    it("another tenant's instance is not found, and no catalogue means router_unavailable", async () => {
+      const inst = await routerInstance();
+      await expect(routerSvc.models(s.other.id, inst.id)).rejects.toBeInstanceOf(NotFoundError);
+      await expect(routerSvc.setModel(s.other.id, inst.id, FREE.id)).rejects.toBeInstanceOf(NotFoundError);
+      await expect(svc.models(s.tenant.id, inst.id)).rejects.toMatchObject({ code: 'router_unavailable' });
+    });
   });
 
   it('two saves at once leave exactly one live secret and one config', async () => {

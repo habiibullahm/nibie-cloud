@@ -9,6 +9,7 @@ const uuid = z.string().uuid();
 const providerBody = z.object({ baseUrl: z.string().max(200), model: z.string().max(100), apiKey: z.string().max(512) }).strict();
 const telegramBody = z.object({ token: z.string().max(100), allowedUserIds: z.array(z.string().max(15)).max(20) }).strict();
 const nibieRouterBody = z.object({ apiKey: z.string().max(512), model: z.string().max(100) }).strict();
+const modelBody = z.object({ model: z.string().max(100) }).strict();
 
 /** Verification and provider tests call third parties, so they get a much tighter per-user limit. */
 const OUTBOUND_LIMIT = { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } };
@@ -34,6 +35,15 @@ export function registerCustomerIntegrationRoutes(api: FastifyInstance, integrat
     const i = need(integrations);
     const body = providerBody.parse(req.body);
     return { provider: await i.providers.put(principalOf(req).tenantId, ids(req.params), body) };
+  });
+  // NibieRouter model choice: the catalogue this instance may use, and saving one of them (key unchanged).
+  api.get<{ Params: P }>('/instances/:instanceId/models', async (req) =>
+    need(integrations).providers.models(principalOf(req).tenantId, ids(req.params)),
+  );
+  api.put<{ Params: P }>('/instances/:instanceId/providers/model', async (req) => {
+    const i = need(integrations);
+    const { model } = modelBody.parse(req.body);
+    return { provider: await i.providers.setModel(principalOf(req).tenantId, ids(req.params), model) };
   });
   api.post<{ Params: P }>('/instances/:instanceId/providers/test', OUTBOUND_LIMIT, async (req) => ({
     provider: await need(integrations).providers.test(principalOf(req).tenantId, ids(req.params)),

@@ -114,6 +114,32 @@ describe("customer API: AI provider", () => {
     ).rejects.toMatchObject({ status: 400, message: "baseUrl must be an https URL" })
   })
 
+  it("reads the NibieRouter model list as the backend sends it", async () => {
+    const { api, fetchMock } = setup()
+    const body = {
+      freeOnly: true,
+      models: [{ id: "nibierouter-free", name: "Free", contextLength: null, promptUsdPerM: 0, completionUsdPerM: 0, free: true }],
+    }
+    fetchMock.mockResolvedValue(json(body))
+    expect(await api.preview.routerModels(ID)).toEqual(body)
+    expect(fetchMock.mock.calls[0]![0]).toBe(`https://api.example.test/api/v1/instances/${ID}/models`)
+  })
+
+  it("saves the NibieRouter model with PUT {model}, and refuses a malformed name before any request", async () => {
+    const { api, fetchMock } = setup()
+    await expect(api.preview.setRouterModel(ID, "bad model!")).rejects.toMatchObject({ status: 400 })
+    expect(fetchMock).not.toHaveBeenCalled()
+    fetchMock.mockResolvedValue(
+      json({ provider: { ...providerBody, kind: "NIBIEROUTER", baseUrl: "https://router.nibie.app/v1", model: "paid-model", keyHint: null } })
+    )
+    const cfg = await api.preview.setRouterModel(ID, "paid-model")
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe(`https://api.example.test/api/v1/instances/${ID}/providers/model`)
+    expect(init!.method).toBe("PUT")
+    expect(JSON.parse(init!.body as string)).toEqual({ model: "paid-model" })
+    expect(cfg).toMatchObject({ kind: "nibierouter", model: "paid-model", restartRequired: true })
+  })
+
   it("recognises preset base URLs", () => {
     expect(providerNameForUrl("https://openrouter.ai/api/v1")).toBe("openrouter")
     expect(providerNameForUrl("https://api.openai.com/v1/")).toBe("openai")

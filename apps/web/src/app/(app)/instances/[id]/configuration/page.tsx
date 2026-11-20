@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { Check, CircleX, PlugZap, RotateCw, Send, TriangleAlert } from "lucide-react"
 import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -25,6 +26,7 @@ import {
   useInstanceAction,
   usePlans,
   useProvider,
+  useRouterModels,
   useSubscriptions,
   useTelegram,
 } from "@/hooks/use-hermes"
@@ -132,7 +134,129 @@ function ConnectionStatus({ config }: { config: ProviderConfig }) {
 function ProviderSection({ id }: { id: string }) {
   const provider = useProvider(id)
   if (!provider.data) return <QueryFallback what="the AI provider settings" queries={[provider]} className="h-64" />
-  return <ProviderForm key={provider.data.id} id={id} cfg={provider.data} />
+  return (
+    <div className="grid gap-6">
+      <ProviderForm key={provider.data.id} id={id} cfg={provider.data} />
+      {provider.data.configured && provider.data.kind === "nibierouter" ? (
+        <RouterModelCard key={provider.data.id} id={id} cfg={provider.data} />
+      ) : null}
+    </div>
+  )
+}
+
+const usd = (n: number) =>
+  n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 4 })
+
+/** NibieRouter model choice. The key stays the same; the new model reaches Hermes on the next restart. */
+function RouterModelCard({ id, cfg }: { id: string; cfg: ProviderConfig }) {
+  const qc = useQueryClient()
+  const catalog = useRouterModels(id, true)
+  const [query, setQuery] = useState("")
+  const [selected, setSelected] = useState(cfg.model ?? "")
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+
+  if (!catalog.data) return <QueryFallback what="the NibieRouter models" queries={[catalog]} className="h-64" />
+
+  const q = query.trim().toLowerCase()
+  const shown = catalog.data.models.filter((m) => !q || m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q))
+  const chosen = catalog.data.models.find((m) => m.id === selected)
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setFormError(null)
+    setSaving(true)
+    try {
+      const next = await getApi().preview.setRouterModel(id, selected)
+      qc.setQueryData(keys.provider(id), next)
+      toast.success("Model saved. Restart your instance to apply it.")
+    } catch (err) {
+      setFormError(errorMessage(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form onSubmit={save}>
+      <Card>
+        <CardHeader>
+          <CardTitle>NibieRouter model</CardTitle>
+          <CardDescription>The model Hermes uses through NibieRouter. Prices are per 1 million tokens.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          {catalog.data.freeOnly ? (
+            <p className="text-muted-foreground">Your plan includes the free models. Paid models come with a paid plan.</p>
+          ) : null}
+          <div className="grid gap-2">
+            <Label htmlFor="router-model-search">Search models</Label>
+            <Input
+              id="router-model-search"
+              type="search"
+              autoComplete="off"
+              spellCheck={false}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Name or id"
+            />
+          </div>
+          {shown.length === 0 ? (
+            <p className="text-muted-foreground">No model matches “{query.trim()}”.</p>
+          ) : (
+            <RadioGroup
+              value={selected}
+              onValueChange={setSelected}
+              aria-label="NibieRouter model"
+              className="grid max-h-80 gap-2 overflow-y-auto rounded-md border p-2"
+            >
+              {shown.map((m) => (
+                <Label
+                  key={m.id}
+                  htmlFor={`router-model-${m.id}`}
+                  className={cn(
+                    "flex cursor-pointer items-start gap-3 rounded-md border border-transparent p-3 transition-colors hover:border-muted-foreground",
+                    selected === m.id && "border-foreground bg-elevated"
+                  )}
+                >
+                  <RadioGroupItem id={`router-model-${m.id}`} value={m.id} className="mt-1" />
+                  <span className="grid min-w-0 gap-1">
+                    <span className="inline-flex flex-wrap items-center gap-2">
+                      <span className="type-label">{m.name}</span>
+                      {m.free ? <Badge>Free</Badge> : null}
+                      {m.id === cfg.model ? <Badge variant="outline">Current</Badge> : null}
+                    </span>
+                    <span className="type-mono break-all text-muted-foreground">{m.id}</span>
+                    {m.free ? null : (
+                      <span className="text-muted-foreground">
+                        {usd(m.promptUsdPerM)} input · {usd(m.completionUsdPerM)} output
+                      </span>
+                    )}
+                  </span>
+                </Label>
+              ))}
+            </RadioGroup>
+          )}
+          {chosen && !chosen.free ? (
+            <p className="text-muted-foreground">
+              This model is paid from your AI balance. When the balance runs out, Hermes&apos; requests to it fail until you
+              choose a free model again.
+            </p>
+          ) : null}
+          {formError ? (
+            <Alert variant="destructive">
+              <AlertTitle>Could not save the model</AlertTitle>
+              <AlertDescription>{formError}</AlertDescription>
+            </Alert>
+          ) : null}
+        </CardContent>
+        <CardFooter className="border-t">
+          <Button type="submit" disabled={saving || !chosen || selected === cfg.model}>
+            {saving ? "Saving…" : "Save model"}
+          </Button>
+        </CardFooter>
+      </Card>
+    </form>
+  )
 }
 
 function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
