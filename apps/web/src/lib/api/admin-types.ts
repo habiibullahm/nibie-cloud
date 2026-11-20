@@ -44,7 +44,13 @@ export interface AdminSettings {
     maxInstancesPerTenant: number
     maxTotalInstances: number | null
   }
-  ai: { configured: boolean; defaultModel: string | null; userEmailDomain: string | null }
+  ai: {
+    configured: boolean
+    defaultModel: string | null
+    userEmailDomain: string | null
+    /** Rupiah per US$1 for AI credit: the admin override (null: none) and the router's own rate. Null without NibieRouter. */
+    creditRate?: { adminIdrPerUsd: number | null; routerIdrPerUsd: number | null } | null
+  }
   /** Path of the admin MCP endpoint on the API origin. */
   mcpPath: string
 }

@@ -18,6 +18,7 @@ import { TelegramService } from './modules/integrations/telegram-service.js';
 import type { Integrations } from './modules/integrations/types.js';
 import { createModelCatalog } from './modules/nibierouter/model-catalog.js';
 import { createNibieRouterClient } from './modules/nibierouter/nibierouter-client.js';
+import { AiAccountService } from './modules/nibierouter/ai-account.js';
 import { RouterProvisioner } from './modules/nibierouter/router-provisioner.js';
 import { PrismaSecretStore } from './modules/secrets/secret-store.js';
 import { createBullQueue } from './modules/jobs/bullmq-queue.js';
@@ -102,9 +103,12 @@ const queue = config.redisUrl ? createBullQueue({ redisUrl: config.redisUrl, log
 const commands = new InstanceCommands({ service, queue, logger });
 logger.info({ jobQueue: queue !== null }, 'job queue');
 const mailer = createMailer(config.mail, logger);
+const routerClient = config.router ? createNibieRouterClient(config.router) : null;
+// Balance, usage and the AI credit rate need only the admin key (no stored instance key).
+const ai = routerClient ? new AiAccountService({ prisma, client: routerClient, logger }) : null;
 // NibieRouter key and credit need the admin key and a place to keep the encrypted instance key (SECRETS_KEK).
 const router = config.router && integrations
-  ? new RouterProvisioner({ prisma, client: createNibieRouterClient(config.router), providers: integrations.providers, cfg: config.router, logger, applyConfig: (t, i) => commands.restart(t, i) })
+  ? new RouterProvisioner({ prisma, client: routerClient!, providers: integrations.providers, cfg: config.router, logger, applyConfig: (t, i) => commands.restart(t, i) })
   : null;
 if (config.router && !integrations) logger.warn('NibieRouter is configured but SECRETS_KEK is not: instance keys cannot be stored, provisioning is off');
 logger.info({ router: router !== null }, 'nibierouter');
@@ -123,7 +127,7 @@ const billing = config.billing && config.dashboardOrigin
   : null;
 const billingTick = billing
   ? new BillingTick({
-      prisma, billing, commands, mailer, logger, ...(router ? { router } : {}),
+      prisma, billing, commands, mailer, logger, ...(router ? { router } : {}), ...(ai ? { ai } : {}),
       autoRenew: config.walletEnabled === true && config.walletAutoRenew === true,
     })
   : null;
@@ -153,7 +157,7 @@ const readiness = {
   docker: async () => { await docker.ping(); },
   ...(readyRedis ? { redis: async () => { if (readyRedis.status === 'wait') await readyRedis.connect(); await readyRedis.ping(); } } : {}),
 };
-const app = buildServer({ service, commands, queue, config, logger, integrations, logs: logService, billing, readiness, mailer, captcha, ...(customer ? { customer } : {}), ...(admin ? { admin } : {}) });
+const app = buildServer({ service, commands, queue, config, logger, integrations, logs: logService, billing, readiness, mailer, captcha, ai, ...(customer ? { customer } : {}), ...(admin ? { admin } : {}) });
 
 let stopReconciler: () => void | Promise<void> = () => undefined;
 let stopWorker: (() => Promise<void>) | undefined;

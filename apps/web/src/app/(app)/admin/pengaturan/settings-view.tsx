@@ -24,9 +24,9 @@ import { AdminTable, TableCell, TableHead, TableRow } from "@/components/app/adm
 import { KeyValue } from "@/components/app/key-value"
 import { PageHeader } from "@/components/app/page-header"
 import { QueryFallback } from "@/components/app/query-fallback"
-import { useAdminApiKeys, useAdminSystem, useCreateApiKey, useRevokeApiKey, useSetSupportContact } from "@/hooks/use-admin"
+import { useAdminApiKeys, useAdminSystem, useCreateApiKey, useRevokeApiKey, useSetAiCreditRate, useSetSupportContact } from "@/hooks/use-admin"
 import { useSupportContact } from "@/hooks/use-hermes"
-import { formatDateTimeId } from "@/lib/admin-format"
+import { formatDateTimeId, formatIdr } from "@/lib/admin-format"
 import { MIN_REASON } from "@/lib/admin-beta"
 import {
   KEY_EXPIRY_OPTIONS,
@@ -109,8 +109,15 @@ function SettingsCards({ s }: { s: AdminSettings }) {
               { k: "Provisioning", v: onOff(s.ai.configured) },
               { k: "Model default", v: s.ai.defaultModel ? mono(s.ai.defaultModel) : "-" },
               { k: "Domain email user", v: s.ai.userEmailDomain ? mono(s.ai.userEmailDomain) : "-" },
+              ...(s.ai.creditRate
+                ? [
+                    { k: "Kurs NibieRouter", v: s.ai.creditRate.routerIdrPerUsd ? `${formatIdr(s.ai.creditRate.routerIdrPerUsd)} per US$1` : "Tidak terbaca" },
+                    { k: "Kurs dipakai", v: s.ai.creditRate.adminIdrPerUsd ? `${formatIdr(s.ai.creditRate.adminIdrPerUsd)} per US$1 (diatur admin)` : "Kurs NibieRouter" },
+                  ]
+                : []),
             ]}
           />
+          {s.ai.creditRate ? <AiRateForm current={s.ai.creditRate.adminIdrPerUsd} /> : null}
         </CardContent>
       </Card>
     </div>
@@ -365,6 +372,58 @@ function SupportContactCard() {
         )}
       </CardContent>
     </Card>
+  )
+}
+
+/** Rupiah per US$1 for AI credit. Empty = the router's own rate. Every change needs a reason (audited). */
+function AiRateForm({ current }: { current: number | null }) {
+  const save = useSetAiCreditRate()
+  const [rate, setRate] = useState(current === null ? "" : String(current))
+  const [reason, setReason] = useState("")
+  const [error, setError] = useState<string | null>(null)
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    const digits = rate.replace(/[^\d]/g, "")
+    const idrPerUsd = digits === "" ? null : Number(digits)
+    if (idrPerUsd !== null && (idrPerUsd < 5_000 || idrPerUsd > 50_000)) return setError("Kurs harus antara Rp 5.000 dan Rp 50.000, atau kosong untuk kurs NibieRouter.")
+    if (reason.trim().length < MIN_REASON) return setError(`Alasan minimal ${MIN_REASON} karakter.`)
+    save.mutate(
+      { idrPerUsd, reason: reason.trim() },
+      {
+        onSuccess: () => {
+          setReason("")
+          toast.success(idrPerUsd === null ? "Kembali ke kurs NibieRouter." : "Kurs kredit AI disimpan.")
+        },
+        onError: (err) => setError(err instanceof Error ? err.message : "Gagal menyimpan."),
+      }
+    )
+  }
+
+  return (
+    <form onSubmit={submit} noValidate className="mt-4 grid gap-4 border-t pt-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-2">
+          <Label htmlFor="ai-rate">Kurs kredit AI (Rp per US$1)</Label>
+          <Input id="ai-rate" inputMode="numeric" autoComplete="off" maxLength={10} placeholder="Kosong = kurs NibieRouter" value={rate} onChange={(e) => setRate(e.target.value)} />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="ai-rate-reason">Alasan</Label>
+          <Input id="ai-rate-reason" autoComplete="off" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+        </div>
+      </div>
+      {error ? (
+        <Alert variant="destructive" role="alert">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
+      <div>
+        <Button type="submit" disabled={save.isPending}>
+          {save.isPending ? "Menyimpan…" : "Simpan kurs"}
+        </Button>
+      </div>
+    </form>
   )
 }
 

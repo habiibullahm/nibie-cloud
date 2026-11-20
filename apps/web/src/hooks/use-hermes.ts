@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import { ApiError, getApi, type CreateInstanceInput, type Instance, type LogLevel, type NewTicket } from "@/lib/api"
 import { isTransitional, type InstanceAction } from "@/lib/api/status"
+import type { AiAlert } from "@/lib/api/types"
 import { authConfigured, getSupabase } from "@/lib/auth/supabase"
 import { fetchSupportContact } from "@/lib/support"
 import { isPayable } from "@/lib/wallet"
@@ -21,6 +22,7 @@ export const keys = {
   access: (id: string) => ["access", id] as const,
   subscriptions: ["subscriptions"] as const,
   wallet: ["wallet"] as const,
+  ai: ["ai"] as const,
   invoices: ["invoices"] as const,
   invoice: (id: string) => ["invoices", id] as const,
   usage: (id: string, r: string) => ["usage", id, r] as const,
@@ -202,6 +204,23 @@ export function useWallet() {
     queryKey: keys.wallet,
     queryFn: () => getApi().billing.wallet(),
     refetchInterval: (q) => (q.state.data?.topups.some((t) => isPayable(t)) ? 3000 : false),
+  })
+}
+
+/** The NibieRouter (AI) balance and usage in Rupiah; `data` is null when the backend has no NibieRouter. */
+export function useAiAccount() {
+  return useQuery({ queryKey: keys.ai, queryFn: () => getApi().billing.ai() })
+}
+
+export function useSetAiAlert() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (alert: AiAlert) => getApi().billing.setAiAlert(alert),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.ai })
+      toast.success("Reminder saved.")
+    },
+    onError: (e) => toast.error(errorMessage(e)),
   })
 }
 

@@ -51,6 +51,8 @@ class FakeRouter implements NibieRouterClient {
       .filter((k) => k.userId === userId)
       .map((k) => ({ id: k.id, name: k.name, revoked: k.revoked, rpmLimit: (k.settings.rpm_limit as number | null | undefined) ?? null, settings: k.settings }));
   }
+  async getUsage() { return { balanceNano: this.balance, spend30dNano: 0n, daily: [], models: [] }; }
+  async getIdrPerUsd() { return 18_600; }
   /** Like the router: the settings are replaced with exactly what is sent. */
   async updateKey(userId: string, keyId: string, input: { name: string; settings: RouterKeySettings }) {
     this.maybeFail('updateKey');

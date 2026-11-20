@@ -20,6 +20,7 @@ import type {
   TelegramConfig,
   UsagePoint,
   Wallet,
+  AiAccount,
 } from "./types"
 
 /**
@@ -803,6 +804,18 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       subs.set(sub.id, next)
       return next
     },
+    async ai() {
+      await wait()
+      return { ...aiAccount, alert: { ...aiAccount.alert } }
+    },
+    async setAiAlert(alert) {
+      await wait()
+      if (!Number.isInteger(alert.thresholdIdr) || alert.thresholdIdr < 1_000 || alert.thresholdIdr > 1_000_000) {
+        throw new ApiError(400, "validation_error", "Reminder amount is out of range.")
+      }
+      aiAccount.alert = { ...alert }
+      return { ...alert }
+    },
     async invoices() {
       await wait()
       return [...MOCK_INVOICES]
@@ -823,6 +836,20 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       { id: uuid(), amountIdr: 150_000, kind: "TOPUP", balanceAfterIdr: 150_000, note: null, createdAt: new Date(Date.now() - DAY).toISOString() },
     ],
     topups: [],
+  }
+
+  // A sample NibieRouter balance at the router's rate, with a week of usage.
+  const aiDay = (n: number) => new Date(Date.now() - n * DAY).toISOString().slice(0, 10)
+  const aiAccount: AiAccount = {
+    rate: { idrPerUsd: 18_600, source: "router" },
+    hasAccount: true,
+    balanceUsd: 1.62, balanceIdr: 30_132, spend30dUsd: 0.38, spend30dIdr: 7_068,
+    daily: [6, 5, 4, 3, 2, 1, 0].map((n, i) => ({ day: aiDay(n), requests: 4 + i * 3, costUsd: 0.02 + i * 0.01, costIdr: Math.floor((0.02 + i * 0.01) * 18_600) })),
+    models: [
+      { model: "paid-model", requests: 41, costUsd: 0.38, costIdr: 7_068 },
+      { model: "nibierouter-free", requests: 12, costUsd: 0, costIdr: 0 },
+    ],
+    alert: { enabled: true, thresholdIdr: 10_000 },
   }
 
   return { mode: "mock", instances, billing, tickets: createMockTicketsApi(), preview }

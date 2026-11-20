@@ -1,6 +1,7 @@
 "use client"
 
 import { Suspense, useState } from "react"
+import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { Check, CircleX, PlugZap, RotateCw, Send, TriangleAlert } from "lucide-react"
@@ -29,12 +30,14 @@ import {
   useRouterModels,
   useSubscriptions,
   useTelegram,
+  useAiAccount,
 } from "@/hooks/use-hermes"
 import { subscriptionOfInstance } from "@/lib/billing"
 import { getApi, type ProviderConfig, type ProviderKind, type TelegramConfig } from "@/lib/api"
 import { BYOK_PROVIDERS, MAX_TELEGRAM_USERS, type ByokProviderName } from "@/lib/api/providers"
 import { allowedActions, isTransitional } from "@/lib/api/status"
 import { formatCpu, formatMb, formatRelative } from "@/lib/format"
+import { formatAiAmount } from "@/lib/ai-credit"
 import { cn } from "@/lib/utils"
 import { useInstanceId } from "../instance-frame"
 
@@ -151,6 +154,7 @@ const usd = (n: number) =>
 function RouterModelCard({ id, cfg }: { id: string; cfg: ProviderConfig }) {
   const qc = useQueryClient()
   const catalog = useRouterModels(id, true)
+  const ai = useAiAccount().data
   const [query, setQuery] = useState("")
   const [selected, setSelected] = useState(cfg.model ?? "")
   const [saving, setSaving] = useState(false)
@@ -240,6 +244,16 @@ function RouterModelCard({ id, cfg }: { id: string; cfg: ProviderConfig }) {
             <p className="text-muted-foreground">
               This model is paid from your AI balance. When the balance runs out, Hermes&apos; requests to it fail until you
               choose a free model again.
+            </p>
+          ) : null}
+          {ai?.hasAccount ? (
+            <p className="text-muted-foreground">
+              AI balance: <span className="tabular-nums text-foreground">{formatAiAmount(ai.balanceIdr, ai.balanceUsd)}</span>. See usage
+              and set a low-balance reminder on{" "}
+              <Link href="/billing" className="text-foreground underline underline-offset-4">
+                Billing
+              </Link>
+              .
             </p>
           ) : null}
           {formError ? (

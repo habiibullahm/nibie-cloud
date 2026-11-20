@@ -276,6 +276,28 @@ export interface Wallet {
   topups: WalletTopup[]
 }
 
+/** The customer's low AI-balance email: on or off, and the Rupiah balance below which it is sent. */
+export interface AiAlert {
+  enabled: boolean
+  thresholdIdr: number
+}
+
+/**
+ * Mirrors AiAccountView: the tenant's NibieRouter (AI) balance and usage. Rupiah fields are null when no rate is known;
+ * the page then shows US$. `rate.source` says whether an admin set the rate or the router's own rate is used.
+ */
+export interface AiAccount {
+  rate: { idrPerUsd: number | null; source: "admin" | "router" | null }
+  hasAccount: boolean
+  balanceUsd: number
+  balanceIdr: number | null
+  spend30dUsd: number
+  spend30dIdr: number | null
+  daily: { day: string; requests: number; costUsd: number; costIdr: number | null }[]
+  models: { model: string; requests: number; costUsd: number; costIdr: number | null }[]
+  alert: AiAlert
+}
+
 export type InvoiceKind = "HOSTING_NEW" | "HOSTING_RENEWAL" | "TOPUP"
 
 /** A paid hosting payment or top-up (`GET /invoices`). Plan and instance names are as they were when it was paid. */

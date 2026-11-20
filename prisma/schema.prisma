@@ -31,6 +31,11 @@ model Tenant {
   subscriptions Subscription[]
   /// NibieRouter user for this tenant (created lazily by the NibieRouter provisioner); the customer never signs in there.
   routerUserId  String?
+  /// Email when the NibieRouter (AI) balance drops below `aiLowThresholdIdr` (customer switch on the Billing page).
+  aiLowAlert        Boolean   @default(true)
+  aiLowThresholdIdr Int       @default(10000)
+  /// When the reminder for the current drop was sent; cleared once the balance is back at or above the threshold.
+  aiLowNotifiedAt   DateTime? @db.Timestamptz(3)
   creditGrants  CreditGrant[]
   tickets       SupportTicket[]
   wallet        Wallet?
@@ -594,6 +599,14 @@ model AdminApiKey {
   expiresAt       DateTime? @db.Timestamptz(3)
   revokedAt       DateTime? @db.Timestamptz(3)
   lastUsedAt      DateTime? @db.Timestamptz(3)
+}
+
+/// Billing settings an admin changes on the Pengaturan page (every change audited). One row only (`id` 1, check constraint).
+model BillingSetting {
+  id                Int      @id @default(1)
+  /// Rupiah per US$1 for showing and selling AI credit. Null: the NibieRouter's own rate (`idr_per_usd`) is used.
+  aiCreditIdrPerUsd Int?
+  updatedAt         DateTime @updatedAt @db.Timestamptz(3)
 }
 
 /// Support contacts shown on the dashboard's Support page, set by an admin on the Pengaturan page (every change audited).

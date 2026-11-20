@@ -23,6 +23,14 @@ describe('renderEmail', () => {
     expect(m.html).toContain('Nibie Cloud');
   });
 
+  it('ai_low_balance names the balance and the threshold in Rupiah and points to Billing', () => {
+    const m = renderEmail('ai_low_balance', { instanceName: '', periodEnd: null, amountIdr: 10_000, balanceIdr: 4_650, dashboardUrl: 'https://cloud.example.test/dashboard/billing' });
+    expect(m.subject).toBe('Saldo AI hampir habis - Nibie Cloud');
+    expect(m.text).toContain('Rp 4.650');
+    expect(m.text).toContain('Rp 10.000');
+    expect(m.text).toContain('https://cloud.example.test/dashboard/billing');
+  });
+
   it('formats dates in Jakarta time', () => {
     const m = renderEmail('renewal_7d', ctx);
     expect(m.text).toContain('WIB');

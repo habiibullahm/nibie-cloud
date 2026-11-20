@@ -75,6 +75,20 @@ Body `PUT`:
 - `PUT` mengembalikan `{ "provider": { … } }` dengan `restartRequired: true`. Model baru dipakai setelah instance
   di-restart.
 
+### Saldo AI
+
+| Endpoint | Fungsi |
+| --- | --- |
+| `GET /ai` | Saldo dan pemakaian NibieRouter tenant kamu, dalam Rupiah. |
+| `PUT /ai/alert` | Mengatur email pengingat saldo AI. Body `{ "enabled": true, "thresholdIdr": 10000 }`. |
+
+- `GET /ai` berisi `rate` (`idrPerUsd` dan `source`: `admin` atau `router`), `hasAccount`, `balanceUsd`, `balanceIdr`,
+  `spend30dUsd`, `spend30dIdr`, `daily` (per hari: `day`, `requests`, `costUsd`, `costIdr`), `models` (per model) dan
+  `alert`. Field Rupiah bernilai `null` kalau kurs tidak tersedia.
+- `thresholdIdr` antara 1.000 dan 1.000.000. Email dikirim sekali setiap saldo turun di bawah batas itu, paling sering
+  sekali per jam, dan hanya untuk akun yang pernah menerima kredit AI.
+- NibieRouter tidak diaktifkan di server: `404`. NibieRouter tidak bisa dihubungi: `503 router_unavailable`.
+
 ## Log
 
 `GET /instances/:instanceId/logs?tail=100` mengembalikan baris terakhir output container, dengan kredensial

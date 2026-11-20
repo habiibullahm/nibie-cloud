@@ -17,6 +17,7 @@ import { useT, type T } from "@/lib/i18n"
 import { useLang, type Lang } from "@/lib/prefs"
 import { InvoicesCard } from "./invoices-card"
 import { WalletCard } from "./wallet-card"
+import { AiCreditCard } from "./ai-credit-card"
 
 function periodText(sub: BillingSubscription, t: T, lang: Lang): string {
   if (!sub.currentPeriodEnd) return "—"
@@ -62,6 +63,7 @@ export function BillingView() {
         actions={mock ? <PreviewNote what="Subscriptions" reason="mock" /> : null}
       />
       <WalletCard />
+      <AiCreditCard />
       <InvoicesCard />
       {!subs.data ? (
         <QueryFallback what="your subscriptions" queries={[subs]} className="h-48" />

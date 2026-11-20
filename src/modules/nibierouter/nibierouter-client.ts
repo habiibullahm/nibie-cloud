@@ -31,6 +31,15 @@ export interface RouterKeyRow {
   settings: RouterKeySettings;
 }
 
+/** A router user's balance and usage, from `GET /users/:id` (shape checked on the router 2026-11-20). Money in nano-USD. */
+export interface RouterUsage {
+  balanceNano: bigint;
+  spend30dNano: bigint;
+  /** One row per day with requests, oldest first as the router sends them. */
+  daily: { day: string; requests: number; costNano: bigint }[];
+  models: { model: string; requests: number; costNano: bigint }[];
+}
+
 /**
  * What the control plane needs from NibieRouter (a SumoRouter instance, https://docs.sumorouter.com, admin API).
  * Calls that are not idempotent on the router (`grantCredit`) are guarded by the caller, not here.
@@ -44,6 +53,9 @@ export interface NibieRouterClient {
   listKeys(userId: string): Promise<RouterKeyRow[]>;
   /** Replaces the key's name and every limit setting with these values. */
   updateKey(userId: string, keyId: string, input: { name: string; settings: RouterKeySettings }): Promise<void>;
+  getUsage(userId: string): Promise<RouterUsage>;
+  /** The router's own Rupiah per US$1 (`idr_per_usd` in its payment settings), or null when it has none. */
+  getIdrPerUsd(): Promise<number | null>;
 }
 
 type Fetcher = (url: string, opts: SafeFetchOptions) => Promise<SafeFetchResult>;
@@ -63,6 +75,15 @@ const keyRow = z
 // The docs list `kind, amount_nano, reference, actor_email, created_at` for a balance entry and no `note` field: the note of an
 // admin credit is expected in `reference`. Both are accepted until the live check shows which one carries it.
 const noteRow = z.object({ note: z.string().nullable().optional(), reference: z.string().nullable().optional() });
+const nano = z.number().int();
+const usageAnswer = z.object({
+  user: z.object({ balance_nano: nano }),
+  stats: z.object({ spend_30d_nano: nano }),
+  daily: z.array(z.object({ day: z.string().max(40), requests: z.number().int(), cost_nano: nano })).max(400).default([]),
+  models: z.array(z.object({ model_slug: z.string().max(200), requests: z.number().int(), cost_nano: nano })).max(500).default([]),
+});
+// Only the rate is read from the payment settings; the rest of that answer (provider names, masked key hints) is dropped.
+const paymentAnswer = z.object({ idr_per_usd: z.number().positive().nullable().optional() });
 
 /**
  * HTTP client for the NibieRouter admin API. Errors are fixed and coarse (`RouterUnavailableError`): a router
@@ -139,6 +160,19 @@ export function createNibieRouterClient(cfg: RouterConfig, deps: { fetcher?: Fet
     },
     async updateKey(userId, keyId, input) {
       await call('PUT', `/users/${enc(userId)}/keys/${enc(keyId)}`, { ...input.settings, name: input.name });
+    },
+    async getUsage(userId) {
+      const out = parse(usageAnswer, await call('GET', `/users/${enc(userId)}`));
+      return {
+        balanceNano: BigInt(out.user.balance_nano),
+        spend30dNano: BigInt(out.stats.spend_30d_nano),
+        daily: out.daily.map((d) => ({ day: d.day, requests: d.requests, costNano: BigInt(d.cost_nano) })),
+        models: out.models.map((m) => ({ model: m.model_slug, requests: m.requests, costNano: BigInt(m.cost_nano) })),
+      };
+    },
+    async getIdrPerUsd() {
+      const rate = parse(paymentAnswer, await call('GET', '/settings/payment')).idr_per_usd;
+      return rate ? Math.round(rate) : null;
     },
   };
 }

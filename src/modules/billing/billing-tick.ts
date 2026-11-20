@@ -7,6 +7,7 @@ import type { BillingService } from './billing-service.js';
 import { dueNotice, nextTransition, type NoticeKind } from './lifecycle.js';
 import type { Mailer } from './mailer.js';
 import type { RouterProvisioner } from '../nibierouter/router-provisioner.js';
+import type { AiAccountService } from '../nibierouter/ai-account.js';
 
 const DAY_MS = 86_400_000;
 /** A purchase nobody paid for within this long is closed, which also frees the tenant's instance cap. */
@@ -23,6 +24,7 @@ export interface TickSummary {
   emails: number;
   routerProvisioned: number;
   autoRenewed: number;
+  aiLowReminders: number;
 }
 
 export interface BillingTickDeps {
@@ -33,6 +35,8 @@ export interface BillingTickDeps {
   logger: Logger;
   /** Retries NibieRouter provisioning (key and credit) that has not reached DONE yet. */
   router?: Pick<RouterProvisioner, 'runPending'>;
+  /** Low AI-balance reminders (it throttles itself to once an hour). */
+  ai?: Pick<AiAccountService, 'checkLowBalances'>;
   now?: () => Date;
   /** `run()` does nothing when called again sooner than this (the scheduler ticks every 15 s). Default 5 minutes. */
   minIntervalMs?: number;
@@ -68,7 +72,7 @@ export class BillingTick {
   }
 
   async runOnce(): Promise<TickSummary> {
-    const sum: TickSummary = { expiredPayments: 0, abandoned: 0, graced: 0, suspended: 0, ended: 0, repaired: 0, emails: 0, routerProvisioned: 0, autoRenewed: 0 };
+    const sum: TickSummary = { expiredPayments: 0, abandoned: 0, graced: 0, suspended: 0, ended: 0, repaired: 0, emails: 0, routerProvisioned: 0, autoRenewed: 0, aiLowReminders: 0 };
     const now = this.now();
     const { prisma } = this.d;
 
@@ -116,6 +120,9 @@ export class BillingTick {
     } catch (e) {
       this.d.logger.error({ errName: (e as Error).name }, 'router provisioning retry failed');
     }
+    sum.aiLowReminders = (await this.d.ai?.checkLowBalances((tenantId, c) =>
+      this.d.billing.sendEmail(tenantId, 'ai_low_balance', { periodEnd: null, amountIdr: c.thresholdIdr, balanceIdr: c.balanceIdr, dashboardPath: '/dashboard/billing' }),
+    )) ?? 0;
     return sum;
   }
 

@@ -377,6 +377,15 @@ key stays, and the next start or restart writes the new `model:` block. A BYOK i
 default for new keys is still `NIBIEROUTER_DEFAULT_MODEL`. A paid model is paid from the tenant's router balance (the
 plan credit); when it is empty the router refuses the requests, the instance itself is not touched.
 
+**AI balance in Rupiah** (step 3, owner decisions 2026-11-20). `GET /ai` (customer API) shows the tenant's router balance,
+30-day spend, daily and per-model cost from `GET /api/admin/users/:id` (cached 60 s per tenant), converted at the AI credit
+rate: the admin's override in `BillingSetting.aiCreditIdrPerUsd` (Pengaturan page, `POST /api/v1/admin/settings/ai-credit-rate`
+with a reason, audited, 5.000 to 50.000, null clears it) or else the router's own `idr_per_usd` (`GET
+/api/admin/settings/payment`, cached 10 minutes, last value kept while the router is down). `PUT /ai/alert` sets the
+customer's reminder (`Tenant.aiLowAlert`, `aiLowThresholdIdr`, default on at Rp 10.000). The billing tick checks at most once
+an hour, only tenants with a DONE `CreditGrant`, and sends one `ai_low_balance` email per drop (`aiLowNotifiedAt`, cleared when
+the balance is back above the threshold). Without `NIBIEROUTER_ADMIN_KEY` these routes answer 404.
+
 - **Turn it on:** put `NIBIEROUTER_ADMIN_KEY` and `NIBIEROUTER_DEFAULT_MODEL` in the backend environment on the host
   (the admin key is created in the NibieRouter admin dashboard, kept in the password
   manager). Without them nothing changes. `SECRETS_KEK` must be set too.
