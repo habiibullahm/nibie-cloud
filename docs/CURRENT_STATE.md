@@ -4,6 +4,12 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Caddy allowlist missed the AI routes (2026-11-21, branch `claude/caddy-ai-routes`, not deployed)
+
+The dashboard showed CORS errors on `GET /api/v1/ai` and `GET /api/v1/ai/models`. Cause: `deploy/Caddyfile` did not forward
+`/api/v1/ai*`, so Caddy answered its own `404 not found` with no CORS headers. Fix: `/api/v1/ai` and `/api/v1/ai/*` added to
+the `@public` matcher, plus a test in `test/integration/billing-api.test.ts`. The VPS Caddy needs the new file and a reload.
+
 ## NibieRouter step 4: buying AI credit from the wallet in Rupiah (2026-11-20, branch `claude/ai-credit-wallet`, merged `de11115`)
 
 Plan: AI credit in Rupiah through NibieRouter, PR C of 3 (owner: "PR C, buying AI credit from saldo in Rupiah"). The customer

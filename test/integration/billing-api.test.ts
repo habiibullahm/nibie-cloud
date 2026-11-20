@@ -297,6 +297,11 @@ describe('deploy/Caddyfile', () => {
     expect(matcher).not.toContain('duitku');
   });
 
+  it('forwards the AI account routes', () => {
+    // Missing here, Caddy answers 404 with no CORS headers and the dashboard shows a CORS error (2026-11-21).
+    for (const p of ['/api/v1/ai', '/api/v1/ai/*']) expect(matcher.split(/\s+/)).toContain(p);
+  });
+
   it('forwards every public route the backend registers', () => {
     // A public route missing here answers 404 in production while every local test passes (support-contact, 2026-11-19).
     const src = readFileSync(new URL('../../src/http/public-routes.ts', import.meta.url), 'utf8');
