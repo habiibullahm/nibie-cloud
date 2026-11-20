@@ -13,14 +13,13 @@ import { QueryFallback } from "@/components/app/query-fallback"
 import { KeyValue } from "@/components/app/key-value"
 import { PageHeader, SectionTitle } from "@/components/app/page-header"
 import { PreviewNote } from "@/components/app/preview-note"
-import { WalletPayButton } from "@/components/app/wallet-pay-button"
-import { errorMessage, useApiMode, useCheckout, useCreateInstance, usePlans, useRegions, useSubscriptions, useWallet, useWalletPay } from "@/hooks/use-hermes"
+import { PayButton, usePay } from "@/components/app/pay-button"
+import { errorMessage, useApiMode, useCheckout, useCreateInstance, usePlans, useRegions, useSubscriptions } from "@/hooks/use-hermes"
 import { isPendingPurchase, payableUrl } from "@/lib/billing"
 import { cn } from "@/lib/utils"
 import { formatCpu, formatMb, formatPriceIdr } from "@/lib/format"
 import { useT } from "@/lib/i18n"
 import { useLang } from "@/lib/prefs"
-import { startPayment } from "@/lib/pay"
 import { validateInstanceName } from "./validate-name"
 
 export function DeployForm() {
@@ -58,13 +57,10 @@ export function DeployForm() {
   const plan = openPlans.find((p) => p.id === (planId || openPlans[0]?.id))
   const nameError = validateInstanceName(name)
   const priced = plan !== undefined && plan.monthlyPriceIdr !== null
-  // The wallet (when the backend has it on) pays right away; it is the default whenever the balance covers the price.
-  const wallet = useWallet().data
-  const walletPay = useWalletPay()
-  const walletCovers = priced && wallet != null && wallet.balanceIdr >= (plan?.monthlyPriceIdr ?? Infinity)
-  const [payChoice, setPayChoice] = useState<"wallet" | "qris" | null>(null)
-  const payWith = walletCovers ? (payChoice ?? "wallet") : "qris"
-  const busy = create.isPending || checkout.isPending || walletPay.isPending
+  // No choice to make: the balance pays when it covers the price, otherwise QRIS (owner decision 2026-11-20).
+  const { pay, covers, paying } = usePay()
+  const fromBalance = priced && covers(plan?.monthlyPriceIdr)
+  const busy = create.isPending || checkout.isPending || paying
   const failure = create.error ?? checkout.error
 
   const submit = (e: React.FormEvent) => {
@@ -75,12 +71,7 @@ export function DeployForm() {
       // A paid plan: the backend creates the instance only after the first payment (QRIS confirmed, or the balance).
       checkout.mutate(
         { input: { name: name.trim(), planId: plan.id }, idempotencyKey },
-        {
-          onSuccess: (r) =>
-            payWith === "wallet"
-              ? walletPay.mutate(r.payment.id, { onSuccess: () => router.push("/instances") })
-              : startPayment(r.payment.paymentUrl),
-        }
+        { onSuccess: (r) => pay(r.payment, () => router.push("/instances")) }
       )
       return
     }
@@ -275,36 +266,14 @@ export function DeployForm() {
                 : []),
             ]}
           />
-          {priced && wallet ? (
-            <div className="grid gap-2">
-              <p className="type-label">{t("Pay with")}</p>
-              <RadioGroup value={payWith} onValueChange={(v) => setPayChoice(v as "wallet" | "qris")} aria-label={t("Pay with")}>
-                <Label htmlFor="pay-wallet" className={cn("flex items-start gap-3", !walletCovers && "cursor-not-allowed")}>
-                  <RadioGroupItem id="pay-wallet" value="wallet" disabled={!walletCovers} className="mt-1" />
-                  <span className="grid gap-1">
-                    <span className="text-foreground">{t("Nibie Cloud balance")}</span>
-                    <span className="text-muted-foreground">
-                      {walletCovers
-                        ? t("Balance {balance}", { balance: formatPriceIdr(wallet.balanceIdr, lang) })
-                        : t("Balance {balance}: not enough. Top up on the Billing page.", { balance: formatPriceIdr(wallet.balanceIdr, lang) })}
-                    </span>
-                  </span>
-                </Label>
-                <Label htmlFor="pay-qris" className="flex items-start gap-3">
-                  <RadioGroupItem id="pay-qris" value="qris" className="mt-1" />
-                  <span className="text-foreground">QRIS</span>
-                </Label>
-              </RadioGroup>
-            </div>
-          ) : null}
           {plan ? (
             <Alert>
               <Info aria-hidden="true" />
-              <AlertTitle>{!priced ? t("Free during the beta") : payWith === "wallet" ? t("Pay from your balance") : t("Pay with QRIS")}</AlertTitle>
+              <AlertTitle>{!priced ? t("Free during the beta") : fromBalance ? t("Pay from your balance") : t("Pay with QRIS")}</AlertTitle>
               <AlertDescription>
                 {!priced
                   ? t("There is nothing to pay. Deploying starts provisioning right away.")
-                  : payWith === "wallet"
+                  : fromBalance
                     ? t("The price is taken from your Nibie Cloud balance and your instance is created right away.")
                     : t("You pay by QRIS on the SumoPod payment page. Your instance is created after the payment is confirmed, usually within a minute.")}
               </AlertDescription>
@@ -316,18 +285,14 @@ export function DeployForm() {
               <AlertTitle>{t("You have an unpaid order for {name}", { name: openOrder.name })}</AlertTitle>
               <AlertDescription>
                 <p>{t("Starting a new payment cancels its payment link.")}</p>
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" size="sm" variant="outline" onClick={() => startPayment(openOrderUrl)}>
-                    {t("Pay for {name} instead", { name: openOrder.name })}
-                  </Button>
-                  {openOrder.latestPayment ? (
-                    <WalletPayButton
-                      paymentId={openOrder.latestPayment.id}
-                      amountIdr={openOrder.latestPayment.amountIdr}
-                      onPaid={() => router.push("/instances")}
-                    />
-                  ) : null}
-                </div>
+                {openOrder.latestPayment ? (
+                  <PayButton
+                    payment={openOrder.latestPayment}
+                    label={t("Pay for {name} instead", { name: openOrder.name })}
+                    walletLabel={t("Pay for {name} from balance", { name: openOrder.name })}
+                    onPaid={() => router.push("/instances")}
+                  />
+                ) : null}
               </AlertDescription>
             </Alert>
           ) : null}
@@ -341,7 +306,7 @@ export function DeployForm() {
             <Rocket aria-hidden="true" />
             {busy
               ? priced
-                ? payWith === "wallet"
+                ? fromBalance
                   ? t("Paying…")
                   : t("Preparing payment…")
                 : t("Deploying…")
