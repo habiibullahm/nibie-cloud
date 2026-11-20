@@ -4,7 +4,16 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
-## SumoPod gaps closed (2026-11-20, branch `claude/sumopod-gaps`, PR #99, not deployed)
+## SumoPod gaps closed (2026-11-20, branch `claude/sumopod-gaps`, PR #99, deployed `3abc2fd`)
+
+Deployed by the auto-deploy after the merge: the host log says "backend 3abc2fd is ready", the backend is healthy, and the
+public webhook without a token answers 400.
+
+**Resend verified on 2026-11-20.** The owner resent the `payment.completed` delivery of top-up `nw-678df…` (Rp 15.000,
+paid at 00:02 UTC) from the SumoPod Webhooks tab, 14 minutes after payment. The backend log shows the resends at 00:16 UTC
+answered with outcome `duplicate`, and SumoPod shows the last response as `200`. The wallet holds one Rp 15.000 entry, so
+nothing was credited twice. SumoPod therefore signs every resend with a fresh timestamp, and our 5-minute Svix window does
+not block resending old payments.
 
 Owner asked to analyse SumoPod against the code and close the gaps. Facts were read from docs.sumopod.com, the
 SumoPod dashboard Quick Start (Live, read-only) and the production admin MCP.
@@ -46,9 +55,8 @@ SumoPod dashboard Quick Start (Live, read-only) and the production admin MCP.
     database. The wallet-pay entry below confirms that another session was running tests on `hermes_test` at the
     same time.
 - **Open:**
-  - Is a resent delivery signed with a fresh timestamp? Our Svix window is 5 minutes. Resending one old Success row
-    answers it.
-  - No admin action marks a hosting invoice paid when its webhook cannot be resent.
+  - No admin action marks a hosting invoice paid when its webhook cannot be resent. Resend works, so this is needed
+    only when SumoPod has no delivery to resend.
   - `amount_mismatch` reaches only the log, not the operator alerts.
   - On 2026-11-20 the admin MCP showed `nc-f44c…` still `PENDING` after its `expiresAt` (check the billing tick).
   - `nc-0ff9…` (`PAID` 2026-11-17) does not appear in the Nibie Cloud SumoPod account's payments or webhook log

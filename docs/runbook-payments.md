@@ -52,6 +52,10 @@ the daily check.
      - Answer `5xx` or a timeout: the backend is down or slow; fix that, then resend.
    - **Success with `200`**: go to playbook B.
 3. A resend of a delivery we already applied is harmless: it is recorded once and answered `duplicate`.
+4. A resend works for old payments too. SumoPod signs every resend again with a fresh `svix-timestamp`, so our
+   5-minute window (`src/modules/billing/svix.ts`) does not block it. This was verified on 2026-11-20 by resending,
+   14 minutes after payment, a top-up that had already been applied: each resend answered `200`, the outcome was
+   `duplicate`, and the wallet was credited once.
 
 ## Playbook B: SumoPod shows Success, but nothing was credited
 
@@ -86,7 +90,5 @@ and `merchantOrderId` (a refused one, answered `400`, writes nothing):
 
 ## Open questions for SumoPod
 
-- Is a resent delivery signed again with a fresh `svix-timestamp`? We refuse signatures older than 5 minutes
-  (`src/modules/billing/svix.ts`). Resending an old Success row once answers this: `200` means yes, `400` means no.
 - How long after the payment can a delivery still be resent?
 - Is there an API to read one payment's status, so we could check missed webhooks without the dashboard?
