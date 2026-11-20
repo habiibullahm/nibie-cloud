@@ -89,6 +89,13 @@ export const ID: Record<string, string> = {
   "Remind me below": "Ingatkan di bawah",
   "Between {min} and {max}.": "Antara {min} dan {max}.",
   "Save reminder": "Simpan pengingat",
+  "Top up AI balance": "Top up saldo AI",
+  "Paid from your Nibie Cloud balance at {rate} per US$1.": "Dibayar dari saldo Nibie Cloud dengan kurs {rate} per US$1.",
+  "Not enough balance. Top up your Nibie Cloud balance first.": "Saldo tidak cukup. Top up saldo Nibie Cloud dulu.",
+  "AI balance after": "Saldo AI sesudahnya",
+  "AI credit cannot be turned back into balance, refunded or withdrawn.":
+    "Kredit AI tidak dapat diubah kembali menjadi saldo, dikembalikan, atau ditarik.",
+  "Buy AI credit": "Beli kredit AI",
   "Top-up of {amount} is waiting for payment.": "Top-up {amount} menunggu pembayaran.",
   Date: "Tanggal",
   Description: "Keterangan",

@@ -155,10 +155,10 @@ export class AlertScanner {
   private async creditGrants(): Promise<AlertInput[]> {
     const rows = await this.d.prisma.creditGrant.findMany({ where: { status: 'PENDING', attempts: { gte: ROUTER_WARN_AT } }, take: 100 });
     return rows.map((g) => ({
-      key: `credit-grant:${g.subscriptionId}`,
+      key: `credit-grant:${g.subscriptionId ?? g.id}`,
       severity: 'WARNING' as const,
       title: 'Kredit NibieRouter pelanggan belum masuk',
-      detail: `Langganan ${short(g.subscriptionId)}, tenant ${short(g.tenantId)}, ${g.attempts} percobaan. Jangan memberi kredit dengan tangan sebelum memeriksa riwayat saldo (risiko kredit ganda).`,
+      detail: `${g.subscriptionId ? `Langganan ${short(g.subscriptionId)}` : `Pembelian kredit AI dari saldo ${short(g.id)} (saldo sudah terpotong)`}, tenant ${short(g.tenantId)}, ${g.attempts} percobaan. Jangan memberi kredit dengan tangan sebelum memeriksa riwayat saldo (risiko kredit ganda).`,
     }));
   }
 

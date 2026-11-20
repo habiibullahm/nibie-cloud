@@ -22,26 +22,26 @@ enum InstanceStatus {
 }
 
 model Tenant {
-  id            String         @id @default(uuid()) @db.Uuid
-  name          String
-  createdAt     DateTime       @default(now()) @db.Timestamptz(3)
-  instances     Instance[]
-  members       TenantMember[]
-  secrets       Secret[]
-  subscriptions Subscription[]
+  id                String          @id @default(uuid()) @db.Uuid
+  name              String
+  createdAt         DateTime        @default(now()) @db.Timestamptz(3)
+  instances         Instance[]
+  members           TenantMember[]
+  secrets           Secret[]
+  subscriptions     Subscription[]
   /// NibieRouter user for this tenant (created lazily by the NibieRouter provisioner); the customer never signs in there.
-  routerUserId  String?
+  routerUserId      String?
   /// Email when the NibieRouter (AI) balance drops below `aiLowThresholdIdr` (customer switch on the Billing page).
-  aiLowAlert        Boolean   @default(true)
-  aiLowThresholdIdr Int       @default(10000)
+  aiLowAlert        Boolean         @default(true)
+  aiLowThresholdIdr Int             @default(10000)
   /// When the reminder for the current drop was sent; cleared once the balance is back at or above the threshold.
-  aiLowNotifiedAt   DateTime? @db.Timestamptz(3)
-  creditGrants  CreditGrant[]
-  tickets       SupportTicket[]
-  wallet        Wallet?
-  walletEntries WalletEntry[]
-  walletTopups  WalletTopup[]
-  invoices      Invoice[]
+  aiLowNotifiedAt   DateTime?       @db.Timestamptz(3)
+  creditGrants      CreditGrant[]
+  tickets           SupportTicket[]
+  wallet            Wallet?
+  walletEntries     WalletEntry[]
+  walletTopups      WalletTopup[]
+  invoices          Invoice[]
 }
 
 /// Customer identity. `id` is the Supabase Auth user id (the token's `sub`); it is not generated here.
@@ -445,14 +445,20 @@ enum CreditGrantStatus {
   DONE
 }
 
-/// The one-time NibieRouter credit of a subscription. NibieRouter has no idempotency for credit grants, so this
-/// row is the exactly-once guard: `attempts` is raised before the call, and a retry after an ambiguous failure
-/// first looks for `note` in the router's balance history before posting again.
+/// One NibieRouter credit: the one-time credit of a subscription (`subscriptionId`), or AI credit bought from the wallet
+/// (`subscriptionId` null, `amountIdr` and `idempotencyKey` set; its `AI_CREDIT` wallet entry has this row's id as refId).
+/// NibieRouter has no idempotency for credit grants, so this row is the exactly-once guard: `attempts` is raised by a
+/// compare-and-set before the call, and a retry after an ambiguous failure first looks for `note` in the router's balance
+/// history before posting again.
 model CreditGrant {
   id               String            @id @default(uuid()) @db.Uuid
   tenantId         String            @db.Uuid
-  subscriptionId   String            @unique @db.Uuid
+  subscriptionId   String?           @unique @db.Uuid
   amountNano       BigInt
+  /// Purchases only: the Rupiah taken from the wallet.
+  amountIdr        Int?
+  /// Purchases only: the customer's Idempotency-Key, so a retried request buys once.
+  idempotencyKey   String?
   note             String
   status           CreditGrantStatus @default(PENDING)
   attempts         Int               @default(0)
@@ -461,6 +467,8 @@ model CreditGrant {
   updatedAt        DateTime          @updatedAt @db.Timestamptz(3)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, idempotencyKey])
 }
 
 enum RouterProvisioningStatus {

@@ -106,6 +106,10 @@ top-ups. The owner runs the real Rp 25.000 payment test before `WALLET_ENABLED` 
 
 ## PR 3: buy AI credit + rate admin + live router balance
 
+Built 2026-11-20 with one change (owner: "buying AI credit from saldo in Rupiah"): the customer enters **Rupiah**
+(`POST /ai/credit { amountIdr }`, Rp 10.000 to 1.000.000, presets Rp 20.000 / 50.000 / 100.000 / 200.000), not US$. The rate,
+the balance and the admin route came with PR B. See `docs/CURRENT_STATE.md`.
+
 - Schema: `BillingSetting { id 'default' @id, aiCreditIdrPerUsd Int? }` (null = buying AI credit is off).
   `CreditGrant.subscriptionId` → nullable, add `walletEntryRef String? @unique`.
 - `RouterProvisioner`: split `ensureCredit` into a generic exactly-once `applyGrant(userId, row)` (same

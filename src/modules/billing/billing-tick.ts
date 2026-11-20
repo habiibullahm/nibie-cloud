@@ -25,6 +25,7 @@ export interface TickSummary {
   routerProvisioned: number;
   autoRenewed: number;
   aiLowReminders: number;
+  aiCreditsDelivered: number;
 }
 
 export interface BillingTickDeps {
@@ -36,7 +37,7 @@ export interface BillingTickDeps {
   /** Retries NibieRouter provisioning (key and credit) that has not reached DONE yet. */
   router?: Pick<RouterProvisioner, 'runPending'>;
   /** Low AI-balance reminders (it throttles itself to once an hour). */
-  ai?: Pick<AiAccountService, 'checkLowBalances'>;
+  ai?: Pick<AiAccountService, 'checkLowBalances' | 'retryPurchases'>;
   now?: () => Date;
   /** `run()` does nothing when called again sooner than this (the scheduler ticks every 15 s). Default 5 minutes. */
   minIntervalMs?: number;
@@ -72,7 +73,7 @@ export class BillingTick {
   }
 
   async runOnce(): Promise<TickSummary> {
-    const sum: TickSummary = { expiredPayments: 0, abandoned: 0, graced: 0, suspended: 0, ended: 0, repaired: 0, emails: 0, routerProvisioned: 0, autoRenewed: 0, aiLowReminders: 0 };
+    const sum: TickSummary = { expiredPayments: 0, abandoned: 0, graced: 0, suspended: 0, ended: 0, repaired: 0, emails: 0, routerProvisioned: 0, autoRenewed: 0, aiLowReminders: 0, aiCreditsDelivered: 0 };
     const now = this.now();
     const { prisma } = this.d;
 
@@ -120,6 +121,8 @@ export class BillingTick {
     } catch (e) {
       this.d.logger.error({ errName: (e as Error).name }, 'router provisioning retry failed');
     }
+    // AI credit bought from the wallet whose router call failed: the wallet was charged, so keep delivering it.
+    sum.aiCreditsDelivered = (await this.d.ai?.retryPurchases()) ?? 0;
     sum.aiLowReminders = (await this.d.ai?.checkLowBalances((tenantId, c) =>
       this.d.billing.sendEmail(tenantId, 'ai_low_balance', { periodEnd: null, amountIdr: c.thresholdIdr, balanceIdr: c.balanceIdr, dashboardPath: '/dashboard/billing' }),
     )) ?? 0;

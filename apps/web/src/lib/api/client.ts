@@ -25,6 +25,7 @@ import type {
   WalletTopup,
   AiAccount,
   AiAlert,
+  AiPurchase,
   AiKeys,
   CreatedAiKey,
 } from "./types"
@@ -76,6 +77,8 @@ export interface BillingApi {
   /** The NibieRouter (AI) balance and usage, or null when the backend has no NibieRouter configured. */
   ai(): Promise<AiAccount | null>
   setAiAlert(alert: AiAlert): Promise<AiAlert>
+  /** Buys AI credit with `amountIdr` from the wallet; `captchaToken` is a solved Turnstile, when configured. */
+  buyAiCredit(amountIdr: number, idempotencyKey: string, captchaToken?: string): Promise<AiPurchase>
   /** The customer's own NibieRouter keys, or null when the backend has no NibieRouter configured. */
   aiKeys(): Promise<AiKeys | null>
   createAiKey(name: string): Promise<CreatedAiKey>

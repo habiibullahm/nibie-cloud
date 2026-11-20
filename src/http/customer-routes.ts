@@ -161,16 +161,17 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
       return reply.status(202).send({ instance, jobId });
     });
 
+    // A production deployment on the SumoPod sandbox takes no real money, so a sandbox "payment" would hand out a
+    // free instance. Until SUMOPOD_ENV is production, only invited beta users may start a purchase.
+    const sandboxOnly = config.nodeEnv === 'production' && config.billing?.sumopod.env === 'sandbox';
+    const payGate = async (email: string): Promise<void> => {
+      if ((sandboxOnly || !config.paidCheckoutOpen) && !(await isInvitedEmail(email))) throw new ForbiddenError('Payments are not open yet', 'billing_not_open');
+    };
     if (deps.billing) {
-      // A production deployment on the SumoPod sandbox takes no real money, so a sandbox "payment" would hand out a
-      // free instance. Until SUMOPOD_ENV is production, only invited beta users may start a purchase.
-      const sandboxOnly = config.nodeEnv === 'production' && config.billing?.sumopod.env === 'sandbox';
-      registerBillingRoutes(api, deps.billing, async (email) => {
-        if ((sandboxOnly || !config.paidCheckoutOpen) && !(await isInvitedEmail(email))) throw new ForbiddenError('Payments are not open yet', 'billing_not_open');
-      }, deps.captcha ?? null);
+      registerBillingRoutes(api, deps.billing, payGate, deps.captcha ?? null);
     }
     registerCustomerIntegrationRoutes(api, deps.integrations, deps.logs);
-    if (deps.ai) registerAiRoutes(api, deps.ai);
+    if (deps.ai) registerAiRoutes(api, deps.ai, { gate: payGate, captcha: deps.captcha ?? null });
     registerCustomerTicketRoutes(api, { prisma, config, mailer: deps.mailer ?? null });
   }, { prefix: '/api/v1' });
 }

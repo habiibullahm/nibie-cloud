@@ -21,6 +21,7 @@ import type {
   UsagePoint,
   Wallet,
   AiAccount,
+  AiPurchase,
   AiKey,
 } from "./types"
 
@@ -817,6 +818,28 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       aiAccount.alert = { ...alert }
       return { ...alert }
     },
+    // Like the backend: Rupiah from the sample wallet to the sample AI balance at the rate, refused when short.
+    async buyAiCredit(amountIdr) {
+      await wait()
+      const buy = aiAccount.buy
+      const rate = aiAccount.rate.idrPerUsd
+      if (!buy || !rate) throw new ApiError(404, "not_found", "Not found")
+      if (!Number.isInteger(amountIdr) || amountIdr < buy.minIdr || amountIdr > buy.maxIdr) {
+        throw new ApiError(400, "validation_error", "Amount is out of range.")
+      }
+      if (wallet.balanceIdr < amountIdr) throw new ApiError(409, "insufficient_balance", "Not enough balance")
+      const amountUsd = Math.floor((amountIdr / rate) * 1e9) / 1e9
+      const createdAt = new Date().toISOString()
+      wallet.balanceIdr -= amountIdr
+      wallet.entries.unshift({
+        id: uuid(), amountIdr: -amountIdr, kind: "AI_CREDIT", balanceAfterIdr: wallet.balanceIdr,
+        note: `Kredit AI US$${amountUsd.toFixed(2)}`, createdAt,
+      })
+      aiAccount.balanceUsd += amountUsd
+      aiAccount.balanceIdr = Math.floor(aiAccount.balanceUsd * rate)
+      const purchase: AiPurchase = { id: uuid(), amountIdr, amountUsd, status: "DONE", createdAt }
+      return purchase
+    },
     async aiKeys() {
       await wait()
       return { baseUrl: "https://router.nibie.app/v1", hasAccount: true, keys: aiKeys.map((k) => ({ ...k })) }
@@ -870,6 +893,7 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       { model: "nibierouter-free", requests: 12, costUsd: 0, costIdr: 0 },
     ],
     alert: { enabled: true, thresholdIdr: 10_000 },
+    buy: { minIdr: 10_000, maxIdr: 1_000_000 },
   }
 
   // One sample key, so the API keys page has a row in preview mode.

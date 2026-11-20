@@ -1,5 +1,5 @@
 import { ApiError, type BillingApi, type InstancesApi } from "./client"
-import type { AiAccount, AiAlert, AiKeys, BillingSubscription, CreatedAiKey, CheckoutResult, Instance, InstanceEvent, InstanceStatusView, Invoice, Wallet, WalletTopup } from "./types"
+import type { AiAccount, AiAlert, AiKeys, AiPurchase, BillingSubscription, CreatedAiKey, CheckoutResult, Instance, InstanceEvent, InstanceStatusView, Invoice, Wallet, WalletTopup } from "./types"
 
 const BASE = (process.env.NEXT_PUBLIC_BASE_PATH ?? "") + "/api/hermes"
 
@@ -154,6 +154,14 @@ export function buildBillingApi(call: Call): BillingApi {
           body: JSON.stringify(alert),
         })
       ).alert,
+    buyAiCredit: async (amountIdr, idempotencyKey, captchaToken) =>
+      (
+        await call<{ purchase: AiPurchase }>("/ai/credit", {
+          method: "POST",
+          headers: { "content-type": "application/json", "idempotency-key": idempotencyKey },
+          body: JSON.stringify(captchaToken ? { amountIdr, captchaToken } : { amountIdr }),
+        })
+      ).purchase,
     aiKeys: async () => {
       try {
         return await call<AiKeys>("/ai/keys")
@@ -181,7 +189,7 @@ export function createUnavailableBillingApi(): BillingApi {
   const refuse = () => Promise.reject(new ApiError(404, "billing_unavailable", "Billing is not available in this mode."))
   return {
     list: async () => [], checkout: refuse, upgrade: refuse, renew: refuse, cancel: refuse,
-    wallet: async () => null, topup: refuse, payWithWallet: refuse, setAutoRenew: refuse, ai: async () => null, setAiAlert: refuse,
+    wallet: async () => null, topup: refuse, payWithWallet: refuse, setAutoRenew: refuse, ai: async () => null, setAiAlert: refuse, buyAiCredit: refuse,
     aiKeys: async () => null, createAiKey: refuse, revokeAiKey: refuse,
     invoices: async () => [], invoice: refuse,
   }

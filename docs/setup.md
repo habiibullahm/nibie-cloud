@@ -159,8 +159,7 @@ was written for Duitku and is historical. Go-live steps: [billing-go-live.md](bi
 ### Wallet (top-up saldo)
 
 Off unless `WALLET_ENABLED=true` (then `GET /api/v1/wallet` and the top-up routes exist; otherwise they answer `404`).
-Plan, including the part not built yet (buying AI credit):
-[superpowers/plans/2026-11-20-wallet-topup.md](superpowers/plans/2026-11-20-wallet-topup.md).
+Plan: [superpowers/plans/2026-11-20-wallet-topup.md](superpowers/plans/2026-11-20-wallet-topup.md).
 
 - **Customer routes** (token required): `GET /wallet` (balance, limits, latest 50 entries, latest 20 top-ups),
   `POST /wallet/topups` (`Idempotency-Key`, body `{ amountIdr }`, whole rupiah 10.000 to 2.000.000, answers `201 { topup }`
@@ -385,6 +384,19 @@ with a reason, audited, 5.000 to 50.000, null clears it) or else the router's ow
 customer's reminder (`Tenant.aiLowAlert`, `aiLowThresholdIdr`, default on at Rp 10.000). The billing tick checks at most once
 an hour, only tenants with a DONE `CreditGrant`, and sends one `ai_low_balance` email per drop (`aiLowNotifiedAt`, cleared when
 the balance is back above the threshold). Without `NIBIEROUTER_ADMIN_KEY` these routes answer 404.
+
+**Buying AI credit from the wallet** (step 4, only with `WALLET_ENABLED=true`; otherwise `404` and `GET /ai` has `buy: null`).
+`POST /ai/credit` (`Idempotency-Key`, body `{ amountIdr, captchaToken? }`, whole rupiah 10.000 to 1.000.000) answers
+`201 { purchase }` (`id`, `amountIdr`, `amountUsd`, `status`). The credit is `amountIdr` divided by the AI credit rate above,
+rounded down to the nano-US$. One transaction under the wallet lock writes a `CreditGrant` without a subscription
+(`amountIdr`, `idempotencyKey`, note `nibie-cloud wallet <id>`) and the `AI_CREDIT` wallet entry keyed on its id; the router
+call follows. Same gate as checkout (`billing_not_open`) and the Turnstile check of `pay-with-wallet`. Errors:
+`409 insufficient_balance`, `409 ai_account_missing` (the tenant has no router user yet, so there is nothing to credit),
+`503 ai_rate_unavailable`, `409 conflict` (key reused with another amount). A router failure still answers 201 with
+`status: PENDING`: the wallet is charged and the billing tick delivers the grant (only grants untouched for 2 minutes, at most
+24 attempts, the `credit-grant:` alert from 5). Every grant (plan credit or purchase) takes its attempt with a compare-and-set,
+so two runs never post the same grant twice, and a retry checks the router's balance history first. No automatic refund: an
+admin adjusts the wallet by hand if a grant is ever given up.
 
 - **Turn it on:** put `NIBIEROUTER_ADMIN_KEY` and `NIBIEROUTER_DEFAULT_MODEL` in the backend environment on the host
   (the admin key is created in the NibieRouter admin dashboard, kept in the password

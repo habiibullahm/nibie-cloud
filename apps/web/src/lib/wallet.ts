@@ -6,7 +6,7 @@ export const TOPUP_PRESETS = [25_000, 50_000, 100_000, 250_000] as const
 export type ParsedAmount = { ok: true; value: number } | { ok: false; reason: "empty" | "not_number" | "too_low" | "too_high" }
 
 /** Reads a typed rupiah amount. Dots, commas and spaces are thousands separators ("50.000"); no decimals. */
-export function parseTopupAmount(text: string, limits: Wallet["limits"]): ParsedAmount {
+export function parseTopupAmount(text: string, limits: Pick<Wallet["limits"], "topupMinIdr" | "topupMaxIdr">): ParsedAmount {
   const s = text.replace(/[.,\s]/g, "")
   if (s === "") return { ok: false, reason: "empty" }
   if (!/^\d{1,10}$/.test(s)) return { ok: false, reason: "not_number" }
