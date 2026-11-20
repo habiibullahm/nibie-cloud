@@ -1,6 +1,6 @@
 import type { BillingPayment, BillingStatus, BillingSubscription } from "./api/types"
 import { formatDate, formatPriceIdr } from "./format"
-import type { T } from "./i18n"
+import { translate, type T } from "./i18n"
 import type { Lang } from "./prefs"
 
 /** Plain-language status for a subscription. Always text, never only a color (DESIGN.md). */
@@ -69,26 +69,32 @@ export interface BillingNotice {
  * The banner shown on every instance page when payment is late. Only grace and suspension need one;
  * a healthy subscription shows nothing. Dates come from the backend (PRD 10.1: 3 days grace, 30 days retention).
  */
-export function billingNotice(sub: BillingSubscription | null): BillingNotice | null {
+export function billingNotice(
+  sub: BillingSubscription | null,
+  t: T = (s, v) => translate("en", s, v),
+  lang: Lang = "en"
+): BillingNotice | null {
   if (!sub) return null
   if (sub.status === "GRACE") {
-    const until = sub.graceEndsAt ? ` until ${formatDate(sub.graceEndsAt)}` : ""
     return {
       kind: "grace",
-      title: "Payment overdue",
-      body: `Your instance keeps running${until}. Renew before then, or it will be stopped.`,
-      renewLabel: "Renew now",
+      title: t("Payment overdue"),
+      body: sub.graceEndsAt
+        ? t("Your instance keeps running until {date}. Renew before then, or it will be stopped.", { date: formatDate(sub.graceEndsAt, lang) })
+        : t("Your instance keeps running for now. Renew soon, or it will be stopped."),
+      renewLabel: t("Renew now"),
     }
   }
   if (sub.status === "SUSPENDED") {
-    const keep = sub.retentionEndsAt
-      ? `Its data is kept until ${formatDate(sub.retentionEndsAt)}, then permanently deleted.`
-      : "Its data is kept for a limited time, then permanently deleted."
     return {
       kind: "suspended",
-      title: "Instance suspended, scheduled for deletion",
-      body: `Your instance is stopped. ${keep} Renew to reactivate it.`,
-      renewLabel: "Renew now to prevent deletion",
+      title: t("Instance suspended, scheduled for deletion"),
+      body: sub.retentionEndsAt
+        ? t("Your instance is stopped. Its data is kept until {date}, then permanently deleted. Renew to reactivate it.", {
+            date: formatDate(sub.retentionEndsAt, lang),
+          })
+        : t("Your instance is stopped. Its data is kept for a limited time, then permanently deleted. Renew to reactivate it."),
+      renewLabel: t("Renew now to prevent deletion"),
     }
   }
   return null

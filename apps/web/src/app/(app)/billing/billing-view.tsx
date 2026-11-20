@@ -59,7 +59,7 @@ export function BillingView() {
     <div className="grid gap-6">
       <PageHeader
         title={t("Billing")}
-        description={t("Every subscription on your account. Hosting only: AI usage is billed by NibieRouter or your own provider.")}
+        description={t("Every subscription on your account. AI usage is paid separately, from your AI balance or your own provider.")}
         actions={mock ? <PreviewNote what="Subscriptions" reason="mock" /> : null}
       />
       <WalletCard />

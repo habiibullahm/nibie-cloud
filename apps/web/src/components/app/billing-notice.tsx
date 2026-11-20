@@ -6,17 +6,21 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { useRenew, useSubscriptions } from "@/hooks/use-hermes"
 import { billingNotice, subscriptionOfInstance } from "@/lib/billing"
+import { useT } from "@/lib/i18n"
 import { startPayment } from "@/lib/pay"
+import { useLang } from "@/lib/prefs"
 
 /**
  * Shown on every instance page while payment is late: grace (still running) or suspended (stopped, scheduled
  * for deletion). Icon, title and dates carry the meaning; the one primary action is "Renew now".
  */
 export function BillingNotice({ instanceId }: { instanceId: string }) {
+  const t = useT()
+  const lang = useLang()
   const subs = useSubscriptions()
   const renew = useRenew()
   const sub = subscriptionOfInstance(subs.data, instanceId)
-  const notice = billingNotice(sub)
+  const notice = billingNotice(sub, t, lang)
   if (!sub || !notice) return null
   const suspended = notice.kind === "suspended"
   const Icon = suspended ? TriangleAlert : Clock
@@ -35,10 +39,10 @@ export function BillingNotice({ instanceId }: { instanceId: string }) {
             disabled={renew.isPending}
             onClick={() => renew.mutate(sub.id, { onSuccess: (r) => startPayment(r.payment.paymentUrl) })}
           >
-            {renew.isPending ? "Preparing payment…" : notice.renewLabel}
+            {renew.isPending ? t("Preparing payment…") : notice.renewLabel}
           </Button>
           <Button asChild variant="outline" size="sm">
-            <Link href={`/instances/${instanceId}/billing`}>Billing details</Link>
+            <Link href={`/instances/${instanceId}/billing`}>{t("Billing details")}</Link>
           </Button>
         </div>
       </AlertDescription>

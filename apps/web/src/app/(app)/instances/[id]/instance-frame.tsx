@@ -16,18 +16,20 @@ import { ApiError } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import { formatPriceIdr, shortId } from "@/lib/format"
 import { subscriptionOfInstance } from "@/lib/billing"
+import { useT, type T } from "@/lib/i18n"
+import { useLang } from "@/lib/prefs"
 
 const SECTIONS = [
-  { slug: "", label: "Overview" },
-  { slug: "access", label: "Access" },
-  { slug: "monitor", label: "Monitor" },
-  { slug: "logs", label: "Logs" },
-  { slug: "configuration", label: "Configuration" },
-  { slug: "files", label: "File manager" },
-  { slug: "console", label: "Console" },
-  { slug: "backups", label: "Backups" },
-  { slug: "billing", label: "Upgrade & renew" },
-  { slug: "domain", label: "Custom domain" },
+  { slug: "", label: (t: T) => t("Overview") },
+  { slug: "access", label: (t: T) => t("Access") },
+  { slug: "monitor", label: (t: T) => t("Monitor") },
+  { slug: "logs", label: (t: T) => t("Logs") },
+  { slug: "configuration", label: (t: T) => t("Configuration") },
+  { slug: "files", label: (t: T) => t("File manager") },
+  { slug: "console", label: (t: T) => t("Console") },
+  { slug: "backups", label: (t: T) => t("Backups") },
+  { slug: "billing", label: (t: T) => t("Upgrade & renew") },
+  { slug: "domain", label: (t: T) => t("Custom domain") },
 ]
 
 /**
@@ -55,6 +57,8 @@ export function useInstanceId(): string {
 }
 
 export function InstanceFrame({ children }: { children: React.ReactNode }) {
+  const t = useT()
+  const lang = useLang()
   const id = useInstanceId()
   const pathname = usePathname()
   const { data: instance, error, isLoading } = useInstance(id)
@@ -70,19 +74,19 @@ export function InstanceFrame({ children }: { children: React.ReactNode }) {
   const customer = mode === "customer"
   const sections = customer ? SECTIONS.filter((s) => CUSTOMER_SECTIONS.has(s.slug)) : SECTIONS
   const hiddenSection = customer && !CUSTOMER_SECTIONS.has(sectionFor(pathname, base).slug)
-  useDocumentTitle(instance ? `${sectionFor(pathname, base).label} · ${instance.name}` : null)
+  useDocumentTitle(instance ? `${sectionFor(pathname, base).label(t)} · ${instance.name}` : null)
 
   if (error) {
     const notFound = error instanceof ApiError && error.status === 404
     return (
       <div className="grid gap-6">
-        <BackLink />
+        <BackLink t={t} />
         <Alert variant={notFound ? "default" : "destructive"}>
-          <AlertTitle>{notFound ? "Instance not found" : "Could not load this instance"}</AlertTitle>
+          <AlertTitle>{notFound ? t("Instance not found") : t("Could not load this instance")}</AlertTitle>
           <AlertDescription>
-            <p>{notFound ? "It may have been deleted, or the link is wrong." : error.message}</p>
+            <p>{notFound ? t("It may have been deleted, or the link is wrong.") : error.message}</p>
             <Button asChild variant="outline" size="sm">
-              <Link href="/instances">Back to instances</Link>
+              <Link href="/instances">{t("Back to instances")}</Link>
             </Button>
           </AlertDescription>
         </Alert>
@@ -92,7 +96,7 @@ export function InstanceFrame({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="grid gap-6">
-      <BackLink />
+      <BackLink t={t} />
       <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div className="flex min-w-0 flex-col gap-3">
           {isLoading || !instance ? (
@@ -114,7 +118,7 @@ export function InstanceFrame({ children }: { children: React.ReactNode }) {
               <h1 className="type-h1 break-words">{instance.name}</h1>
               {subscription && plan ? (
                 <p className="text-muted-foreground">
-                  {plan.name} · monthly{plan.monthlyPriceIdr !== null ? ` · ${formatPriceIdr(plan.monthlyPriceIdr)}` : ""}
+                  {plan.name} · {t("monthly")}{plan.monthlyPriceIdr !== null ? ` · ${formatPriceIdr(plan.monthlyPriceIdr, lang)}` : ""}
                 </p>
               ) : null}
             </>
@@ -129,7 +133,7 @@ export function InstanceFrame({ children }: { children: React.ReactNode }) {
 
       <BillingNotice instanceId={id} />
 
-      <nav aria-label="Instance" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+      <nav aria-label={t("Instance")} className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
         <ul className="flex min-w-max gap-1 border-b">
           {sections.map(({ slug, label }) => {
             const href = slug ? `${base}/${slug}` : base
@@ -144,7 +148,7 @@ export function InstanceFrame({ children }: { children: React.ReactNode }) {
                     active && "border-foreground text-foreground"
                   )}
                 >
-                  {label}
+                  {label(t)}
                 </Link>
               </li>
             )
@@ -155,11 +159,11 @@ export function InstanceFrame({ children }: { children: React.ReactNode }) {
       <div className="min-w-0">
         {hiddenSection ? (
           <Alert>
-            <AlertTitle>Not available in the beta yet</AlertTitle>
+            <AlertTitle>{t("Not available in the beta yet")}</AlertTitle>
             <AlertDescription>
-              <p>This section is still being built. Overview, Logs, Configuration and Upgrade &amp; renew work today.</p>
+              <p>{t("This section is still being built. Overview, Logs, Configuration and Upgrade & renew work today.")}</p>
               <Button asChild variant="outline" size="sm">
-                <Link href={base}>Back to overview</Link>
+                <Link href={base}>{t("Back to overview")}</Link>
               </Button>
             </AlertDescription>
           </Alert>
@@ -171,14 +175,14 @@ export function InstanceFrame({ children }: { children: React.ReactNode }) {
   )
 }
 
-function BackLink() {
+function BackLink({ t }: { t: T }) {
   return (
     <Link
       href="/instances"
       className="hit-area relative inline-flex w-fit items-center gap-2 rounded-sm text-muted-foreground no-underline outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       <ArrowLeft className="size-4" aria-hidden="true" />
-      All instances
+      {t("All instances")}
     </Link>
   )
 }
