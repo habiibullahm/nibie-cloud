@@ -9,6 +9,9 @@ set -euo pipefail
 REPO=${REPO_DIR:-/opt/hermes-cloud}
 ENV_FILE=${ENV_FILE:-/etc/hermes-cloud/backend.env}
 COMPOSE=(sudo docker compose --env-file "$ENV_FILE" -f "$REPO/deploy/compose.prod.yaml")
+# Fleet mode: a host with a fleet manifest keeps the overlay on every deploy and rollback. Without it the
+# recreated backend would forget the remote nodes and lose the routing of their instances.
+if sudo test -f /etc/hermes-cloud/fleet/fleet.json; then COMPOSE+=(-f "$REPO/deploy/compose.fleet.yaml"); fi
 READYZ=${READYZ_URL:-http://127.0.0.1:3000/readyz}
 REF=${1:-origin/main}
 DRY=${DRY_RUN:-0}
