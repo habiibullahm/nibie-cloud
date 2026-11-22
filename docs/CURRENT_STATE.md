@@ -4,6 +4,18 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## C1 customer Backup & Recovery (2026-11-22, pending review and deployment)
+
+- `GET /api/v1/instances/:id/backups` reads the host's last Restic inventory and the last verification of that instance.
+  The Backup tab displays the latest snapshot, the independently recorded verification result and its snapshot time,
+  and the retention policy. Recovery is operator-assisted through Support.
+- Local checks passed: 23 customer API integration tests with PostgreSQL, 219 dashboard tests, dashboard typecheck,
+  lint and build, and five browser fixtures at mobile and desktop widths. The Restic fixture recorded separate failed
+  and passed verification results and published 7-day retention. Host installation steps are in the
+  [restore runbook](runbook-tenant-restore.md).
+- C2 first Telegram reply remains open. The internal source occupies its tenant's sole self-service instance slot and
+  has no Telegram connection. The onboarding run needs a beta test account with a free slot and a test bot and chat.
+
 ## Tenant snapshot verification requires a SQLite database (2026-11-22, local)
 
 - `ops/host/hermes-tenant-backup.sh --verify` exits nonzero when the restored staging directory of the sampled instance has
@@ -11,10 +23,10 @@ several still describe branches as "not committed" or billing as "OFF" that have
 - Local fixture check with Restic 0.16.4: a files-only snapshot exited `1` (base `abf6e99` exited `0`), a snapshot with a
   corrupt SQLite copy exited `1`, and a snapshot produced by the backup script with two healthy SQLite copies exited `0`.
   A separate restore recovered the pre-backup session marker from `state.db`.
-- VPS preflight on 2026-11-22: the installed verifier still has the base blob (`c145d91`). The reviewed patch is
-  `a2b5ead`. A synthetic session marker was written to the internal source at 00:19 UTC and read back through Hermes
-  session export. The next regular volume snapshot is due at 20:00 UTC. The restore drill is pending a snapshot
-  that contains the marker.
+- PR #124 merged at `5e305d3`. The VPS verifier was installed and its blob checked (`a2b5ead`). A scoped run against
+  an internal regular snapshot restored 376 files and passed the SQLite checks. Its manifest included staged `state.db`.
+- That snapshot predates the synthetic marker written at 00:19 UTC and read back through Hermes session export.
+  The next regular volume backup is due at 20:00 UTC. The restore drill is pending a snapshot that contains the marker.
 
 ## Paid checkout open, Privacy Policy updated (2026-11-21, branch `claude/privacy-policy`, not merged)
 

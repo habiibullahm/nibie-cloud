@@ -15,6 +15,7 @@ export const keys = {
   instances: ["instances"] as const,
   instance: (id: string) => ["instance", id] as const,
   events: (id: string) => ["events", id] as const,
+  backupMetadata: (id: string) => ["backup-metadata", id] as const,
   meta: (id: string) => ["meta", id] as const,
   plans: ["plans"] as const,
   regions: ["regions"] as const,
@@ -367,6 +368,10 @@ export function useBackups(id: string) {
     queryFn: () => getApi().preview.backups(id),
     refetchInterval: (q) => (q.state.data?.some((b) => b.status === "running") ? POLL_MS : false),
   })
+}
+
+export function useBackupMetadata(id: string) {
+  return useQuery({ queryKey: keys.backupMetadata(id), queryFn: () => getApi().instances.backupMetadata(id) })
 }
 
 export function useCreateInstance() {

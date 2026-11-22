@@ -3,6 +3,7 @@ import type {
   AccessInfo,
   Account,
   Backup,
+  BackupMetadata,
   BillingSubscription,
   CheckoutResult,
   CreateInstanceInput,
@@ -48,6 +49,7 @@ export interface InstancesApi {
   get(id: string): Promise<Instance>
   status(id: string): Promise<InstanceStatusView>
   events(id: string): Promise<InstanceEvent[]>
+  backupMetadata(id: string): Promise<BackupMetadata | null>
   create(input: CreateInstanceInput, idempotencyKey: string): Promise<Instance>
   start(id: string): Promise<Instance>
   stop(id: string): Promise<Instance>

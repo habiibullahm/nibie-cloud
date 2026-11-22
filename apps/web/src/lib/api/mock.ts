@@ -314,6 +314,9 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
   const snapshot = (r: Row): Instance => ({ ...r.instance })
 
   const instances: InstancesApi = {
+    async backupMetadata() {
+      return null
+    },
     async list() {
       await wait()
       return [...rows.values()]

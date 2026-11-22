@@ -45,7 +45,23 @@ Pick the newest snapshot from before the problem. A deleted instance has at most
 4. Tell the customer to reconnect Telegram and their own provider key if they used one, and that changes after the snapshot
    time are lost.
 
-## 4. Install
+## 4. Customer backup status
+
+The daily backup publishes an inventory from Restic after retention. The verification job publishes a separate result
+for the snapshot it checked, including failures after a snapshot is selected. It samples one instance per run. A newer
+snapshot can be available while the last verification still refers to an older snapshot.
+
+`GET /api/v1/instances/:id/backups` and the Backup tab show the latest snapshot time, inventory observation time,
+retention policy and the most recent recorded verification for the authenticated owner's instance. Inventory and
+verification are unavailable until the respective timers publish them. Restore requests go through Support.
+
+The backend reads `/var/lib/hermes-backup-metadata` through the read-only mount in `deploy/compose.prod.yaml`.
+The host job writes only instance identifiers, timestamps, retention days and the verification result to this mount.
+To smoke-test after deployment, sign in with an internal owner, open the Backup tab and compare the timestamps with
+that instance's scheduled backup and verification. Use a second tenant to check that the endpoint returns 404 for
+the first owner's instance.
+
+## 5. Install
 
 ```bash
 sudo install -m 0755 /opt/hermes-cloud/ops/host/hermes-tenant-backup.sh /usr/local/sbin/hermes-tenant-backup
