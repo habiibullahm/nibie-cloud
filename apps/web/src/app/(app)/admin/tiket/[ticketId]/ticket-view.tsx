@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/app/page-header"
+import { useActionConfirmation } from "@/components/app/action-confirmation"
 import { QueryFallback } from "@/components/app/query-fallback"
 import { TicketReply, TicketStatusChip, TicketThread } from "@/components/app/ticket-thread"
 import { useAdminTicket, useAdminTicketAction } from "@/hooks/use-admin"
@@ -13,6 +14,7 @@ import { formatDateTimeId } from "@/lib/admin-format"
 import { ADMIN_CATEGORY, ADMIN_STATUS } from "@/lib/ticket-labels"
 
 export function AdminTicketView({ ticketId }: { ticketId: string }) {
+  const confirm = useActionConfirmation()
   const ticket = useAdminTicket(ticketId)
   const action = useAdminTicketAction(ticketId)
   const [error, setError] = useState<string | null>(null)
@@ -51,20 +53,30 @@ export function AdminTicketView({ ticketId }: { ticketId: string }) {
             sendingLabel="Mengirim…"
             pending={action.reply.isPending}
             error={error}
-            onSend={(message, done) => {
-              setError(null)
-              action.reply.mutate(message, {
-                onSuccess: () => {
-                  done()
-                  toast.success("Balasan terkirim. Pelanggan juga menerima email.")
-                },
-                onError: fail,
-              })
-            }}
+            onSend={(message, done) => confirm({
+              title: "Kirim balasan?",
+              description: "Balasan akan tampil di tiket dan dikirim lewat email ke pelanggan.",
+              label: "Kirim balasan",
+              run: () => {
+                setError(null)
+                action.reply.mutate(message, {
+                  onSuccess: () => {
+                    done()
+                    toast.success("Balasan terkirim. Pelanggan juga menerima email.")
+                  },
+                  onError: fail,
+                })
+              },
+            })}
           />
           {k.status !== "CLOSED" ? (
             <div className="border-t pt-4">
-              <Button type="button" variant="outline" disabled={action.close.isPending} onClick={() => action.close.mutate(undefined, { onError: fail })}>
+              <Button type="button" variant="outline" disabled={action.close.isPending} onClick={() => confirm({
+                title: "Tandai tiket selesai?",
+                description: "Tiket akan ditutup. Pelanggan bisa membukanya kembali dengan membalas.",
+                label: "Tandai selesai",
+                run: () => action.close.mutate(undefined, { onError: fail }),
+              })}>
                 Tandai selesai
               </Button>
             </div>

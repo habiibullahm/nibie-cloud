@@ -139,6 +139,12 @@ export interface AiModels extends RouterModels {
   baseUrl: string
 }
 
+/** One model returned by a BYOK provider's `GET /models` endpoint. */
+export interface ByokModel {
+  id: string
+  name: string
+}
+
 export interface ProviderConfig {
   /** Empty while nothing is configured yet (`configured` is false). */
   id: string

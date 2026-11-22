@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { QueryFallback } from "@/components/app/query-fallback"
+import { useActionConfirmation } from "@/components/app/action-confirmation"
 import { KeyValue } from "@/components/app/key-value"
 import { PageHeader, SectionTitle } from "@/components/app/page-header"
 import { PreviewNote } from "@/components/app/preview-note"
@@ -60,6 +61,7 @@ export function DeployForm() {
   const priced = plan !== undefined && plan.monthlyPriceIdr !== null
   // No choice to make: the balance pays when it covers the price, otherwise QRIS (owner decision 2026-11-20).
   const { pay, covers, paying, confirm } = usePay()
+  const confirmAction = useActionConfirmation()
   // After a balance payment the backend has already created the instance: open its overview.
   const openPaid = (r: CheckoutResult) => router.push(r.subscription.instanceId ? `/instances/${r.subscription.instanceId}` : "/instances")
   const fromBalance = priced && covers(plan?.monthlyPriceIdr)
@@ -69,22 +71,28 @@ export function DeployForm() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     setTouched(true)
-    if (nameError || !plan || !regionReady) return
+    if (busy || nameError || !plan || !regionReady) return
     if (priced) {
       // A paid plan: the backend creates the instance only after the first payment (QRIS confirmed, or the balance).
       // The same Idempotency-Key makes a retried confirmation reuse the order instead of starting another.
-      void pay({
+      pay({
         amountIdr: plan.monthlyPriceIdr,
+        purpose: t("Deploy {name} on {plan}", { name: name.trim(), plan: plan.name }),
+        warning: openOrder ? t("This replaces the open invoice for {name}.", { name: openOrder.name }) : undefined,
         create: async () => (await checkout.mutateAsync({ input: { name: name.trim(), planId: plan.id }, idempotencyKey })).payment,
         onPaid: openPaid,
       })
       return
     }
-    create.mutate(
-      { input: { name: name.trim(), planId: plan.id }, idempotencyKey },
-      // The overview shows provisioning live; its Health card then points to the next step, connecting Telegram.
-      { onSuccess: (instance) => router.push(`/instances/${instance.id}`) }
-    )
+    confirmAction({
+      title: t("Deploy instance?"),
+      description: t("Deploy {name} on {plan}", { name: name.trim(), plan: plan.name }),
+      label: t("Deploy instance"),
+      run: () => create.mutate(
+        { input: { name: name.trim(), planId: plan.id }, idempotencyKey },
+        { onSuccess: (instance) => router.push(`/instances/${instance.id}`) }
+      ),
+    })
   }
 
   return (
@@ -293,6 +301,7 @@ export function DeployForm() {
                 {openOrder.latestPayment ? (
                   <PayButton
                     payment={openOrder.latestPayment}
+                    purpose={openOrder.name}
                     label={t("Pay for {name} instead", { name: openOrder.name })}
                     walletLabel={t("Pay for {name} from balance", { name: openOrder.name })}
                     onPaid={openPaid}

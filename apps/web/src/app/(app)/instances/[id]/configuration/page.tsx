@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { KeyValue } from "@/components/app/key-value"
+import { useActionConfirmation } from "@/components/app/action-confirmation"
 import { PreviewNote } from "@/components/app/preview-note"
 import { QueryFallback } from "@/components/app/query-fallback"
 import {
@@ -33,11 +34,12 @@ import {
   useAiAccount,
 } from "@/hooks/use-hermes"
 import { subscriptionOfInstance } from "@/lib/billing"
-import { getApi, type ProviderConfig, type ProviderKind, type TelegramConfig } from "@/lib/api"
+import { getApi, type ByokModel, type ProviderConfig, type ProviderKind, type TelegramConfig } from "@/lib/api"
 import { BYOK_PROVIDERS, MAX_TELEGRAM_USERS, type ByokProviderName } from "@/lib/api/providers"
 import { allowedActions, isTransitional } from "@/lib/api/status"
 import { formatCpu, formatMb, formatRelative } from "@/lib/format"
 import { formatAiAmount } from "@/lib/ai-credit"
+import { useT } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 import { useInstanceId } from "../instance-frame"
 
@@ -81,6 +83,8 @@ function ConfigurationTabs() {
  */
 function RestartNotice({ id }: { id: string }) {
   const qc = useQueryClient()
+  const confirm = useActionConfirmation()
+  const t = useT()
   const instance = useInstance(id)
   const action = useInstanceAction(id)
   const status = instance.data?.status
@@ -89,11 +93,18 @@ function RestartNotice({ id }: { id: string }) {
 
   const apply = () => {
     if (!verb) return
-    action.mutate(verb, {
-      onSuccess: () => {
-        void qc.invalidateQueries({ queryKey: keys.provider(id) })
-        void qc.invalidateQueries({ queryKey: keys.telegram(id) })
-      },
+    confirm({
+      title: verb === "restart" ? t("Restart instance?") : t("Start instance?"),
+      description: verb === "restart"
+        ? t("Hermes will restart with the saved settings and interrupt active sessions.")
+        : t("Hermes will start with the saved settings."),
+      label: verb === "restart" ? t("Restart") : t("Start"),
+      run: () => action.mutate(verb, {
+        onSuccess: () => {
+          void qc.invalidateQueries({ queryKey: keys.provider(id) })
+          void qc.invalidateQueries({ queryKey: keys.telegram(id) })
+        },
+      }),
     })
   }
 
@@ -153,6 +164,8 @@ const usd = (n: number) =>
 /** NibieRouter model choice. The key stays the same; the new model reaches Hermes on the next restart. */
 function RouterModelCard({ id, cfg }: { id: string; cfg: ProviderConfig }) {
   const qc = useQueryClient()
+  const confirm = useActionConfirmation()
+  const t = useT()
   const catalog = useRouterModels(id, true)
   const ai = useAiAccount().data
   const [query, setQuery] = useState("")
@@ -166,8 +179,7 @@ function RouterModelCard({ id, cfg }: { id: string; cfg: ProviderConfig }) {
   const shown = catalog.data.models.filter((m) => !q || m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q))
   const chosen = catalog.data.models.find((m) => m.id === selected)
 
-  const save = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const save = async () => {
     setFormError(null)
     setSaving(true)
     try {
@@ -182,7 +194,18 @@ function RouterModelCard({ id, cfg }: { id: string; cfg: ProviderConfig }) {
   }
 
   return (
-    <form onSubmit={save}>
+    <form onSubmit={(e) => {
+      e.preventDefault()
+      if (saving || !chosen || selected === cfg.model) return
+      confirm({
+        title: t("Save model?"),
+        description: chosen.free
+          ? t("Hermes will use {model} after the next restart.", { model: chosen.name })
+          : t("After the next restart, requests to {model} will use your AI balance.", { model: chosen.name }),
+        label: t("Save"),
+        run: save,
+      })
+    }}>
       <Card>
         <CardHeader>
           <CardTitle>NibieRouter model</CardTitle>
@@ -190,7 +213,7 @@ function RouterModelCard({ id, cfg }: { id: string; cfg: ProviderConfig }) {
         </CardHeader>
         <CardContent className="grid gap-4">
           {catalog.data.freeOnly ? (
-            <p className="text-muted-foreground">Your plan includes the free models. Paid models come with a paid plan.</p>
+            <p className="text-muted-foreground">Your plan includes the free models. Paid models unlock with a paid plan or AI balance.</p>
           ) : null}
           <div className="grid gap-2">
             <Label htmlFor="router-model-search">Search models</Label>
@@ -275,6 +298,8 @@ function RouterModelCard({ id, cfg }: { id: string; cfg: ProviderConfig }) {
 
 function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
   const qc = useQueryClient()
+  const confirm = useActionConfirmation()
+  const t = useT()
   const mode = useApiMode()
   const instance = useInstance(id)
   const plans = usePlans()
@@ -290,11 +315,35 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
   const [apiKey, setApiKey] = useState("")
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
+  const [fetchingModels, setFetchingModels] = useState(false)
+  const [byokModels, setByokModels] = useState<ByokModel[] | null>(null)
+  const [modelQuery, setModelQuery] = useState("")
   const [formError, setFormError] = useState<string | null>(null)
   const preset = BYOK_PROVIDERS.find((p) => p.value === providerName)
+  const effectiveBaseUrl = preset?.baseUrl ?? baseUrl.trim()
+  const canUseSavedKey = cfg.configured && cfg.kind === "byok" && effectiveBaseUrl === cfg.baseUrl && apiKey === ""
+  const canFetchModels = Boolean(effectiveBaseUrl && (apiKey !== "" || canUseSavedKey))
 
-  const save = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const fetchByokModels = async () => {
+    setFormError(null)
+    setFetchingModels(true)
+    try {
+      const models = await getApi().preview.byokModels(
+        id,
+        canUseSavedKey ? undefined : { baseUrl: effectiveBaseUrl, apiKey }
+      )
+      setByokModels(models)
+      setModelQuery("")
+      if (models.length === 0) toast.error("Provider returned no compatible models.")
+      else if (!model.trim()) setModel(models[0]!.id)
+    } catch (err) {
+      setFormError(errorMessage(err))
+    } finally {
+      setFetchingModels(false)
+    }
+  }
+
+  const save = async () => {
     setFormError(null)
     setSaving(true)
     try {
@@ -333,7 +382,18 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
   }
 
   return (
-    <form onSubmit={save}>
+    <form onSubmit={(e) => {
+      e.preventDefault()
+      if (saving) return
+      confirm({
+        title: t("Save AI provider?"),
+        description: kind === "byok"
+          ? t("Hermes will use {provider} after the next restart.", { provider: labelFor(providerName) })
+          : t("A running instance restarts to use NibieRouter. A stopped instance uses it on the next start."),
+        label: t("Save"),
+        run: save,
+      })
+    }}>
       <Card>
         <CardHeader>
           <CardTitle>AI provider</CardTitle>
@@ -392,7 +452,14 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="byok-provider">Provider</Label>
-                <Select value={providerName} onValueChange={(v) => setProviderName(v as ByokProviderName)}>
+                <Select
+                  value={providerName}
+                  onValueChange={(v) => {
+                    setProviderName(v as ByokProviderName)
+                    setByokModels(null)
+                    setModelQuery("")
+                  }}
+                >
                   <SelectTrigger id="byok-provider" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
@@ -407,20 +474,77 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="byok-model">Model</Label>
-                <Input
-                  id="byok-model"
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  placeholder={preset?.modelHint ?? "model-name"}
-                  aria-describedby="byok-model-hint"
-                  className="type-mono"
-                />
+                <div className="flex gap-2">
+                  <Input
+                    id="byok-model"
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    placeholder={preset?.modelHint ?? "model-name"}
+                    aria-describedby="byok-model-hint"
+                    className="type-mono"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => confirm({
+                      title: t("Fetch provider models?"),
+                      description: t("Nibie Cloud will use the API key to request the model list from {provider}.", { provider: labelFor(providerName) }),
+                      label: t("Fetch models"),
+                      run: fetchByokModels,
+                    })}
+                    disabled={fetchingModels || !canFetchModels}
+                  >
+                    {fetchingModels ? "Fetching…" : "Fetch models"}
+                  </Button>
+                </div>
                 <p id="byok-model-hint" className="text-muted-foreground">
-                  The model name exactly as your provider lists it.
+                  The model name exactly as your provider lists it, or fetch the list from your provider.
                 </p>
               </div>
+              {byokModels && byokModels.length > 0 ? (
+                <div className="grid gap-2 md:col-span-2">
+                  {byokModels.length > 6 ? (
+                    <Input
+                      type="search"
+                      autoComplete="off"
+                      spellCheck={false}
+                      value={modelQuery}
+                      onChange={(e) => setModelQuery(e.target.value)}
+                      placeholder="Filter fetched models"
+                      aria-label="Filter fetched models"
+                    />
+                  ) : null}
+                  <div
+                    role="listbox"
+                    aria-label="Fetched BYOK models"
+                    className="grid max-h-60 gap-1 overflow-y-auto rounded-md border p-2"
+                  >
+                    {byokModels
+                      .filter((m) => {
+                        const q = modelQuery.trim().toLowerCase()
+                        return !q || m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q)
+                      })
+                      .map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          role="option"
+                          aria-selected={model === m.id}
+                          onClick={() => setModel(m.id)}
+                          className={cn(
+                            "flex w-full items-center justify-between gap-2 rounded-md border border-transparent px-3 py-2 text-left transition-colors hover:border-muted-foreground",
+                            model === m.id && "border-foreground bg-elevated"
+                          )}
+                        >
+                          <span className="type-mono truncate">{m.id}</span>
+                          {m.name !== m.id ? <span className="truncate text-muted-foreground">{m.name}</span> : null}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              ) : null}
               {providerName === "custom" ? (
                 <div className="grid gap-2 md:col-span-2">
                   <Label htmlFor="byok-url">Base URL</Label>
@@ -429,7 +553,11 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
                     type="url"
                     inputMode="url"
                     value={baseUrl}
-                    onChange={(e) => setBaseUrl(e.target.value)}
+                    onChange={(e) => {
+                      setBaseUrl(e.target.value)
+                      setByokModels(null)
+                      setModelQuery("")
+                    }}
                     placeholder="https://api.example.com/v1"
                     aria-describedby="byok-url-hint"
                   />
@@ -481,7 +609,12 @@ function ProviderForm({ id, cfg }: { id: string; cfg: ProviderConfig }) {
           <Button type="submit" disabled={saving}>
             {saving ? "Saving…" : "Save provider"}
           </Button>
-          <Button type="button" variant="outline" onClick={test} disabled={testing || !cfg.configured}>
+          <Button type="button" variant="outline" disabled={testing || !cfg.configured} onClick={() => confirm({
+            title: t("Test provider connection?"),
+            description: t("Nibie Cloud will contact the saved provider and update its connection status."),
+            label: t("Test connection"),
+            run: test,
+          })}>
             <PlugZap aria-hidden="true" />
             {testing ? "Testing…" : "Test connection"}
           </Button>
@@ -534,6 +667,8 @@ function TelegramSection({ id }: { id: string }) {
 
 function TelegramForm({ id, cfg }: { id: string; cfg: TelegramConfig }) {
   const qc = useQueryClient()
+  const confirm = useActionConfirmation()
+  const t = useT()
   const mode = useApiMode()
   const [token, setToken] = useState("")
   const [allowlist, setAllowlist] = useState(cfg.allowlist.join("\n"))
@@ -571,11 +706,17 @@ function TelegramForm({ id, cfg }: { id: string; cfg: TelegramConfig }) {
     <form
       onSubmit={(e) => {
         e.preventDefault()
-        void run(
-          "save",
-          () => getApi().preview.saveTelegram(id, { token: token.trim(), allowlist: entries }),
-          "Telegram settings saved. Restart your instance to apply them."
-        )
+        if (busy) return
+        confirm({
+          title: t("Save Telegram settings?"),
+          description: t("Hermes will use the bot and allowed users you entered after the next restart."),
+          label: t("Save"),
+          run: () => run(
+            "save",
+            () => getApi().preview.saveTelegram(id, { token: token.trim(), allowlist: entries }),
+            "Telegram settings saved. Restart your instance to apply them."
+          ),
+        })
       }}
     >
       <Card>
@@ -681,11 +822,14 @@ function TelegramForm({ id, cfg }: { id: string; cfg: TelegramConfig }) {
             type="button"
             variant="outline"
             disabled={busy !== null || !cfg.configured}
-            onClick={() =>
-              void run("verify", () => getApi().preview.verifyTelegram(id), "Test message delivered", (next) =>
+            onClick={() => confirm({
+              title: t("Send a Telegram test message?"),
+              description: t("Nibie Cloud will ask the saved bot to send a test message to the first allowed user."),
+              label: t("Send test message"),
+              run: () => run("verify", () => getApi().preview.verifyTelegram(id), "Test message delivered", (next) =>
                 next.verified ? null : (next.statusMessage ?? "The test message was not delivered.")
-              )
-            }
+              ),
+            })}
           >
             <Send aria-hidden="true" />
             {busy === "verify" ? "Sending…" : "Send test message"}
@@ -695,9 +839,13 @@ function TelegramForm({ id, cfg }: { id: string; cfg: TelegramConfig }) {
               type="button"
               variant="ghost"
               disabled={busy !== null}
-              onClick={() =>
-                void run("remove", () => getApi().preview.removeTelegram(id), "Telegram bot disconnected. Restart your instance to apply it.")
-              }
+              onClick={() => confirm({
+                title: t("Disconnect Telegram bot?"),
+                description: t("Hermes will stop using this bot after the next restart."),
+                label: t("Disconnect bot"),
+                destructive: true,
+                run: () => run("remove", () => getApi().preview.removeTelegram(id), "Telegram bot disconnected. Restart your instance to apply it."),
+              })}
             >
               Disconnect bot
             </Button>

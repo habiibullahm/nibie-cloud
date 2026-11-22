@@ -30,7 +30,7 @@ function periodText(sub: BillingSubscription, t: T, lang: Lang): string {
 function RowAction({ sub }: { sub: BillingSubscription }) {
   const t = useT()
   const url = payableUrl(sub.latestPayment)
-  if (url && sub.latestPayment) return <PayButton payment={sub.latestPayment} label={t("Pay")} />
+  if (url && sub.latestPayment) return <PayButton payment={sub.latestPayment} label={t("Pay")} purpose={sub.name} />
   // An ended order may still point at its deleted instance.
   if (sub.instanceId && sub.status !== "ENDED") {
     return (

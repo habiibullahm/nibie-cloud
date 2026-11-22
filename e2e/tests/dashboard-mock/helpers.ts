@@ -12,6 +12,7 @@ export async function deployInstance(page: Page, name: string): Promise<string> 
   await page.goto(`${BASE}/deploy`)
   await page.getByLabel("Instance name").fill(name)
   await page.getByRole("button", { name: "Deploy instance" }).click()
+  await page.getByRole("alertdialog", { name: "Deploy instance?" }).getByRole("button", { name: "Deploy instance" }).click()
   await page.waitForURL(/\/instances\/[0-9a-f-]{36}$/)
   return page.url()
 }

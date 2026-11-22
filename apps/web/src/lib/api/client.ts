@@ -5,6 +5,7 @@ import type {
   Backup,
   BackupMetadata,
   BillingSubscription,
+  ByokModel,
   CheckoutResult,
   CreateInstanceInput,
   FileEntry,
@@ -108,7 +109,9 @@ export interface PreviewApi {
     input: { kind: ProviderKind; providerName?: string; baseUrl?: string; model?: string; apiKey?: string }
   ): Promise<ProviderConfig>
   testProvider(instanceId: string): Promise<ProviderConfig>
-  /** NibieRouter models this instance may use (free models only on a free plan). */
+  /** Lists models from a BYOK provider (`GET {baseUrl}/models`), using supplied credentials or the saved BYOK config. */
+  byokModels(instanceId: string, input?: { baseUrl: string; apiKey: string }): Promise<ByokModel[]>
+  /** NibieRouter models this instance may use (free models only on a free plan with no AI balance). */
   routerModels(instanceId: string): Promise<RouterModels>
   /** Changes the NibieRouter model; the key stays. Applies after a restart (`restartRequired`). */
   setRouterModel(instanceId: string, model: string): Promise<ProviderConfig>

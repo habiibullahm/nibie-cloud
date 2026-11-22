@@ -51,6 +51,7 @@ export function WalletSection({ tenantId, wallet }: { tenantId: string; wallet: 
   const [amount, setAmount] = useState("")
   const [reason, setReason] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const change = parseAdjustAmount(amount)
 
   function start() {
     setAmount("")
@@ -60,8 +61,8 @@ export function WalletSection({ tenantId, wallet }: { tenantId: string; wallet: 
   }
 
   function submit() {
-    const n = parseAdjustAmount(amount)
-    if (n === null) {
+    if (adjust.isPending) return
+    if (change === null) {
       setError(`Isi angka bulat bukan nol, paling banyak ${formatIdr(ADJUST_MAX_IDR)}. Pakai tanda minus untuk mengurangi.`)
       return
     }
@@ -70,7 +71,7 @@ export function WalletSection({ tenantId, wallet }: { tenantId: string; wallet: 
       return
     }
     adjust.mutate(
-      { amountIdr: n, reason: reason.trim() },
+      { amountIdr: change, reason: reason.trim() },
       {
         onSuccess: (w) => {
           toast.success(`Saldo sekarang ${formatIdr(w.balanceIdr)}.`)
@@ -111,7 +112,7 @@ export function WalletSection({ tenantId, wallet }: { tenantId: string; wallet: 
         </ul>
       )}
 
-      <AlertDialog open={open} onOpenChange={(o) => !o && setOpen(false)}>
+      <AlertDialog open={open} onOpenChange={(o) => !o && !adjust.isPending && setOpen(false)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Sesuaikan saldo</AlertDialogTitle>
@@ -123,12 +124,15 @@ export function WalletSection({ tenantId, wallet }: { tenantId: string; wallet: 
           <div className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="adjust-amount">Jumlah (Rp)</Label>
-              <Input id="adjust-amount" inputMode="numeric" autoComplete="off" value={amount} onChange={(e) => setAmount(e.target.value)} />
+              <Input id="adjust-amount" inputMode="numeric" autoComplete="off" value={amount} disabled={adjust.isPending} onChange={(e) => setAmount(e.target.value)} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="adjust-reason">Alasan</Label>
-              <Input id="adjust-reason" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
+              <Input id="adjust-reason" maxLength={500} value={reason} disabled={adjust.isPending} onChange={(e) => setReason(e.target.value)} />
             </div>
+            {change !== null && wallet.balanceIdr + change >= 0 ? (
+              <p className="text-muted-foreground">Perkiraan saldo setelah penyesuaian {formatIdr(wallet.balanceIdr + change)}.</p>
+            ) : null}
             {error ? (
               <Alert variant="destructive" role="alert">
                 <AlertDescription>{error}</AlertDescription>
@@ -136,9 +140,9 @@ export function WalletSection({ tenantId, wallet }: { tenantId: string; wallet: 
             ) : null}
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogCancel disabled={adjust.isPending}>Batal</AlertDialogCancel>
             <Button type="button" onClick={submit} disabled={adjust.isPending}>
-              {adjust.isPending ? "Menyimpan…" : "Simpan"}
+              {adjust.isPending ? "Menyimpan…" : change === null ? "Konfirmasi penyesuaian" : `${change > 0 ? "Tambah" : "Kurangi"} ${formatIdr(Math.abs(change))}`}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

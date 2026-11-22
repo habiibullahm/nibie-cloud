@@ -4,12 +4,14 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState } from "react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useActionConfirmation } from "@/components/app/action-confirmation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { validateNewPassword } from "@/lib/auth/password"
 import { getSupabase } from "@/lib/auth/supabase"
+import { useT } from "@/lib/i18n"
 
 /**
  * Shown after an invitation or password-reset link (the session exists, the password does not), and from the Account
@@ -17,16 +19,15 @@ import { getSupabase } from "@/lib/auth/supabase"
  */
 export function SetPasswordForm() {
   const router = useRouter()
+  const confirmAction = useActionConfirmation()
+  const t = useT()
   const fromAccount = useSearchParams().get("from") === "account"
   const [password, setPassword] = useState("")
   const [confirm, setConfirm] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault()
-    const invalid = validateNewPassword(password, confirm)
-    if (invalid) return setError(invalid)
+  async function savePassword() {
     const supabase = getSupabase()
     if (!supabase) return setError("Sign-in is not configured in this environment.")
     setBusy(true)
@@ -49,7 +50,19 @@ export function SetPasswordForm() {
         <h1 className="type-h1">Set your password</h1>
         <CardDescription>Choose a password for your account.</CardDescription>
       </CardHeader>
-      <form onSubmit={submit}>
+      <form onSubmit={(e) => {
+        e.preventDefault()
+        if (busy) return
+        const invalid = validateNewPassword(password, confirm)
+        if (invalid) return setError(invalid)
+        if (!fromAccount) return void savePassword()
+        confirmAction({
+          title: t("Save new password?"),
+          description: t("Use the new password the next time you sign in with email."),
+          label: t("Save password"),
+          run: savePassword,
+        })
+      }}>
         <CardContent className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="new-password">New password</Label>

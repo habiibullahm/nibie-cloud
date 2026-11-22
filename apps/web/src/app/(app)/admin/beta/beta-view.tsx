@@ -17,6 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { PageHeader } from "@/components/app/page-header"
+import { useActionConfirmation } from "@/components/app/action-confirmation"
 import { AdminTable, TableCell, TableHead, TableRow } from "@/components/app/admin-table"
 import { useAddBetaInvite, useAdminBetaInvites, useRevokeBetaInvite } from "@/hooks/use-admin"
 import { formatDateTimeId } from "@/lib/admin-format"
@@ -24,6 +25,7 @@ import { MIN_REASON, addInviteProblem, inviteErrorMessage, inviteStatusLabel } f
 import type { AdminBetaInvite } from "@/lib/api/admin-types"
 
 export function AdminBetaView() {
+  const confirm = useActionConfirmation()
   const invites = useAdminBetaInvites()
   const add = useAddBetaInvite()
   const revoke = useRevokeBetaInvite()
@@ -40,22 +42,28 @@ export function AdminBetaView() {
 
   function submitAdd(e: React.FormEvent) {
     e.preventDefault()
+    if (add.isPending) return
     const problem = addInviteProblem({ email, reason })
     setFormError(problem)
     if (problem) return
-    add.mutate(
-      { email: email.trim(), ...(note.trim() ? { note: note.trim() } : {}), reason: reason.trim() },
-      {
-        onSuccess: (invite) => {
-          if (invite.emailSent) toast.success(`${invite.email} sekarang diundang. Email undangan terkirim.`)
-          else toast.warning(`${invite.email} sekarang diundang, tapi email undangan tidak terkirim. Kabari orangnya lewat jalur lain.`)
-          setEmail("")
-          setNote("")
-          setReason("")
-        },
-        onError: (err) => setFormError(inviteErrorMessage(err)),
-      }
-    )
+    confirm({
+      title: "Kirim undangan beta?",
+      description: `${email.trim()} akan mendapat akses beta dan undangan lewat email.`,
+      label: "Kirim undangan",
+      run: () => add.mutate(
+        { email: email.trim(), ...(note.trim() ? { note: note.trim() } : {}), reason: reason.trim() },
+        {
+          onSuccess: (invite) => {
+            if (invite.emailSent) toast.success(`${invite.email} sekarang diundang. Email undangan terkirim.`)
+            else toast.warning(`${invite.email} sekarang diundang, tapi email undangan tidak terkirim. Kabari orangnya lewat jalur lain.`)
+            setEmail("")
+            setNote("")
+            setReason("")
+          },
+          onError: (err) => setFormError(inviteErrorMessage(err)),
+        }
+      ),
+    })
   }
 
   function submitRevoke() {

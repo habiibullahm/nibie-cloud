@@ -9,6 +9,7 @@ test("a user outside the beta list is refused with a clear message and gets no c
   await page.goto("/dashboard/deploy")
   await page.getByLabel("Instance name").fill("e2e-outsider")
   await page.getByRole("button", { name: "Deploy instance" }).click()
+  await page.getByRole("alertdialog", { name: "Deploy instance?" }).getByRole("button", { name: "Deploy instance" }).click()
   const alert = page.getByRole("alert").filter({ hasText: "Deployment failed" })
   await expect(alert).toContainText("not enabled for this account")
   const token = await signInToken(emailOf("outsider"), required(USER_PASSWORD_VAR))

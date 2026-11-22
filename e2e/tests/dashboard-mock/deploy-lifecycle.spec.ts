@@ -34,6 +34,7 @@ test("stop asks for confirmation, then start brings it back", async ({ page }) =
   await expect(page.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0)
 
   await page.getByRole("button", { name: "Start", exact: true }).click()
+  await page.getByRole("alertdialog", { name: "Start instance?" }).getByRole("button", { name: "Start", exact: true }).click()
   await waitActive(page)
 })
 

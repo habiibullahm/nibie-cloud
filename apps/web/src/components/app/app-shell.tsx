@@ -19,6 +19,7 @@ import {
   UserRound,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useActionConfirmation } from "@/components/app/action-confirmation"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -154,6 +155,7 @@ function UserMenu() {
   const me = useMe()
   const name = useDisplayName()
   const t = useT()
+  const confirm = useActionConfirmation()
   const email = me.data?.email ?? ""
   const shown = name.data || email
   return (
@@ -192,10 +194,15 @@ function UserMenu() {
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onSelect={async () => {
-            await getSupabase()?.auth.signOut()
-            router.push("/sign-in")
-          }}
+          onSelect={() => confirm({
+            title: t("Sign out?"),
+            description: t("You’ll need to sign in again to use the dashboard."),
+            label: t("Sign out"),
+            run: async () => {
+              await getSupabase()?.auth.signOut()
+              router.push("/sign-in")
+            },
+          })}
         >
           <LogOut aria-hidden="true" />
           {t("Sign out")}

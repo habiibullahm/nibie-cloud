@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { PageHeader } from "@/components/app/page-header"
+import { useActionConfirmation } from "@/components/app/action-confirmation"
 import { errorMessage, useCreateTicket, useInstances } from "@/hooks/use-hermes"
 import { TICKET_CATEGORIES, type TicketCategory } from "@/lib/api/tickets"
 import { useT } from "@/lib/i18n"
@@ -20,6 +21,7 @@ const NONE = "none"
 
 export function NewTicketForm() {
   const t = useT()
+  const confirm = useActionConfirmation()
   const router = useRouter()
   const create = useCreateTicket()
   const instances = useInstances()
@@ -31,13 +33,19 @@ export function NewTicketForm() {
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
+    if (create.isPending) return
     if (subject.trim().length < 3) return setProblem(t("Write a subject of at least 3 characters."))
     if (!message.trim()) return setProblem(t("Write your message."))
     setProblem(null)
-    create.mutate(
-      { subject: subject.trim(), category, instanceId: instanceId === NONE ? null : instanceId, message: message.trim() },
-      { onSuccess: (ticket) => router.push(`/support/tickets/${ticket.id}`) }
-    )
+    confirm({
+      title: t("Send support ticket?"),
+      description: t("The Nibie Cloud team will receive your ticket about {subject}.", { subject: subject.trim() }),
+      label: t("Send ticket"),
+      run: () => create.mutate(
+        { subject: subject.trim(), category, instanceId: instanceId === NONE ? null : instanceId, message: message.trim() },
+        { onSuccess: (ticket) => router.push(`/support/tickets/${ticket.id}`) }
+      ),
+    })
   }
 
   const error = problem ?? (create.error ? errorMessage(create.error) : null)

@@ -4,11 +4,12 @@ import Link from "next/link"
 import { Clock, TriangleAlert } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { useRenew, useSubscriptions } from "@/hooks/use-hermes"
-import { billingNotice, subscriptionOfInstance } from "@/lib/billing"
+import { usePlans, useRenew, useSubscriptions } from "@/hooks/use-hermes"
+import type { BillingSubscription } from "@/lib/api"
+import { billingNotice, payableUrl, subscriptionOfInstance } from "@/lib/billing"
 import { useT } from "@/lib/i18n"
-import { startPayment } from "@/lib/pay"
 import { useLang } from "@/lib/prefs"
+import { usePay } from "./pay-button"
 
 /**
  * Shown on every instance page while payment is late: grace (still running) or suspended (stopped, scheduled
@@ -18,7 +19,6 @@ export function BillingNotice({ instanceId }: { instanceId: string }) {
   const t = useT()
   const lang = useLang()
   const subs = useSubscriptions()
-  const renew = useRenew()
   const sub = subscriptionOfInstance(subs.data, instanceId)
   const notice = billingNotice(sub, t, lang)
   if (!sub || !notice) return null
@@ -34,18 +34,35 @@ export function BillingNotice({ instanceId }: { instanceId: string }) {
       <AlertDescription>
         <p>{notice.body}</p>
         <div className="flex flex-wrap items-center gap-3 pt-2">
-          <Button
-            size="sm"
-            disabled={renew.isPending}
-            onClick={() => renew.mutate(sub.id, { onSuccess: (r) => startPayment(r.payment.paymentUrl) })}
-          >
-            {renew.isPending ? t("Preparing payment…") : notice.renewLabel}
-          </Button>
+          <RenewButton sub={sub} label={notice.renewLabel} />
           <Button asChild variant="outline" size="sm">
             <Link href={`/instances/${instanceId}/billing`}>{t("Billing details")}</Link>
           </Button>
         </div>
       </AlertDescription>
     </Alert>
+  )
+}
+
+function RenewButton({ sub, label }: { sub: BillingSubscription; label: string }) {
+  const t = useT()
+  const plans = usePlans()
+  const renew = useRenew()
+  const { pay, paying, confirm } = usePay()
+  const open = sub.latestPayment?.purpose === "RENEWAL" && payableUrl(sub.latestPayment) ? sub.latestPayment : null
+  const amountIdr = open?.amountIdr ?? plans.data?.find((p) => p.id === sub.planId)?.monthlyPriceIdr
+
+  return (
+    <>
+      <Button size="sm" disabled={paying} onClick={() => pay({
+        amountIdr,
+        qrisOnly: true,
+        purpose: t("Renew {name}", { name: sub.name }),
+        create: async () => (await renew.mutateAsync(sub.id)).payment,
+      })}>
+        {paying ? t("Preparing payment…") : label}
+      </Button>
+      {confirm}
+    </>
   )
 }

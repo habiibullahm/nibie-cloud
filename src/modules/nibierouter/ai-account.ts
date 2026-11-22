@@ -258,15 +258,28 @@ export class AiAccountService {
     this.d.logger.info({ tenantId, keyId }, 'customer AI key revoked');
   }
 
+  /** True when the tenant has a positive NibieRouter balance (checked via cached usage, with a CreditGrant fallback if the router is unreachable). */
+  async hasBalance(tenantId: string): Promise<boolean> {
+    const userId = await this.routerUser(tenantId);
+    if (!userId) return false;
+    try {
+      return (await this.cachedUsage(userId)).balanceNano > 0n;
+    } catch (e) {
+      this.d.logger.warn({ tenantId, errName: (e as Error).name }, 'router balance check failed; falling back to credit grants');
+      const granted = await this.d.prisma.creditGrant.count({ where: { tenantId, status: 'DONE', amountNano: { gt: 0n } } });
+      return granted > 0;
+    }
+  }
+
   /**
-   * The router models the tenant may use, with the same rule as `GET /instances/:id/models`: a free plan has a router
-   * balance of 0, so a tenant without an instance on a priced plan gets the free models only. The keys themselves are not
+   * The router models the tenant may use, with the same rule as `GET /instances/:id/models`: a tenant without an
+   * instance on a priced plan and with a router balance of 0 gets the free models only. The keys themselves are not
    * limited to these models (owner, 2026-11-20); a balance of 0 is what refuses the paid ones.
    */
   async models(tenantId: string): Promise<{ baseUrl: string; freeOnly: boolean; models: CatalogModel[] }> {
     if (!this.d.catalog) throw new RouterUnavailableError('unreachable');
     const paid = await this.d.prisma.instance.count({ where: { tenantId, deletedAt: null, plan: { monthlyPriceIdr: { not: null } } } });
-    const freeOnly = paid === 0;
+    const freeOnly = paid === 0 && !(await this.hasBalance(tenantId));
     const all = await this.d.catalog.list();
     return { baseUrl: NIBIEROUTER_BASE_URL, freeOnly, models: freeOnly ? all.filter((m) => m.free) : all };
   }

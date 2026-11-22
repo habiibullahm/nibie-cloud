@@ -209,9 +209,12 @@ describe('ProviderService', () => {
     const paidPlan = () => prisma.plan.update({ where: { id: s.plan.id }, data: { monthlyPriceIdr: 50_000 } });
     const revision = async (id: string) => (await prisma.instance.findUniqueOrThrow({ where: { id } })).configRevision;
 
-    it('lists the free models only on a free plan, and every model on a paid one', async () => {
+    it('lists the free models only on a free plan without AI balance, and every model on a paid one or with AI balance', async () => {
       const inst = await routerInstance();
       expect(await routerSvc.models(s.tenant.id, inst.id)).toEqual({ freeOnly: true, models: [FREE] });
+      const withBalance = new ProviderService({ prisma, secrets, logger: createLogger({ level: 'silent' }), fetcher, catalog: { list: async () => [FREE, PAID] }, hasAiBalance: async () => true });
+      expect(await withBalance.models(s.tenant.id, inst.id)).toEqual({ freeOnly: false, models: [FREE, PAID] });
+      expect(await withBalance.setModel(s.tenant.id, inst.id, PAID.id)).toMatchObject({ model: PAID.id, restartRequired: true });
       await paidPlan();
       expect(await routerSvc.models(s.tenant.id, inst.id)).toEqual({ freeOnly: false, models: [FREE, PAID] });
     });
@@ -255,11 +258,52 @@ describe('ProviderService', () => {
       expect(await revision(inst.id)).toBe(before + 1);
     });
 
-    it("another tenant's instance is not found, and no catalogue means router_unavailable", async () => {
+    it('another tenant\'s instance is not found, and no catalogue means router_unavailable', async () => {
       const inst = await routerInstance();
       await expect(routerSvc.models(s.other.id, inst.id)).rejects.toBeInstanceOf(NotFoundError);
       await expect(routerSvc.setModel(s.other.id, inst.id, FREE.id)).rejects.toBeInstanceOf(NotFoundError);
       await expect(svc.models(s.tenant.id, inst.id)).rejects.toMatchObject({ code: 'router_unavailable' });
+    });
+  });
+
+  describe('BYOK model discovery', () => {
+    it('fetches, deduplicates and sorts models using provided credentials or a saved BYOK config', async () => {
+      const inst = await mkInstance(s.tenant.id);
+      respond = async () => ({
+        status: 200,
+        headers: {},
+        body: JSON.stringify({
+          data: [
+            { id: 'gpt-4o', name: 'GPT-4o' },
+            { id: 'bad model!' },
+            { id: 'claude-3.5-sonnet' },
+            { id: 'gpt-4o', name: 'Duplicate' },
+          ],
+        }),
+      });
+      const beforeSave = await svc.listByokModels(s.tenant.id, inst.id, { baseUrl: `${BASE}/`, apiKey: KEY });
+      expect(beforeSave).toEqual([
+        { id: 'claude-3.5-sonnet', name: 'claude-3.5-sonnet' },
+        { id: 'gpt-4o', name: 'GPT-4o' },
+      ]);
+      expect(calls[0]).toMatchObject({ url: `${BASE}/models`, auth: `Bearer ${KEY}`, maxBytes: 4 * 1024 * 1024 });
+
+      await svc.put(s.tenant.id, inst.id, { baseUrl: BASE, model: 'gpt-4o', apiKey: KEY2 });
+      const saved = await svc.listByokModels(s.tenant.id, inst.id);
+      expect(saved).toHaveLength(2);
+      expect(calls[1]).toMatchObject({ url: `${BASE}/models`, auth: `Bearer ${KEY2}` });
+    });
+
+    it('rejects missing/non-BYOK config, invalid key, blocked URL, and malformed responses', async () => {
+      const inst = await mkInstance(s.tenant.id);
+      await expect(svc.listByokModels(s.tenant.id, inst.id)).rejects.toBeInstanceOf(NotFoundError);
+      await svc.attachNibieRouter(s.tenant.id, inst.id, { apiKey: KEY, model: 'nibierouter-free' });
+      await expect(svc.listByokModels(s.tenant.id, inst.id)).rejects.toMatchObject({ status: 409, code: 'not_byok' });
+      await expect(svc.listByokModels(s.tenant.id, inst.id, { baseUrl: 'https://127.0.0.1/v1', apiKey: KEY })).rejects.toBeInstanceOf(OutboundBlockedError);
+      respond = async () => ({ status: 401, headers: {}, body: 'bad key' });
+      await expect(svc.listByokModels(s.tenant.id, inst.id, { baseUrl: BASE, apiKey: KEY })).rejects.toBeInstanceOf(ValidationError);
+      respond = async () => ({ status: 200, headers: {}, body: 'not json' });
+      await expect(svc.listByokModels(s.tenant.id, inst.id, { baseUrl: BASE, apiKey: KEY })).rejects.toMatchObject({ status: 502, code: 'provider_error' });
     });
   });
 
