@@ -33,11 +33,11 @@ const SECTIONS = [
 ]
 
 /**
- * Sections that have a real backend behind them in customer mode. The rest (monitor, files, console, backups,
+ * Sections that have a real backend behind them in customer mode. The rest (monitor, files, console,
  * domain, access) still render sample data, so they are not offered to customers until they are wired.
  * Logs are real since the Configuration wiring (container output with the instance's credentials scrubbed).
  */
-const CUSTOMER_SECTIONS = new Set(["", "logs", "configuration", "billing"])
+const CUSTOMER_SECTIONS = new Set(["", "logs", "configuration", "backups", "billing"])
 
 function sectionFor(pathname: string, base: string) {
   const rest = pathname.slice(base.length).split("/")[1] ?? ""

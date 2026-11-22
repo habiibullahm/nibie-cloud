@@ -1,4 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Config } from '../../src/config/env.js';
 import { createPrisma } from '../../src/db/client.js';
@@ -18,7 +21,7 @@ const BOB = 'bob@example.test';
 let auth: Awaited<ReturnType<typeof createTestAuth>>;
 let s: Awaited<ReturnType<typeof seed>>;
 
-function app(cfg: Partial<Config> = {}) {
+function app(cfg: Partial<Config> = {}, backupMetadataDir?: string) {
   const service = new InstanceService({
     prisma, runtime: new FakeRuntime(), image: IMAGE, production: false, logger: silentLogger,
     masterKey: TEST_MASTER_KEY, diskQuota: 'off', egressPolicy: 'off', pollIntervalMs: 10, healthTimeoutMs: 2000,
@@ -26,7 +29,7 @@ function app(cfg: Partial<Config> = {}) {
   return buildServer({
     service, logger: silentLogger,
     config: testConfig(IMAGE, TEST_MASTER_KEY, { betaAllowedEmails: [ALICE, BOB], ...cfg }),
-    customer: { verify: auth.verify, identity: new IdentityService({ prisma }), prisma },
+    customer: { verify: auth.verify, identity: new IdentityService({ prisma }), prisma, backupMetadataDir },
   });
 }
 
@@ -42,6 +45,47 @@ describe('customer API', () => {
   beforeAll(async () => { auth = await createTestAuth(); });
   beforeEach(async () => { await resetDb(prisma); s = await seed(prisma); });
   afterAll(() => prisma.$disconnect());
+
+  it('scopes backup metadata to the owner and distinguishes snapshots from verification', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'hermes-backup-metadata-'));
+    const a = app({}, dir);
+    try {
+      const alice = await user(ALICE);
+      const bob = await user(BOB);
+      const created = await create(a, alice);
+      expect(created.statusCode).toBe(202);
+      const { id } = created.json().instance as { id: string };
+      const url = `/api/v1/instances/${id}/backups`;
+      const load = () => a.inject({ method: 'GET', url, headers: alice });
+      const observedAt = '2026-11-22T01:00:00Z';
+      const snapshotAt = '2026-11-22T04:00:01.166271+08:00';
+      const retentionDays = 7;
+      const inventory = { observedAt, retentionDays, snapshots: {} };
+      const inventoryFile = join(dir, 'snapshots.json');
+      const verificationFile = join(dir, `verify-${id}.json`);
+
+      expect((await load()).json()).toEqual({ observedAt: null, snapshotAt: null, retentionDays: null, verification: null });
+      await writeFile(inventoryFile, JSON.stringify(inventory));
+      expect((await load()).json()).toEqual({ observedAt, snapshotAt: null, retentionDays, verification: null });
+      await writeFile(inventoryFile, JSON.stringify({ ...inventory, snapshots: { [id]: snapshotAt, [randomUUID()]: observedAt } }));
+      const unverified = await load();
+      expect(unverified.statusCode).toBe(200);
+      expect(unverified.headers['cache-control']).toBe('no-store');
+      expect(unverified.json()).toEqual({ observedAt, snapshotAt, retentionDays, verification: null });
+
+      const verification = { snapshotAt: '2026-11-20T20:00:00Z', checkedAt: observedAt, status: 'failed' };
+      await writeFile(verificationFile, JSON.stringify({ ...verification, snapshotId: 'operator-only' }));
+      expect((await load()).json()).toEqual({ observedAt, snapshotAt, retentionDays, verification });
+      await writeFile(verificationFile, JSON.stringify({ ...verification, status: 'passed' }));
+      expect((await load()).json().verification).toEqual({ ...verification, status: 'passed' });
+
+      expect((await a.inject({ method: 'GET', url, headers: bob })).statusCode).toBe(404);
+      expect((await a.inject({ method: 'GET', url })).statusCode).toBe(401);
+    } finally {
+      await a.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 
   it('lists only active plans, with limits and a null price', async () => {
     await prisma.plan.create({ data: { slug: 'retired', name: 'Retired', active: false, cpuMillis: 100, memoryMb: 64, pids: 32, storageMb: 128 } });

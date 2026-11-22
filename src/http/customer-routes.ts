@@ -4,6 +4,7 @@ import type { PrismaClient } from '@prisma/client';
 import type { Config } from '../config/env.js';
 import type { InstanceCommands } from '../modules/instances/instance-commands.js';
 import type { InstanceService } from '../modules/instances/instance-service.js';
+import { readBackupMetadata } from '../modules/instances/backup-metadata.js';
 import { BetaFullError, CapacityFullError, ForbiddenError } from '../shared/errors.js';
 import type { LogService } from '../modules/integrations/log-service.js';
 import type { Integrations } from '../modules/integrations/types.js';
@@ -27,6 +28,8 @@ import { registerCustomerTicketRoutes } from './support-routes.js';
 
 export interface CustomerDeps extends CustomerAuthDeps {
   prisma: PrismaClient;
+  /** Defaults to the host metadata mount. Tests can supply a temporary directory. */
+  backupMetadataDir?: string;
 }
 
 /**
@@ -139,6 +142,10 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
     api.get<{ Params: Params }>('/instances/:instanceId/events', async (req) => ({
       events: await service.events(principalOf(req).tenantId, req.params.instanceId),
     }));
+    api.get<{ Params: Params }>('/instances/:instanceId/backups', async (req) => {
+      const instance = await service.get(principalOf(req).tenantId, req.params.instanceId);
+      return readBackupMetadata(instance.id, deps.customer.backupMetadataDir);
+    });
     for (const action of ['start', 'stop', 'restart'] as const) {
       api.post<{ Params: Params }>(`/instances/:instanceId/${action}`, async (req, reply) => {
         const tenantId = principalOf(req).tenantId;

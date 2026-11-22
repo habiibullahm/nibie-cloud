@@ -69,6 +69,7 @@ export function buildInstancesApi(call: Call): InstancesApi {
     get: async (i) => (await call<{ instance: Instance }>(`/instances/${id(i)}`)).instance,
     status: (i) => call<InstanceStatusView>(`/instances/${id(i)}/status`),
     events: async (i) => (await call<{ events: InstanceEvent[] }>(`/instances/${id(i)}/events`)).events,
+    backupMetadata: (i) => call(`/instances/${id(i)}/backups`),
     create: async (input, idempotencyKey) =>
       (
         await call<{ instance: Instance }>("/instances", {

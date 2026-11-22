@@ -13,11 +13,47 @@ umask 077
 ENV_FILE=${RESTIC_ENV_FILE:-/etc/restic/r2/env}
 STAGE_ROOT=${STAGE_ROOT:-/var/lib/hermes-backup-staging}
 LOG_FILE=${LOG_FILE:-/var/log/hermes-tenant-backup.log}
+METADATA_DIR=${BACKUP_METADATA_DIR:-/var/lib/hermes-backup-metadata}
 KEEP_DAYS=7
 log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*" | tee -a "$LOG_FILE" >&2; }
 # shellcheck disable=SC1090
 set -a; . "$ENV_FILE"; set +a
 : "${RESTIC_REPOSITORY:?}" "${RESTIC_PASSWORD_FILE:?}"
+
+# The backend reads only these metadata files through a read-only host mount.
+publish_metadata() {
+  local name=$1 json=$2 temp
+  install -d -m 0755 -- "$METADATA_DIR" || return 1
+  temp=$(mktemp "$METADATA_DIR/.metadata.XXXXXX") || return 1
+  if printf '%s\n' "$json" > "$temp" && chmod 0644 "$temp" && mv -f -- "$temp" "$METADATA_DIR/$name"; then
+    return 0
+  fi
+  rm -f -- "$temp"
+  return 1
+}
+
+publish_inventory() {
+  local json
+  json=$(restic snapshots --tag tenant-vol --json | python3 -c '
+from datetime import datetime, timezone
+import json, re, sys
+instance_tag = re.compile(r"inst-([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})")
+latest = {}
+for snapshot in json.load(sys.stdin):
+    for tag in snapshot.get("tags", []):
+        match = instance_tag.fullmatch(tag)
+        if match:
+            instance = match[1]
+            taken = datetime.fromisoformat(snapshot["time"])
+            if instance not in latest or taken > latest[instance]:
+                latest[instance] = taken
+json.dump({
+    "observedAt": datetime.now(timezone.utc).isoformat(),
+    "retentionDays": int(sys.argv[1]),
+    "snapshots": {instance: taken.isoformat() for instance, taken in latest.items()},
+}, sys.stdout)' "$KEEP_DAYS") || return 1
+  publish_metadata snapshots.json "$json"
+}
 
 sqlite_copy() { # sqlite_copy SRC_DIR DEST_DIR: online-backup every *.db under SRC_DIR into DEST_DIR (same layout)
   python3 - "$1" "$2" <<'PY'
@@ -42,7 +78,24 @@ PY
 }
 
 if [ "${1:-}" = "--verify" ]; then
-  tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+  tmp=$(mktemp -d)
+  tag=; taken=
+  # The EXIT trap records the result for both explicit failures and command errors.
+  # shellcheck disable=SC2317
+  finish_verification() {
+    local code=$1 result=failed json
+    rm -rf "$tmp" || true
+    if [[ "$tag" =~ ^inst-[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$ ]] && [ -n "$taken" ]; then
+      if [ "$code" = 0 ]; then result=passed; fi
+      if ! json=$(python3 -c 'import json, sys
+snapshot_at, checked_at, status = sys.argv[1:]
+print(json.dumps({"snapshotAt": snapshot_at, "checkedAt": checked_at, "status": status}))' \
+          "$taken" "$(date -u +%FT%TZ)" "$result") || ! publish_metadata "verify-${tag#inst-}.json" "$json"; then
+        echo "WARN: could not publish tenant verification metadata" >&2
+      fi
+    fi
+  }
+  trap 'finish_verification "$?"' EXIT
   snap_json=$(restic snapshots --tag tenant-vol --json)
   pick=$(printf '%s' "$snap_json" | python3 -c 'import sys,json,random
 s=json.load(sys.stdin)
@@ -51,9 +104,9 @@ by={}
 for x in s:
     t=[t for t in x["tags"] if t.startswith("inst-")][0]
     if t not in by or x["time"]>by[t]["time"]: by[t]=x
-x=random.choice(list(by.values())); print(x["short_id"], [t for t in x["tags"] if t.startswith("inst-")][0])') || { echo "no tenant snapshots to verify" >&2; exit 1; }
-  read -r id tag <<< "$pick"
-  echo "verifying snapshot $pick"
+x=random.choice(list(by.values())); print(x["short_id"], [t for t in x["tags"] if t.startswith("inst-")][0], x["time"])') || { echo "no tenant snapshots to verify" >&2; exit 1; }
+  read -r id tag taken <<< "$pick"
+  echo "verifying snapshot $id $tag"
   restic restore "$id" --target "$tmp" --quiet
   files=$(find "$tmp" -type f | wc -l)
   [ "$files" -gt 0 ] || { echo "verify FAILED: the snapshot restored no files" >&2; exit 1; }
@@ -129,6 +182,7 @@ for inst, items in by.items():
             print(sid)
 PY
 restic prune --quiet >>"$LOG_FILE" 2>&1 || log "WARN: prune failed"
+publish_inventory || log "WARN: could not publish tenant snapshot inventory"
 
 log "done: $ok ok, $failed failed"
 [ "$failed" = 0 ] || exit 1

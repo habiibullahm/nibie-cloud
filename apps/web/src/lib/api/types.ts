@@ -190,6 +190,13 @@ export interface Backup {
   checksum: string
 }
 
+export interface BackupMetadata {
+  observedAt: string | null
+  snapshotAt: string | null
+  retentionDays: number | null
+  verification: { snapshotAt: string; checkedAt: string; status: "passed" | "failed" } | null
+}
+
 export interface AccessInfo {
   url: string | null
   instructions: string[]
