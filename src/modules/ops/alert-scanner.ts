@@ -73,6 +73,7 @@ export class AlertScanner {
       ['credit-grant:', () => this.creditGrants()],
       ['disk-full:', () => this.fullDisks()],
       ['wallet-mismatch:', () => this.walletMismatches()],
+      ['retired-copy:', () => this.unretiredDeletedCopies()],
       ...(this.d.failedJobs ? [['job-failed:', () => this.failedQueueJobs()] as [string, () => Promise<AlertInput[]>]] : []),
     ];
     for (const [prefix, fn] of checks) {
@@ -195,6 +196,20 @@ export class AlertScanner {
       severity: 'WARNING' as const,
       title: `Job ${j.op} gagal setelah ${j.attempts} percobaan`,
       detail: `Instance ${short(j.instanceId)}, galat: ${j.reason}. Tindakan: cek instance, lalu coba ulang job lewat API operator (/jobs/failed).`,
+    }));
+  }
+
+  private async unretiredDeletedCopies(): Promise<AlertInput[]> {
+    const rows = await this.d.prisma.retiredRuntime.findMany({
+      where: { instance: { status: 'DELETED' } },
+      include: { node: { select: { name: true } }, instance: { select: { tenantId: true } } },
+      take: 100,
+    });
+    return rows.map((r) => ({
+      key: `retired-copy:${r.nodeId}:${r.instanceId}`,
+      severity: 'WARNING' as const,
+      title: 'Volume lama instance yang dihapus belum dibersihkan',
+      detail: `Instance ${short(r.instanceId)}, tenant ${short(r.instance.tenantId)}, node ${r.node.name} (${r.storageMb} MiB). Tindakan: panggil POST /recovery/retire untuk node ${r.node.name} setelah host terhubung.`,
     }));
   }
 

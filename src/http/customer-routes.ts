@@ -25,11 +25,13 @@ import { principalOf, registerCustomerAuth, type CustomerAuthDeps } from './cust
 import type { Mailer } from '../modules/billing/mailer.js';
 import type { CaptchaVerifier } from '../modules/waitlist/turnstile.js';
 import { registerCustomerTicketRoutes } from './support-routes.js';
+import type { RuntimeFleet } from '../modules/runtime/fleet.js';
 
 export interface CustomerDeps extends CustomerAuthDeps {
   prisma: PrismaClient;
   /** Defaults to the host metadata mount. Tests can supply a temporary directory. */
   backupMetadataDir?: string;
+  fleet?: RuntimeFleet;
 }
 
 /**
@@ -118,13 +120,16 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
         if (!replay && (await freeBetaRemaining(prisma, config.freeBetaSlots, { queueFirst })) <= 0 && !(await hasActiveInvite(prisma, p.email, new Date()))) throw new BetaFullError();
       }
       // Whole-server cap. A replay of a creation that already exists is not a new instance and is never refused.
-      if (config.maxTotalInstances !== null) {
+      // Fleet mode checks this atomically inside `createPlaced` under the placement lock.
+      if (config.maxTotalInstances !== null && !deps.customer.fleet) {
         const replay = await prisma.instance.findFirst({ where: { tenantId: p.tenantId, idempotencyKey: key }, select: { id: true } });
         if (!replay && (await totalLoad(prisma, new Date())) >= config.maxTotalInstances) throw new CapacityFullError();
       }
       const { instance, jobId } = await commands.provision({
         tenantId: p.tenantId, name: body.name, planId: body.planId, idempotencyKey: key,
         maxInstances: config.maxInstancesPerTenant, activePlanOnly: true,
+        ...(deps.customer.fleet && config.freeBetaSlots > 0 ? { waitlistEmail: p.email } : {}),
+        ...(deps.customer.fleet && config.maxTotalInstances !== null ? { maxTotalInstances: config.maxTotalInstances } : {}),
       });
       // The person now holds a free instance: stop counting them as waiting or invited.
       if (config.freeBetaSlots > 0) await markWaitlistRegistered(prisma, p.email);
@@ -144,6 +149,7 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
     }));
     api.get<{ Params: Params }>('/instances/:instanceId/backups', async (req) => {
       const instance = await service.get(principalOf(req).tenantId, req.params.instanceId);
+      if (deps.customer.fleet) return deps.customer.fleet.backup(instance.id, deps.customer.backupMetadataDir);
       return readBackupMetadata(instance.id, deps.customer.backupMetadataDir);
     });
     for (const action of ['start', 'stop', 'restart'] as const) {

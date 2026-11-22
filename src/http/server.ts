@@ -15,7 +15,7 @@ import type { Mailer } from '../modules/billing/mailer.js';
 import type { CaptchaVerifier } from '../modules/waitlist/turnstile.js';
 import { registerSumoPodWebhook } from './sumopod-callback.js';
 import { registerCustomerRoutes, type CustomerDeps } from './customer-routes.js';
-import { registerOperatorRoutes } from './operator-routes.js';
+import { registerOperatorRoutes, type NodeOperatorDeps } from './operator-routes.js';
 import { registerAdminRoutes, type AdminDeps } from './admin-routes.js';
 import { registerPublicRoutes } from './public-routes.js';
 import { registerReadyz, type ReadinessCheck } from './readyz.js';
@@ -53,6 +53,7 @@ export function buildServer(deps: {
   ai?: AiAccountService | null;
   /** Gives an instance its NibieRouter key back. Null or absent: `POST .../providers/nibierouter` answers 404. */
   router?: Pick<RouterProvisioner, 'restore'> | null;
+  nodes?: NodeOperatorDeps;
 }): FastifyInstance {
   const { service, config, logger, customer } = deps;
   const integrations = deps.integrations ?? null;
@@ -99,7 +100,7 @@ export function buildServer(deps: {
   app.get('/healthz', async () => ({ status: 'ok' }));
   registerReadyz(app, deps.readiness ?? {});
 
-  registerOperatorRoutes(app, { service, commands, queue: deps.queue ?? null, config, integrations });
+  registerOperatorRoutes(app, { service, commands, queue: deps.queue ?? null, config, integrations, nodes: deps.nodes });
   const billing = deps.billing ?? null;
   if (customer) registerPublicRoutes(app, { prisma: customer.prisma, config, mailer: deps.mailer ?? null, captcha: deps.captcha ?? null });
   if (customer) registerCustomerRoutes(app, { customer, service, commands, config, integrations, logs: deps.logs ?? null, billing, mailer: deps.mailer ?? null, captcha: deps.captcha ?? null, ai: deps.ai ?? null, router: deps.router ?? null });

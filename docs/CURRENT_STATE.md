@@ -30,6 +30,62 @@ several still describe branches as "not committed" or billing as "OFF" that have
   - `safeFetch` returns all validated addresses from that single DNS resolution in `lookup` (filtering by requested family when `4` or `6` is specified), keeping anti-rebinding and SSRF blocking on every IP while letting Node's `autoSelectFamily` fall back from unreachable IPv6 to IPv4.
 - **Verified locally (Windows + local Postgres/Redis):** `pnpm build` (`tsc --noEmit`), `test/integration/safe-fetch.test.ts` (24/24), `test/integration/provider-service.test.ts` (35/35), and `test/integration/integration-routes.test.ts` (14/14).
 
+## Multi-node VPS runtime fleet (2026-11-22, local, not deployed to production)
+
+- **Backend & agent:** Opt-in fleet mode via `HERMES_RUNTIME_FLEET_FILE` (host-private copy of `deploy/runtime-fleet.example.json`).
+  Remote VPS nodes run `src/runtime-agent.ts` (`deploy/compose.runtime-agent.yaml`, `deploy/runtime-agent.env.example`) over
+  private/loopback mTLS (`src/modules/runtime/agent-protocol.ts`, `agent-server.ts`, `agent-client.ts`), enforcing host `runsc`,
+  XFS disk quotas, egress canary, and pinned images. `RuntimeFleet` (`src/modules/runtime/fleet.ts`) routes all `RuntimeManager`
+  operations and backup metadata reads by `Instance.nodeId`, refreshes node health every 10 s, and pushes per-node desired XFS
+  quota inventories (`quotaPolicy`).
+- **Capacity scheduling & reservations:** Additive migrations `20261122500000_runtime_node_reservations` (`RuntimeNode.agentManaged`,
+  `Instance.recoveryNodeId`, `Subscription.reservedNodeId`, `WaitlistEntry.reservedNodeId`) and
+  `20261122510000_retired_runtime_copies` (`RetiredRuntime`, RLS on). `NodeScheduler` (`src/modules/instances/node-scheduler.ts`)
+  enforces per-node CPU, RAM, and storage budgets under an advisory transaction lock across live instances, open checkout/upgrade
+  reservations, beta waitlist invitations, staged recovery copies, and unretired source volumes.
+- **Cross-node recovery & fleet backups:** `NodeRecovery` (`src/modules/instances/node-recovery.ts`) and operator routes
+  (`/api/v1/runtime-nodes`, `/runtime-nodes/:name/schedulable`, `/runtime-backup-live`, and
+  `/tenants/:tenantId/instances/:instanceId/recovery/{prepare,finish,cancel,retire}`) preserve instance UUID and subscription
+  with source fencing and explicit old-volume retirement. `ops/host/hermes-tenant-backup.sh` adds `RESTIC_RETENTION_MODE=fleet`,
+  per-node `RESTIC_BACKUP_HOST`, and control-plane `--retention` (`hermes-tenant-retention.service`/`.timer`);
+  `ops/host/hermes-tenant-restore.sh` adds `--offline` with snapshot tag, symlink, and SQLite integrity verification;
+  `ops/host/hermes-volume-quota.sh` reads `DESIRED_QUOTAS_FILE` on remote nodes. Runbook: [runbook-multi-node.md](runbook-multi-node.md).
+- **Admin dashboard:** `GET /api/v1/admin/nodes` exposes per-node `online` and `host` snapshots when fleet mode is on; the
+  Admin Node page (`apps/web/src/app/(app)/admin/node/nodes-view.tsx`) shows per-node capacity cards, connection status
+  (`Terhubung` / `Terputus`), effective schedulability, and 15 s polling.
+- **Staging drill on `jkt-2` (Ubuntu 24.04.4 LTS, 2 vCPU, 7.5 GiB RAM, 24 GiB XFS tenant mount, Docker CE 29.9.3, gVisor `runsc`):**
+  Verified live over SSH tunnel + mTLS against an isolated staging DB: anonymous TLS rejection, parallel two-node placement,
+  capacity enforcement, idempotency replay, remote stop/start/restart/delete/volume cleanup, cordon, node outage isolation,
+  XFS quota enforcement (write over 128 MB rejected), checkout/webhook reservation, upgrade capacity rejection, beta waitlist
+  invite reservation & claim, encrypted Restic cross-node recovery (same UUID, SQLite marker verified, backup verified, old
+  source volume retired), and pinned official Hermes image smoke test (`runsc` + XFS quota + authenticated `/api/sessions`).
+- **Review fixes applied (2026-11-22, local):**
+  - `NodeRecovery.prepare` now reserves capacity for any open/unapplied upgrade `Subscription` on the instance, `BillingService.upgrade` blocks upgrades while `recoveryNodeId` is set, and `NodeRecovery.finish` migrates `Subscription.reservedNodeId` to the recovery node.
+  - `InstanceService.delete` and `Reconciler.resolveStale` invoke `retireDeletedCopies` to best-effort remove any `RetiredRuntime` volumes/rows left on prior nodes; `AlertScanner` alerts on any remaining unretired copies for `DELETED` instances.
+  - `NodeRecovery.retire` and `NodeRecovery.cancel` run remote Docker `inspect`/`remove` calls outside the global `runtime-capacity` advisory lock.
+  - `RuntimeAgentClient.ensure` and `recreate` use a 300 s HTTP timeout for large image pulls, and [runbook-multi-node.md](runbook-multi-node.md) notes pre-pulling `HERMES_IMAGE`.
+  - Skipped redundant single-node `totalLoad`, `readHostUsage`, and `hostRoom` work when fleet mode is active.
+- **Automated checks passed:**
+  - After review fixes (Windows + local Docker/Postgres/Redis): `pnpm build` (`tsc --noEmit`), 40/42 unit files (533/533 tests; `egress-canary` and `egress-rules` are the 2 Linux-shell unit files that fail on Windows), integration suites `multi-node-fleet`, `alert-scanner`, `admin-api`, `customer-api`, `billing-upgrade` (5/5 files, 60/60 tests), and `recovery` + `instance-service` (2/2 files, 51/51 tests). Dashboard (`apps/web`): `pnpm typecheck`, `pnpm lint`, 26/26 test files (219/219 tests).
+  - Earlier full Linux container & `jkt-2` staging verification (before the review fixes): Linux unit suite 42/42 (547/547) and 20/20 DB+Redis integration suites (282 passed, 62 skipped). Note: pre-existing `test/integration/customer-auth.test.ts:91` still expects unmasked `203.0.113.9` after commit `90833e9` masked logged IPs to `/24` (`203.0.113.0`); left untouched.
+- **Local fleet E2E harness (2026-11-23):** `cd e2e; node run-fleet-e2e.mjs [--rebuild] [--down]` runs four Playwright specs
+  (`e2e/tests/fleet/`) against a local two-node fleet: `jkt-1` on the host Docker daemon, `jkt-2` as a `docker:27-dind` container
+  plus `src/runtime-agent.ts` over mTLS on `127.0.0.1:19443` (`e2e/support/local-fleet.mjs`), with an isolated GoTrue on
+  `127.0.0.1:54421` (TOTP MFA on, email/password only, no Google) (`e2e/support/local-auth-stack.mjs`), API `:3400` and dashboard
+  `:3410`. Generated secrets and passwords live in the git-ignored `e2e/.local/`. Covers customer lifecycle on `jkt-1`, admin MFA +
+  Node page, operator placement/capacity/cordon/outage/cross-node recovery, and billing/upgrade/waitlist reservations
+  (`test/validation/fleet-billing-e2e.ts`). Result on Windows + Docker Desktop: 4/4 passed. Backend changes for it:
+  `SUPABASE_URL` may be `http` on loopback (`127.0.0.1`, `localhost`, `[::1]`) when `NODE_ENV` is not `production`
+  (unit-tested); `HERMES_HOST_USAGE_FILE` (control plane) and `HERMES_AGENT_HOST_USAGE_FILE` (agent) override the host snapshot
+  path. Known quirk: with `REDIS_URL` set, a queued action returns the pre-transition status, so the dashboard stops polling until
+  reload; the spec waits on DB state and reloads.
+- **Cleanup & remaining production cutover:** Temporary staging containers, images, network, and staging TLS directory were
+  removed locally and on `jkt-2`. `jkt-2` retains its prepared permanent host baseline (Docker CE 29.9.3, `runsc`, XFS mount,
+  egress rules, `hermes-usage.timer`, `/usr/local/sbin/hermes-*`, pinned official Hermes + canary images). Production cutover
+  still requires merging/deploying the backend image, applying the two additive migrations to production Postgres, provisioning
+  production mTLS certs + host-private `fleet.json` + persistent SSH tunnel between `jkt-1` and `jkt-2`, starting the production
+  agent on `jkt-2` with the shared R2 Restic env, and uncordoning `jkt-2` via `POST /api/v1/runtime-nodes/jkt-2/schedulable`.
+
 ## Live readiness and launch stock (2026-11-22, production)
 
 - Paid checkout was already open in SumoPod production mode. Live stock was 10 `hosting` and 10 `hosting-kredit`, all 20

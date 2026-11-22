@@ -4,6 +4,8 @@ import { renderWaitlistInvite } from '../billing/email-templates.js';
 import type { Mailer } from '../billing/mailer.js';
 import { freeBetaUsed, MAX_INVITE_FAILURES, reservedInvites } from '../instances/free-beta.js';
 import { purgeUnconfirmed } from './waitlist.js';
+import { CapacityFullError } from '../../shared/errors.js';
+import type { NodeScheduler } from '../instances/node-scheduler.js';
 
 const HOUR_MS = 3_600_000;
 /** How long an invited person holds their slot before it goes to the next one in line. */
@@ -33,6 +35,7 @@ export interface WaitlistInviterDeps {
   now?: () => Date;
   /** `run()` does nothing when called again sooner than this (the scheduler ticks every 15 s). Default 1 minute. */
   minIntervalMs?: number;
+  placement?: NodeScheduler;
 }
 
 /**
@@ -99,19 +102,26 @@ export class WaitlistInviter {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('waitlist-invite'))`;
       const room = this.d.slots - (await freeBetaUsed(tx)) - (await reservedInvites(tx, now));
       if (room <= 0) return [];
+      const freePlan = await this.d.placement?.freeDemand(tx);
+      if (this.d.placement && !freePlan) return [];
       const next = await tx.waitlistEntry.findMany({
         where: { status: 'WAITING', inviteFailures: { lt: MAX_INVITE_FAILURES } },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: Math.min(room, MAX_PER_RUN),
       });
       const won: typeof next = [];
       for (const e of next) {
+        let reservedNodeId: string | undefined;
+        if (this.d.placement && freePlan) {
+          try { reservedNodeId = await this.d.placement.select(tx, freePlan, now); }
+          catch (error) { if (error instanceof CapacityFullError) break; throw error; }
+        }
         const cas = await tx.waitlistEntry.updateMany({
-          where: { id: e.id, status: 'WAITING' }, data: { status: 'INVITED', invitedAt: now, inviteExpiresAt: expiresAt },
+          where: { id: e.id, status: 'WAITING' }, data: { status: 'INVITED', invitedAt: now, inviteExpiresAt: expiresAt, reservedNodeId },
         });
         if (cas.count === 1) won.push(e);
       }
       return won;
-    });
+    }, { timeout: 30_000 });
 
     for (const e of claimed) {
       let sent = false;
@@ -128,7 +138,7 @@ export class WaitlistInviter {
         // Back in line with its place kept; a repeatedly failing address is skipped after MAX_INVITE_FAILURES.
         await prisma.waitlistEntry.updateMany({
           where: { id: e.id, status: 'INVITED', invitedAt: now },
-          data: { status: 'WAITING', invitedAt: null, inviteExpiresAt: null, inviteFailures: { increment: 1 } },
+          data: { status: 'WAITING', invitedAt: null, inviteExpiresAt: null, reservedNodeId: null, inviteFailures: { increment: 1 } },
         });
       }
     }

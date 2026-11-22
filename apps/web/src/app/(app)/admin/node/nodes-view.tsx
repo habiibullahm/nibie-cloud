@@ -26,13 +26,13 @@ function Meter({ label, used, total, detail }: { label: string; used: number; to
 }
 
 /** `now` is when the page fetched the snapshot, so render stays pure. */
-function HostCapacity({ host, now }: { host: AdminHostUsage; now: number }) {
-  const { perInstanceMb, room } = hostRoom(host)
+function HostCapacity({ host, now, nodeName }: { host: AdminHostUsage; now: number; nodeName?: string }) {
+  const estimate = nodeName ? null : hostRoom(host)
   const stale = isStale(host.ts, now)
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Kapasitas host</CardTitle>
+        <CardTitle>{nodeName ? `Kapasitas ${nodeName}` : "Kapasitas host"}</CardTitle>
         <CardDescription>
           Diperbarui {formatRelative(host.ts, now, "id")} oleh timer hermes-usage (tiap 5 menit).
           {stale ? " Data lama: periksa timer hermes-usage di VPS." : null}
@@ -53,11 +53,11 @@ function HostCapacity({ host, now }: { host: AdminHostUsage; now: number }) {
             {host.load1.toLocaleString("id-ID")} dari {host.cpus} core
           </span>
         </div>
-        <p className="text-muted-foreground">
-          Perkiraan sisa ruang: <span className="type-mono text-foreground">{room}</span> instance lagi sampai RAM{" "}
-          {Math.round(RAM_BUDGET * 100)} % (sekitar {formatMb(perInstanceMb)} per instance
+        {estimate ? <p className="text-muted-foreground">
+          Perkiraan sisa ruang: <span className="type-mono text-foreground">{estimate.room}</span> instance lagi sampai RAM{" "}
+          {Math.round(RAM_BUDGET * 100)} % (sekitar {formatMb(estimate.perInstanceMb)} per instance
           {host.tenants > 0 ? ", rata-rata instance yang berjalan" : ", ukuran instance idle yang terukur"}).
-        </p>
+        </p> : null}
       </CardContent>
     </Card>
   )
@@ -66,13 +66,17 @@ function HostCapacity({ host, now }: { host: AdminHostUsage; now: number }) {
 export function AdminNodesView() {
   const nodes = useAdminNodes()
   const host = nodes.data?.host ?? null
+  const rows = nodes.data?.nodes ?? []
+  const fleet = rows.some((node) => node.online !== undefined)
 
   return (
     <div className="grid gap-6">
       <PageHeader title="Node" description="Host yang menjalankan container pelanggan." />
 
-      {host ? <HostCapacity host={host} now={nodes.dataUpdatedAt} /> : null}
-      {nodes.data && !host ? (
+      {fleet
+        ? rows.map((node) => node.host ? <HostCapacity key={node.id} nodeName={node.name} host={node.host} now={nodes.dataUpdatedAt} /> : null)
+        : host ? <HostCapacity host={host} now={nodes.dataUpdatedAt} /> : null}
+      {nodes.data && (fleet ? rows.every((node) => !node.host) : !host) ? (
         <p className="text-muted-foreground">
           Belum ada data kapasitas dari VPS. Timer hermes-usage belum menulis /var/lib/hermes-usage/node.json.
         </p>
@@ -80,7 +84,7 @@ export function AdminNodesView() {
 
       <AdminTable
         what="node"
-        rows={nodes.data?.nodes ?? []}
+        rows={rows}
         queries={[nodes]}
         empty="Belum ada node terdaftar."
         caption="Daftar node"
@@ -88,6 +92,7 @@ export function AdminNodesView() {
           <>
             <TableHead scope="col">Nama</TableHead>
             <TableHead scope="col">Region</TableHead>
+            {fleet ? <TableHead scope="col">Koneksi</TableHead> : null}
             <TableHead scope="col">Bisa dijadwalkan</TableHead>
             <TableHead scope="col">Instance</TableHead>
           </>
@@ -96,7 +101,8 @@ export function AdminNodesView() {
           <TableRow key={n.id}>
             <TableCell className="type-mono">{n.name}</TableCell>
             <TableCell className="type-mono text-muted-foreground">{n.region}</TableCell>
-            <TableCell className="type-label">{n.schedulable ? "Ya" : "Tidak"}</TableCell>
+            {fleet ? <TableCell className="type-label">{n.online ? "Terhubung" : "Terputus"}</TableCell> : null}
+            <TableCell className="type-label">{n.schedulable && n.online !== false ? "Ya" : "Tidak"}</TableCell>
             <TableCell className="type-mono">{n.instanceCount}</TableCell>
           </TableRow>
         )}

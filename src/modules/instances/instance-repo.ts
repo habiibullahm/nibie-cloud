@@ -52,6 +52,7 @@ async function casAndRecord(prisma: PrismaClient, o: TransitionOpts): Promise<vo
       where: {
         id: o.id,
         status: o.from,
+        recoveryNodeId: null,
         ...(o.owner ? { operationOwner: o.owner } : {}),
         ...(o.fence ? { AND: [o.fence] } : {}),
       },

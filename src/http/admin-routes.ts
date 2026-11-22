@@ -20,6 +20,7 @@ import { AppError, AuthUnavailableError, ForbiddenError, NotFoundError, QueueUna
 import { registerAdminMcp } from './admin-mcp.js';
 import { ADJUST_MAX_IDR, assertUnderCap, lockWallet, moveWallet, readWallet } from '../modules/billing/wallet.js';
 import { rateBody, type AiAccountService } from '../modules/nibierouter/ai-account.js';
+import type { RuntimeFleet } from '../modules/runtime/fleet.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -38,6 +39,7 @@ export interface AdminDeps {
   queue?: JobQueue | null;
   /** Host snapshot for the Node page. Absent: the production path `HOST_USAGE_FILE`. */
   hostUsageFile?: string;
+  fleet?: RuntimeFleet;
 }
 
 const BEARER = /^Bearer ([^\s]+)$/;
@@ -658,9 +660,11 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
         orderBy: { name: 'asc' },
         select: { id: true, name: true, region: true, schedulable: true, _count: { select: { instances: { where: { deletedAt: null } } } } },
       });
-      // shortcut: one snapshot for the one host the backend runs on; per-node snapshots come with multi-node scheduling.
-      const host = await readHostUsage(deps.admin.hostUsageFile);
-      return { nodes: nodes.map((n) => ({ id: n.id, name: n.name, region: n.region, schedulable: n.schedulable, instanceCount: n._count.instances })), host };
+      const host = deps.admin.fleet ? null : await readHostUsage(deps.admin.hostUsageFile);
+      return { nodes: nodes.map((n) => ({
+        id: n.id, name: n.name, region: n.region, schedulable: n.schedulable, instanceCount: n._count.instances,
+        ...deps.admin.fleet?.nodeStatus(n.id),
+      })), host };
     });
 
     api.get('/subscriptions', async (req) => {

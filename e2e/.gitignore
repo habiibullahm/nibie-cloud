@@ -1,7 +1,9 @@
 node_modules
 playwright-report
+playwright-report-fleet
 test-results
 .auth
+.local
 .env.e2e
 
 !.env.e2e.example

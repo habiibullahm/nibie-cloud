@@ -201,6 +201,11 @@ describe('loadConfig: customer API settings', () => {
     expect(loadConfig({ ...base, SUPABASE_URL: 'https://abcd.supabase.co/' }).supabaseUrl).toBe('https://abcd.supabase.co');
   });
 
+  it('allows loopback http SUPABASE_URL outside production, and rejects it in production', () => {
+    expect(loadConfig({ ...base, SUPABASE_URL: 'http://127.0.0.1:54421/' }).supabaseUrl).toBe('http://127.0.0.1:54421');
+    expect(() => loadConfig({ ...base, NODE_ENV: 'production', SUPABASE_URL: 'http://127.0.0.1:54421', HERMES_RUNTIME: 'runsc', REDIS_URL: 'redis://127.0.0.1:6379', SECRETS_KEK: '0'.repeat(64) })).toThrow('SUPABASE_URL');
+  });
+
   it.each(['http://abcd.supabase.co', 'not a url', 'https://abcd.supabase.co/auth/v1'])(
     'rejects SUPABASE_URL %s',
     (v) => {

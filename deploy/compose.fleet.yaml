@@ -1,0 +1,7 @@
+# Optional overlay for the existing control plane. Keep per-node client keys outside the checkout.
+services:
+  backend:
+    environment:
+      HERMES_RUNTIME_FLEET_FILE: /etc/hermes-cloud/fleet/fleet.json
+    volumes:
+      - /etc/hermes-cloud/fleet:/etc/hermes-cloud/fleet:ro

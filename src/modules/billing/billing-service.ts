@@ -10,6 +10,7 @@ import { renderEmail, type EmailKind } from './email-templates.js';
 import { periodAfterPayment } from './lifecycle.js';
 import type { Mailer } from './mailer.js';
 import { hasStock, stockLeft, totalLoad } from '../instances/capacity.js';
+import type { NodeScheduler } from '../instances/node-scheduler.js';
 import type { PaymentClient } from './payment-client.js';
 import { SUMOPOD_MIN_AMOUNT_IDR } from './sumopod-client.js';
 import { verifySvixSignature, type SvixHeaders } from './svix.js';
@@ -56,6 +57,7 @@ export interface SubscriptionView {
 }
 
 export interface BillingDeps {
+  placement?: NodeScheduler;
   prisma: PrismaClient;
   /** Creates invoices (SumoPod). */
   paymentClient: PaymentClient;
@@ -180,11 +182,12 @@ export class BillingService {
         data: { status: 'EXPIRED' },
       });
       await this.assertCapacity(tx, i.tenantId, now);
+      await this.assertStock(tx, plan, now);
+      const reservedNodeId = await this.d.placement?.select(tx, plan, now);
       // A new purchase is refused before any invoice exists when the server is full; paying customers are never blocked here.
       if (this.d.maxTotalInstances != null && (await totalLoad(tx, now)) >= this.d.maxTotalInstances) throw new CapacityFullError();
-      await this.assertStock(tx, plan, now);
       const subscription = await tx.subscription.create({
-        data: { tenantId: i.tenantId, planId: plan.id, intendedName: i.name, idempotencyKey: i.idempotencyKey },
+        data: { tenantId: i.tenantId, planId: plan.id, intendedName: i.name, idempotencyKey: i.idempotencyKey, reservedNodeId },
       });
       const payment = await tx.payment.create({ data: this.newPayment(subscription.id, 'NEW', price, now) });
       return { subscription, payment, needsInvoice: true };
@@ -213,6 +216,7 @@ export class BillingService {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${i.tenantId}))`;
       const inst = await tx.instance.findFirst({ where: { id: i.instanceId, tenantId: i.tenantId }, include: { plan: true } });
       if (!inst || inst.status === 'DELETING' || inst.status === 'DELETED') throw new NotFoundError('Instance not found');
+      if (inst.recoveryNodeId) throw new ConflictError('Instance is being restored by an operator');
       let existing = await tx.subscription.findUnique({ where: { instanceId: inst.id } });
       if (existing?.status === 'ENDED') {
         // An ended subscription still linked to a live instance (e.g. ended elsewhere) must not block a new upgrade.
@@ -233,8 +237,9 @@ export class BillingService {
         await tx.subscription.update({ where: { id: existing.id }, data: { status: 'ENDED', instanceId: null, idempotencyKey: null } });
       }
       await this.assertStock(tx, plan, now);
+      const reservedNodeId = await this.d.placement?.select(tx, plan, now, { fixedNodeId: inst.nodeId, currentPlan: inst.plan });
       const subscription = await tx.subscription.create({
-        data: { tenantId: i.tenantId, planId: plan.id, instanceId: inst.id, intendedName: inst.name, idempotencyKey: i.idempotencyKey },
+        data: { tenantId: i.tenantId, planId: plan.id, instanceId: inst.id, intendedName: inst.name, idempotencyKey: i.idempotencyKey, reservedNodeId },
       });
       const payment = await tx.payment.create({ data: this.newPayment(subscription.id, 'NEW', price, now) });
       return { subscription, payment, needsInvoice: true };
@@ -618,6 +623,7 @@ export class BillingService {
     if (!first) return;
     const { instance } = await this.d.commands.provision({
       tenantId: sub.tenantId, name: sub.intendedName, planId: sub.planId, idempotencyKey: `pay-${first.merchantOrderId}`,
+      ...(this.d.placement ? { billingSubscriptionId: sub.id } : {}),
     });
     await this.d.prisma.subscription.updateMany({ where: { id: sub.id, instanceId: null }, data: { instanceId: instance.id } });
     // The AI provider (router user, key, one-time credit) never fails the payment: `begin` swallows its own errors,
@@ -644,8 +650,18 @@ export class BillingService {
     }
     await this.d.router?.begin({ tenantId: sub.tenantId, instanceId: inst.id, subscriptionId: sub.id });
     const changed = await this.d.prisma.$transaction(async (tx) => {
-      const n = await tx.instance.updateMany({ where: { id: inst.id, planId: inst.planId }, data: { planId: sub.planId, configRevision: { increment: 1 } } });
-      if (n.count === 1) await tx.instanceEvent.create({ data: { instanceId: inst.id, type: 'plan.changed', message: 'Plan upgraded after payment' } });
+      if (this.d.placement) {
+        const [current, plan] = await Promise.all([
+          tx.plan.findUniqueOrThrow({ where: { id: inst.planId } }),
+          tx.plan.findUniqueOrThrow({ where: { id: sub.planId } }),
+        ]);
+        await this.d.placement.select(tx, plan, this.now(), { fixedNodeId: inst.nodeId, currentPlan: current, subscriptionId });
+      }
+      const n = await tx.instance.updateMany({ where: { id: inst.id, planId: inst.planId, recoveryNodeId: null }, data: { planId: sub.planId, configRevision: { increment: 1 } } });
+      if (n.count === 1) {
+        if (this.d.placement) await tx.subscription.update({ where: { id: sub.id }, data: { reservedNodeId: null } });
+        await tx.instanceEvent.create({ data: { instanceId: inst.id, type: 'plan.changed', message: 'Plan upgraded after payment' } });
+      }
       return n.count === 1;
     });
     if (!changed) return;
@@ -708,7 +724,18 @@ export class BillingService {
   private async replay(tx: Prisma.TransactionClient, existing: Subscription, price: number, now: Date): Promise<{ subscription: Subscription; payment: Payment; needsInvoice: boolean }> {
     const latest = await tx.payment.findFirst({ where: { subscriptionId: existing.id }, orderBy: { createdAt: 'desc' } });
     const live = latest && latest.status === 'PENDING' && latest.paymentUrl !== null && latest.expiresAt.getTime() > now.getTime();
-    if (existing.status !== 'PENDING_PAYMENT' || live) return { subscription: existing, payment: latest as Payment, needsInvoice: false };
+    if (existing.status !== 'PENDING_PAYMENT') return { subscription: existing, payment: latest as Payment, needsInvoice: false };
+    if (this.d.placement && (!live || !existing.reservedNodeId)) {
+      const [plan, inst] = await Promise.all([
+        tx.plan.findUniqueOrThrow({ where: { id: existing.planId } }),
+        existing.instanceId ? tx.instance.findUniqueOrThrow({ where: { id: existing.instanceId }, include: { plan: true } }) : null,
+      ]);
+      const reservedNodeId = await this.d.placement.select(tx, plan, now, {
+        subscriptionId: existing.id, preferredNodeId: existing.reservedNodeId, fixedNodeId: inst?.nodeId, currentPlan: inst?.plan,
+      });
+      existing = await tx.subscription.update({ where: { id: existing.id }, data: { reservedNodeId } });
+    }
+    if (live) return { subscription: existing, payment: latest as Payment, needsInvoice: false };
     if (latest && latest.status === 'PENDING' && latest.paymentUrl === null) {
       await tx.payment.update({ where: { id: latest.id }, data: { status: 'FAILED' } });
     }
