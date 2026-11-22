@@ -22,7 +22,7 @@ function parseOrigin(v: string, opts: { httpsOnly: boolean; allowTrailingSlash: 
 
 const supabaseUrl = z.preprocess(
   emptyToUndefined,
-  z.string().refine((v) => parseOrigin(v, { httpsOnly: true, allowTrailingSlash: true }) !== null).optional(),
+  z.string().refine((v) => parseOrigin(v, { httpsOnly: false, allowTrailingSlash: true }) !== null).optional(),
 );
 const dashboardOrigin = z.preprocess(
   emptyToUndefined,
@@ -213,6 +213,16 @@ const schema = z.object({
       ctx.addIssue({ code: 'custom', path: ['CORS_EXTRA_ORIGINS'], message: 'is for development only and must be unset in production' });
     } else if (splitList(e.CORS_EXTRA_ORIGINS).some((o) => parseOrigin(o, { httpsOnly: false, allowTrailingSlash: false }) === null)) {
       ctx.addIssue({ code: 'custom', path: ['CORS_EXTRA_ORIGINS'], message: 'must be comma-separated origins without a path' });
+    }
+  }
+  if (e.SUPABASE_URL !== undefined) {
+    const origin = parseOrigin(e.SUPABASE_URL, { httpsOnly: false, allowTrailingSlash: true });
+    if (origin) {
+      const parsed = new URL(origin);
+      const loopback = parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost' || parsed.hostname === '[::1]';
+      if (parsed.protocol !== 'https:' && (e.NODE_ENV === 'production' || !loopback)) {
+        ctx.addIssue({ code: 'custom', path: ['SUPABASE_URL'], message: 'must use https (http is allowed only on loopback outside production)' });
+      }
     }
   }
   // A half-filled mail block would only fail later, when the first email is sent.

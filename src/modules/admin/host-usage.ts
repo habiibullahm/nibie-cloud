@@ -20,7 +20,7 @@ export type HostUsage = z.infer<typeof snapshot>;
  * The latest host snapshot, or null when the file is missing or malformed (timer not installed yet, or a dev machine).
  * One small file read per admin request: the backend never runs `docker stats` or polls anything for this.
  */
-export async function readHostUsage(file: string = HOST_USAGE_FILE): Promise<HostUsage | null> {
+export async function readHostUsage(file: string = process.env.HERMES_HOST_USAGE_FILE || HOST_USAGE_FILE): Promise<HostUsage | null> {
   try {
     const parsed = snapshot.safeParse(JSON.parse(await readFile(file, 'utf8')));
     return parsed.success ? parsed.data : null;

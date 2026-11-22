@@ -21,6 +21,7 @@ const env = z.object({
   HERMES_AGENT_PORT: z.coerce.number().int().min(1024).max(65535).default(9443),
   HERMES_AGENT_TLS_DIR: z.string().min(1),
   HERMES_AGENT_QUOTA_FILE: z.string().optional(),
+  HERMES_AGENT_HOST_USAGE_FILE: z.string().optional(),
   DOCKER_SOCKET_PATH: z.string().default('/var/run/docker.sock'),
   HERMES_RUNTIME: z.enum(['runc', 'runsc']).default('runsc'),
   HERMES_DISK_QUOTA: z.enum(['enforce', 'off']).default('enforce'),
@@ -46,6 +47,7 @@ const app = buildRuntimeAgent({
   tls: await loadAgentTls(env.HERMES_AGENT_TLS_DIR), name: env.HERMES_AGENT_NAME,
   production, config, runtime, ping: () => docker.ping(), logger,
   quotaFile: env.HERMES_AGENT_QUOTA_FILE,
+  hostUsageFile: env.HERMES_AGENT_HOST_USAGE_FILE,
 });
 await app.listen({ host: env.HERMES_AGENT_BIND, port: env.HERMES_AGENT_PORT });
 logger.info({ node: env.HERMES_AGENT_NAME }, 'runtime agent ready');

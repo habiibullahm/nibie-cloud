@@ -52,6 +52,17 @@ several still describe branches as "not committed" or billing as "OFF" that have
 - **Automated checks passed:**
   - After review fixes (Windows + local Docker/Postgres/Redis): `pnpm build` (`tsc --noEmit`), 40/42 unit files (533/533 tests; `egress-canary` and `egress-rules` are the 2 Linux-shell unit files that fail on Windows), integration suites `multi-node-fleet`, `alert-scanner`, `admin-api`, `customer-api`, `billing-upgrade` (5/5 files, 60/60 tests), and `recovery` + `instance-service` (2/2 files, 51/51 tests). Dashboard (`apps/web`): `pnpm typecheck`, `pnpm lint`, 26/26 test files (219/219 tests).
   - Earlier full Linux container & `jkt-2` staging verification (before the review fixes): Linux unit suite 42/42 (547/547) and 20/20 DB+Redis integration suites (282 passed, 62 skipped). Note: pre-existing `test/integration/customer-auth.test.ts:91` still expects unmasked `203.0.113.9` after commit `90833e9` masked logged IPs to `/24` (`203.0.113.0`); left untouched.
+- **Local fleet E2E harness (2026-11-23):** `cd e2e; node run-fleet-e2e.mjs [--rebuild] [--down]` runs four Playwright specs
+  (`e2e/tests/fleet/`) against a local two-node fleet: `jkt-1` on the host Docker daemon, `jkt-2` as a `docker:27-dind` container
+  plus `src/runtime-agent.ts` over mTLS on `127.0.0.1:19443` (`e2e/support/local-fleet.mjs`), with an isolated GoTrue on
+  `127.0.0.1:54421` (TOTP MFA on, email/password only, no Google) (`e2e/support/local-auth-stack.mjs`), API `:3400` and dashboard
+  `:3410`. Generated secrets and passwords live in the git-ignored `e2e/.local/`. Covers customer lifecycle on `jkt-1`, admin MFA +
+  Node page, operator placement/capacity/cordon/outage/cross-node recovery, and billing/upgrade/waitlist reservations
+  (`test/validation/fleet-billing-e2e.ts`). Result on Windows + Docker Desktop: 4/4 passed. Backend changes for it:
+  `SUPABASE_URL` may be `http` on loopback (`127.0.0.1`, `localhost`, `[::1]`) when `NODE_ENV` is not `production`
+  (unit-tested); `HERMES_HOST_USAGE_FILE` (control plane) and `HERMES_AGENT_HOST_USAGE_FILE` (agent) override the host snapshot
+  path. Known quirk: with `REDIS_URL` set, a queued action returns the pre-transition status, so the dashboard stops polling until
+  reload; the spec waits on DB state and reloads.
 - **Cleanup & remaining production cutover:** Temporary staging containers, images, network, and staging TLS directory were
   removed locally and on `jkt-2`. `jkt-2` retains its prepared permanent host baseline (Docker CE 29.9.3, `runsc`, XFS mount,
   egress rules, `hermes-usage.timer`, `/usr/local/sbin/hermes-*`, pinned official Hermes + canary images). Production cutover
