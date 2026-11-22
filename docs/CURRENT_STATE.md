@@ -4,6 +4,18 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Tenant snapshot verification requires a SQLite database (2026-11-22, local)
+
+- `ops/host/hermes-tenant-backup.sh --verify` exits nonzero when the restored staging directory of the sampled instance has
+  no `.db` files or any database fails `PRAGMA integrity_check`. SQLite opens the staged copies read-only.
+- Local fixture check with Restic 0.16.4: a files-only snapshot exited `1` (base `abf6e99` exited `0`), a snapshot with a
+  corrupt SQLite copy exited `1`, and a snapshot produced by the backup script with two healthy SQLite copies exited `0`.
+  A separate restore recovered the pre-backup session marker from `state.db`.
+- VPS preflight on 2026-11-22: the installed verifier still has the base blob (`c145d91`). The reviewed patch is
+  `a2b5ead`. A synthetic session marker was written to the internal source at 00:19 UTC and read back through Hermes
+  session export. The next regular volume snapshot is due at 20:00 UTC. The restore drill is pending a snapshot
+  that contains the marker.
+
 ## Paid checkout open, Privacy Policy updated (2026-11-21, branch `claude/privacy-policy`, not merged)
 
 - **Paid checkout is open** since 2026-11-20 19:26 UTC (owner: "open aj kn ada stock"): `PAID_CHECKOUT_OPEN=true` on the VPS

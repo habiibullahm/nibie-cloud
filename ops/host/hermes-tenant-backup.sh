@@ -52,16 +52,34 @@ for x in s:
     t=[t for t in x["tags"] if t.startswith("inst-")][0]
     if t not in by or x["time"]>by[t]["time"]: by[t]=x
 x=random.choice(list(by.values())); print(x["short_id"], [t for t in x["tags"] if t.startswith("inst-")][0])') || { echo "no tenant snapshots to verify" >&2; exit 1; }
-  id=${pick%% *}; echo "verifying snapshot $pick"
+  read -r id tag <<< "$pick"
+  echo "verifying snapshot $pick"
   restic restore "$id" --target "$tmp" --quiet
   files=$(find "$tmp" -type f | wc -l)
   [ "$files" -gt 0 ] || { echo "verify FAILED: the snapshot restored no files" >&2; exit 1; }
-  bad=0
-  while IFS= read -r db; do
-    r=$(python3 -c 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute("pragma integrity_check").fetchone()[0])' "$db" 2>&1 || true)
-    [ "$r" = ok ] || { echo "integrity_check failed for ${db#"$tmp"/}: $r" >&2; bad=1; }
-  done < <(find "$tmp" -path '*hermes-backup-staging*' -name '*.db')
-  [ "$bad" = 0 ] || exit 1
+  stage_root=$(realpath -ms -- "$STAGE_ROOT")
+  stage="$tmp$stage_root/${tag#inst-}"
+  if [ -d "$stage" ]; then
+    find "$stage" -type f -name '*.db' -print0
+  fi | (
+    found=0; bad=0
+    while IFS= read -r -d '' db; do
+      found=1
+      if ! r=$(python3 - "$db" 2>&1 <<'PY'
+from pathlib import Path
+import sqlite3, sys
+with sqlite3.connect(Path(sys.argv[1]).as_uri() + "?mode=ro", uri=True) as conn:
+    for (result,) in conn.execute("PRAGMA integrity_check"):
+        print(result)
+PY
+      ) || [ "$r" != ok ]; then
+        echo "integrity_check failed for ${db#"$tmp"/}: $r" >&2
+        bad=1
+      fi
+    done
+    [ "$found" = 1 ] || { echo "verify FAILED: the snapshot restored no SQLite databases in staging" >&2; exit 1; }
+    [ "$bad" = 0 ]
+  )
   echo "verify OK: $files files restored, databases pass integrity_check"
   exit 0
 fi
