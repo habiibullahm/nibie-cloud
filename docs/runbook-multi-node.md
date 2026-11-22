@@ -40,7 +40,9 @@ stays on its own host until an operator performs recovery.
    Set storage to fit the XFS mount and leave working space for backups. Review the measured peak use
    before raising limits. An allocated stopped instance keeps its reservation.
 2. Mount the host-private manifest and controller TLS credentials with
-   [the control-plane overlay](../deploy/compose.fleet.yaml). A configured remote node registers
+   [the control-plane overlay](../deploy/compose.fleet.yaml). `ops/host/deploy.sh` adds the overlay by itself
+   whenever `/etc/hermes-cloud/fleet/fleet.json` exists, so automatic deploys and rollbacks keep fleet mode.
+   A configured remote node registers
    cordoned. Confirm `GET /api/v1/runtime-nodes` on the loopback operator API reports both nodes online.
    Inspect existing open invoices and invitations when turning the feature on. Previously created
    invoices have no node hold until replay and can still be fulfilled when capacity exists.
