@@ -16,7 +16,7 @@ const KEY = 'sk-canary-provider-key-0123456789';
 const KEY2 = 'sk-canary-second-key-9876543210';
 const BASE = 'https://llm.example.com/v1';
 
-interface Call { url: string; auth: string | undefined }
+interface Call { url: string; auth: string | undefined; maxBytes: number | undefined }
 let calls: Call[];
 let lines: string[];
 let respond: (url: string) => Promise<{ status: number; headers: Record<string, string>; body: string }>;
@@ -25,7 +25,7 @@ let svc: ProviderService;
 let secrets: PrismaSecretStore;
 
 const fetcher: Fetcher = async (url, opts) => {
-  calls.push({ url, auth: opts.headers?.authorization });
+  calls.push({ url, auth: opts.headers?.authorization, maxBytes: opts.maxBytes });
   return respond(url);
 };
 const ok = async () => ({ status: 200, headers: {}, body: JSON.stringify({ data: [{ id: 'm' }], secretEcho: 'UPSTREAM-BODY-CANARY' }) });
@@ -91,7 +91,7 @@ describe('ProviderService', () => {
     await svc.put(s.tenant.id, inst.id, { baseUrl: BASE, model: 'm', apiKey: KEY });
     const v = await svc.test(s.tenant.id, inst.id);
     expect(v).toMatchObject({ status: 'OK', lastErrorCode: null });
-    expect(calls).toEqual([{ url: `${BASE}/models`, auth: `Bearer ${KEY}` }]);
+    expect(calls).toEqual([{ url: `${BASE}/models`, auth: `Bearer ${KEY}`, maxBytes: 4 * 1024 * 1024 }]);
     expect(JSON.stringify(v)).not.toContain('UPSTREAM-BODY-CANARY');
     expect(JSON.stringify(await prisma.providerConfig.findMany())).not.toContain('UPSTREAM-BODY-CANARY');
   });

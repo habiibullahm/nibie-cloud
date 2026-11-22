@@ -1,8 +1,18 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-22 (live readiness and launch stock). Earlier entries below keep their own dates, and
+Last updated: 2026-11-22 (provider test `unreachable` hotfix, pending merge & deploy). Earlier entries below keep their own dates, and
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
+
+## Provider test `unreachable` hotfix (2026-11-22)
+
+- **Root causes of `POST /api/v1/instances/:id/providers/test` returning `status: "FAILED"`, `lastErrorCode: "unreachable"` for `https://router.nibie.app/v1`:**
+  1. `ProviderService.test` (`src/modules/integrations/provider-service.ts`) used `defaultFetcher`'s 64 KiB `maxBytes` cap, while `https://router.nibie.app/v1/models` currently returns 72,258 bytes (and OpenRouter's `/models` returns ~925 KB); `safeFetch` aborted with `OutboundFailedError('too_large')`, which `ProviderService.test` mapped to `lastErrorCode: 'unreachable'`.
+  2. `safeFetch` (`src/modules/net/safe-fetch.ts`) validated all DNS answers from `dns.lookup(..., { all: true, verbatim: true })` and then pinned only `addresses[0]` in the custom `lookup` callback. For Cloudflare-fronted hosts (`router.nibie.app`, etc.) that return AAAA records first, an IPv4-only host had no IPv4 fallback and failed immediately with `ENETUNREACH` (`unreachable`).
+- **Fix:**
+  - `ProviderService.test` passes `maxBytes: 4 * 1024 * 1024` (4 MiB) to `this.fetcher` for `GET {baseUrl}/models`.
+  - `safeFetch` returns all validated addresses from that single DNS resolution in `lookup` (filtering by requested family when `4` or `6` is specified), keeping anti-rebinding and SSRF blocking on every IP while letting Node's `autoSelectFamily` fall back from unreachable IPv6 to IPv4.
+- **Verified locally (Windows + local Postgres/Redis):** `pnpm build` (`tsc --noEmit`), `test/integration/safe-fetch.test.ts` (24/24), `test/integration/provider-service.test.ts` (35/35), and `test/integration/integration-routes.test.ts` (14/14).
 
 ## Live readiness and launch stock (2026-11-22, production)
 

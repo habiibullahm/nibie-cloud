@@ -13,6 +13,8 @@ const PURPOSE = 'provider_api_key';
 const MODEL_FORMAT = /^[A-Za-z0-9._:/@+-]{1,100}$/;
 const KEY_FORMAT = /^[\x21-\x7e]{8,512}$/;
 const MAX_URL_LENGTH = 200;
+/** Public `/models` catalogues (e.g. NibieRouter ~72 KB, OpenRouter ~925 KB) exceed `defaultFetcher`'s 64 KB cap. */
+const TEST_MAX_BYTES = 4 * 1024 * 1024;
 
 export interface ProviderView {
   id: string;
@@ -129,7 +131,10 @@ export class ProviderService {
 
     let blocked = false;
     try {
-      const res = await this.fetcher(`${cfg.baseUrl}/models`, { headers: { authorization: `Bearer ${key}`, accept: 'application/json' } });
+      const res = await this.fetcher(`${cfg.baseUrl}/models`, {
+        headers: { authorization: `Bearer ${key}`, accept: 'application/json' },
+        maxBytes: TEST_MAX_BYTES,
+      });
       if (res.status >= 200 && res.status < 300) await record('OK', null);
       else if (res.status === 401 || res.status === 403) await record('FAILED', 'unauthorized');
       else await record('FAILED', 'unexpected_status');

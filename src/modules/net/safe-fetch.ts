@@ -59,7 +59,7 @@ export async function safeFetch(rawUrl: string, opts: SafeFetchOptions): Promise
   }
   if (addresses.length === 0) throw new OutboundFailedError('unreachable');
   if (addresses.some((a) => forbidden(a))) throw new OutboundBlockedError();
-  const pinned = addresses[0] as string;
+  const resolved = addresses.map((address) => ({ address, family: isIP(address) }));
 
   return new Promise<SafeFetchResult>((resolve, reject) => {
     let settled = false;
@@ -77,8 +77,29 @@ export async function safeFetch(rawUrl: string, opts: SafeFetchOptions): Promise
         method: opts.method ?? 'GET',
         headers: opts.headers,
         servername: isIP(hostname) === 0 ? hostname : undefined,
-        // Pin the connection to the address validated above; no second DNS lookup happens.
-        lookup: (_h, _o, cb) => (_o as { all?: boolean }).all ? (cb as unknown as (e: null, a: Array<{ address: string; family: number }>) => void)(null, [{ address: pinned, family: isIP(pinned) }]) : cb(null, pinned, isIP(pinned)),
+        // Pin the connection to the validated addresses above so no second DNS lookup happens,
+        // while keeping every validated address so Happy Eyeballs can fall back (e.g. IPv6 -> IPv4).
+        lookup: (_h, o, cb) => {
+          const reqFamily = typeof o === 'number' ? o : (o as { family?: number } | undefined)?.family;
+          const matches = reqFamily === 4 || reqFamily === 6 ? resolved.filter((a) => a.family === reqFamily) : resolved;
+          if (typeof o === 'object' && o !== null && (o as { all?: boolean }).all) {
+            if (matches.length === 0) {
+              (cb as unknown as (e: NodeJS.ErrnoException, a: Array<{ address: string; family: number }>) => void)(
+                Object.assign(new Error('No validated address'), { code: 'ENOTFOUND' }),
+                [],
+              );
+              return;
+            }
+            (cb as unknown as (e: null, a: Array<{ address: string; family: number }>) => void)(null, matches);
+            return;
+          }
+          const first = matches[0];
+          if (!first) {
+            cb(Object.assign(new Error('No validated address'), { code: 'ENOTFOUND' }), '', 4);
+            return;
+          }
+          cb(null, first.address, first.family);
+        },
         ...(opts.tls ?? {}),
       },
       (res) => {

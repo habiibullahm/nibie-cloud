@@ -120,6 +120,17 @@ describe('safeFetch', () => {
     }
   });
 
+  it('falls back to a later validated address when the first validated address is unreachable', async () => {
+    hits = [];
+    const r = await safeFetch(`https://pinned.example.test:${port}/ok`, {
+      ...base(),
+      ipPolicy: (ip) => ip !== '127.0.0.1' && ip !== '::1' && isForbiddenAddress(ip),
+      resolver: async () => ['::1', '127.0.0.1'],
+    });
+    expect(r.status).toBe(200);
+    expect(JSON.parse(r.body)).toEqual({ ok: true });
+  });
+
   it('an unreachable host reports a coarse reason only', async () => {
     await expect(safeFetch('https://pinned.example.test:1/', { ...base(), resolver: resolverTo('127.0.0.1') })).rejects.toMatchObject({ reason: 'unreachable' });
   });
