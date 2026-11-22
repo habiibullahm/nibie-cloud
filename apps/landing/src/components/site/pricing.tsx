@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { BETA_USERS, MIN_STORAGE_GB, PLANS, PLAN_SPECS, discountPercent, formatIdr, type Plan } from "@/lib/plans"
+import { BETA_USERS, PLANS, PLAN_SPECS, PRICING_INTRO, discountPercent, formatIdr, type Plan } from "@/lib/plans"
 import { ctaHref } from "@/lib/site"
 import { Section } from "./section"
 
@@ -14,7 +14,7 @@ export function Pricing({ headingLevel = "section" }: { headingLevel?: "section"
       </div>
       <p role="note" className="mt-4 max-w-[840px] rounded-md border border-input bg-elevated p-4 text-muted-foreground">
         <strong className="font-normal text-foreground">Soal pemakaian AI. </strong>
-        Kredit $2 diberikan satu kali di awal, bukan setiap bulan. Setelah kredit habis, atau pada paket Hosting,
+        Kredit $2 atau $3 diberikan satu kali di awal, bukan setiap bulan. Setelah kredit habis, atau pada paket tanpa kredit,
         pemakaian AI ditagih terpisah oleh NibieRouter atau provider pilihanmu. Tidak ada janji pemakaian AI tanpa
         batas.
       </p>
@@ -25,7 +25,7 @@ export function Pricing({ headingLevel = "section" }: { headingLevel?: "section"
       </p>
     </>
   )
-  const intro = `${PLAN_SPECS.app} dengan ${PLAN_SPECS.cpu}, ${PLAN_SPECS.ramGb} GB RAM, dan penyimpanan mulai ${MIN_STORAGE_GB} GB di region ${PLAN_SPECS.region}. Harga beta khusus untuk pengguna beta (${BETA_USERS} pengguna pertama).`
+  const intro = `${PRICING_INTRO} Harga beta khusus untuk pengguna beta (${BETA_USERS} pengguna pertama).`
   if (headingLevel === "page") return <div>{body}</div>
   return (
     <Section id="harga" label="Harga" title="Langganan bulanan dalam Rupiah" intro={intro}>
@@ -37,8 +37,8 @@ export function Pricing({ headingLevel = "section" }: { headingLevel?: "section"
 function PlanCard({ plan }: { plan: Plan }) {
   const specs: [string, string][] = [
     ["Aplikasi", PLAN_SPECS.app],
-    ["CPU", PLAN_SPECS.cpu.replace(" CPU", " core")],
-    ["RAM", `${PLAN_SPECS.ramGb} GB`],
+    ["CPU", `${plan.cpu} core`],
+    ["RAM", `${plan.ramGb} GB`],
     ["Penyimpanan", `${plan.storageGb} GB`],
     ["Region", PLAN_SPECS.region],
     ["Kredit NibieRouter", plan.creditUsd > 0 ? `$${plan.creditUsd}, sekali di awal` : "tidak termasuk"],

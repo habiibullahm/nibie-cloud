@@ -29,7 +29,7 @@ export default function KebijakanRefundPage() {
           <ul>
             <li>Pembayaran langganan yang sudah berjalan, di luar ketentuan 7 hari di atas.</li>
             <li>Perpanjangan langganan bulanan.</li>
-            <li>Pemakaian AI lewat NibieRouter, termasuk kredit $2 yang sudah terpakai.</li>
+            <li>Pemakaian AI lewat NibieRouter, termasuk kredit paket ($2 atau $3) yang sudah terpakai.</li>
             <li>Akun yang ditutup karena melanggar Syarat Layanan.</li>
           </ul>
         </section>
