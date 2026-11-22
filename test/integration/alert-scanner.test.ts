@@ -160,4 +160,17 @@ describe('AlertScanner', () => {
     expect((await scanner.scanOnce()).summarySent).toBe(true);
     expect(sent).toHaveLength(2);
   });
+
+  it('alerts when a deleted instance still has an unretired copy and clears once retired', async () => {
+    const i = await instance({ status: 'DELETED' });
+    await prisma.retiredRuntime.create({ data: { nodeId: s.node.id, instanceId: i.id, storageMb: 1024 } });
+    await scanner.scanOnce();
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toContain(i.id);
+    expect(sent[0]).toContain('recovery/retire');
+    await prisma.retiredRuntime.delete({ where: { nodeId_instanceId: { nodeId: s.node.id, instanceId: i.id } } });
+    now = at(1);
+    await scanner.scanOnce();
+    expect(sent.at(-1)).toContain('PULIH');
+  });
 });

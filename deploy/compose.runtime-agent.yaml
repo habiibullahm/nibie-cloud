@@ -1,0 +1,22 @@
+name: hermes-runtime-agent
+
+services:
+  agent:
+    image: ${HERMES_BACKEND_IMAGE:?set the backend image ref or release tag}
+    command: ["node_modules/.bin/tsx", "src/runtime-agent.ts"]
+    init: true
+    restart: unless-stopped
+    network_mode: host
+    env_file: /etc/hermes-cloud/runtime-agent.env
+    group_add: ["${DOCKER_GID:?set the host Docker socket group ID}"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /etc/hermes-cloud/agent-tls:/etc/hermes-cloud/agent-tls:ro
+      - /var/lib/hermes-usage:/var/lib/hermes-usage:ro
+      - /var/lib/hermes-backup-metadata:/var/lib/hermes-backup-metadata:ro
+      - /var/lib/hermes-quota-policy:/var/lib/hermes-quota-policy
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }

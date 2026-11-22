@@ -14,12 +14,17 @@ LOG_FILE=${LOG_FILE:-/var/log/hermes-volume-quota.log}
 DRY=${DRY_RUN:-0}
 log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*" | tee -a "$LOG_FILE" >&2; }
 
-token=$(grep -m1 '^ADMIN_TOKEN=' "$ENV_FILE" | cut -d= -f2-)
-[ -n "$token" ] || { log "ERROR: ADMIN_TOKEN missing in $ENV_FILE"; exit 1; }
-wanted=$(curl -fsS --max-time 10 -H "authorization: Bearer $token" "$API" \
-  | python3 -c 'import json,sys
+if [ -n "${DESIRED_QUOTAS_FILE:-}" ]; then
+  [ -f "$DESIRED_QUOTAS_FILE" ] || exit 0
+  inventory=$(cat "$DESIRED_QUOTAS_FILE")
+else
+  token=$(grep -m1 '^ADMIN_TOKEN=' "$ENV_FILE" | cut -d= -f2-)
+  [ -n "$token" ] || { log "ERROR: ADMIN_TOKEN missing in $ENV_FILE"; exit 1; }
+  inventory=$(curl -fsS --max-time 10 -H "authorization: Bearer $token" "$API") || { log "ERROR: could not read $API"; exit 1; }
+fi
+wanted=$(python3 -c 'import json,sys
 for v in json.load(sys.stdin)["volumes"]:
-    print(v["instanceId"], int(v["storageMb"]))') || { log "ERROR: could not read $API"; exit 1; }
+    print(v["instanceId"], int(v["storageMb"]))' <<<"$inventory") || { log "ERROR: invalid quota inventory"; exit 1; }
 
 # Current hard limits in KiB per project id (Docker sets soft = hard).
 report=$(xfs_quota -x -c 'report -p -n -b -N' "$MOUNT" 2>/dev/null)
@@ -28,6 +33,7 @@ raised=0; failed=0
 while read -r id mb; do
   [ -n "$id" ] || continue
   [[ $id =~ ^[0-9a-f-]{36}$ ]] || continue
+  [[ $mb =~ ^[1-9][0-9]{0,8}$ ]] || continue
   v="hermes-data-$id"
   dir=$(docker volume inspect -f '{{.Mountpoint}}' "$v" 2>/dev/null) || continue # not created yet, or gone
   proj=$(xfs_io -c lsproj "$dir" 2>/dev/null | awk '{print $NF}')

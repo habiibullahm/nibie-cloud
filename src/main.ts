@@ -1,4 +1,3 @@
-import Docker from 'dockerode';
 import { Redis } from 'ioredis';
 import 'dotenv/config';
 import { loadConfig } from './config/env.js';
@@ -36,40 +35,30 @@ import { AlertScanner } from './modules/ops/alert-scanner.js';
 import { PrismaAlertStore } from './modules/ops/alert-store.js';
 import { Alerter } from './modules/ops/alerter.js';
 import { createTelegramSink } from './modules/ops/telegram-sink.js';
-import { DockerRuntimeManager } from './modules/runtime/docker-runtime-manager.js';
-import { assertDiskQuotaSupported } from './modules/runtime/disk-quota-check.js';
-import { DnsResolvConfError, ensureDnsResolvConf } from './modules/runtime/dns-resolv-conf.js';
-import { EgressCanaryError, EgressPolicyError, runEgressCanary } from './modules/runtime/egress-canary.js';
-import { assertRuntimeAvailable } from './modules/runtime/runtime-availability.js';
+import { openHostRuntime } from './modules/runtime/host-runtime.js';
+import { RuntimeFleet } from './modules/runtime/fleet.js';
+import { NodeScheduler } from './modules/instances/node-scheduler.js';
+import { NodeRecovery, retireDeletedCopies } from './modules/instances/node-recovery.js';
 import { createLogger } from './shared/logger.js';
 
 const config = loadConfig();
 const logger = createLogger();
 const prisma = createPrisma(config.databaseUrl);
-const docker = new Docker({ socketPath: config.dockerSocketPath });
-await assertRuntimeAvailable(docker, config.runtime);
-await assertDiskQuotaSupported(docker, config.diskQuota);
-if (config.egressPolicy === 'enforce') {
-  // Refuse to serve tenants when the host ruleset is missing: the error names the failed check only.
-  try {
-    await runEgressCanary({ docker, image: config.canaryImage!, privateIp: config.canaryPrivateIp, runtime: config.runtime, logger });
-  } catch (e) {
-    if (e instanceof EgressPolicyError || e instanceof EgressCanaryError) logger.error(e.message);
-    else logger.error('Egress canary failed unexpectedly');
-    process.exit(1);
-  }
+const { docker, runtime: local } = await openHostRuntime(config, logger);
+const fleet = process.env.HERMES_RUNTIME_FLEET_FILE?.trim()
+  ? await RuntimeFleet.open({ file: process.env.HERMES_RUNTIME_FLEET_FILE, prisma, local, ping: () => docker.ping() })
+  : undefined;
+if (!fleet && await prisma.runtimeNode.findFirst({
+  where: {
+    agentManaged: true,
+    OR: [{ schedulable: true }, { instances: { some: { status: { not: 'DELETED' } } } }, { recoveryCopies: { some: {} } }, { retiredCopies: { some: {} } }],
+  },
+  select: { id: true },
+})) {
+  throw new Error('Fleet configuration is required while remote nodes are enabled or host instances');
 }
-if (config.runtime === 'runsc' && config.dnsResolvers.length > 0) {
-  // Without this, tenant containers under runsc get no working DNS (see dns-resolv-conf.ts).
-  try {
-    await ensureDnsResolvConf({ docker, image: config.canaryImage!, resolvers: config.dnsResolvers, runtime: config.runtime, logger });
-  } catch (e) {
-    if (e instanceof DnsResolvConfError) logger.error(e.message);
-    else logger.error('Tenant DNS resolv.conf setup failed unexpectedly');
-    process.exit(1);
-  }
-}
-const runtime = new DockerRuntimeManager({ docker, logger });
+const runtime = fleet ?? local;
+const placement = fleet ? new NodeScheduler(() => fleet.placementNodes()) : undefined;
 // Credential storage exists only when a key-encryption key is configured; otherwise the provider and
 // Telegram routes answer 503 and containers are created without customer configuration.
 const secretStore = config.secrets
@@ -88,16 +77,17 @@ const integrations: Integrations | null = secretStore && config.secrets
   : null;
 logger.info({ secretStore: secretStore !== null }, 'secret storage');
 const purge = secretStore ? (tenantId: string, instanceId: string) => purgeIntegrations({ prisma, secrets: secretStore }, tenantId, instanceId) : undefined;
+const retireCopies = fleet ? (instanceId: string) => retireDeletedCopies({ prisma, fleet, logger }, instanceId) : undefined;
 const logService = new LogService({ prisma, runtime, loader: runtimeConfig, masterKey: config.masterKey });
 const service = new InstanceService({
   prisma, runtime, image: config.hermesImage, production: config.nodeEnv === 'production', logger,
-  masterKey: config.masterKey, containerRuntime: config.runtime, dnsResolvers: config.dnsResolvers, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy, runtimeConfig, ...(purge ? { purgeIntegrations: purge } : {}),
+  masterKey: config.masterKey, containerRuntime: config.runtime, dnsResolvers: config.dnsResolvers, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy, runtimeConfig, placement, localNodeId: fleet?.localNodeId(), ...(purge ? { purgeIntegrations: purge } : {}), ...(retireCopies ? { retireCopies } : {}),
 });
 // With a job queue the sweeper owns PENDING rows; the reaper must not fail them first.
-const reconciler = new Reconciler({ prisma, runtime, logger, masterKey: config.masterKey, containerRuntime: config.runtime, dnsResolvers: config.dnsResolvers, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy, reapPending: config.redisUrl === null, runtimeConfig, ...(purge ? { purgeIntegrations: purge } : {}) });
+const reconciler = new Reconciler({ prisma, runtime, logger, masterKey: config.masterKey, containerRuntime: config.runtime, dnsResolvers: config.dnsResolvers, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy, reapPending: config.redisUrl === null, runtimeConfig, ...(purge ? { purgeIntegrations: purge } : {}), ...(retireCopies ? { retireCopies } : {}) });
 // The customer API exists only when a Supabase project is configured.
 const customer = config.supabaseUrl
-  ? { verify: createTokenVerifier({ supabaseUrl: config.supabaseUrl }), identity: new IdentityService({ prisma }), prisma }
+  ? { verify: createTokenVerifier({ supabaseUrl: config.supabaseUrl }), identity: new IdentityService({ prisma }), prisma, fleet }
   : undefined;
 logger.info({ customerApi: customer !== undefined }, 'customer API');
 // With REDIS_URL, operations are jobs and the reconciler is a scheduled job; without it, everything runs inline.
@@ -121,7 +111,7 @@ const billing = config.billing && config.dashboardOrigin
       prisma,
       paymentClient: createSumoPodClient(config.billing.sumopod),
       sumopodAuth: { webhookToken: config.billing.sumopod.webhookToken, webhookSecret: config.billing.sumopod.webhookSecret ?? null },
-      commands, mailer,
+      commands, mailer, placement,
       dashboardOrigin: config.dashboardOrigin, maxInstancesPerTenant: config.maxInstancesPerTenant, maxTotalInstances: config.maxTotalInstances, logger,
       ...(router ? { router } : {}),
       walletEnabled: config.walletEnabled === true,
@@ -136,7 +126,7 @@ const billingTick = billing
   : null;
 // Automatic waiting list: invites the oldest waiting entry whenever a free beta slot opens. Needs the free slots and email.
 const waitlistInviter = customer && config.freeBetaSlots > 0
-  ? new WaitlistInviter({ prisma, mailer, logger, slots: config.freeBetaSlots, registerUrl: `${config.dashboardOrigin ?? 'https://cloud.nibie.app'}/dashboard/register` })
+  ? new WaitlistInviter({ prisma, mailer, logger, slots: config.freeBetaSlots, placement, registerUrl: `${config.dashboardOrigin ?? 'https://cloud.nibie.app'}/dashboard/register` })
   : null;
 // Captcha on the public waiting-list form (the same Turnstile widget as the dashboard sign-up).
 const captcha = config.turnstileSecret ? createTurnstileVerifier({ secret: config.turnstileSecret }) : null;
@@ -145,7 +135,7 @@ logger.info({ billing: billing !== null, mail: mailer.enabled }, 'billing');
 // The admin API exists only when a Supabase project is configured: it authenticates the same tokens
 // the customer API does. An empty ADMIN_EMAILS opens it to nobody (fail closed).
 const admin = customer
-  ? { verify: customer.verify, prisma, audit: new AuditService({ prisma }), queue }
+  ? { verify: customer.verify, prisma, audit: new AuditService({ prisma }), queue, fleet }
   : undefined;
 logger.info({ adminApi: admin !== undefined, adminEmails: config.adminEmails.length }, 'admin API');
 // Operator alerts: derived from state the platform already records, delivered to the owner's Telegram.
@@ -160,7 +150,13 @@ const readiness = {
   docker: async () => { await docker.ping(); },
   ...(readyRedis ? { redis: async () => { if (readyRedis.status === 'wait') await readyRedis.connect(); await readyRedis.ping(); } } : {}),
 };
-const app = buildServer({ service, commands, queue, config, logger, integrations, logs: logService, billing, readiness, mailer, captcha, ai, router, ...(customer ? { customer } : {}), ...(admin ? { admin } : {}) });
+const nodes = fleet && placement ? {
+  prisma, fleet, placement, recovery: new NodeRecovery({
+    prisma, fleet, placement, loadConfig: runtimeConfig,
+    config: { masterKey: config.masterKey, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy, containerRuntime: config.runtime, dnsResolvers: config.dnsResolvers },
+  }),
+} : undefined;
+const app = buildServer({ service, commands, queue, config, logger, integrations, logs: logService, billing, readiness, mailer, captcha, ai, router, nodes, ...(customer ? { customer } : {}), ...(admin ? { admin } : {}) });
 
 let stopReconciler: () => void | Promise<void> = () => undefined;
 let stopWorker: (() => Promise<void>) | undefined;
@@ -213,6 +209,7 @@ async function shutdown() {
   await app.close().catch(() => undefined); // stop taking requests first
   await Promise.allSettled([Promise.resolve(stopReconciler()), stopWorker?.(), queue?.close(), readyRedis?.quit()]);
   stopDiskMonitor();
+  fleet?.close();
   await prisma.$disconnect().catch(() => undefined);
   process.exit(0);
 }

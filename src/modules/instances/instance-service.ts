@@ -1,5 +1,5 @@
 import type { Instance, InstanceStatus, Plan, Prisma, PrismaClient } from '@prisma/client';
-import { ConflictError, InstanceLimitError, NetworkPolicyMissingError, NotFoundError, RuntimeUnavailableError, ValidationError, VolumeQuotaMissingError } from '../../shared/errors.js';
+import { CapacityFullError, ConflictError, InstanceLimitError, NetworkPolicyMissingError, NotFoundError, RuntimeUnavailableError, ValidationError, VolumeQuotaMissingError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import { isUuid } from '../../shared/uuid.js';
 import { noRuntimeConfig, type RuntimeConfigLoader } from '../integrations/runtime-env.js';
@@ -10,6 +10,8 @@ import type { DiskQuotaMode, EgressPolicyMode, RuntimeManager, SupportedRuntime 
 import { findOwned, noteQuotaMismatch, revert, transition } from './instance-repo.js';
 import { newLease, startHeartbeat, type Lease } from './lease.js';
 import { markApplied, runtimeSpec, startOrRecreate } from './runtime-apply.js';
+import type { NodeScheduler } from './node-scheduler.js';
+import { totalLoad } from './capacity.js';
 
 export interface InstanceView {
   id: string;
@@ -29,6 +31,9 @@ export interface ProvisionInput {
   idempotencyKey: string;
   maxInstances?: number;
   activePlanOnly?: boolean;
+  billingSubscriptionId?: string;
+  waitlistEmail?: string;
+  maxTotalInstances?: number;
 }
 
 export interface InstanceServiceDeps {
@@ -57,7 +62,11 @@ export interface InstanceServiceDeps {
   runtimeConfig?: RuntimeConfigLoader;
   /** Removes the instance's provider and Telegram configuration and secrets once its runtime is gone. */
   purgeIntegrations?: (tenantId: string, instanceId: string) => Promise<void>;
+  /** Best-effort cleanup of retired source volumes left on other nodes after recovery. */
+  retireCopies?: (instanceId: string) => Promise<void>;
   now?: () => Date;
+  placement?: NodeScheduler;
+  localNodeId?: string;
 }
 
 class HealthTimeout extends Error {}
@@ -124,6 +133,9 @@ export class InstanceService {
   private readonly now: () => Date;
   private readonly runtimeConfig: RuntimeConfigLoader;
   private readonly purgeIntegrations: (tenantId: string, instanceId: string) => Promise<void>;
+  private readonly retireCopies: (instanceId: string) => Promise<void>;
+  private readonly placement?: NodeScheduler;
+  private readonly localNodeId?: string;
 
   constructor(deps: InstanceServiceDeps) {
     assertPinnedImage(deps.image, { production: deps.production });
@@ -143,6 +155,9 @@ export class InstanceService {
     this.now = deps.now ?? (() => new Date());
     this.runtimeConfig = deps.runtimeConfig ?? noRuntimeConfig;
     this.purgeIntegrations = deps.purgeIntegrations ?? (async () => undefined);
+    this.retireCopies = deps.retireCopies ?? (async () => undefined);
+    this.placement = deps.placement;
+    this.localNodeId = deps.localNodeId;
   }
 
   /**
@@ -169,6 +184,7 @@ export class InstanceService {
     if (!tenant) throw new NotFoundError('Tenant not found');
     const plan = await this.prisma.plan.findUnique({ where: { id: input.planId } });
     if (!plan || (input.activePlanOnly && !plan.active)) throw new NotFoundError('Plan not found');
+    if (this.placement) return this.createPlaced(input, plan, this.placement);
     const node = await this.prisma.runtimeNode.findFirst({ where: { schedulable: true }, orderBy: { name: 'asc' } });
     if (!node) throw new RuntimeUnavailableError('No schedulable runtime node');
 
@@ -195,6 +211,51 @@ export class InstanceService {
     return { instance: row, plan, needsRun: true };
   }
 
+  private async createPlaced(input: ProvisionInput, plan: Plan, placement: NodeScheduler) {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${input.tenantId}))`;
+      const existing = await tx.instance.findUnique({
+        where: { tenantId_idempotencyKey: { tenantId: input.tenantId, idempotencyKey: input.idempotencyKey } },
+      });
+      if (existing) {
+        if (existing.name !== input.name || existing.planId !== plan.id) {
+          throw new ConflictError('Idempotency-Key was already used with a different request');
+        }
+        return { instance: existing, plan, needsRun: existing.status === 'FAILED' };
+      }
+      if (input.maxInstances !== undefined) {
+        const count = await tx.instance.count({ where: { tenantId: input.tenantId, status: { not: 'DELETED' } } });
+        if (count >= input.maxInstances) throw new InstanceLimitError();
+      }
+      const purchase = input.billingSubscriptionId ? await tx.subscription.findFirst({
+        where: { id: input.billingSubscriptionId, tenantId: input.tenantId, planId: plan.id, instanceId: null, status: { in: ['ACTIVE', 'GRACE', 'SUSPENDED'] } },
+        select: { id: true, reservedNodeId: true },
+      }) : null;
+      if (input.billingSubscriptionId && !purchase) throw new ConflictError('Purchase cannot create an instance');
+      const now = this.now();
+      const invite = input.waitlistEmail && plan.monthlyPriceIdr === null ? await tx.waitlistEntry.findFirst({
+        where: { email: input.waitlistEmail.toLowerCase().trim(), status: 'INVITED', inviteExpiresAt: { gt: now } },
+        select: { id: true, email: true, reservedNodeId: true },
+      }) : null;
+      const nodeId = await placement.select(tx, plan, now, {
+        subscriptionId: purchase?.id, waitlistEmail: invite?.email,
+        preferredNodeId: purchase?.reservedNodeId ?? invite?.reservedNodeId,
+      });
+      if (input.maxTotalInstances !== undefined && (await totalLoad(tx, now)) >= input.maxTotalInstances) {
+        throw new CapacityFullError();
+      }
+      const instance = await tx.instance.create({
+        data: { tenantId: input.tenantId, planId: plan.id, nodeId, name: input.name, idempotencyKey: input.idempotencyKey, image: this.image },
+      });
+      if (purchase) await tx.subscription.update({ where: { id: purchase.id }, data: { instanceId: instance.id, reservedNodeId: null } });
+      if (invite) await tx.waitlistEntry.update({ where: { id: invite.id }, data: { reservedNodeId: null } });
+      await tx.instanceEvent.create({
+        data: { instanceId: instance.id, type: 'runtime.placed', message: 'Capacity reserved on runtime node' },
+      });
+      return { instance, plan, needsRun: true };
+    }, { timeout: 15_000 });
+  }
+
   /** Count and insert under a per-tenant advisory lock, so concurrent requests cannot exceed the cap. */
   private async createWithinLimit(data: Prisma.InstanceUncheckedCreateInput, max: number): Promise<Instance> {
     return this.prisma.$transaction(async (tx) => {
@@ -214,13 +275,19 @@ export class InstanceService {
     return toView(await findOwned(this.prisma, tenantId, instanceId));
   }
 
+  async getForCommand(tenantId: string, instanceId: string): Promise<InstanceView> {
+    const instance = await findOwned(this.prisma, tenantId, instanceId);
+    if (instance.recoveryNodeId) throw new ConflictError('Instance is being restored by an operator');
+    return toView(instance);
+  }
+
   /**
    * The disk each live instance's plan allows. Read by the host job `hermes-volume-quota` (ops/host), which raises a
    * volume's XFS quota when it is smaller, e.g. after a free instance was upgraded to a paid plan.
    */
   async volumeQuotas(): Promise<Array<{ instanceId: string; storageMb: number }>> {
     const rows = await this.prisma.instance.findMany({
-      where: { status: { notIn: ['DELETING', 'DELETED'] } },
+      where: { nodeId: this.localNodeId, status: { notIn: ['DELETING', 'DELETED'] } },
       select: { id: true, plan: { select: { storageMb: true } } },
     });
     return rows.map((r) => ({ instanceId: r.id, storageMb: r.plan.storageMb }));
@@ -291,6 +358,7 @@ export class InstanceService {
         id: i.id, from: 'DELETING', to: 'DELETED', owner, eventType: 'instance.deleted', message: 'Instance and data deleted',
         data: { deletedAt: new Date(), hostPort: null },
       });
+      await this.retireCopies(i.id);
     });
     return this.get(tenantId, instanceId);
   }

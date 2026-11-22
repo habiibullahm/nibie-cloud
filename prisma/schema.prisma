@@ -96,7 +96,12 @@ model RuntimeNode {
   name        String     @unique
   region      String
   schedulable Boolean    @default(true)
+  agentManaged Boolean   @default(false)
   instances   Instance[]
+  checkoutReservations Subscription[]
+  betaReservations WaitlistEntry[]
+  recoveryCopies Instance[] @relation("RecoveryTarget")
+  retiredCopies RetiredRuntime[]
 }
 
 model Instance {
@@ -104,6 +109,7 @@ model Instance {
   tenantId            String         @db.Uuid
   planId              String         @db.Uuid
   nodeId              String         @db.Uuid
+  recoveryNodeId      String?        @db.Uuid
   name                String
   idempotencyKey      String
   status              InstanceStatus @default(PENDING)
@@ -132,6 +138,8 @@ model Instance {
   tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   plan         Plan                @relation(fields: [planId], references: [id], onDelete: Restrict)
   node         RuntimeNode         @relation(fields: [nodeId], references: [id], onDelete: Restrict)
+  recoveryNode RuntimeNode?        @relation("RecoveryTarget", fields: [recoveryNodeId], references: [id], onDelete: Restrict)
+  retiredCopies RetiredRuntime[]
   events       InstanceEvent[]
   provider     ProviderConfig?
   telegram     TelegramConnection?
@@ -142,6 +150,20 @@ model Instance {
   @@index([status])
   @@index([status, leaseExpiresAt])
   @@index([tenantId])
+  @@index([nodeId, status])
+  @@index([recoveryNodeId])
+}
+
+/// A stopped source copy still takes up local disk until the operator explicitly discards it.
+model RetiredRuntime {
+  nodeId     String      @db.Uuid
+  instanceId String      @db.Uuid
+  storageMb  Int
+  node       RuntimeNode @relation(fields: [nodeId], references: [id], onDelete: Restrict)
+  instance   Instance    @relation(fields: [instanceId], references: [id], onDelete: Restrict)
+
+  @@id([nodeId, instanceId])
+  @@index([instanceId])
 }
 
 /// Append-only. Messages must be sanitized before insert (no secrets, no raw Docker errors).
@@ -246,6 +268,7 @@ model Subscription {
   tenantId          String             @db.Uuid
   planId            String             @db.Uuid
   instanceId        String?            @unique @db.Uuid
+  reservedNodeId    String?            @db.Uuid
   intendedName      String
   /// Checkout `Idempotency-Key`, bound to (intendedName, planId); null for rows not created by a checkout.
   idempotencyKey    String?
@@ -266,12 +289,14 @@ model Subscription {
   tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   plan     Plan            @relation(fields: [planId], references: [id], onDelete: Restrict)
   instance Instance?       @relation(fields: [instanceId], references: [id], onDelete: Restrict)
+  reservedNode RuntimeNode? @relation(fields: [reservedNodeId], references: [id], onDelete: Restrict)
   payments Payment[]
   notices  BillingNotice[]
 
   @@unique([tenantId, idempotencyKey])
   @@index([tenantId])
   @@index([status, currentPeriodEnd])
+  @@index([reservedNodeId])
 }
 
 enum PaymentPurpose {
@@ -572,11 +597,14 @@ model WaitlistEntry {
   confirmedAt      DateTime?      @db.Timestamptz(3)
   invitedAt        DateTime?      @db.Timestamptz(3)
   inviteExpiresAt  DateTime?      @db.Timestamptz(3)
+  reservedNodeId   String?        @db.Uuid
+  reservedNode     RuntimeNode?   @relation(fields: [reservedNodeId], references: [id], onDelete: Restrict)
   /// Invitation emails that failed to send; at 3 the entry is skipped (an unreachable address must not block the queue).
   inviteFailures   Int            @default(0)
   registeredAt     DateTime?      @db.Timestamptz(3)
 
   @@index([status, createdAt])
+  @@index([reservedNodeId])
 }
 
 /// Accounts the operator has invited to the beta, next to the `BETA_ALLOWED_EMAILS` env list (an email in either place

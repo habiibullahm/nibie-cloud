@@ -8,6 +8,18 @@ import type { InstanceService } from '../modules/instances/instance-service.js';
 import type { Integrations } from '../modules/integrations/types.js';
 import { registerOperatorIntegrationRoutes } from './integration-routes.js';
 import { NotFoundError, QueueUnavailableError } from '../shared/errors.js';
+import type { PrismaClient } from '@prisma/client';
+import type { RuntimeFleet } from '../modules/runtime/fleet.js';
+import type { NodeRecovery } from '../modules/instances/node-recovery.js';
+import type { NodeScheduler } from '../modules/instances/node-scheduler.js';
+import { nodeName } from '../modules/runtime/agent-protocol.js';
+
+export interface NodeOperatorDeps {
+  prisma: PrismaClient;
+  fleet: RuntimeFleet;
+  recovery: NodeRecovery;
+  placement: NodeScheduler;
+}
 
 export const createBody = z.object({ name: z.string(), planId: z.string().uuid() }).strict();
 export const idempotencyKey = z.string().min(1).max(128);
@@ -27,7 +39,7 @@ const PROXY_HEADERS = ['forwarded', 'x-forwarded-for', 'x-forwarded-host', 'x-fo
  * Operator-only API (bearer ADMIN_TOKEN). It is NOT the customer API: customers use the Supabase-token
  * surface in customer-routes.ts. Bind it to loopback; never route it from the public proxy.
  */
-export function registerOperatorRoutes(app: FastifyInstance, deps: { service: InstanceService; commands: InstanceCommands; queue: JobQueue | null; config: Config; integrations: Integrations | null }): void {
+export function registerOperatorRoutes(app: FastifyInstance, deps: { service: InstanceService; commands: InstanceCommands; queue: JobQueue | null; config: Config; integrations: Integrations | null; nodes?: NodeOperatorDeps }): void {
   const { service, commands, queue, config } = deps;
   app.register(async (api) => {
     api.addHook('onRequest', async (req, reply) => {
@@ -57,6 +69,45 @@ export function registerOperatorRoutes(app: FastifyInstance, deps: { service: In
 
     const base = '/tenants/:tenantId/instances';
     type Params = { tenantId: string; instanceId: string };
+
+    if (deps.nodes) {
+      const { prisma, fleet, recovery, placement } = deps.nodes;
+      api.get('/runtime-nodes', async () => {
+        const nodes = await prisma.runtimeNode.findMany({ orderBy: { name: 'asc' } });
+        return { nodes: nodes.map((node) => ({ ...node, ...fleet.nodeStatus(node.id) })) };
+      });
+      api.post<{ Params: { name: string } }>('/runtime-nodes/:name/schedulable', async (req) => {
+        const name = nodeName.parse(req.params.name);
+        const { schedulable } = z.strictObject({ schedulable: z.boolean() }).parse(req.body);
+        const result = await prisma.$transaction(async (tx) => {
+          await placement.lock(tx);
+          return tx.runtimeNode.updateMany({ where: { name }, data: { schedulable } });
+        });
+        if (!result.count) throw new NotFoundError('Runtime node not found');
+        return { name, schedulable };
+      });
+      api.get('/runtime-backup-live', async () => ({
+        instanceIds: (await prisma.instance.findMany({ where: { status: { not: 'DELETED' } }, select: { id: true } })).map(({ id }) => id),
+      }));
+      api.post<{ Params: Params }>(`${base}/:instanceId/recovery/prepare`, async (req) => {
+        const { tenantId, instanceId } = req.params;
+        const body = z.strictObject({ node: nodeName, sourceFenced: z.boolean().default(false) }).parse(req.body);
+        return recovery.prepare(tenantId, instanceId, body.node, body.sourceFenced);
+      });
+      api.post<{ Params: Params }>(`${base}/:instanceId/recovery/finish`, async (req) => {
+        const { tenantId, instanceId } = req.params;
+        const body = z.strictObject({ restoreVerified: z.literal(true), sourceFenced: z.boolean().default(false) }).parse(req.body);
+        return recovery.finish(tenantId, instanceId, body.sourceFenced);
+      });
+      api.post<{ Params: Params }>(`${base}/:instanceId/recovery/cancel`, async (req) => {
+        z.strictObject({ discardTarget: z.literal(true) }).parse(req.body);
+        return recovery.cancel(req.params.tenantId, req.params.instanceId);
+      });
+      api.post<{ Params: Params }>(`${base}/:instanceId/recovery/retire`, async (req) => {
+        const { node } = z.strictObject({ node: nodeName, discardSource: z.literal(true) }).parse(req.body);
+        return recovery.retire(req.params.tenantId, req.params.instanceId, node);
+      });
+    }
 
     api.post<{ Params: { tenantId: string } }>(base, async (req, reply) => {
       const key = idempotencyKey.parse(req.headers['idempotency-key']);

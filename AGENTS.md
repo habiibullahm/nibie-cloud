@@ -92,6 +92,19 @@ Latest verified test results live in `docs/CURRENT_STATE.md`, not here.
   `src/modules/runtime` talks to Docker, behind the `RuntimeManager` interface (`types.ts`);
   `src/modules/instances` depends only on that interface. The Docker socket is never mounted into a
   tenant container.
+- **Multi-node runtime fleet** (`src/runtime-agent.ts`, `src/modules/runtime/fleet.ts`, `agent-server.ts`,
+  `agent-client.ts`, `src/modules/instances/node-scheduler.ts`, `node-recovery.ts`, `docs/runbook-multi-node.md`):
+  opt-in via `HERMES_RUNTIME_FLEET_FILE` (a host-private copy of `deploy/runtime-fleet.example.json`).
+  Each remote VPS runs the same backend image as `src/runtime-agent.ts` over private/loopback mTLS (`AGENT_API`
+  `/v1/runtime`, strict Zod protocol). `RuntimeFleet` routes every `RuntimeManager` call and backup metadata read
+  by `Instance.nodeId`, refreshes node health and pushes per-node desired XFS quota inventories (`quotaPolicy`).
+  `NodeScheduler` enforces CPU/RAM/disk budgets under an advisory transaction lock across live instances,
+  open checkout/upgrade reservations (`Subscription.reservedNodeId`), waitlist invites (`WaitlistEntry.reservedNodeId`),
+  staged recovery copies (`Instance.recoveryNodeId`) and unretired source copies (`RetiredRuntime`, RLS on).
+  Operator routes `/api/v1/runtime-nodes`, `/runtime-nodes/:name/schedulable`, `/runtime-backup-live`, and
+  `/recovery/{prepare,finish,cancel,retire}` manage nodes and cross-node recovery. Shared Restic retention runs
+  on the control plane (`hermes-tenant-backup --retention`, `hermes-tenant-retention.timer`); remote nodes use
+  `RESTIC_RETENTION_MODE=fleet` and distinct `RESTIC_BACKUP_HOST`.
 - **Docker names derive from instance UUIDs only** (`hermes-<id>`, `hermes-data-<id>`,
   `hermes-net-<id>`), never customer text. This is what makes every runtime call idempotent.
 - **Lifecycle** (`state-machine.ts`, `instance-service.ts`): every status change is a database

@@ -203,6 +203,8 @@ export interface AdminNode {
   region: string
   schedulable: boolean
   instanceCount: number
+  online?: boolean
+  host?: AdminHostUsage | null
 }
 
 /** Host snapshot written every 5 minutes by the hermes-usage timer on the VPS. Sizes in MB. */

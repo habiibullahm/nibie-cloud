@@ -53,6 +53,8 @@ export interface ReconcilerDeps {
   runtimeConfig?: RuntimeConfigLoader;
   /** Removes the instance's provider and Telegram configuration and secrets once its runtime is gone. */
   purgeIntegrations?: (tenantId: string, instanceId: string) => Promise<void>;
+  /** Best-effort cleanup of retired source volumes left on other nodes after recovery. */
+  retireCopies?: (instanceId: string) => Promise<void>;
 }
 
 const WATCHED = ['ACTIVE', 'DEGRADED'] as const;
@@ -87,6 +89,7 @@ export class Reconciler {
       reapPending: true,
       runtimeConfig: noRuntimeConfig,
       purgeIntegrations: async () => undefined,
+      retireCopies: async () => undefined,
       ...deps,
     };
   }
@@ -202,6 +205,7 @@ export class Reconciler {
               id: i.id, from: 'DELETING', to: 'DELETED', owner: lease.owner, eventType: 'instance.deleted', message: 'Instance and data deleted',
               data: { deletedAt: new Date(), hostPort: null },
             });
+            await this.d.retireCopies(i.id);
           }
         } finally {
           stopBeat();

@@ -1,0 +1,20 @@
+{
+  "local": {
+    "name": "jkt-1",
+    "region": "jkt",
+    "cpuMillis": 3000,
+    "memoryMb": 10240,
+    "storageMb": 81920
+  },
+  "remote": [
+    {
+      "name": "jkt-2",
+      "region": "jkt",
+      "cpuMillis": 1000,
+      "memoryMb": 4096,
+      "storageMb": 20480,
+      "origin": "https://127.0.0.1:19443",
+      "tlsDir": "/etc/hermes-cloud/fleet/jkt-2"
+    }
+  ]
+}

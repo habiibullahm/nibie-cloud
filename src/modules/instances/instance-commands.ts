@@ -38,7 +38,7 @@ export class InstanceCommands {
   private async run(op: Exclude<InstanceOp, 'provision'>, tenantId: string, instanceId: string): Promise<CommandResult> {
     const { service, queue } = this.d;
     if (!queue) return { instance: await service[op](tenantId, instanceId), jobId: null };
-    const instance = await service.get(tenantId, instanceId); // 404 for other tenants' ids
+    const instance = await service.getForCommand(tenantId, instanceId);
     if (decideOp(op, instance.status) === 'noop') return { instance, jobId: null };
     const { jobId } = await queue.enqueue({ op, tenantId, instanceId });
     return { instance, jobId };

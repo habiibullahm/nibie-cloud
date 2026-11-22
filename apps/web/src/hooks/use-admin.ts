@@ -88,7 +88,12 @@ export function useAdminPlans() {
 }
 
 export function useAdminNodes() {
-  return useQuery({ queryKey: adminKeys.nodes, queryFn: () => getAdminApi().nodes(), staleTime: LONG })
+  return useQuery({
+    queryKey: adminKeys.nodes,
+    queryFn: () => getAdminApi().nodes(),
+    staleTime: LONG,
+    refetchInterval: (query) => query.state.data?.nodes.some((node) => node.online !== undefined) ? 15_000 : false,
+  })
 }
 
 export function useAdminWaitlist() {
