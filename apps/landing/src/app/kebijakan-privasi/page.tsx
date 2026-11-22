@@ -1,12 +1,13 @@
 import type { Metadata } from "next"
 import { PageShell, Prose } from "@/components/site/page-shell"
+import { pageMetadata } from "@/lib/metadata"
 import { SITE, contactEmail } from "@/lib/site"
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Kebijakan Privasi",
   description: "Data pribadi apa yang dikumpulkan Nibie Cloud, untuk apa, dan bagaimana kami menjaganya.",
-  alternates: { canonical: "/kebijakan-privasi" },
-}
+  path: "/kebijakan-privasi",
+})
 
 export default function KebijakanPrivasiPage() {
   const email = contactEmail()

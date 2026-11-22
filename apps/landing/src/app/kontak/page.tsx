@@ -1,12 +1,13 @@
 import type { Metadata } from "next"
 import { PageShell } from "@/components/site/page-shell"
+import { pageMetadata } from "@/lib/metadata"
 import { SITE, contactEmail } from "@/lib/site"
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Kontak",
   description: "Hubungi tim Nibie Cloud untuk pertanyaan, akses beta, refund, atau bantuan teknis.",
-  alternates: { canonical: "/kontak" },
-}
+  path: "/kontak",
+})
 
 // At least 44x44px on touch (hit-area) and the button focus ring, without changing how the link reads in the row.
 const linkClass =

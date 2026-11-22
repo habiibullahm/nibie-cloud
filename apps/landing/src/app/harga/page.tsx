@@ -1,13 +1,14 @@
 import type { Metadata } from "next"
 import { PageShell } from "@/components/site/page-shell"
 import { Pricing } from "@/components/site/pricing"
+import { pageMetadata } from "@/lib/metadata"
 import { BETA_USERS, MIN_STORAGE_GB, PLAN_SPECS } from "@/lib/plans"
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Harga",
   description: "Harga langganan bulanan Nibie Cloud dalam Rupiah: paket Hosting dan Hosting + Kredit AI, dengan harga beta untuk 100 pengguna pertama.",
-  alternates: { canonical: "/harga" },
-}
+  path: "/harga",
+})
 
 export default function HargaPage() {
   return (

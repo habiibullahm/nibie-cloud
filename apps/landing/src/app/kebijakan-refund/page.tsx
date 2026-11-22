@@ -1,12 +1,13 @@
 import type { Metadata } from "next"
 import { PageShell, Prose } from "@/components/site/page-shell"
+import { pageMetadata } from "@/lib/metadata"
 import { SITE, contactEmail } from "@/lib/site"
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Kebijakan Refund",
   description: "Syarat pengembalian dana untuk langganan Nibie Cloud.",
-  alternates: { canonical: "/kebijakan-refund" },
-}
+  path: "/kebijakan-refund",
+})
 
 export default function KebijakanRefundPage() {
   const email = contactEmail()
