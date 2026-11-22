@@ -4,6 +4,19 @@ Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Website social link preview / Open Graph metadata (2026-11-22, local)
+
+- Added 1200x630 PNG Open Graph images matching `DESIGN.md` tokens (`#0B0D0F`, `#14171A`, `#2A2F34`, `Bricolage Grotesque`,
+  `Onest`, and the Nibie paper mark) for landing (`apps/landing/public/og-image.png`), dashboard (`apps/web/public/og-image.png`),
+  and docs (`apps/docs/public/og-image.png`).
+- Upgraded `apps/landing` default title (`Nibie Cloud — Hosting Agent AI Hermes, Tanpa Urus Server`) and description, added
+  `twitter:card = summary_large_image` + `twitter:image` + full `og:image` tags, and added `apps/landing/src/lib/metadata.ts`
+  so every subpage (`/harga`, `/kontak`, legal pages) keeps its own title, description, canonical URL, and the OG/Twitter image.
+- Added `metadataBase`, `openGraph`, `twitter` (`summary_large_image`), and `og-image.png` to `apps/web` and `apps/docs`
+  (including per-page docs `generateMetadata`).
+- Local checks passed: `apps/landing` typecheck, lint, 71 tests (including new `test/metadata.test.ts`), and `next build` (verified
+  generated `out/index.html` and `out/harga.html` tags); `apps/web` typecheck and lint; `apps/docs` typecheck and lint.
+
 ## C1 customer Backup & Recovery (2026-11-22, pending review and deployment)
 
 - `GET /api/v1/instances/:id/backups` reads the host's last Restic inventory and the last verification of that instance.

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next"
 import { Bricolage_Grotesque, Onest } from "next/font/google"
 import { SiteHeader } from "@/components/site/site-header"
 import { SiteFooter } from "@/components/site/site-footer"
+import { DEFAULT_DESCRIPTION, DEFAULT_TITLE, OG_IMAGE } from "@/lib/metadata"
 import { SITE } from "@/lib/site"
 import "./globals.css"
 
@@ -21,21 +22,25 @@ const onest = Onest({
   display: "swap",
 })
 
-const DESCRIPTION =
-  "Hosting terkelola untuk agent AI Hermes. Satu container terisolasi dan satu volume untuk setiap pelanggan, tanpa VPS dan tanpa perawatan. Harga dalam Rupiah."
-
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
-  title: { default: `${SITE.name}: hosting agent AI Hermes`, template: `%s · ${SITE.name}` },
-  description: DESCRIPTION,
+  title: { default: DEFAULT_TITLE, template: `%s · ${SITE.name}` },
+  description: DEFAULT_DESCRIPTION,
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     locale: "id_ID",
     siteName: SITE.name,
-    title: `${SITE.name}: hosting agent AI Hermes`,
-    description: DESCRIPTION,
-    url: SITE.url,
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    url: "/",
+    images: [OG_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
+    images: [{ url: OG_IMAGE.url, alt: OG_IMAGE.alt }],
   },
 }
 

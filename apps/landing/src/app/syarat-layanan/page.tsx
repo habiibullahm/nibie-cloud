@@ -1,13 +1,14 @@
 import type { Metadata } from "next"
 import { PageShell, Prose } from "@/components/site/page-shell"
+import { pageMetadata } from "@/lib/metadata"
 import { BETA_USERS } from "@/lib/plans"
 import { SITE, contactEmail } from "@/lib/site"
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Syarat Layanan",
   description: "Syarat dan ketentuan penggunaan layanan hosting agent AI Nibie Cloud.",
-  alternates: { canonical: "/syarat-layanan" },
-}
+  path: "/syarat-layanan",
+})
 
 export default function SyaratLayananPage() {
   const email = contactEmail()
