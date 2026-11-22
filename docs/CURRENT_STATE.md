@@ -1,8 +1,22 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-18 (docs refresh, see the first section). Earlier entries below keep their own dates, and
+Last updated: 2026-11-22 (live readiness and launch stock). Earlier entries below keep their own dates, and
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
+
+## Live readiness and launch stock (2026-11-22, production)
+
+- Paid checkout was already open in SumoPod production mode. Live stock was 10 `hosting` and 10 `hosting-kredit`, all 20
+  available. Raised `FREE_BETA_SLOTS` from 0 to 10 and `MAX_TOTAL_INSTANCES` from 20 to 30, then recreated the backend on
+  the same image (`d812484`). The public free-slot endpoint returned 10 total and 9 available. One free instance was already
+  active, with no waiting-list reservations.
+- The VPS backend answered `/readyz` (PostgreSQL, Redis and Docker), the public API answered `/healthz`, and the operator
+  queue showed zero failed jobs. The landing, pricing and dashboard registration pages returned 200. The landing and pricing
+  buttons still point to email; customers can register directly at `/dashboard/register`. No new paid order or signup was
+  placed during this check.
+- The host had 4 vCPU, 15.1 GiB RAM and about 98 GiB free on the XFS tenant volume. The 30 plans together allow up to
+  30 GiB of container memory and 160 GiB of tenant disk. Load at full occupancy has not been measured.
+- Rollback copy: `/etc/hermes-cloud/backend.env.bak-stock-20261122T010350Z` (mode 600).
 
 ## Website social link preview / Open Graph metadata (2026-11-22, local)
 
