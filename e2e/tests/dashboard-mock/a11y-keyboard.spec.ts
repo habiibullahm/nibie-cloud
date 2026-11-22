@@ -29,9 +29,7 @@ test("the Stop dialog opens from the keyboard and Escape closes it", async ({ pa
   await expect(page.getByRole("alertdialog")).toHaveCount(0)
 })
 
-// Reported, not fixed yet: after Escape the focus is lost (document.body) instead of returning to the Stop
-// button, because the dialog is opened from state, not from a Radix Trigger. Remove `fixme` when fixed.
-test.fixme("focus returns to the Stop button after the dialog closes", async ({ page }) => {
+test("focus returns to the Stop button after the dialog closes", async ({ page }) => {
   const stop = await openInstanceAndStopDialog(page)
   await page.keyboard.press("Escape")
   await expect(stop).toBeFocused()

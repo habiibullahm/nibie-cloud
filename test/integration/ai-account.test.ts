@@ -219,6 +219,15 @@ describe('AI account (NibieRouter balance in Rupiah)', () => {
     await inst(freePlan.id);
     expect(await ids()).toEqual([true, ['free-model']]);
 
+    // A positive AI balance unlocks paid models even when the tenant only has a free-plan instance.
+    await prisma.tenant.update({ where: { id: c.tenantId }, data: { routerUserId: 'ru-models' } });
+    router.balances.set('ru-models', 2n * NANO_PER_USD);
+    clock += 61_000;
+    expect(await ids()).toEqual([false, ['free-model', 'paid-model']]);
+    router.balances.set('ru-models', 0n);
+    clock += 61_000;
+    expect(await ids()).toEqual([true, ['free-model']]);
+
     const paid = await inst(plan.id);
     expect(await ids()).toEqual([false, ['free-model', 'paid-model']]);
     // A deleted paid instance no longer counts; another tenant's paid instance never did.

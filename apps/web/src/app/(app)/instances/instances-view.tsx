@@ -26,7 +26,7 @@ import {
 } from "@/lib/billing"
 import { useT } from "@/lib/i18n"
 import { arrangeInstances, countByGroup, GROUPS, SORTS, type InstanceGroup, type InstanceSort } from "@/lib/instance-list"
-import { startPayment } from "@/lib/pay"
+import { PayButton } from "@/components/app/pay-button"
 import { useLang } from "@/lib/prefs"
 import { presentStatus } from "@/lib/api/status"
 import { formatPriceIdr, formatRelative, shortId } from "@/lib/format"
@@ -364,11 +364,9 @@ function PendingPurchaseCard({ sub }: { sub: BillingSubscription }) {
         {sub.latestPayment ? ` · ${formatPriceIdr(sub.latestPayment.amountIdr, lang)}` : ""}
       </p>
       <p className="text-muted-foreground">{t("The instance is created as soon as the payment is confirmed.")}</p>
-      {url ? (
+      {url && sub.latestPayment ? (
         <div className="mt-auto flex items-center gap-3 border-t pt-3">
-          <Button size="sm" onClick={() => startPayment(url)}>
-            {t("Pay now")}
-          </Button>
+          <PayButton payment={sub.latestPayment} label={t("Pay now")} purpose={sub.name} qrisOnly variant="default" />
         </div>
       ) : null}
     </article>

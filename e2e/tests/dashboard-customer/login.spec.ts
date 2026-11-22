@@ -26,6 +26,7 @@ test("sign in, see the empty list, sign out", async ({ page }) => {
   await expect(page.getByText("No instances yet")).toBeVisible()
   await page.getByRole("button", { name: "Account menu" }).click()
   await page.getByRole("menuitem", { name: "Sign out" }).click()
+  await page.getByRole("alertdialog", { name: "Sign out?" }).getByRole("button", { name: "Sign out" }).click()
   await expect(page).toHaveURL(/\/dashboard\/sign-in$/)
   await page.goto("/dashboard/instances")
   await expect(page).toHaveURL(/\/dashboard\/sign-in$/)

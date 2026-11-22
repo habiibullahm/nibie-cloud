@@ -21,6 +21,7 @@ import { QueryFallback } from "@/components/app/query-fallback"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { PayButton, usePay } from "@/components/app/pay-button"
+import { useActionConfirmation } from "@/components/app/action-confirmation"
 import {
   useApiMode,
   useInstance,
@@ -63,6 +64,7 @@ export default function BillingPage() {
   const cancel = useCancelRenewal()
   const wallet = useWallet().data
   const { pay, covers, paying, confirm } = usePay()
+  const confirmAction = useActionConfirmation()
   const setAutoRenew = useSetAutoRenew()
   const mock = useApiMode() === "mock"
   const [confirmCancel, setConfirmCancel] = useState(false)
@@ -84,10 +86,11 @@ export default function BillingPage() {
     return <FreeUpgrade instanceId={id} plans={plans.data} pending={pending} />
   }
   const current = plans.data.find((p) => p.id === sub.planId)
-  const renewFromBalance = covers(current?.monthlyPriceIdr)
   const late = billingNotice(sub) !== null
   const date = (iso: string | null) => (iso ? formatDate(iso, lang) : t("Not set"))
   const payment = sub.latestPayment
+  const renewAmount = payment?.purpose === "RENEWAL" && payableUrl(payment) ? payment.amountIdr : current?.monthlyPriceIdr
+  const renewFromBalance = covers(renewAmount)
 
   const periodRow =
     sub.status === "ACTIVE" && !sub.cancelAtPeriodEnd
@@ -145,7 +148,14 @@ export default function BillingPage() {
               id="auto-renew"
               checked={sub.autoRenew}
               disabled={setAutoRenew.isPending || sub.cancelAtPeriodEnd}
-              onCheckedChange={(enabled) => setAutoRenew.mutate({ subscriptionId: sub.id, enabled })}
+              onCheckedChange={(enabled) => confirmAction({
+                title: enabled ? t("Turn on auto-renewal?") : t("Turn off auto-renewal?"),
+                description: enabled
+                  ? t("We’ll try to take {price} from your balance on the last day of each period.", { price: formatPriceIdr(current.monthlyPriceIdr, lang) })
+                  : t("You’ll need to renew this subscription manually to keep the instance running."),
+                label: enabled ? t("Turn on auto-renewal") : t("Turn off auto-renewal"),
+                run: () => setAutoRenew.mutate({ subscriptionId: sub.id, enabled }),
+              })}
             />
           </CardContent>
         ) : null}
@@ -154,7 +164,11 @@ export default function BillingPage() {
           <Button
             variant={late ? "outline" : "default"}
             disabled={!canRenew(sub) || renew.isPending || paying}
-            onClick={() => void pay({ amountIdr: current?.monthlyPriceIdr, create: async () => (await renew.mutateAsync(sub.id)).payment })}
+            onClick={() => pay({
+              amountIdr: renewAmount,
+              purpose: t("Renew {name}", { name: sub.name }),
+              create: async () => (await renew.mutateAsync(sub.id)).payment,
+            })}
           >
             {paying ? t("Paying…") : renew.isPending ? t("Preparing payment…") : renewFromBalance ? t("Renew from balance") : t("Renew now")}
           </Button>
@@ -254,7 +268,7 @@ function FreeUpgrade({ instanceId, plans, pending }: { instanceId: string; plans
             </p>
             {pendingUrl && pending?.latestPayment ? (
               <div className="mt-2">
-                <PayButton payment={pending.latestPayment} label={t("Continue payment")} />
+                <PayButton payment={pending.latestPayment} label={t("Continue payment")} purpose={t("Upgrade to {plan}", { plan: pending.planName })} />
               </div>
             ) : null}
           </AlertDescription>
@@ -284,8 +298,12 @@ function FreeUpgrade({ instanceId, plans, pending }: { instanceId: string; plans
                   className="mt-auto"
                   disabled={!p.available || upgrade.isPending || paying}
                   onClick={() =>
-                    void pay({
+                    pay({
                       amountIdr: p.monthlyPriceIdr,
+                      purpose: t("Upgrade to {plan}", { plan: p.name }),
+                      warning: pendingUrl && pending && pending.planId !== p.id
+                        ? t("This replaces the open invoice for {name}.", { name: pending.planName })
+                        : undefined,
                       create: async () => (await upgrade.mutateAsync({ instanceId, planId: p.id, idempotencyKey: `${visit}:${p.id}` })).payment,
                     })
                   }

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { useActionConfirmation } from "@/components/app/action-confirmation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -125,6 +126,7 @@ function SettingsCards({ s }: { s: AdminSettings }) {
 }
 
 function ApiKeys({ mcpPath }: { mcpPath: string }) {
+  const confirm = useActionConfirmation()
   const keys = useAdminApiKeys()
   const create = useCreateApiKey()
   const revoke = useRevokeApiKey()
@@ -151,20 +153,26 @@ function ApiKeys({ mcpPath }: { mcpPath: string }) {
 
   function submitCreate(e: React.FormEvent) {
     e.preventDefault()
+    if (create.isPending) return
     const problem = createKeyProblem({ name, reason }, MIN_REASON)
     setFormError(problem)
     if (problem) return
-    create.mutate(
-      { name: name.trim(), expiresInDays: expiryDays(expiry), reason: reason.trim() },
-      {
-        onSuccess: (r) => {
-          setCreated(r.plaintext)
-          setName("")
-          setReason("")
-        },
-        onError: (err) => setFormError(keyErrorMessage(err)),
-      }
-    )
+    confirm({
+      title: "Buat kunci admin?",
+      description: `Kunci ${name.trim()} dapat mengakses API dan MCP dengan izin admin kamu.`,
+      label: "Buat kunci",
+      run: () => create.mutate(
+        { name: name.trim(), expiresInDays: expiryDays(expiry), reason: reason.trim() },
+        {
+          onSuccess: (r) => {
+            setCreated(r.plaintext)
+            setName("")
+            setReason("")
+          },
+          onError: (err) => setFormError(keyErrorMessage(err)),
+        }
+      ),
+    })
   }
 
   function submitRevoke() {
@@ -377,6 +385,7 @@ function SupportContactCard() {
 
 /** Rupiah per US$1 for AI credit. Empty = the router's own rate. Every change needs a reason (audited). */
 function AiRateForm({ current }: { current: number | null }) {
+  const confirm = useActionConfirmation()
   const save = useSetAiCreditRate()
   const [rate, setRate] = useState(current === null ? "" : String(current))
   const [reason, setReason] = useState("")
@@ -384,21 +393,29 @@ function AiRateForm({ current }: { current: number | null }) {
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
+    if (save.isPending) return
     setError(null)
     const digits = rate.replace(/[^\d]/g, "")
     const idrPerUsd = digits === "" ? null : Number(digits)
     if (idrPerUsd !== null && (idrPerUsd < 5_000 || idrPerUsd > 50_000)) return setError("Kurs harus antara Rp 5.000 dan Rp 50.000, atau kosong untuk kurs NibieRouter.")
     if (reason.trim().length < MIN_REASON) return setError(`Alasan minimal ${MIN_REASON} karakter.`)
-    save.mutate(
-      { idrPerUsd, reason: reason.trim() },
-      {
-        onSuccess: () => {
-          setReason("")
-          toast.success(idrPerUsd === null ? "Kembali ke kurs NibieRouter." : "Kurs kredit AI disimpan.")
-        },
-        onError: (err) => setError(err instanceof Error ? err.message : "Gagal menyimpan."),
-      }
-    )
+    confirm({
+      title: "Ubah kurs kredit AI?",
+      description: idrPerUsd === null
+        ? "Pembelian kredit AI akan memakai kurs NibieRouter."
+        : `Pembelian kredit AI akan memakai kurs ${formatIdr(idrPerUsd)} per US$1.`,
+      label: "Simpan kurs",
+      run: () => save.mutate(
+        { idrPerUsd, reason: reason.trim() },
+        {
+          onSuccess: () => {
+            setReason("")
+            toast.success(idrPerUsd === null ? "Kembali ke kurs NibieRouter." : "Kurs kredit AI disimpan.")
+          },
+          onError: (err) => setError(err instanceof Error ? err.message : "Gagal menyimpan."),
+        }
+      ),
+    })
   }
 
   return (
@@ -428,6 +445,7 @@ function AiRateForm({ current }: { current: number | null }) {
 }
 
 function SupportContactForm(initial: { whatsapp: string; email: string; groupUrl: string }) {
+  const confirm = useActionConfirmation()
   const save = useSetSupportContact()
   const [whatsapp, setWhatsapp] = useState(initial.whatsapp)
   const [email, setEmail] = useState(initial.email)
@@ -436,27 +454,33 @@ function SupportContactForm(initial: { whatsapp: string; email: string; groupUrl
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
+    if (save.isPending) return
     setError(null)
-    save.mutate(
-      { whatsapp: whatsapp.trim(), email: email.trim(), groupUrl: groupUrl.trim() },
-      {
-        onSuccess: (saved) => {
-          setWhatsapp(saved.whatsapp ?? "")
-          setEmail(saved.email ?? "")
-          setGroupUrl(saved.groupUrl ?? "")
-          toast.success("Kontak bantuan disimpan.")
-        },
-        // The backend answers only "Invalid request" for a bad body, so say here what it checks.
-        onError: (err) =>
-          setError(
-            (err as { code?: string }).code === "validation_error"
-              ? "Nomor WhatsApp pakai kode negara (contoh 6281234567890), email harus valid, link grup berbentuk https://chat.whatsapp.com/kode."
-              : err instanceof Error
-                ? err.message
-                : "Gagal menyimpan."
-          ),
-      }
-    )
+    confirm({
+      title: "Simpan kontak bantuan?",
+      description: "Kontak yang kamu isi akan tampil kepada pelanggan di dashboard.",
+      label: "Simpan kontak",
+      run: () => save.mutate(
+        { whatsapp: whatsapp.trim(), email: email.trim(), groupUrl: groupUrl.trim() },
+        {
+          onSuccess: (saved) => {
+            setWhatsapp(saved.whatsapp ?? "")
+            setEmail(saved.email ?? "")
+            setGroupUrl(saved.groupUrl ?? "")
+            toast.success("Kontak bantuan disimpan.")
+          },
+          // The backend answers only "Invalid request" for a bad body, so say here what it checks.
+          onError: (err) =>
+            setError(
+              (err as { code?: string }).code === "validation_error"
+                ? "Nomor WhatsApp pakai kode negara (contoh 6281234567890), email harus valid, link grup berbentuk https://chat.whatsapp.com/kode."
+                : err instanceof Error
+                  ? err.message
+                  : "Gagal menyimpan."
+            ),
+        }
+      ),
+    })
   }
 
   return (

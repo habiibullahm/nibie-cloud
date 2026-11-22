@@ -1,6 +1,6 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-23 (Pro plans and node A stock). Earlier entries below keep their own dates, and
+Last updated: 2026-11-23 (dashboard action confirmations; AI balance and BYOK model discovery). Earlier entries below keep their own dates, and
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
@@ -19,6 +19,24 @@ several still describe branches as "not committed" or billing as "OFF" that have
   docs typecheck and lint. **Not deployed yet**: until it is, the live landing shows two plans while checkout already offers Pro.
 - Not done: changing an existing instance's plan to Pro (plan change is still "segera hadir"); multi-node (backlog, a second
   2 vCPU / 8 GB node is planned).
+
+## Dashboard action confirmations (2026-11-23, local)
+
+- Customer and admin dashboard actions that change data or send messages now ask for confirmation. Existing dialogs for
+  deletion, revocation and other sensitive actions continue to collect their required inputs.
+- Hosting checkout, renewal, upgrades and open invoices show the payment method and amount before opening SumoPod or
+  debiting the wallet. If the invoice returns a different amount, the customer reviews it and confirms again. The balance
+  and AI credit top-up dialogs show the amount on the confirm button. Auto-renewal changes and admin wallet adjustments
+  show their effect before saving.
+- Local checks passed: dashboard build, typecheck, lint and 220 unit tests, E2E typecheck and 34 dashboard Playwright tests
+  against an isolated mock server. The payment cases cover cancelled top-ups, AI balance deductions, renewed invoice
+  review and restoring keyboard focus after dismissal. Live customer billing and real-money payments were not run.
+
+## AI balance & BYOK model discovery (2026-11-22)
+
+- **Root cause (AI balance on free plan):** `ProviderService.models` / `ProviderService.setModel` (`src/modules/integrations/provider-service.ts`) and `AiAccountService.models` (`src/modules/nibierouter/ai-account.ts`) only checked whether the instance/tenant had a priced plan (`monthlyPriceIdr !== null`), returning `freeOnly: true` even when the tenant had a positive NibieRouter AI balance (`balanceNano > 0n`).
+- **Fix (AI balance):** Added `AiAccountService.hasBalance(tenantId)` (cached router usage with `CreditGrant` fallback when the router is unreachable), wired it into `ProviderService` via `hasAiBalance` in `src/main.ts`, and unlocked paid models on `GET /instances/:id/models`, `PUT /instances/:id/providers/model`, and `GET /ai/models` whenever the tenant has a positive AI balance. Updated the `freeOnly` hint copy in `apps/web` (`ai-models-view.tsx`, `configuration/page.tsx`, `i18n-id.ts`).
+- **BYOK model fetching:** Added `ProviderService.listByokModels` and `POST /api/v1/instances/:instanceId/providers/models` (`src/http/integration-routes.ts`, rate-limited, SSRF-checked via `safeFetch`, accepts `{ baseUrl, apiKey }` or `{}` to reuse saved BYOK credentials without ever sending a stored key to a different URL). Added `byokModels` to the dashboard API client (`apps/web/src/lib/api/`) and a "Fetch models" button + filterable picker to the BYOK form in `apps/web/src/app/(app)/instances/[id]/configuration/page.tsx`.
 
 ## Provider test `unreachable` hotfix (2026-11-22)
 

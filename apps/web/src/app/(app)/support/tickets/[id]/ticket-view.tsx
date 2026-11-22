@@ -6,6 +6,7 @@ import { useState } from "react"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/app/page-header"
+import { useActionConfirmation } from "@/components/app/action-confirmation"
 import { QueryFallback } from "@/components/app/query-fallback"
 import { TicketReply, TicketStatusChip, TicketThread } from "@/components/app/ticket-thread"
 import { errorMessage, useTicket, useTicketAction } from "@/hooks/use-hermes"
@@ -16,6 +17,7 @@ import { CATEGORY, CUSTOMER_STATUS } from "@/lib/ticket-labels"
 
 export function TicketView() {
   const t = useT()
+  const confirm = useActionConfirmation()
   const lang = useLang()
   const { id } = useParams<{ id: string }>()
   const ticket = useTicket(id)
@@ -53,16 +55,23 @@ export function TicketView() {
             sendingLabel={t("Sending…")}
             pending={action.reply.isPending}
             error={error}
-            onSend={(message, done) => {
-              setError(null)
-              action.reply.mutate(message, {
-                onSuccess: () => {
-                  done()
-                  void ticket.refetch()
-                },
-                onError: (e) => setError(errorMessage(e)),
-              })
-            }}
+            onSend={(message, done) => confirm({
+              title: t("Send reply?"),
+              description: k.status === "CLOSED"
+                ? t("Sending this reply will reopen the ticket.")
+                : t("Your reply will be sent to the Nibie Cloud team."),
+              label: t("Send reply"),
+              run: () => {
+                setError(null)
+                action.reply.mutate(message, {
+                  onSuccess: () => {
+                    done()
+                    void ticket.refetch()
+                  },
+                  onError: (e) => setError(errorMessage(e)),
+                })
+              },
+            })}
           />
           {k.status !== "CLOSED" ? (
             <div className="border-t pt-4">
@@ -70,7 +79,12 @@ export function TicketView() {
                 type="button"
                 variant="outline"
                 disabled={action.close.isPending}
-                onClick={() => action.close.mutate(undefined, { onSuccess: () => void ticket.refetch(), onError: (e) => setError(errorMessage(e)) })}
+                onClick={() => confirm({
+                  title: t("Close ticket?"),
+                  description: t("You can reopen the ticket by replying to it."),
+                  label: t("Close ticket"),
+                  run: () => action.close.mutate(undefined, { onSuccess: () => void ticket.refetch(), onError: (e) => setError(errorMessage(e)) }),
+                })}
               >
                 {t("Close ticket")}
               </Button>

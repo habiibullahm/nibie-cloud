@@ -573,6 +573,11 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       providers.set(id, next)
       return next
     },
+    async byokModels(id) {
+      await wait()
+      previewRow(id)
+      return MOCK_ROUTER_MODELS.map((m) => ({ id: m.id, name: m.name }))
+    },
     async routerModels(id) {
       await wait()
       previewRow(id)

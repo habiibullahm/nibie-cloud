@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { EmptyState } from "@/components/app/empty-state"
+import { useActionConfirmation } from "@/components/app/action-confirmation"
 import { PageHeader } from "@/components/app/page-header"
 import { PreviewNote } from "@/components/app/preview-note"
 import { QueryFallback } from "@/components/app/query-fallback"
@@ -52,6 +53,7 @@ function keyError(e: unknown, t: T): string {
  */
 export function ApiKeysView() {
   const t = useT()
+  const confirm = useActionConfirmation()
   const lang = useLang()
   const mock = useApiMode() === "mock"
   const query = useAiKeys()
@@ -69,18 +71,24 @@ export function ApiKeysView() {
 
   function submitCreate(e: React.FormEvent) {
     e.preventDefault()
+    if (create.isPending) return
     const clean = name.trim()
     if (!KEY_NAME.test(clean)) {
       setFormError(t("Use 1 to 40 letters, digits, spaces, dots, dashes or underscores."))
       return
     }
     setFormError(null)
-    create.mutate(clean, {
-      onSuccess: (r) => {
-        setCreated(r.secret)
-        setName("")
-      },
-      onError: (err) => setFormError(keyError(err, t)),
+    confirm({
+      title: t("Create API key?"),
+      description: t("Requests made with {name} will use your AI balance for paid models.", { name: clean }),
+      label: t("Create key"),
+      run: () => create.mutate(clean, {
+        onSuccess: (r) => {
+          setCreated(r.secret)
+          setName("")
+        },
+        onError: (err) => setFormError(keyError(err, t)),
+      }),
     })
   }
 

@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { Archive, Check, CircleX, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { useActionConfirmation } from "@/components/app/action-confirmation"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ComingSoon } from "@/components/app/coming-soon"
@@ -89,6 +90,8 @@ function BackupRecovery({ id }: { id: string }) {
 }
 
 function PreviewBackups({ id }: { id: string }) {
+  const confirm = useActionConfirmation()
+  const t = useT()
   const backups = useBackups(id)
   const qc = useQueryClient()
   const [creating, setCreating] = useState(false)
@@ -120,7 +123,12 @@ function PreviewBackups({ id }: { id: string }) {
       <CardContent className="grid gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-muted-foreground">Retention follows your plan.</p>
-          <Button onClick={create} disabled={creating || running}>
+          <Button disabled={creating || running} onClick={() => confirm({
+            title: t("Create backup?"),
+            description: t("Start a manual backup for this instance in preview mode."),
+            label: t("Create backup"),
+            run: create,
+          })}>
             <Archive aria-hidden="true" />
             {running ? "Backup running…" : "Back up now"}
           </Button>

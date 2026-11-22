@@ -77,6 +77,7 @@ describe('integration routes', () => {
     const id = randomUUID();
     for (const [method, url] of [
       ['GET', `/api/v1/instances/${id}/providers`], ['PUT', `/api/v1/instances/${id}/providers`], ['POST', `/api/v1/instances/${id}/providers/test`],
+      ['POST', `/api/v1/instances/${id}/providers/models`],
       ['DELETE', `/api/v1/instances/${id}/providers/${id}`], ['GET', `/api/v1/instances/${id}/telegram`], ['PUT', `/api/v1/instances/${id}/telegram`],
       ['POST', `/api/v1/instances/${id}/telegram/verify`], ['DELETE', `/api/v1/instances/${id}/telegram`],
       ['GET', `/api/v1/instances/${id}/models`], ['PUT', `/api/v1/instances/${id}/providers/model`],
@@ -106,16 +107,22 @@ describe('integration routes', () => {
     const u = await userWithInstance(a);
     const base = `/api/v1/instances/${u.instanceId}/providers`;
     expect((await a.inject({ method: 'GET', url: base, headers: u.headers })).json()).toEqual({ providers: [] });
+    const byokUnsaved = await a.inject({ method: 'POST', url: `${base}/models`, headers: u.headers, payload: { baseUrl: 'https://llm.example.com/v1', apiKey: KEY } });
+    expect(byokUnsaved.statusCode).toBe(200);
+    expect(byokUnsaved.json()).toEqual({ models: [] });
     const put = await a.inject({ method: 'PUT', url: base, headers: u.headers, payload: { baseUrl: 'https://llm.example.com/v1', model: 'm', apiKey: KEY } });
     expect(put.statusCode).toBe(200);
     const provider = put.json().provider as { id: string; keyHint: string };
     expect(provider.keyHint).toBe(KEY.slice(-4));
+    const byokSaved = await a.inject({ method: 'POST', url: `${base}/models`, headers: u.headers, payload: {} });
+    expect(byokSaved.statusCode).toBe(200);
+    expect(byokSaved.json()).toEqual({ models: [] });
     const test = await a.inject({ method: 'POST', url: `${base}/test`, headers: u.headers });
     expect(test.json().provider).toMatchObject({ status: 'OK' });
     const list = await a.inject({ method: 'GET', url: base, headers: u.headers });
     const del = await a.inject({ method: 'DELETE', url: `${base}/${provider.id}`, headers: u.headers });
     expect(del.statusCode).toBe(200);
-    for (const r of [put, test, list, del]) expect(r.body).not.toContain(KEY);
+    for (const r of [byokUnsaved, put, byokSaved, test, list, del]) expect(r.body).not.toContain(KEY);
   });
 
   it("another tenant's instance is 404 on every route", async () => {
@@ -125,6 +132,7 @@ describe('integration routes', () => {
     const t = `/api/v1/instances/${alice.instanceId}`;
     const calls: Array<[string, string, object?]> = [
       ['GET', `${t}/providers`], ['PUT', `${t}/providers`, { baseUrl: 'https://llm.example.com/v1', model: 'm', apiKey: KEY }], ['POST', `${t}/providers/test`],
+      ['POST', `${t}/providers/models`, { baseUrl: 'https://llm.example.com/v1', apiKey: KEY }],
       ['DELETE', `${t}/providers/${randomUUID()}`], ['GET', `${t}/telegram`], ['PUT', `${t}/telegram`, { token: TOKEN, allowedUserIds: ['1'] }],
       ['POST', `${t}/telegram/verify`], ['DELETE', `${t}/telegram`],
       ['GET', `${t}/models`], ['PUT', `${t}/providers/model`, { model: 'nibierouter-free' }],

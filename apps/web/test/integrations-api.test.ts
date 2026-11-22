@@ -135,6 +135,21 @@ describe("customer API: AI provider", () => {
     expect(fetchMock.mock.calls[0]![0]).toBe(`https://api.example.test/api/v1/instances/${ID}/models`)
   })
 
+  it("fetches BYOK models with form credentials or saved config", async () => {
+    const { api, fetchMock } = setup()
+    const models = [{ id: "gpt-4o", name: "gpt-4o" }]
+    fetchMock.mockResolvedValue(json({ models }))
+    expect(await api.preview.byokModels(ID, { baseUrl: "https://api.openai.com/v1", apiKey: "sk-test-1234567890" })).toEqual(models)
+    const [url, init] = fetchMock.mock.calls[0]!
+    expect(url).toBe(`https://api.example.test/api/v1/instances/${ID}/providers/models`)
+    expect(init!.method).toBe("POST")
+    expect(JSON.parse(init!.body as string)).toEqual({ baseUrl: "https://api.openai.com/v1", apiKey: "sk-test-1234567890" })
+
+    fetchMock.mockResolvedValue(json({ models }))
+    expect(await api.preview.byokModels(ID)).toEqual(models)
+    expect(JSON.parse(fetchMock.mock.calls[1]![1]!.body as string)).toEqual({})
+  })
+
   it("saves the NibieRouter model with PUT {model}, and refuses a malformed name before any request", async () => {
     const { api, fetchMock } = setup()
     await expect(api.preview.setRouterModel(ID, "bad model!")).rejects.toMatchObject({ status: 400 })

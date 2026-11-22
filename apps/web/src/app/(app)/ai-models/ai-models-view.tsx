@@ -70,7 +70,7 @@ export function AiModelsView() {
           </Card>
 
           {data.freeOnly ? (
-            <p className="text-muted-foreground">{t("Your plan includes the free models. Paid models come with a paid plan.")}</p>
+            <p className="text-muted-foreground">{t("Your plan includes the free models. Paid models unlock with a paid plan or AI balance.")}</p>
           ) : null}
 
           {data.models.length === 0 ? (

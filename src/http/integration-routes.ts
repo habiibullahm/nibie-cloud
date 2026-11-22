@@ -11,6 +11,7 @@ const providerBody = z.object({ baseUrl: z.string().max(200), model: z.string().
 const telegramBody = z.object({ token: z.string().max(100), allowedUserIds: z.array(z.string().max(15)).max(20) }).strict();
 const nibieRouterBody = z.object({ apiKey: z.string().max(512), model: z.string().max(100) }).strict();
 const modelBody = z.object({ model: z.string().max(100) }).strict();
+const byokModelsBody = z.union([z.object({}).strict(), z.object({ baseUrl: z.string().max(200), apiKey: z.string().max(512) }).strict()]);
 
 /** Verification and provider tests call third parties, so they get a much tighter per-user limit. */
 const OUTBOUND_LIMIT = { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } };
@@ -54,6 +55,12 @@ export function registerCustomerIntegrationRoutes(
   api.post<{ Params: P }>('/instances/:instanceId/providers/test', OUTBOUND_LIMIT, async (req) => ({
     provider: await need(integrations).providers.test(principalOf(req).tenantId, ids(req.params)),
   }));
+  // Fetch all models offered by a BYOK provider (`GET {baseUrl}/models`), using form credentials or the saved BYOK config.
+  api.post<{ Params: P }>('/instances/:instanceId/providers/models', OUTBOUND_LIMIT, async (req) => {
+    const parsed = byokModelsBody.parse(req.body ?? {});
+    const input = 'baseUrl' in parsed && typeof parsed.baseUrl === 'string' ? { baseUrl: parsed.baseUrl, apiKey: parsed.apiKey } : undefined;
+    return { models: await need(integrations).providers.listByokModels(principalOf(req).tenantId, ids(req.params), input) };
+  });
   // Back from the customer's own key to the NibieRouter key that comes with Nibie Cloud (new key, instance restarts).
   api.post<{ Params: P }>('/instances/:instanceId/providers/nibierouter', OUTBOUND_LIMIT, async (req) => {
     if (!router) throw new NotFoundError('Route not found');

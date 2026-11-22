@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { KeyValue } from "@/components/app/key-value"
+import { useActionConfirmation } from "@/components/app/action-confirmation"
 import { PageHeader } from "@/components/app/page-header"
 import { PreferenceToggles } from "@/components/app/preference-toggles"
 import { PreviewNote } from "@/components/app/preview-note"
@@ -40,6 +41,7 @@ const MAX_NAME = 80
 /** Display name, kept in the Supabase user's metadata (no backend column); the navigation rail shows it above the email. */
 function NameCard() {
   const t = useT()
+  const confirm = useActionConfirmation()
   const qc = useQueryClient()
   const name = useDisplayName()
   const [draft, setDraft] = useState<string | null>(null)
@@ -47,10 +49,7 @@ function NameCard() {
   const value = draft ?? name.data ?? ""
   const dirty = draft !== null && draft.trim() !== (name.data ?? "")
 
-  const save = async (e: React.FormEvent) => {
-    e.preventDefault()
-    // Enter with nothing changed (the form submits implicitly without a visible button).
-    if (!dirty || saving) return
+  const save = async () => {
     setSaving(true)
     const { error } = await getSupabase()!.auth.updateUser({ data: { full_name: value.trim() } })
     setSaving(false)
@@ -62,7 +61,16 @@ function NameCard() {
 
   return (
     <Card>
-      <form onSubmit={save}>
+      <form onSubmit={(e) => {
+        e.preventDefault()
+        if (!dirty || saving) return
+        confirm({
+          title: t("Save display name?"),
+          description: value.trim() ? t("Your dashboard will show the name {name}.", { name: value.trim() }) : t("Your dashboard will show your email in place of your name."),
+          label: t("Save"),
+          run: save,
+        })
+      }}>
         <CardHeader>
           <CardTitle>{t("Name")}</CardTitle>
           <CardDescription>{t("How you appear in the dashboard.")}</CardDescription>
@@ -101,6 +109,7 @@ function NameCard() {
 
 export default function AccountPage() {
   const t = useT()
+  const confirm = useActionConfirmation()
   const me = useMe()
   const router = useRouter()
   const customer = useApiMode() === "customer"
@@ -155,7 +164,12 @@ export default function AccountPage() {
                 </Link>
               </Button>
             ) : null}
-            <Button type="button" variant="outline" onClick={signOut} disabled={signingOut}>
+            <Button type="button" variant="outline" disabled={signingOut} onClick={() => confirm({
+              title: t("Sign out?"),
+              description: t("You’ll need to sign in again to use the dashboard."),
+              label: t("Sign out"),
+              run: signOut,
+            })}>
               <LogOut aria-hidden="true" />
               {signingOut ? t("Signing out…") : t("Sign out")}
             </Button>

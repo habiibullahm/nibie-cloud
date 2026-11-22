@@ -5,16 +5,7 @@ import { useState } from "react"
 import { Play, RotateCw, Square, Terminal, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { useActionConfirmation } from "@/components/app/action-confirmation"
 import {
   Dialog,
   DialogClose,
@@ -45,7 +36,7 @@ export function InstanceActions({
   const t = useT()
   const allowed = allowedActions(instance.status)
   const action = useInstanceAction(instance.id)
-  const [confirm, setConfirm] = useState<null | "stop" | "restart">(null)
+  const confirm = useActionConfirmation()
   const [deleting, setDeleting] = useState(false)
   const busy = action.isPending
   // The console has no backend yet: in customer mode it would open sample data, so the button is not shown.
@@ -63,19 +54,35 @@ export function InstanceActions({
       ) : null}
       {/* Secondary like Restart and Stop: the page's one terracotta button belongs to its main task (Connect Telegram, Renew now). */}
       {allowed.has("start") && !suspended ? (
-        <Button variant="secondary" disabled={busy} onClick={() => action.mutate("start")}>
+        <Button variant="secondary" disabled={busy} onClick={() => confirm({
+          title: t("Start instance?"),
+          description: t("Start Hermes on {name}.", { name: instance.name }),
+          label: t("Start"),
+          run: () => action.mutate("start"),
+        })}>
           <Play aria-hidden="true" />
           {t("Start")}
         </Button>
       ) : null}
       {allowed.has("restart") ? (
-        <Button variant="secondary" disabled={busy} onClick={() => setConfirm("restart")}>
+        <Button variant="secondary" disabled={busy} onClick={() => confirm({
+          title: t("Restart instance?"),
+          description: t("{name} will be unavailable for a moment while Hermes restarts. Active sessions are interrupted.", { name: instance.name }),
+          label: t("Restart"),
+          run: () => action.mutate("restart"),
+        })}>
           <RotateCw aria-hidden="true" />
           {t("Restart")}
         </Button>
       ) : null}
       {allowed.has("stop") ? (
-        <Button variant="secondary" disabled={busy} onClick={() => setConfirm("stop")}>
+        <Button variant="secondary" disabled={busy} onClick={() => confirm({
+          title: t("Stop instance?"),
+          description: t("{name} will stop answering until you start it again. Your files and configuration are kept.", { name: instance.name }),
+          label: t("Stop instance"),
+          destructive: true,
+          run: () => action.mutate("stop"),
+        })}>
           <Square aria-hidden="true" />
           {t("Stop")}
         </Button>
@@ -86,31 +93,6 @@ export function InstanceActions({
           {t("Delete")}
         </Button>
       ) : null}
-
-      <AlertDialog open={confirm !== null} onOpenChange={(o) => !o && setConfirm(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{confirm === "stop" ? t("Stop instance?") : t("Restart instance?")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirm === "stop"
-                ? t("{name} will stop answering until you start it again. Your files and configuration are kept.", { name: instance.name })
-                : t("{name} will be unavailable for a moment while Hermes restarts. Active sessions are interrupted.", { name: instance.name })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              variant={confirm === "stop" ? "destructive" : "default"}
-              onClick={() => {
-                if (confirm) action.mutate(confirm)
-                setConfirm(null)
-              }}
-            >
-              {confirm === "stop" ? t("Stop instance") : t("Restart")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <DeleteInstanceDialog instance={instance} open={deleting} onOpenChange={setDeleting} />
     </>

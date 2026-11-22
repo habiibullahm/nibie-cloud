@@ -5,6 +5,7 @@ import { CircleX, Sparkles } from "lucide-react"
 import { KeyValue } from "@/components/app/key-value"
 import { Turnstile, turnstileSiteKey, type TurnstileProblem } from "@/components/auth/turnstile"
 import { Button } from "@/components/ui/button"
+import { useActionConfirmation } from "@/components/app/action-confirmation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
@@ -155,6 +156,7 @@ function BuyDialog({
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
+    if (purchase.isPending || (siteKey !== null && token === null)) return
     if (value === null) {
       setError(t("Enter a whole amount from {min} to {max}.", { min, max }))
       return
@@ -172,7 +174,7 @@ function BuyDialog({
   const busy = purchase.isPending
   return (
     <Dialog open onOpenChange={(open) => (!open && !busy ? onClose() : undefined)}>
-      <DialogContent>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto" showCloseButton={false}>
         <form onSubmit={submit} className="grid gap-4">
           <DialogHeader>
             <DialogTitle>{t("Top up AI balance")}</DialogTitle>
@@ -258,7 +260,7 @@ function BuyDialog({
               {t("Cancel")}
             </Button>
             <Button type="submit" disabled={busy || short || (siteKey !== null && token === null)}>
-              {busy ? t("Paying…") : t("Buy AI credit")}
+              {busy ? t("Paying…") : value !== null ? t("Buy AI credit for {amount}", { amount: formatPriceIdr(value, lang) }) : t("Buy AI credit")}
             </Button>
           </DialogFooter>
         </form>
@@ -269,6 +271,7 @@ function BuyDialog({
 
 function ReminderForm({ alert }: { alert: AiAccount["alert"] }) {
   const t = useT()
+  const confirm = useActionConfirmation()
   const lang = useLang()
   const save = useSetAiAlert()
   const [enabled, setEnabled] = useState(alert.enabled)
@@ -278,8 +281,15 @@ function ReminderForm({ alert }: { alert: AiAccount["alert"] }) {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (threshold === null) return
-    save.mutate({ enabled, thresholdIdr: threshold })
+    if (!changed || threshold === null || save.isPending) return
+    confirm({
+      title: t("Save AI balance reminder?"),
+      description: enabled
+        ? t("We’ll email you when your AI balance drops below {amount}.", { amount: formatPriceIdr(threshold, lang) })
+        : t("Low AI balance emails will be turned off."),
+      label: t("Save reminder"),
+      run: () => save.mutate({ enabled, thresholdIdr: threshold }),
+    })
   }
 
   return (

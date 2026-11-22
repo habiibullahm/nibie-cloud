@@ -4,6 +4,7 @@ import { useState } from "react"
 import { CircleX, Wallet as WalletIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { PayButton } from "@/components/app/pay-button"
 import {
   Dialog,
   DialogContent,
@@ -52,9 +53,7 @@ export function WalletCard() {
         {pending.map((x) => (
           <div key={x.id} className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-border p-3">
             <span>{t("Top-up of {amount} is waiting for payment.", { amount: formatPriceIdr(x.amountIdr, lang) })}</span>
-            <Button size="sm" variant="outline" onClick={() => startPayment(x.paymentUrl)}>
-              {t("Pay")}
-            </Button>
+            <PayButton payment={x} label={t("Pay")} purpose={t("Top up balance")} qrisOnly />
           </div>
         ))}
 
@@ -88,34 +87,26 @@ export function WalletCard() {
           <p className="text-muted-foreground">{t("No balance activity yet.")}</p>
         )}
       </CardContent>
-      <TopupDialog open={dialog} onOpenChange={setDialog} limits={wallet.limits} />
+      {dialog ? <TopupDialog onClose={() => setDialog(false)} limits={wallet.limits} /> : null}
     </Card>
   )
 }
 
-function TopupDialog({ open, onOpenChange, limits }: { open: boolean; onOpenChange: (o: boolean) => void; limits: Wallet["limits"] }) {
+function TopupDialog({ onClose, limits }: { onClose: () => void; limits: Wallet["limits"] }) {
   const t = useT()
   const lang = useLang()
   const topup = useTopup()
   const [amount, setAmount] = useState("")
   const [error, setError] = useState<string | null>(null)
   // One key per dialog opening: a double click replays the same top-up instead of creating two.
-  const [key, setKey] = useState(() => crypto.randomUUID())
+  const [key] = useState(() => crypto.randomUUID())
   const min = formatPriceIdr(limits.topupMinIdr, lang)
   const max = formatPriceIdr(limits.topupMaxIdr, lang)
-
-  function change(o: boolean) {
-    if (o) {
-      setAmount("")
-      setError(null)
-      setKey(crypto.randomUUID())
-    }
-    onOpenChange(o)
-  }
+  const parsed = parseTopupAmount(amount, limits)
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
-    const parsed = parseTopupAmount(amount, limits)
+    if (topup.isPending) return
     if (!parsed.ok) {
       setError(t("Enter a whole amount from {min} to {max}.", { min, max }))
       return
@@ -125,7 +116,7 @@ function TopupDialog({ open, onOpenChange, limits }: { open: boolean; onOpenChan
       { amountIdr: parsed.value, idempotencyKey: key },
       {
         onSuccess: (x) => {
-          onOpenChange(false)
+          onClose()
           startPayment(x.paymentUrl)
         },
       }
@@ -133,8 +124,8 @@ function TopupDialog({ open, onOpenChange, limits }: { open: boolean; onOpenChan
   }
 
   return (
-    <Dialog open={open} onOpenChange={change}>
-      <DialogContent>
+    <Dialog open onOpenChange={(open) => (!open && !topup.isPending ? onClose() : undefined)}>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto" showCloseButton={false}>
         <form onSubmit={submit} className="grid gap-4">
           <DialogHeader>
             <DialogTitle>{t("Top up balance")}</DialogTitle>
@@ -183,11 +174,11 @@ function TopupDialog({ open, onOpenChange, limits }: { open: boolean; onOpenChan
             {t("Nibie Cloud balance is not cash and cannot be refunded or withdrawn.")}
           </p>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => change(false)}>
+            <Button type="button" variant="outline" disabled={topup.isPending} onClick={onClose}>
               {t("Cancel")}
             </Button>
             <Button type="submit" disabled={topup.isPending}>
-              {topup.isPending ? t("Opening payment…") : t("Continue to payment")}
+              {topup.isPending ? t("Opening payment…") : parsed.ok ? t("Continue to QRIS for {amount}", { amount: formatPriceIdr(parsed.value, lang) }) : t("Continue to QRIS")}
             </Button>
           </DialogFooter>
         </form>

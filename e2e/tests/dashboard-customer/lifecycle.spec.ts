@@ -24,6 +24,7 @@ test("deploy creates a real container and the instance becomes Active", async ({
   await page.goto("/dashboard/deploy")
   await page.getByLabel("Instance name").fill(NAME)
   await page.getByRole("button", { name: "Deploy instance" }).click()
+  await page.getByRole("alertdialog", { name: "Deploy instance?" }).getByRole("button", { name: "Deploy instance" }).click()
   await page.waitForURL(/\/instances\/[0-9a-f-]{36}$/)
   instanceId = page.url().split("/").pop()!
   await expect(status(page, "Active")).toBeVisible(ACTIVE)
@@ -43,6 +44,7 @@ test("stop stops the container and keeps the data volume", async ({ page }) => {
 test("start brings it back", async ({ page }) => {
   await page.goto(`/dashboard/instances/${instanceId}`)
   await page.getByRole("button", { name: "Start", exact: true }).click()
+  await page.getByRole("alertdialog", { name: "Start instance?" }).getByRole("button", { name: "Start", exact: true }).click()
   await expect(status(page, "Active")).toBeVisible(ACTIVE)
   expect(containerState(instanceId)).toBe("running")
 })

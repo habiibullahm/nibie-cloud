@@ -1,0 +1,76 @@
+import { expect, test } from "@playwright/test"
+import { BASE } from "./helpers"
+
+test("QRIS confirms the top-up amount before creating or opening an invoice", async ({ page }) => {
+  await page.goto(`${BASE}/billing`)
+  const topUp = page.getByRole("button", { name: "Top up", exact: true })
+  const pending = page.getByText(/Top-up of Rp\s*25\.000 is waiting for payment/)
+
+  await topUp.click()
+  const topupDialog = page.getByRole("dialog", { name: "Top up balance" })
+  await topupDialog.getByRole("button", { name: /Rp\s*25\.000/ }).click()
+  const createInvoice = topupDialog.getByRole("button", { name: /Continue to QRIS for Rp\s*25\.000/ })
+  await expect(createInvoice).toBeVisible()
+  await topupDialog.getByRole("button", { name: "Cancel" }).click()
+  await expect(pending).toHaveCount(0)
+
+  await topUp.click()
+  await expect(topupDialog.getByLabel("Amount (Rp)")).toHaveValue("")
+  await topupDialog.getByRole("button", { name: /Rp\s*25\.000/ }).click()
+  await createInvoice.click()
+  await expect(pending).toBeVisible()
+  const preview = page.getByText("Preview mode has no payment page.", { exact: false })
+  await expect(preview).toBeVisible()
+  await preview.waitFor({ state: "hidden" })
+
+  const pay = page.getByRole("button", { name: "Pay", exact: true })
+  const paymentDialog = page.getByRole("dialog", { name: "Continue with QRIS?" })
+  await pay.click()
+  await expect(paymentDialog).toContainText(/Rp\s*25\.000/)
+  await expect(paymentDialog).toContainText("SumoPod")
+  await paymentDialog.getByRole("button", { name: "Cancel" }).click()
+  await expect(pay).toBeFocused()
+  await expect(preview).toHaveCount(0)
+  await pay.click()
+  await paymentDialog.getByRole("button", { name: "Continue to QRIS" }).click()
+  await expect(preview).toBeVisible()
+})
+
+test("AI credit shows the deduction and charges the wallet only on confirmation", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 640 })
+  await page.goto(`${BASE}/billing`)
+  const topUpAi = page.getByRole("button", { name: "Top up AI balance" })
+  const dialog = page.getByRole("dialog", { name: "Top up AI balance" })
+  const confirm = dialog.getByRole("button", { name: /Buy AI credit for Rp\s*25\.000/ })
+  const walletTotal = page.locator("[data-slot=card]")
+    .filter({ has: page.getByRole("button", { name: "Top up", exact: true }) })
+    .locator("p[aria-live=polite]")
+
+  await topUpAi.click()
+  await dialog.getByLabel("Amount (Rp)").fill("25000")
+  await expect(dialog).toContainText(/Rp\s*125\.000/)
+  await expect(confirm).toBeVisible()
+  await dialog.getByRole("button", { name: "Cancel" }).click()
+  await expect(walletTotal).toHaveText(/Rp\s*150\.000/)
+
+  await topUpAi.click()
+  await dialog.getByLabel("Amount (Rp)").fill("25000")
+  await confirm.click()
+  await expect(dialog).toBeHidden()
+  await expect(walletTotal).toHaveText(/Rp\s*125\.000/)
+})
+
+test("renewal without a known amount asks again once the invoice is ready", async ({ page }) => {
+  await page.goto(`${BASE}/instances`)
+  await page.getByRole("link", { name: "research-bot" }).click()
+  await page.getByRole("button", { name: "Renew now", exact: true }).click()
+
+  const dialog = page.getByRole("dialog", { name: "Continue with QRIS?" })
+  await expect(dialog).toContainText("Shown after invoice is prepared")
+  await dialog.getByRole("button", { name: "Prepare invoice" }).click()
+  await expect(dialog).toContainText("Review the invoice amount before confirming again.")
+  const preview = page.getByText("Preview mode has no payment page.", { exact: false })
+  await expect(preview).toHaveCount(0)
+  await dialog.getByRole("button", { name: "Continue to QRIS" }).click()
+  await expect(preview).toBeVisible()
+})

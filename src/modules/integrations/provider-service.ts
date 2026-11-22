@@ -35,6 +35,11 @@ export interface ByokInput {
   apiKey: string;
 }
 
+export interface ByokModel {
+  id: string;
+  name: string;
+}
+
 interface Deps {
   prisma: PrismaClient;
   secrets: SecretStore;
@@ -42,6 +47,8 @@ interface Deps {
   fetcher?: Fetcher;
   /** NibieRouter's model list. Without it the customer cannot choose a NibieRouter model (503 router_unavailable). */
   catalog?: ModelCatalog;
+  /** True when the tenant has a positive NibieRouter balance (unlocks paid models on a free plan). */
+  hasAiBalance?: (tenantId: string) => Promise<boolean>;
 }
 
 export class ProviderService {
@@ -72,9 +79,9 @@ export class ProviderService {
     return this.store(tenantId, instanceId, { kind: 'NIBIEROUTER', baseUrl: NIBIEROUTER_BASE_URL, model, apiKey });
   }
 
-  /** The NibieRouter models this instance may choose. A free plan has a router balance of 0, so it gets the free models only. */
+  /** The NibieRouter models this instance may choose. A free plan with no AI balance gets the free models only. */
   async models(tenantId: string, instanceId: string): Promise<{ freeOnly: boolean; models: CatalogModel[] }> {
-    const freeOnly = await this.onFreePlan(tenantId, instanceId);
+    const freeOnly = await this.freeModelsOnly(tenantId, instanceId);
     const all = await this.catalog().list();
     return { freeOnly, models: freeOnly ? all.filter((m) => m.free) : all };
   }
@@ -85,13 +92,13 @@ export class ProviderService {
    */
   async setModel(tenantId: string, instanceId: string, raw: unknown): Promise<ProviderView> {
     const model = validateModel(raw);
-    const freeOnly = await this.onFreePlan(tenantId, instanceId);
+    const freeOnly = await this.freeModelsOnly(tenantId, instanceId);
     const cfg = await this.d.prisma.providerConfig.findUnique({ where: { instanceId }, select: { kind: true, model: true } });
     if (cfg?.kind !== 'NIBIEROUTER') throw new AppError('Only the NibieRouter provider has a model to choose here', 409, 'not_nibierouter');
     if (cfg.model !== model) {
       const offered = (await this.catalog().list()).find((m) => m.id === model);
       if (!offered) throw new ValidationError('NibieRouter does not offer this model');
-      if (freeOnly && !offered.free) throw new ValidationError('A free plan can only use the free models');
+      if (freeOnly && !offered.free) throw new ValidationError('A free plan without AI balance can only use the free models');
       await this.d.prisma.$transaction(async (tx) => {
         await tx.instance.update({ where: { id: instanceId }, data: { configRevision: { increment: 1 } } });
         // The kind is checked again under the instance row lock: a BYOK key saved meanwhile must not get a router model.
@@ -152,6 +159,71 @@ export class ProviderService {
     return (await this.view(instanceId, inst.configRevision > inst.appliedRevision))!;
   }
 
+  /**
+   * Calls `GET {baseUrl}/models` to list available models for BYOK configuration. Uses the provided `{ baseUrl, apiKey }`
+   * before saving, or the saved BYOK config when omitted (never sends a stored key to a different URL).
+   */
+  async listByokModels(tenantId: string, instanceId: string, input?: { baseUrl: string; apiKey: string }): Promise<ByokModel[]> {
+    await this.instance(tenantId, instanceId);
+    let baseUrl: string;
+    let apiKey: string;
+    if (input) {
+      baseUrl = validateBaseUrl(input.baseUrl);
+      apiKey = validateKey(input.apiKey);
+    } else {
+      const cfg = await this.d.prisma.providerConfig.findUnique({ where: { instanceId } });
+      if (!cfg) throw new NotFoundError('Provider is not configured');
+      if (cfg.kind !== 'BYOK') throw new AppError('Only a BYOK provider can fetch models here', 409, 'not_byok');
+      baseUrl = cfg.baseUrl;
+      apiKey = await this.d.secrets.get(tenantId, cfg.secretId);
+    }
+
+    let res: { status: number; body: string };
+    try {
+      res = await this.fetcher(`${baseUrl}/models`, {
+        headers: { authorization: `Bearer ${apiKey}`, accept: 'application/json' },
+        maxBytes: TEST_MAX_BYTES,
+      });
+    } catch (e) {
+      if (e instanceof OutboundBlockedError) throw e;
+      if (e instanceof OutboundFailedError) {
+        throw new AppError(
+          e.reason === 'timeout' ? 'The provider did not answer in time' : 'Could not reach the provider',
+          502,
+          e.reason === 'timeout' ? 'provider_timeout' : 'provider_unreachable',
+        );
+      }
+      throw new AppError('Could not reach the provider', 502, 'provider_unreachable');
+    }
+
+    if (res.status === 401 || res.status === 403) throw new ValidationError('The provider rejected the API key');
+    if (res.status < 200 || res.status >= 300) throw new AppError('The provider answered with an unexpected error', 502, 'provider_error');
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(res.body);
+    } catch {
+      throw new AppError('The provider returned an invalid model list', 502, 'provider_error');
+    }
+    const rawItems = Array.isArray(parsed)
+      ? parsed
+      : parsed && typeof parsed === 'object' && Array.isArray((parsed as { data?: unknown }).data)
+        ? (parsed as { data: unknown[] }).data
+        : null;
+    if (!rawItems) throw new AppError('The provider returned an invalid model list', 502, 'provider_error');
+
+    const byId = new Map<string, ByokModel>();
+    for (const item of rawItems) {
+      if (!item || typeof item !== 'object') continue;
+      const rawId = (item as { id?: unknown }).id;
+      if (typeof rawId !== 'string' || !MODEL_FORMAT.test(rawId) || byId.has(rawId)) continue;
+      const rawName = (item as { name?: unknown }).name;
+      const name = typeof rawName === 'string' && rawName.trim() ? rawName.trim().slice(0, 200) : rawId;
+      byId.set(rawId, { id: rawId, name });
+    }
+    return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+  }
+
   private async store(
     tenantId: string,
     instanceId: string,
@@ -181,11 +253,12 @@ export class ProviderService {
     return inst;
   }
 
-  /** Free means the instance's own plan has no price (an upgrade switches `planId` only once it is paid). */
-  private async onFreePlan(tenantId: string, instanceId: string): Promise<boolean> {
+  /** Free-only when the instance's own plan has no price and the tenant has no positive AI balance. */
+  private async freeModelsOnly(tenantId: string, instanceId: string): Promise<boolean> {
     const inst = await this.d.prisma.instance.findFirst({ where: { id: instanceId, tenantId, deletedAt: null }, select: { plan: { select: { monthlyPriceIdr: true } } } });
     if (!inst) throw new NotFoundError('Instance not found');
-    return inst.plan.monthlyPriceIdr === null;
+    if (inst.plan.monthlyPriceIdr !== null) return false;
+    return this.d.hasAiBalance ? !(await this.d.hasAiBalance(tenantId)) : true;
   }
 
   private catalog(): ModelCatalog {

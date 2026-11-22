@@ -8,7 +8,7 @@ import {
   TELEGRAM_USER_ID_FORMAT,
   providerNameForUrl,
 } from "./providers"
-import type { LogLevel, LogLine, ProviderConfig, RouterModels, TelegramConfig } from "./types"
+import type { ByokModel, LogLevel, LogLine, ProviderConfig, RouterModels, TelegramConfig } from "./types"
 
 /** Shapes returned by src/http/integration-routes.ts (ProviderView, TelegramView). */
 interface ProviderBody {
@@ -146,6 +146,7 @@ export function buildIntegrationsApi(
   | "provider"
   | "saveProvider"
   | "testProvider"
+  | "byokModels"
   | "routerModels"
   | "setRouterModel"
   | "telegram"
@@ -180,6 +181,23 @@ export function buildIntegrationsApi(
     },
     testProvider: async (i) =>
       toProvider((await call<{ provider: ProviderBody }>(`/instances/${id(i)}/providers/test`, { method: "POST" })).provider),
+    byokModels: async (i, input) => {
+      if (input) {
+        const baseUrl = input.baseUrl.trim()
+        if (!baseUrl) throw bad("Enter the provider base URL.")
+        if (!API_KEY_FORMAT.test(input.apiKey)) throw bad("Enter your API key first.")
+        const { models } = await call<{ models: ByokModel[] }>(`/instances/${id(i)}/providers/models`, {
+          method: "POST",
+          ...json({ baseUrl, apiKey: input.apiKey }),
+        })
+        return models
+      }
+      const { models } = await call<{ models: ByokModel[] }>(`/instances/${id(i)}/providers/models`, {
+        method: "POST",
+        ...json({}),
+      })
+      return models
+    },
     routerModels: (i) => call<RouterModels>(`/instances/${id(i)}/models`),
     setRouterModel: async (i, model) => {
       if (!MODEL_FORMAT.test(model)) throw bad("Choose a model from the list.")
