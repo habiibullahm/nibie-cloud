@@ -1,8 +1,24 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-22 (provider test `unreachable` hotfix, pending merge & deploy). Earlier entries below keep their own dates, and
+Last updated: 2026-11-23 (Pro plans and node A stock). Earlier entries below keep their own dates, and
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
+
+## Pro plans and node A stock (2026-11-23, production DB; landing and docs pending deploy)
+
+- Owner decision: two new plans, 2 CPU, 2 GB RAM, 20 GB storage. `pro` Rp 49.000 (normal Rp 79.000), no AI credit;
+  `pro-kredit` Rp 79.000 (normal Rp 119.000), one-time NibieRouter credit US$3.
+- **Applied on Supabase production** with `deploy/sql/2026-11-23-pro-plans.sql` (new rows start at stock 0). Stock was then
+  set through the admin API (audited): `hosting` 10 -> 3, `hosting-kredit` 10 -> 6, `pro` 2, `pro-kredit` 2. `list_plans`
+  afterwards showed these limits, nothing sold on any priced plan.
+- Sizing for the one node (4 vCPU, 16 GB, Rp 513.000/month): paid RAM limits add up to 17 GB and paid storage caps to
+  155 GB on the 100 GB XFS volume image, plus the free beta plan (`FREE_BETA_SLOTS` 10, 1 GB each). This overcommits
+  RAM and disk and relies on real use (about 315 MB RAM per tenant so far) staying far below the caps. Not measured under load.
+- Landing (`apps/landing/src/lib/plans.ts`, pricing cards, `/harga`, FAQ, terms, refund policy) and docs (`paket-dan-penagihan`,
+  index, `provider-ai`) now list four plans with per-plan CPU and RAM. Checks passed: landing typecheck, lint, 72 tests, build;
+  docs typecheck and lint. **Not deployed yet**: until it is, the live landing shows two plans while checkout already offers Pro.
+- Not done: changing an existing instance's plan to Pro (plan change is still "segera hadir"); multi-node (backlog, a second
+  2 vCPU / 8 GB node is planned).
 
 ## Provider test `unreachable` hotfix (2026-11-22)
 

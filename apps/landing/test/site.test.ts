@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { BETA_USERS, PLANS, discountPercent, formatIdr } from "@/lib/plans"
+import { BETA_USERS, PLANS, PRICING_INTRO, discountPercent, formatIdr } from "@/lib/plans"
 import { ACCESS_REQUEST_BODY, betaAccessHref, betaSlotsUrl, dashboardBase, freeBetaOpen, parseBetaSlots, contactEmail, ctaHref, signupOpen, SITE } from "@/lib/site"
 
 describe("dashboardBase", () => {
@@ -32,6 +32,12 @@ describe("plans", () => {
     expect(hosting).toMatchObject({ normalPriceIdr: 50_000, betaPriceIdr: 25_000, creditUsd: 0 })
     expect(bundle).toMatchObject({ normalPriceIdr: 75_000, betaPriceIdr: 50_000, creditUsd: 2 })
     expect(BETA_USERS).toBe(100)
+  })
+
+  it("matches the Pro plans in deploy/sql/2026-11-23-pro-plans.sql (owner, 2026-11-23)", () => {
+    expect(PLANS.find((p) => p.id === "pro")).toMatchObject({ normalPriceIdr: 79_000, betaPriceIdr: 49_000, creditUsd: 0, cpu: 2, ramGb: 2, storageGb: 20 })
+    expect(PLANS.find((p) => p.id === "pro-kredit")).toMatchObject({ normalPriceIdr: 119_000, betaPriceIdr: 79_000, creditUsd: 3, cpu: 2, ramGb: 2, storageGb: 20 })
+    expect(PRICING_INTRO).toBe("Hermes Agent mulai 1 CPU, 1 GB RAM, dan penyimpanan 5 GB di region Jakarta.")
   })
 
   it("computes the displayed discount", () => {

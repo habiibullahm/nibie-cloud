@@ -48,7 +48,10 @@ export default function SyaratLayananPage() {
               Pembayaran diproses lewat payment gateway pihak ketiga. Instance diaktifkan setelah server kami
               memverifikasi pembayaran, bukan hanya karena kamu kembali dari halaman pembayaran.
             </li>
-            <li>Paket Hosting + Kredit AI memberi kredit NibieRouter sebesar $2 satu kali di awal, bukan setiap bulan.</li>
+            <li>
+              Paket Hosting + Kredit AI memberi kredit NibieRouter sebesar $2, dan paket Pro + Kredit AI sebesar $3, satu kali di
+              awal, bukan setiap bulan.
+            </li>
             <li>
               Pemakaian AI di luar kredit tersebut ditagih terpisah oleh NibieRouter atau provider yang kamu pilih.
               Kami tidak menjanjikan pemakaian AI tanpa batas.
