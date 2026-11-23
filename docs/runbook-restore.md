@@ -20,7 +20,10 @@ there is time.
 - **Alerts:** `hermes-watchdog` (every minute) sends a Telegram message in these cases:
   - the newest local dump is older than 26 hours;
   - the last successful R2 upload is older than 26 hours;
-  - the restore drill unit has failed.
+  - the restore drill unit has failed;
+  - where `hermes-tenant-backup.timer` is enabled: the last tenant volume backup run with no failed volume
+    (`done: N ok, 0 failed` in `/var/log/hermes-tenant-backup.log`) is older than 26 hours;
+  - `hermes-tenant-verify` or `hermes-tenant-retention` has failed.
 
   It sends a second message when the problem is gone.
 

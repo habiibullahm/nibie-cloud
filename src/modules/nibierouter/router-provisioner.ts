@@ -321,19 +321,34 @@ export class RouterProvisioner {
 
   private async ensureKey(userId: string, tenantId: string, instanceId: string): Promise<void> {
     const name = `inst-${instanceId}`;
-    // A key with this name that we hold no secret for: the router shows a secret only once, so a duplicate is
-    // never created silently. An operator revokes the orphan in the NibieRouter dashboard, then the next run proceeds.
-    if ((await this.d.client.listKeys(userId)).some((k) => k.name === name && !k.revoked)) throw new OrphanKeyError();
-    await this.attachNewKey(userId, tenantId, instanceId);
-    await this.applyConfig(tenantId, instanceId);
+    // The lock keeps two runs of one instance (webhook and tick) from both creating a key or revoking each other's.
+    const attached = await this.d.prisma.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'router-key:' + instanceId}))`;
+        if (await tx.providerConfig.findUnique({ where: { instanceId }, select: { id: true } })) return false;
+        const row = await tx.routerProvisioning.findUnique({ where: { instanceId }, select: { routerKeyId: true } });
+        for (const k of await this.d.client.listKeys(userId)) {
+          if (k.name !== name || k.revoked) continue;
+          // Our own key whose attach never happened: its secret is lost, so it is replaced.
+          if (k.id === row?.routerKeyId) await this.d.client.revokeKey(userId, k.id);
+          // A key we did not record (made before `routerKeyId`, or after a database restore): the router shows a secret
+          // only once, so a duplicate is never created silently. An operator revokes it, then the next run proceeds.
+          else throw new OrphanKeyError();
+        }
+        await this.attachNewKey(userId, tenantId, instanceId);
+        return true;
+      },
+      { maxWait: 30_000, timeout: 60_000 },
+    );
+    if (attached) await this.applyConfig(tenantId, instanceId);
   }
 
   private async attachNewKey(userId: string, tenantId: string, instanceId: string): Promise<ProviderView> {
     const key = await this.d.client.createKey(userId, { name: `inst-${instanceId}`, rpmLimit: KEY_RPM_LIMIT });
-    const view = await this.d.providers.attachNibieRouter(tenantId, instanceId, { apiKey: key.secret, model: this.d.cfg.defaultModel });
-    // A live key again: if the customer replaces it later, `revokeReplaced` revokes it.
-    await this.d.prisma.routerProvisioning.updateMany({ where: { instanceId }, data: { keyRevokedAt: null } });
-    return view;
+    // Recorded before the attach, so a failed attach leaves a key the next run knows as ours. A live key again: if the
+    // customer replaces it later, `revokeReplaced` revokes it.
+    await this.d.prisma.routerProvisioning.updateMany({ where: { instanceId }, data: { routerKeyId: key.id, keyRevokedAt: null } });
+    return this.d.providers.attachNibieRouter(tenantId, instanceId, { apiKey: key.secret, model: this.d.cfg.defaultModel });
   }
 
   private async applyConfig(tenantId: string, instanceId: string): Promise<void> {
