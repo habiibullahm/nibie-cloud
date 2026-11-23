@@ -34,8 +34,16 @@ several still describe branches as "not committed" or billing as "OFF" that have
 - **Verified in production (2026-11-23):** mTLS `ready` over the tunnel (and refused without a client certificate); one internal
   free instance placed on `jkt-2` while `jkt-1` was cordoned for about a minute: `runsc`, read-only rootfs, 1 GiB XFS project quota,
   quota inventory pushed, ACTIVE (authenticated readiness), NibieRouter key attached with restart, then deleted with container,
-  volume and network removed. Not yet exercised in production: cross-node recovery, a nightly fleet backup and retention run on
-  `jkt-2`.
+  volume and network removed.
+- **Production drills (2026-11-23, after the cutover):** a manual fleet backup on `jkt-2` (no volumes yet, exit 0) and the
+  retention run on `jkt-1` (exit 0) both succeeded; `jkt-2`'s quota inventory file is rewritten every few seconds, so the 120 s
+  staleness check in fleet backups holds. Cross-node recovery in production: an internal free instance on `jkt-1` with a
+  marker file was backed up (`3 ok, 0 failed`), stopped, prepared on `jkt-2`, restored offline from its snapshot (489 files,
+  5 SQLite databases verified), finished and started on `jkt-2` under `runsc` (ACTIVE, marker identical), the `jkt-1` copy
+  retired (container and volume removed), then the instance was deleted with nothing left on either host. restic logs
+  `unable to open cache` under systemd (no `$HOME`); it only slows restic down.
+- **Removed:** the internal instance "Internal restore drill 2026-11-23" (created 2026-11-22 22:39 UTC, purpose not recorded)
+  was deleted on the owner's request.
 - **Resizing a node, adding a node and updating agents:** [runbook-multi-node.md](runbook-multi-node.md).
 
 ## Pro plans and node A stock (2026-11-23, production DB; landing and docs pending deploy)
