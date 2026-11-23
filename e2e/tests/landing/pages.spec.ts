@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test"
 
 // Public pages that a payment provider's merchant review reads: they must always open and carry the right title.
 const PAGES: Array<{ path: string; title: RegExp; heading: RegExp }> = [
-  { path: "/", title: /^Nibie Cloud: hosting agent AI Hermes$/, heading: /Agent Hermes-mu aktif 24 jam/ },
+  { path: "/", title: /^Nibie Cloud — Hosting Agent AI Hermes, Tanpa Urus Server$/, heading: /Agent Hermes-mu aktif 24 jam/ },
   { path: "/harga", title: /^Harga · Nibie Cloud$/, heading: /^Harga$/ },
   { path: "/kontak", title: /^Kontak · Nibie Cloud$/, heading: /^Kontak$/ },
   { path: "/syarat-layanan", title: /^Syarat Layanan · Nibie Cloud$/, heading: /^Syarat Layanan$/ },
