@@ -4,6 +4,14 @@ Last updated: 2026-11-23 (multi-node fleet live in production; dashboard action 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Security hardening (2026-11-23, local, not deployed)
+
+- Landing builds hash exported inline scripts and put those hashes in `script-src` in place of `unsafe-inline`. Typecheck, lint, 77 tests and the build passed. Wrangler served the generated header with 12 hashes on all seven public HTML routes tested locally. An earlier local Chromium check reported no CSP violations across the exported pages and showed that removing the hashes blocked scripts. Live Cloudflare headers and Turnstile still need verification.
+- Checkout retains its per-user limit of 10 requests per 10 minutes. New process-local limits cover instance lifecycle, integration changes and router key actions. The dashboard sends password login directly to Supabase Auth. Verify the token endpoint limit and CAPTCHA in the Supabase project, and use its Auth logs to investigate failed password requests. The backend sees successful sessions only after they call its API. [Supabase Auth rate limits](https://supabase.com/docs/guides/auth/rate-limits) and [Audit Logs](https://supabase.com/docs/guides/auth/audit-logs).
+- The first admin API use of an MFA session writes one audit row, including when requests overlap. The alert scanner reports new admin sessions, denied signed-in accounts and bursts of 30 admin changes per hour. Customer sessions are logged on first API use in each process. Telegram delivery needs the operator channel configured and has been tested with an in-memory sink only.
+- The local injection regression test exercises routes registered in its test server. The static guard checks for unsafe raw SQL helpers. Malformed audit cursors now return HTTP 400. The scan and three related integration suites passed against a freshly migrated local database after inconsistent results on the shared test database.
+- Backend typecheck passed, and all 552 unit tests passed in a Linux container. The 14 egress unit failures on Windows also reproduced on `main`. The full integration run on WSL with Docker, Postgres and Redis had 677 passes, 2 live egress skips and 3 failures. All three reproduced on `main` at `b28c77b`: one test expects full IPs where logs mask them, and two runtime tests expect config without the existing `sessions.auto_prune` block.
+
 ## Tenant backup `.env` exclusion, watchdog tenant-backup alerts, `routerKeyId` (2026-11-23, branch, not deployed)
 
 - **Backups:** `hermes-tenant-backup` now excludes `$data/**/.env*` (any `.env` a customer or the agent wrote into the volume);

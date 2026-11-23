@@ -61,6 +61,13 @@ describe('Alerter.raise', () => {
     expect(sent).toHaveLength(1);
   });
 
+  it('closes an INFO notice without a recovery message', async () => {
+    const { alerter, sent } = setup();
+    await alerter.raise({ key: 'admin-signin:s1', severity: 'INFO', title: 'Admin masuk' });
+    expect(await alerter.resolve('admin-signin:s1')).toBe(true);
+    expect(sent).toHaveLength(1);
+  });
+
   it('keeps the alert unsent when delivery fails, and tries again on the next raise', async () => {
     let fail = true;
     const calls: string[] = [];

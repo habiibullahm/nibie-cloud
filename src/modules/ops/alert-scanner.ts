@@ -1,5 +1,7 @@
 import type { PrismaClient } from '@prisma/client';
 import type { Logger } from '../../shared/logger.js';
+import { ADMIN_DENIED, ADMIN_SIGN_IN } from '../admin/audit-service.js';
+import { maskEmail } from '../beta/invites.js';
 import type { FailedJob } from '../jobs/types.js';
 import { MAX_ATTEMPTS as ROUTER_MAX_ATTEMPTS } from '../nibierouter/router-provisioner.js';
 import type { AlertStore } from './alert-store.js';
@@ -14,6 +16,11 @@ const ROUTER_WARN_AT = 5;
 /** Daily summary goes out from 09:00 WIB (02:00 UTC). */
 const SUMMARY_FROM_UTC_HOUR = 2;
 const RESOLVED_KEEP_DAYS = 30;
+/** Admin sign-ins are reported for this long after the sign-in, so one missed scan never loses one. */
+const ADMIN_SIGN_IN_WINDOW_MS = 30 * MIN;
+const ADMIN_ACTIVITY_WINDOW_MS = 60 * MIN;
+/** Data-changing admin actions by one account within an hour that look like a script or a stolen session, not a person. */
+const ADMIN_BURST_AT = 30;
 
 export interface AlertScannerDeps {
   prisma: PrismaClient;
@@ -74,6 +81,9 @@ export class AlertScanner {
       ['disk-full:', () => this.fullDisks()],
       ['wallet-mismatch:', () => this.walletMismatches()],
       ['retired-copy:', () => this.unretiredDeletedCopies()],
+      ['admin-signin:', () => this.adminSignIns()],
+      ['admin-denied', () => this.adminDenied()],
+      ['admin-burst', () => this.adminBursts()],
       ...(this.d.failedJobs ? [['job-failed:', () => this.failedQueueJobs()] as [string, () => Promise<AlertInput[]>]] : []),
     ];
     for (const [prefix, fn] of checks) {
@@ -211,6 +221,59 @@ export class AlertScanner {
       title: 'Volume lama instance yang dihapus belum dibersihkan',
       detail: `Instance ${short(r.instanceId)}, tenant ${short(r.instance.tenantId)}, node ${r.node.name} (${r.storageMb} MiB). Tindakan: panggil POST /recovery/retire untuk node ${r.node.name} setelah host terhubung.`,
     }));
+  }
+
+  /** Every new admin session. Admins are few, so each sign-in is worth a line; one the admin did not make is the alarm. */
+  private async adminSignIns(): Promise<AlertInput[]> {
+    const rows = await this.d.prisma.auditLog.findMany({
+      where: { action: ADMIN_SIGN_IN, createdAt: { gte: new Date(this.now().getTime() - ADMIN_SIGN_IN_WINDOW_MS) } },
+      take: 50, orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((r) => {
+      const d = (r.detail ?? {}) as { network?: string | null };
+      return {
+        key: `admin-signin:${r.targetId ?? r.id}`,
+        severity: 'INFO' as const,
+        title: 'Admin masuk ke panel admin',
+        detail: `Akun ${maskEmail(r.actorEmail)}, jaringan ${d.network ?? 'tidak diketahui'}, sesi ${r.targetId ?? '-'}. Jika ini bukan Anda atau admin lain: cabut akun dari ADMIN_EMAILS, keluarkan sesinya di Supabase, lalu periksa audit log.`,
+      };
+    });
+  }
+
+  /** Signed-in accounts that are not admins calling the admin API. The dashboard never does that for them. */
+  private async adminDenied(): Promise<AlertInput[]> {
+    const rows = await this.d.prisma.auditLog.findMany({
+      where: { action: ADMIN_DENIED, createdAt: { gte: new Date(this.now().getTime() - ADMIN_ACTIVITY_WINDOW_MS) } },
+      select: { actorEmail: true }, take: 200,
+    });
+    if (rows.length === 0) return [];
+    const who = [...new Set(rows.map((r) => maskEmail(r.actorEmail)))];
+    return [{
+      key: 'admin-denied',
+      severity: 'WARNING',
+      title: 'Akun bukan admin mencoba membuka API admin',
+      detail: `${who.length} akun dalam 1 jam terakhir: ${who.slice(0, 5).join(', ')}${who.length > 5 ? ', ...' : ''}. Akses ditolak. Tindakan: lihat audit log (aksi "${ADMIN_DENIED}"); nonaktifkan akun di Supabase jika berulang.`,
+    }];
+  }
+
+  /** Many data-changing admin actions from one account in an hour. */
+  private async adminBursts(): Promise<AlertInput[]> {
+    const rows = await this.d.prisma.auditLog.groupBy({
+      by: ['actorEmail'],
+      where: {
+        createdAt: { gte: new Date(this.now().getTime() - ADMIN_ACTIVITY_WINDOW_MS) },
+        OR: ['POST ', 'PUT ', 'PATCH ', 'DELETE '].map((m) => ({ action: { startsWith: m } })),
+      },
+      _count: { _all: true },
+    });
+    const busy = rows.filter((r) => r._count._all >= ADMIN_BURST_AT);
+    if (busy.length === 0) return [];
+    return [{
+      key: 'admin-burst',
+      severity: 'WARNING',
+      title: 'Banyak perubahan data oleh admin dalam 1 jam',
+      detail: `${busy.map((r) => `${maskEmail(r.actorEmail)}: ${r._count._all} perubahan`).join('; ')}. Tindakan: pastikan ini disengaja; jika tidak, cabut kunci admin dan sesi akun itu lalu periksa audit log.`,
+    }];
   }
 
   /** One INFO message per UTC day from 02:00 UTC. A missing message is itself a signal that the platform is down. */

@@ -173,4 +173,43 @@ describe('AlertScanner', () => {
     await scanner.scanOnce();
     expect(sent.at(-1)).toContain('PULIH');
   });
+
+  const audit = (action: string, min: number, extra: Record<string, unknown> = {}) =>
+    prisma.auditLog.create({ data: { actorEmail: 'boss@nibie.app', action, createdAt: at(min), ...extra } as never });
+
+  it('tells the operator about each admin sign-in once, masked, with no recovery message', async () => {
+    const sessionId = randomUUID();
+    await audit('SIGN_IN admin', 0, { targetType: 'session', targetId: sessionId, detail: { aal: 'aal2', network: '203.0.113.0' } });
+    now = at(1);
+    await scanner.scanOnce();
+    now = at(2);
+    await scanner.scanOnce();
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toContain('Admin masuk');
+    expect(sent[0]).toContain('b**s@nibie.app');
+    expect(sent[0]).not.toContain('boss@');
+    expect(sent[0]).toContain('203.0.113.0');
+    now = at(40);
+    await scanner.scanOnce();
+    expect(sent).toHaveLength(1);
+  });
+
+  it('warns about non-admins refused by the admin API, and about bursts of admin changes', async () => {
+    await audit('DENIED admin', 0, { actorEmail: 'mallory@example.test', detail: { route: 'GET /api/v1/admin/customers' } });
+    for (let i = 0; i < 29; i += 1) await audit('POST /plans/:planId/stock', 0, { reason: 'test' });
+    now = at(1);
+    await scanner.scanOnce();
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toContain('bukan admin');
+    expect(sent[0]).toContain('m*****y@example.test');
+
+    await audit('POST /plans/:planId/stock', 1, { reason: 'test' });
+    await scanner.scanOnce();
+    expect(sent).toHaveLength(2);
+    expect(sent[1]).toContain('30 perubahan');
+
+    now = at(70);
+    await scanner.scanOnce();
+    expect(sent.slice(2).filter((t) => t.includes('PULIH'))).toHaveLength(2);
+  });
 });

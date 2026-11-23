@@ -76,6 +76,49 @@ describe('admin API authorization', () => {
     expect(res.json()).toEqual({ error: { code: 'forbidden', message: 'Forbidden' } });
   });
 
+  it('audits each admin sign-in session once, and never an aal1 admin at the MFA prompt', async () => {
+    const a = app();
+    const sessionId = randomUUID();
+    await me(a, bearer(await auth.signToken({ email: BOSS, aal: 'aal1', sessionId })));
+    expect(await prisma.auditLog.count({ where: { action: 'SIGN_IN admin' } })).toBe(0);
+    const headers = bearer(await auth.signToken({ email: BOSS, aal: 'aal2', sessionId }));
+    const second = app();
+    const responses = await Promise.all([me(a, headers), me(a, headers), me(second, headers)]);
+    expect(responses.map((res) => res.statusCode)).toEqual([200, 200, 200]);
+    // A restarted process has no memory of the session; the database row still keeps it to one entry.
+    const restarted = app();
+    await me(restarted, headers);
+    await Promise.all([a.close(), second.close(), restarted.close()]);
+    const rows = await prisma.auditLog.findMany({ where: { action: 'SIGN_IN admin' } });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ actorEmail: BOSS, targetType: 'session', targetId: sessionId });
+    expect(rows[0]!.detail).toMatchObject({ aal: 'aal2' });
+  });
+
+  it('rejects a malformed audit cursor with a client error', async () => {
+    const a = app();
+    try {
+      const headers = bearer(await auth.signToken({ email: BOSS, aal: 'aal2' }));
+      const res = await a.inject({ method: 'GET', url: '/api/v1/admin/audit?cursor=invalid', headers });
+      expect(res.statusCode).toBe(400);
+      expect(res.json()).toEqual({ error: { code: 'validation_error', message: 'Invalid audit cursor' } });
+    } finally {
+      await a.close();
+    }
+  });
+
+  it('audits a signed-in non-admin calling the admin API, once per window, and not an admin at the MFA prompt', async () => {
+    const a = app();
+    const sub = randomUUID();
+    for (let i = 0; i < 3; i += 1) {
+      expect((await me(a, bearer(await auth.signToken({ sub, email: STRANGER })))).statusCode).toBe(403);
+    }
+    await me(a, bearer(await auth.signToken({ email: BOSS, aal: 'aal1' })));
+    const rows = await prisma.auditLog.findMany({ where: { action: 'DENIED admin' } });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ actorEmail: STRANGER, detail: { route: 'GET /api/v1/admin/me' } });
+  });
+
   it('refuses everybody when ADMIN_EMAILS is empty (fail closed)', async () => {
     const a = app({ adminEmails: [] });
     const res = await me(a, bearer(await auth.signToken({ email: BOSS })));

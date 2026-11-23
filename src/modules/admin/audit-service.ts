@@ -1,4 +1,11 @@
 import { Prisma, type PrismaClient } from '@prisma/client';
+import { ValidationError } from '../../shared/errors.js';
+import { isUuid } from '../../shared/uuid.js';
+
+/** Audit action of the first admin request from a Supabase sign-in session (always `aal2`); `targetId` is the session. */
+export const ADMIN_SIGN_IN = 'SIGN_IN admin';
+/** Audit action of a signed-in account that is not on `ADMIN_EMAILS` calling the admin API. */
+export const ADMIN_DENIED = 'DENIED admin';
 
 /** One row of the admin audit trail. */
 export interface AuditEntry {
@@ -55,6 +62,17 @@ export class AuditService {
     await db.auditLog.create({ data: { ...input, detail: input.detail ?? Prisma.JsonNull } });
   }
 
+  /** Writes the sign-in entry of an admin session unless one exists. True when this call wrote it. */
+  async recordSignIn(actorEmail: string, sessionId: string, detail: Prisma.InputJsonValue): Promise<boolean> {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`admin-sign-in:${sessionId}`}))`;
+      const seen = await tx.auditLog.findFirst({ where: { action: ADMIN_SIGN_IN, targetId: sessionId }, select: { id: true } });
+      if (seen) return false;
+      await this.record({ actorEmail, action: ADMIN_SIGN_IN, targetType: 'session', targetId: sessionId, reason: null, detail }, tx);
+      return true;
+    });
+  }
+
   async list(query: AuditQuery): Promise<AuditPage> {
     const { limit } = query;
     const after = query.cursor ? decodeCursor(query.cursor) : null;
@@ -88,7 +106,9 @@ const encodeCursor = (c: Cursor): string => Buffer.from(`${c.createdAt.toISOStri
 /** A cursor this service did not issue is a client bug, so it throws rather than silently returning page one. */
 function decodeCursor(raw: string): Cursor {
   const [iso, id] = Buffer.from(raw, 'base64url').toString('utf8').split('|');
-  const createdAt = iso ? new Date(iso) : new Date(Number.NaN);
-  if (!iso || !id || Number.isNaN(createdAt.getTime())) throw new Error('invalid cursor');
+  const createdAt = new Date(iso ?? '');
+  if (!isUuid(id) || Number.isNaN(createdAt.getTime()) || encodeCursor({ createdAt, id }) !== raw) {
+    throw new ValidationError('Invalid audit cursor');
+  }
   return { createdAt, id };
 }

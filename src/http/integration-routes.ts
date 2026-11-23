@@ -15,6 +15,8 @@ const byokModelsBody = z.union([z.object({}).strict(), z.object({ baseUrl: z.str
 
 /** Verification and provider tests call third parties, so they get a much tighter per-user limit. */
 const OUTBOUND_LIMIT = { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } };
+/** Changes that recreate the instance's container on its next start. */
+const RESTART_LIMIT = { config: { rateLimit: { max: 20, timeWindow: '10 minutes' } } };
 
 function need(i: Integrations | null): Integrations {
   if (!i) throw new SecretsUnavailableError();
@@ -38,7 +40,7 @@ export function registerCustomerIntegrationRoutes(
   api.get<{ Params: P }>('/instances/:instanceId/providers', async (req) => ({
     providers: await need(integrations).providers.list(principalOf(req).tenantId, ids(req.params)),
   }));
-  api.put<{ Params: P }>('/instances/:instanceId/providers', async (req) => {
+  api.put<{ Params: P }>('/instances/:instanceId/providers', RESTART_LIMIT, async (req) => {
     const i = need(integrations);
     const body = providerBody.parse(req.body);
     return { provider: await i.providers.put(principalOf(req).tenantId, ids(req.params), body) };
@@ -47,7 +49,7 @@ export function registerCustomerIntegrationRoutes(
   api.get<{ Params: P }>('/instances/:instanceId/models', async (req) =>
     need(integrations).providers.models(principalOf(req).tenantId, ids(req.params)),
   );
-  api.put<{ Params: P }>('/instances/:instanceId/providers/model', async (req) => {
+  api.put<{ Params: P }>('/instances/:instanceId/providers/model', RESTART_LIMIT, async (req) => {
     const i = need(integrations);
     const { model } = modelBody.parse(req.body);
     return { provider: await i.providers.setModel(principalOf(req).tenantId, ids(req.params), model) };
@@ -66,7 +68,7 @@ export function registerCustomerIntegrationRoutes(
     if (!router) throw new NotFoundError('Route not found');
     return { provider: await router.restore(principalOf(req).tenantId, ids(req.params)) };
   });
-  api.delete<{ Params: P & { providerConfigId: string } }>('/instances/:instanceId/providers/:providerConfigId', async (req) =>
+  api.delete<{ Params: P & { providerConfigId: string } }>('/instances/:instanceId/providers/:providerConfigId', RESTART_LIMIT, async (req) =>
     need(integrations).providers.remove(principalOf(req).tenantId, ids(req.params), uuid.parse(req.params.providerConfigId)),
   );
 
@@ -80,7 +82,7 @@ export function registerCustomerIntegrationRoutes(
   api.get<{ Params: P }>('/instances/:instanceId/telegram', async (req) => ({
     telegram: await need(integrations).telegram.get(principalOf(req).tenantId, ids(req.params)),
   }));
-  api.put<{ Params: P }>('/instances/:instanceId/telegram', async (req) => {
+  api.put<{ Params: P }>('/instances/:instanceId/telegram', RESTART_LIMIT, async (req) => {
     const i = need(integrations);
     const body = telegramBody.parse(req.body);
     return { telegram: await i.telegram.put(principalOf(req).tenantId, ids(req.params), body) };
@@ -88,7 +90,7 @@ export function registerCustomerIntegrationRoutes(
   api.post<{ Params: P }>('/instances/:instanceId/telegram/verify', OUTBOUND_LIMIT, async (req) => ({
     telegram: await need(integrations).telegram.verify(principalOf(req).tenantId, ids(req.params)),
   }));
-  api.delete<{ Params: P }>('/instances/:instanceId/telegram', async (req) =>
+  api.delete<{ Params: P }>('/instances/:instanceId/telegram', RESTART_LIMIT, async (req) =>
     need(integrations).telegram.remove(principalOf(req).tenantId, ids(req.params)),
   );
 }
