@@ -48,7 +48,10 @@ describe('runtime config delivery', () => {
     const s = newSpec({ modelConfig: MODEL });
     await manager.ensure(s);
     const f = await readFile(s.instanceId, 'config.yaml');
-    expect(parse(f.text!)).toEqual({ model: { default: 'gpt-x', provider: 'custom', base_url: MODEL.baseUrl, key_env: 'HERMES_PROVIDER_API_KEY' } });
+    expect(parse(f.text!)).toEqual({
+      model: { default: 'gpt-x', provider: 'custom', base_url: MODEL.baseUrl, key_env: 'HERMES_PROVIDER_API_KEY' },
+      sessions: { auto_prune: true },
+    });
     expect(f.uid).toBe(10000);
   });
 
@@ -88,7 +91,7 @@ describe('runtime config delivery', () => {
     const s = newSpec({ modelConfig: MODEL });
     await manager.ensure(s);
     await manager.recreate({ ...s, modelConfig: null });
-    expect(parse((await readFile(s.instanceId, 'config.yaml')).text!)).toEqual({});
+    expect(parse((await readFile(s.instanceId, 'config.yaml')).text!)).toEqual({ sessions: { auto_prune: true } });
   });
 
   it('recreate with modelConfig undefined does not touch the file', async () => {
