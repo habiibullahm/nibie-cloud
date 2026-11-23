@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPrisma } from '../../src/db/client.js';
 import { ProviderService } from '../../src/modules/integrations/provider-service.js';
 import { NANO_PER_USD, type NibieRouterClient, type RouterKeySettings } from '../../src/modules/nibierouter/nibierouter-client.js';
@@ -233,13 +233,36 @@ describe('RouterProvisioner', () => {
     const { instance, sub } = await mk({ credit: null });
     await prov.begin({ tenantId: s.tenant.id, instanceId: instance.id, subscriptionId: sub.id });
     await prisma.providerConfig.deleteMany({ where: { instanceId: instance.id } }); // the secret is gone, the router key stays
-    await prisma.routerProvisioning.update({ where: { instanceId: instance.id }, data: { status: 'PENDING' } });
+    // Not recorded as ours (a key from before `routerKeyId`, or a database restored from an older dump).
+    await prisma.routerProvisioning.update({ where: { instanceId: instance.id }, data: { status: 'PENDING', routerKeyId: null } });
     expect(await prov.run(instance.id)).toBe('pending');
     expect(await rowOf(instance.id)).toMatchObject({ lastError: 'orphan_key' });
     expect(router.keys).toHaveLength(1);
     router.keys[0]!.revoked = true; // the operator revoked it
     expect(await prov.run(instance.id)).toBe('done');
     expect(router.keys).toHaveLength(2);
+  });
+
+  it('a key we created whose attach failed is replaced on the next run, not reported as orphan_key', async () => {
+    const { instance, sub } = await mk({ credit: null });
+    vi.spyOn(providers, 'attachNibieRouter').mockRejectedValueOnce(new Error('database down'));
+    expect(await prov.begin({ tenantId: s.tenant.id, instanceId: instance.id, subscriptionId: sub.id })).toBe('pending');
+    expect(router.keys).toEqual([expect.objectContaining({ id: 'k-1', revoked: false })]);
+    expect(await rowOf(instance.id)).toMatchObject({ routerKeyId: 'k-1', lastError: 'internal' });
+    expect(await prov.run(instance.id)).toBe('done');
+    expect(router.keys.map((k) => [k.id, k.revoked])).toEqual([['k-1', true], ['k-2', false]]);
+    expect(await rowOf(instance.id)).toMatchObject({ status: 'DONE', routerKeyId: 'k-2' });
+    expect(await prisma.providerConfig.count({ where: { instanceId: instance.id } })).toBe(1);
+  });
+
+  it('two runs of one instance at once attach one key and revoke none', async () => {
+    const { instance, sub } = await mk({ credit: null });
+    await prisma.routerProvisioning.create({ data: { instanceId: instance.id, tenantId: s.tenant.id, subscriptionId: sub.id } });
+    const list = router.listKeys.bind(router);
+    router.listKeys = async (userId) => { const keys = await list(userId); await new Promise((r) => setTimeout(r, 300)); return keys; };
+    await Promise.all([prov.run(instance.id), prov.run(instance.id)]);
+    expect(router.keys.map((k) => k.revoked)).toEqual([false]);
+    expect(await prisma.providerConfig.count({ where: { instanceId: instance.id } })).toBe(1);
   });
 
   it('skips a deleted instance', async () => {

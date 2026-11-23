@@ -14,6 +14,7 @@ BACKEND=${OPS_BACKEND_CONTAINER:-hermes-cloud-backend-1}
 READYZ=${OPS_READYZ_URL:-http://127.0.0.1:3000/readyz}
 DUMP_DIR=${DUMP_DIR:-/var/backups/hermes-cloud}
 OFFSITE_LOG=${OFFSITE_LOG:-/var/log/hermes-db-offsite.log}
+TENANT_BACKUP_LOG=${TENANT_BACKUP_LOG:-/var/log/hermes-tenant-backup.log}
 REPEAT_SECS=3600
 mkdir -p "$STATE"
 # shellcheck disable=SC1090
@@ -91,6 +92,18 @@ if [ -n "$last_ok" ] && [ $((now - $(date -d "$last_ok" +%s 2>/dev/null || echo 
 else green=0; alert offsite "salinan backup database ke R2 terakhir berhasil lebih dari 26 jam lalu atau tidak ada; lihat $OFFSITE_LOG"; fi
 if systemctl is-failed --quiet hermes-restore-drill.service; then green=0; alert restore-drill "uji restore database dari R2 gagal; lihat journalctl -u hermes-restore-drill"
 else recover restore-drill "uji restore database dari R2 lulus lagi"; fi
+
+# 4c. Tenant volume backups, on hosts where hermes-tenant-backup.timer (20:00 UTC) is enabled: the last run in which no volume
+# failed must be under 26 hours old. The weekly verify and the fleet retention units must not be failed (where installed).
+if systemctl is-enabled --quiet hermes-tenant-backup.timer 2>/dev/null; then
+  tenant_ok=$(grep -o '^\[[0-9TZ:-]*\] done: [0-9]* ok, 0 failed' "$TENANT_BACKUP_LOG" 2>/dev/null | tail -n1 | cut -d']' -f1 | tr -d '[')
+  if [ -n "$tenant_ok" ] && [ $((now - $(date -d "$tenant_ok" +%s 2>/dev/null || echo 0))) -le $((26 * 3600)) ]; then recover tenant-backup "backup volume tenant normal lagi"
+  else green=0; alert tenant-backup "backup volume tenant tanpa kegagalan terakhir lebih dari 26 jam lalu atau tidak ada; lihat $TENANT_BACKUP_LOG"; fi
+fi
+for unit in hermes-tenant-verify hermes-tenant-retention; do
+  if systemctl is-failed --quiet "$unit.service"; then green=0; alert "$unit" "$unit gagal; lihat journalctl -u $unit"
+  else recover "$unit" "$unit normal lagi"; fi
+done
 
 # 5. Public path and certificate age (once an hour is plenty).
 if [ -n "${OPS_API_HOST:-}" ] && [ ! -f "$STATE/public.checked" -o $((now - $(stat -c %Y "$STATE/public.checked" 2>/dev/null || echo 0))) -ge 3600 ]; then

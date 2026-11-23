@@ -4,6 +4,22 @@ Last updated: 2026-11-23 (multi-node fleet live in production; dashboard action 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Tenant backup `.env` exclusion, watchdog tenant-backup alerts, `routerKeyId` (2026-11-23, branch, not deployed)
+
+- **Backups:** `hermes-tenant-backup` now excludes `$data/**/.env*` (any `.env` a customer or the agent wrote into the volume);
+  a restored instance comes back without it. Pattern checked with restic 0.17.3 in a container: `/data/.env`, `/data/.env.bak`
+  and `/data/sub/.env` excluded, other files kept.
+- **Watchdog:** step 4c alerts when the last tenant backup run with `0 failed` is older than 26 hours (only where
+  `hermes-tenant-backup.timer` is enabled), and when `hermes-tenant-verify` or `hermes-tenant-retention` has failed. Checked:
+  `bash -n`, and the log parser on fake logs (fresh run recovers; an old good run followed by a failed one, `10 failed`, and a
+  missing log alert). Not run on a host; install with the same `git show origin/main:... | install` step as the 4b change.
+- **NibieRouter:** `RouterProvisioning.routerKeyId` (migration `20261123100000_router_key_id`) records the id of each `inst-`
+  key right after it is created, before the secret is attached. A run that finds our own recorded key with no provider revokes
+  and replaces it instead of stopping at `orphan_key`; an unrecorded key still gives `orphan_key`. Key creation now runs under a
+  per-instance advisory lock (`router-key:<instanceId>`) so two runs of one instance cannot create two keys or revoke each
+  other's. `test/integration/router-provisioner.test.ts`: 32 passed (two new cases; the race case fails with the lock removed).
+- **Still manual (owner):** an off-VPS copy of the runtime CA folder and of the restic R2 password.
+
 ## Multi-node fleet in production (2026-11-23)
 
 - **State:** fleet mode is on in production. The control plane (`jkt-1`) runs backend `b604968` with

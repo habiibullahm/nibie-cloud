@@ -6,7 +6,8 @@
 # Needs /etc/restic/r2/env (the same credentials as the other backups). Runs as root; touches no tenant container.
 # SQLite files are copied with the online backup API (consistent even while the agent writes); everything else is
 # copied as is, so a volume is crash-consistent, not application-consistent. Provider keys and Telegram tokens are
-# environment variables, not files in the volume (ADR 0003), so they are not in the backup.
+# environment variables, not files in the volume (ADR 0003), so they are not in the backup. Any .env file a customer or
+# the agent wrote into the volume is excluded too: a restored instance comes back without it and the customer sets it again.
 # Snapshots of an instance are tagged tenant-vol and inst-<uuid>. Retention: 7 days per instance; the snapshots of
 # a deleted instance (its volume is gone) are removed once they are older than 7 days.
 set -euo pipefail
@@ -205,7 +206,7 @@ for v in $volumes; do
   # copies in $stage, so until 2026-11-21 no snapshot held a database. The count check below catches that kind of loss.
   if n=$(sqlite_copy "$data" "$stage") && restic backup "$data" "$stage" --tag tenant-vol --tag "inst-$id" --host "$BACKUP_HOST" \
        --exclude "$data/**/*.db" --exclude "$data/**/*.db-wal" --exclude "$data/**/*.db-shm" --exclude "$data/**/*.db-journal" \
-       --exclude '*.lock' --exclude '*.sock' --quiet \
+       --exclude "$data/**/.env*" --exclude '*.lock' --exclude '*.sock' --quiet \
      && got=$(restic ls latest --tag "inst-$id" --host "$BACKUP_HOST" | grep -c "^$stage/.*\.db$" || true) && [ "$got" = "$n" ]; then
     ok=$((ok + 1)); log "OK $id ($n sqlite files)"
   elif [ -n "${got:-}" ] && [ "$got" != "${n:-}" ]; then

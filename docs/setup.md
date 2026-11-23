@@ -420,8 +420,9 @@ admin adjusts the wallet by hand if a grant is ever given up.
   router dashboard is left alone, and the key's other settings are sent back unchanged. The free models' daily request
   limit is configured on the router, not here.
 - **Stuck row:** `SELECT * FROM hermes."RouterProvisioning" WHERE status = 'PENDING';`. `orphan_key` means a key named
-  `inst-<instanceId>` exists at the router but no secret is stored here (the router shows a secret once): revoke that key
-  in the NibieRouter dashboard and the next tick creates a new one.
+  `inst-<instanceId>` exists at the router but no secret is stored here (the router shows a secret once) and its id is not
+  the row's `routerKeyId`: revoke that key in the NibieRouter dashboard and the next tick creates a new one. A key whose id
+  is the row's `routerKeyId` (ours, the attach failed) is revoked and replaced by the next run without an operator.
 - **Credit is exactly once:** `CreditGrant` (unique per subscription) is the guard because the router has no
   idempotency; after an ambiguous failure the retry looks for the note `nibie-cloud credit <subscriptionId>` in the
   user's balance history before posting again. If that history cannot be read it stays `PENDING` instead of risking a
