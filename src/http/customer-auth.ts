@@ -20,6 +20,9 @@ const BEARER = /^Bearer ([^\s]+)$/;
 /** Requires a valid Supabase access token on every route of this plugin scope. */
 export function registerCustomerAuth(app: FastifyInstance, deps: CustomerAuthDeps): void {
   app.decorateRequest('principal', undefined);
+  // Sign-ins and failed sign-ins are recorded by Supabase Auth; this log line ties a session to our API traffic.
+  // shortcut: process-local and cleared when full, so a session may be logged again after a restart; enough for a log trail.
+  const seenSessions = new Set<string>();
   app.addHook('onRequest', async (req) => {
     const m = BEARER.exec(req.headers.authorization ?? '');
     if (!m) throw new UnauthorizedError();
@@ -32,6 +35,11 @@ export function registerCustomerAuth(app: FastifyInstance, deps: CustomerAuthDep
       throw e;
     }
     req.principal = await deps.identity.resolve(claims);
+    if (claims.sessionId && !seenSessions.has(claims.sessionId)) {
+      if (seenSessions.size >= 10_000) seenSessions.clear();
+      seenSessions.add(claims.sessionId);
+      req.log.info({ userId: claims.userId, sessionId: claims.sessionId, aal: claims.aal }, 'customer session first seen');
+    }
   });
 }
 

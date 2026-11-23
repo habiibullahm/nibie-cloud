@@ -23,8 +23,11 @@ export function registerAiRoutes(
   api.get('/ai/models', async (req) => ai.models(principalOf(req).tenantId));
   // The customer's own NibieRouter keys. The secret is only in the create answer.
   api.get('/ai/keys', async (req) => ai.listKeys(principalOf(req).tenantId));
-  api.post('/ai/keys', async (req, reply) => reply.code(201).send(await ai.createKey(principalOf(req).tenantId, req.body)));
-  api.post<{ Params: { keyId: string } }>('/ai/keys/:keyId/revoke', async (req, reply) => {
+  // Leave room for validation retries and a full rotation of the five active keys.
+  api.post('/ai/keys', { config: { rateLimit: { max: 20, timeWindow: '10 minutes' } } }, async (req, reply) => {
+    return reply.code(201).send(await ai.createKey(principalOf(req).tenantId, req.body));
+  });
+  api.post<{ Params: { keyId: string } }>('/ai/keys/:keyId/revoke', { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } }, async (req, reply) => {
     await ai.revokeKey(principalOf(req).tenantId, req.params.keyId);
     return reply.code(204).send();
   });

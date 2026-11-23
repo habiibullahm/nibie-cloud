@@ -7,7 +7,7 @@ export const TEST_SUPABASE_URL = 'https://test-project.supabase.co';
 export const TEST_ADMIN_TOKEN = 'test-admin-token-0123456789abcdef';
 export const DASHBOARD_ORIGIN = 'https://cloud.nibie.app';
 
-export interface TokenOverrides { sub?: string; email?: string; exp?: string | number; aud?: string; aal?: string | null }
+export interface TokenOverrides { sub?: string; email?: string; exp?: string | number; aud?: string; aal?: string | null; sessionId?: string }
 
 /** Local signing keys and a verifier that trusts them: no network, no Supabase project. */
 export async function createTestAuth() {
@@ -20,6 +20,7 @@ export async function createTestAuth() {
       role: 'authenticated',
       // Supabase omits `aal` until the account has an MFA factor; `null` means "leave it out".
       ...(o.aal === null ? {} : { aal: o.aal ?? 'aal1' }),
+      ...(o.sessionId ? { session_id: o.sessionId } : {}),
     })
       .setProtectedHeader({ alg: 'ES256', kid: 'test-key' })
       .setSubject(o.sub ?? randomUUID())

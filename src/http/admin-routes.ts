@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import rateLimit from '@fastify/rate-limit';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import type { Config } from '../config/env.js';
 import type { AuthClaims } from '../modules/auth/token-verifier.js';
-import type { AuditService } from '../modules/admin/audit-service.js';
+import { ADMIN_DENIED, type AuditService } from '../modules/admin/audit-service.js';
 import type { JobQueue } from '../modules/jobs/types.js';
 import type { Mailer } from '../modules/billing/mailer.js';
 import { renderBetaInvite } from '../modules/billing/email-templates.js';
@@ -16,6 +16,7 @@ import { readHostUsage } from '../modules/admin/host-usage.js';
 import { readSupportContact, supportContactBody, writeSupportContact } from '../modules/support/contact.js';
 import { addTicketMessage, closeTicket, getTicket, listTickets, ticketMessageBody, ticketStatusQuery } from '../modules/support/tickets.js';
 import { notifyCustomer } from './support-routes.js';
+import { maskIp } from '../shared/ip.js';
 import { AppError, AuthUnavailableError, ForbiddenError, NotFoundError, QueueUnavailableError, UnauthorizedError } from '../shared/errors.js';
 import { registerAdminMcp } from './admin-mcp.js';
 import { ADJUST_MAX_IDR, assertUnderCap, lockWallet, moveWallet, readWallet } from '../modules/billing/wallet.js';
@@ -119,6 +120,37 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
   // Empty list means nobody: a missing or misspelled variable must never open the panel.
   const allowed = new Set(config.adminEmails);
 
+  // Cache sign-ins to skip repeat database lookups. Throttle denial audits per account in this process.
+  // shortcut: clearing a full denial cache can record another denial within the window; acceptable at current traffic.
+  const signedIn = new Set<string>();
+  const deniedAt = new Map<string, number>();
+  const DENIED_EVERY_MS = 10 * 60_000;
+  const noteSignIn = async (req: FastifyRequest, claims: AuthClaims): Promise<void> => {
+    if (!claims.sessionId || signedIn.has(claims.sessionId)) return;
+    try {
+      if (await audit.recordSignIn(claims.email, claims.sessionId, { aal: claims.aal, network: maskIp(req.ip) ?? null })) {
+        req.log.info({ sessionId: claims.sessionId }, 'admin signed in');
+      }
+      if (signedIn.size >= 1000) signedIn.clear();
+      signedIn.add(claims.sessionId);
+    } catch (e) {
+      req.log.error({ errName: e instanceof Error ? e.name : 'unknown' }, 'admin sign-in audit write failed');
+    }
+  };
+  const noteDenied = async (req: FastifyRequest, claims: AuthClaims): Promise<void> => {
+    const now = Date.now();
+    if (now - (deniedAt.get(claims.userId) ?? 0) < DENIED_EVERY_MS) return;
+    if (deniedAt.size >= 1000) deniedAt.clear();
+    deniedAt.set(claims.userId, now);
+    req.log.warn({ userId: claims.userId }, 'admin API refused a signed-in account that is not an admin');
+    await audit
+      .record({
+        actorEmail: claims.email, action: ADMIN_DENIED, targetType: null, targetId: null, reason: null,
+        detail: { route: `${req.method} ${req.routeOptions.url ?? req.url}`, network: maskIp(req.ip) ?? null },
+      })
+      .catch((e: unknown) => req.log.error({ errName: e instanceof Error ? e.name : 'unknown' }, 'admin denial audit write failed'));
+  };
+
   app.register(async (api) => {
     // Auth first so the rate limit below can key on the admin, not on the proxy's address.
     api.decorateRequest('admin', undefined);
@@ -128,7 +160,10 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
       if (!m) throw new UnauthorizedError();
       if (isAdminKey(m[1]!)) {
         const key = await findActiveKey(prisma, m[1]!);
-        if (!key) throw new UnauthorizedError();
+        if (!key) {
+          req.log.warn({ network: maskIp(req.ip) }, 'admin API refused an unknown, revoked or expired admin key');
+          throw new UnauthorizedError();
+        }
         // Creating the key needed aal2, so the key stands for that session. The allowlist is checked again on every
         // request, so removing the creator from ADMIN_EMAILS stops their keys too.
         const claims: AuthClaims = { userId: key.createdByUserId, email: key.createdByEmail, aal: 'aal2' };
@@ -146,14 +181,22 @@ export function registerAdminRoutes(app: FastifyInstance, deps: { admin: AdminDe
         throw e;
       }
       // The allowlist and the aal2 rule are the whole protection; one shared helper, one message.
-      assertAdminAllowed(claims, req.method, allowed);
+      try {
+        assertAdminAllowed(claims, req.method, allowed);
+      } catch (e) {
+        // An allowlisted admin at aal1 is the normal MFA prompt. Anyone else signed in here is unusual: record it.
+        if (e instanceof ForbiddenError && e.code !== 'mfa_required') await noteDenied(req, claims);
+        throw e;
+      }
       req.admin = claims;
+      await noteSignIn(req, claims);
     });
     await api.register(rateLimit, {
       global: true,
       max: 120,
       timeWindow: '1 minute',
       keyGenerator: (req) => req.admin?.userId ?? req.ip,
+      onExceeded: (req) => req.log.warn({ userId: req.admin?.userId, route: req.routeOptions.url }, 'admin rate limit hit'),
     });
     api.addHook('onSend', async (_req, reply, payload) => {
       reply.header('cache-control', 'no-store');

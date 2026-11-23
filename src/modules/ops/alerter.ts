@@ -89,12 +89,15 @@ export class Alerter {
     }
   }
 
-  /** Closes the alert. A recovery message goes out only if the operator had been told about it. */
+  /**
+   * Closes the alert. A recovery message goes out only if the operator had been told about it, and never for INFO:
+   * an INFO alert is a notice about something that happened (a sign-in), not a condition that can recover.
+   */
   async resolve(key: string): Promise<boolean> {
     try {
       const rec = await this.d.store.resolve(key, this.now());
       if (!rec) return false;
-      if (this.d.sink && rec.sendCount > 0) {
+      if (this.d.sink && rec.sendCount > 0 && rec.severity !== 'INFO') {
         await this.d.sink(sanitizeAlertText(`✅ PULIH · Nibie Cloud\n${rec.title}`)).catch((e: Error) => {
           this.d.logger.warn({ errName: e.name }, 'operator recovery message failed');
         });

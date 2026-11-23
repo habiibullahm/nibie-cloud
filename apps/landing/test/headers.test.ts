@@ -16,8 +16,10 @@ describe("landing response headers", () => {
     expect(directive("connect-src")).toBe("connect-src 'self' https://api.cloud.nibie.app https://challenges.cloudflare.com")
   })
 
-  it("load scripts and frames only from the site and Turnstile, without eval", () => {
-    expect(directive("script-src")).toBe("script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com")
+  it("load scripts and frames only from the site and Turnstile, without eval or 'unsafe-inline'", () => {
+    // The build replaces the placeholder with the hashes of the inline scripts (scripts/csp-hashes.mjs).
+    expect(directive("script-src")).toBe("script-src 'self' 'inline-script-hashes' https://challenges.cloudflare.com")
+    expect(directive("script-src")).not.toContain("unsafe-inline")
     expect(directive("frame-src")).toBe("frame-src https://challenges.cloudflare.com")
     expect(csp).not.toContain("unsafe-eval")
   })

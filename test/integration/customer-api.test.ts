@@ -87,6 +87,21 @@ describe('customer API', () => {
     }
   });
 
+  it('limits instance lifecycle actions per user: the 21st within 10 minutes answers 429', async () => {
+    const a = app();
+    const alice = await user(ALICE);
+    const { id } = (await create(a, alice)).json().instance as { id: string };
+    const codes: number[] = [];
+    for (let i = 0; i < 21; i += 1) {
+      codes.push((await a.inject({ method: 'POST', url: `/api/v1/instances/${id}/stop`, headers: alice })).statusCode);
+    }
+    expect(codes.slice(0, 20)).not.toContain(429);
+    expect(codes[20]).toBe(429);
+    // Another user has a budget of their own.
+    expect((await a.inject({ method: 'POST', url: `/api/v1/instances/${id}/stop`, headers: await user(BOB) })).statusCode).toBe(404);
+    await a.close();
+  });
+
   it('lists only active plans, with limits and a null price', async () => {
     await prisma.plan.create({ data: { slug: 'retired', name: 'Retired', active: false, cpuMillis: 100, memoryMb: 64, pids: 32, storageMb: 128 } });
     const res = await app().inject({ method: 'GET', url: '/api/v1/plans', headers: await user(ALICE) });

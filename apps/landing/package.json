@@ -9,11 +9,11 @@
   "packageManager": "pnpm@10.28.0",
   "scripts": {
     "dev": "next dev --port 3300",
-    "build": "next build",
+    "build": "next build && node scripts/csp-hashes.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint",
     "test": "vitest run",
-    "cf:deploy": "next build && wrangler deploy"
+    "cf:deploy": "pnpm build && wrangler deploy"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

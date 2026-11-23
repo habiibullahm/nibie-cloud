@@ -1,10 +1,13 @@
 # Response headers for the static landing page (Cloudflare Workers static assets).
 # https://developers.cloudflare.com/workers/static-assets/headers/
-# CSP: Next.js's "without nonces" policy (static export, so no per-request nonce). Network calls go only to this origin, the
-# public API (beta counter and waiting list; change it here if NEXT_PUBLIC_API_URL changes) and Cloudflare Turnstile.
+# CSP: a static export has no request, so no nonce. Inline scripts are allowed by hash instead of 'unsafe-inline':
+# `pnpm build` runs scripts/csp-hashes.mjs, which replaces the 'inline-script-hashes' placeholder in out/_headers with
+# the SHA-256 of every inline <script> in the export. Unreplaced, the placeholder allows no inline script (fails closed).
+# Network calls go only to this origin, the public API (beta counter and waiting list; change it here if
+# NEXT_PUBLIC_API_URL changes) and Cloudflare Turnstile.
 /*
   X-Frame-Options: DENY
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://api.cloud.nibie.app https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'inline-script-hashes' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://api.cloud.nibie.app https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
   Referrer-Policy: strict-origin-when-cross-origin
   X-Content-Type-Options: nosniff
   Permissions-Policy: camera=(), microphone=(), geolocation=()

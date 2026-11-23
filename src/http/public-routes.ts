@@ -86,7 +86,10 @@ export function registerPublicRoutes(app: FastifyInstance, deps: { prisma: Prism
   const mailer = deps.mailer?.enabled ? deps.mailer : null;
   const confirmPage = `${config.dashboardOrigin ?? 'https://cloud.nibie.app'}/daftar-tunggu/konfirmasi`;
   app.register(async (pub) => {
-    await pub.register(rateLimit, { global: true, max: 60, timeWindow: '1 minute', keyGenerator: rateLimitKey });
+    await pub.register(rateLimit, {
+      global: true, max: 60, timeWindow: '1 minute', keyGenerator: rateLimitKey,
+      onExceeded: (req) => req.log.warn({ route: req.routeOptions.url }, 'public rate limit hit'),
+    });
     pub.get('/api/v1/public/beta-slots', async (_req, reply) => {
       reply.header('cache-control', 'public, max-age=15');
       return {

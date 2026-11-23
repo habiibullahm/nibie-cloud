@@ -18,7 +18,7 @@ beforeAll(async () => {
   verify = createTokenVerifier({ supabaseUrl: SUPABASE_URL, keys: createLocalJWKSet({ keys: [publicJwk] }) });
 });
 
-interface Overrides { sub?: string; email?: string | null; iss?: string; aud?: string; exp?: string | number; kid?: string; aal?: string | null; amr?: { method: string; timestamp: number }[] }
+interface Overrides { sub?: string; email?: string | null; iss?: string; aud?: string; exp?: string | number; kid?: string; aal?: string | null; sessionId?: unknown; amr?: { method: string; timestamp: number }[] }
 
 async function sign(o: Overrides = {}): Promise<string> {
   const claims: Record<string, unknown> = { role: 'authenticated' };
@@ -26,6 +26,7 @@ async function sign(o: Overrides = {}): Promise<string> {
   // Supabase adds `aal`/`amr` only once MFA exists on the account; a token without `aal` is aal1.
   if (o.aal !== null) claims.aal = o.aal ?? 'aal1';
   if (o.amr) claims.amr = o.amr;
+  if (o.sessionId !== undefined) claims.session_id = o.sessionId;
   return new SignJWT(claims)
     .setProtectedHeader({ alg: 'ES256', kid: o.kid ?? 'k1' })
     .setSubject(o.sub ?? randomUUID())
@@ -47,6 +48,14 @@ describe('createTokenVerifier', () => {
     expect((await verify(await sign({ aal: 'aal2' }))).aal).toBe('aal2');
     expect((await verify(await sign({ aal: 'aal1' }))).aal).toBe('aal1');
     expect((await verify(await sign({ aal: null }))).aal).toBe('aal1');
+  });
+
+  it('passes the Supabase session id through only when it is a UUID', async () => {
+    const sid = randomUUID();
+    expect((await verify(await sign({ sessionId: sid }))).sessionId).toBe(sid);
+    expect(await verify(await sign())).not.toHaveProperty('sessionId');
+    expect(await verify(await sign({ sessionId: 'not-a-uuid' }))).not.toHaveProperty('sessionId');
+    expect(await verify(await sign({ sessionId: 42 }))).not.toHaveProperty('sessionId');
   });
 
   it('never trusts an aal value it does not recognise: anything but aal2 reads as aal1', async () => {

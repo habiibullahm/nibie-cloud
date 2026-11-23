@@ -56,6 +56,7 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
       max: 120,
       timeWindow: '1 minute',
       keyGenerator: (req) => req.principal?.userId ?? req.ip,
+      onExceeded: (req) => req.log.warn({ userId: req.principal?.userId, route: req.routeOptions.url }, 'customer rate limit hit'),
     });
     api.addHook('onSend', async (_req, reply, payload) => {
       reply.header('cache-control', 'no-store');
@@ -153,7 +154,8 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
       return readBackupMetadata(instance.id, deps.customer.backupMetadataDir);
     });
     for (const action of ['start', 'stop', 'restart'] as const) {
-      api.post<{ Params: Params }>(`/instances/:instanceId/${action}`, async (req, reply) => {
+      // Each one stops or recreates a container: limited per user like the other expensive actions.
+      api.post<{ Params: Params }>(`/instances/:instanceId/${action}`, { config: { rateLimit: { max: 20, timeWindow: '10 minutes' } } }, async (req, reply) => {
         const tenantId = principalOf(req).tenantId;
         if (deps.billing && action !== 'stop') {
           // Ownership first (404 for another tenant's id), then the suspension guard: a suspended instance
@@ -167,7 +169,7 @@ export function registerCustomerRoutes(app: FastifyInstance, deps: { customer: C
         return reply.status(202).send({ instance, jobId });
       });
     }
-    api.delete<{ Params: Params }>('/instances/:instanceId', async (req, reply) => {
+    api.delete<{ Params: Params }>('/instances/:instanceId', { config: { rateLimit: { max: 5, timeWindow: '10 minutes' } } }, async (req, reply) => {
       const tenantId = principalOf(req).tenantId;
       const { instance, jobId } = await commands.delete(tenantId, req.params.instanceId);
       // Deleting by hand ends the paid subscription with it, so no reminder or suspension follows.

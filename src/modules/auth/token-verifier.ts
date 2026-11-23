@@ -12,6 +12,8 @@ export interface AuthClaims {
    * `aal1` so a malformed claim can never satisfy an aal2 check.
    */
   aal: 'aal1' | 'aal2';
+  /** Supabase sign-in session (`session_id`); the same for every token refreshed from one sign-in. Absent when not a UUID. */
+  sessionId?: string;
 }
 
 export interface VerifierOptions {
@@ -64,8 +66,8 @@ export function createTokenVerifier(o: VerifierOptions): (token: string) => Prom
     } catch (e) {
       throw keySetUnavailable(e) ? new AuthUnavailableError() : new UnauthorizedError();
     }
-    const { sub, email, aal } = payload;
+    const { sub, email, aal, session_id: sessionId } = payload;
     if (!isUuid(sub) || typeof email !== 'string' || email.length === 0) throw new UnauthorizedError();
-    return { userId: sub, email, aal: aal === 'aal2' ? 'aal2' : 'aal1' };
+    return { userId: sub, email, aal: aal === 'aal2' ? 'aal2' : 'aal1', ...(isUuid(sessionId) ? { sessionId } : {}) };
   };
 }
