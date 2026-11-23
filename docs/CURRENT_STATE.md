@@ -4,6 +4,20 @@ Last updated: 2026-11-23 (multi-node fleet live in production; dashboard action 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Watchdog on runtime nodes, `OPS_ROLE=node` (2026-11-23, installed on `jkt-2`)
+
+- `ops/host/hermes-watchdog.sh` takes `OPS_ROLE` (`control` default, or `node`). A runtime node has no backend, Redis, Caddy
+  or database dumps, so in node mode the watchdog checks the `hermes-runtime-agent-agent-1` container (`OPS_AGENT_CONTAINER`),
+  disk, tenant backups (4c) and the verify/retention units, and never restarts anything. The control-plane path is unchanged.
+  An unknown `OPS_ROLE` raises an hourly Telegram alert and exits 1, so a typo cannot switch the watchdog off quietly.
+- Installed on `jkt-2` with the script from this branch: `/etc/hermes-cloud/ops.env` (600, root) holds only the two Telegram
+  names from `jkt-1` plus `OPS_ROLE=node`, no heartbeat URL. First run: no alert. `hermes-watchdog.timer` enabled.
+  `jkt-1` keeps its installed copy (same control-plane behaviour).
+- Checks: `test/unit/watchdog-role.test.ts` (node raises no alert and never restarts; control still alerts on missing dump
+  and R2 copy; unknown role alerts and exits 1), `pnpm build` and `pnpm test:unit` (45 files, 558 tests) passed in a
+  `node:22-bookworm` container. Installed `jkt-2` copy matches the branch (sha256 `73742883c3c1c18a…`).
+  The node-mode alert path to Telegram was not triggered on purpose.
+
 ## Security hardening (2026-11-23, PR #139, not deployed)
 
 - Landing builds hash exported inline scripts and put those hashes in `script-src` in place of `unsafe-inline`. Typecheck, lint, 77 tests and the build passed. Wrangler served the generated header with 12 hashes on all seven public HTML routes tested locally. An earlier local Chromium check reported no CSP violations across the exported pages and showed that removing the hashes blocked scripts. SumoPod reported one low-severity CSP finding and three categories outside its web-configuration scan. Production `GET` and `HEAD` on `/` still returned the old inline-script policy while the PR was open. Verify the header and Turnstile after release.
@@ -44,9 +58,11 @@ several still describe branches as "not committed" or billing as "OFF" that have
   other's. `test/integration/router-provisioner.test.ts`: 32 passed (two new cases; the race case fails with the lock removed).
 - **Deployed (2026-11-23 05:32 UTC):** auto-deploy put backend `b28c77b` on `jkt-1` (migration applied, `/readyz` ok).
   `hermes-tenant-backup` installed on `jkt-1` and `jkt-2`, `hermes-watchdog` on `jkt-1` (it was older than the repository and
-  lacked step 4b too); previous copies kept as `/usr/local/sbin/*.bak-b604968`. `jkt-2` has no watchdog. The first watchdog
+  lacked step 4b too); previous copies kept as `/usr/local/sbin/*.bak-b604968`. `jkt-2` had no watchdog then (installed
+  later, see "Watchdog on runtime nodes"). The first watchdog
   run raised only `hermes-tenant-verify` (see the entry above).
-- **Still manual (owner):** an off-VPS copy of the runtime CA folder and of the restic R2 password.
+- **Owner copies done (2026-11-23):** the runtime CA folder is kept as an encrypted archive off the laptop and the restic R2
+  password (same on `jkt-1` and `jkt-2`, hashes compared) in the owner's password manager.
 
 ## Multi-node fleet in production (2026-11-23)
 
