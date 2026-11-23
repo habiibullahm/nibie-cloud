@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Backs up every tenant data volume (hermes-data-<instance uuid>) to the restic repository on R2, encrypted by restic.
 #   hermes-tenant-backup.sh             back up all tenant volumes, then expire old snapshots
-#   hermes-tenant-backup.sh --verify    restore the newest snapshot of one volume into a temp dir and check it
+#   hermes-tenant-backup.sh --verify    restore the newest snapshot of one volume on this host into a temp dir and check it
 #   hermes-tenant-backup.sh --retention expire shared-fleet snapshots from the control plane
 # Needs /etc/restic/r2/env (the same credentials as the other backups). Runs as root; touches no tenant container.
 # SQLite files are copied with the online backup API (consistent even while the agent writes); everything else is
@@ -143,15 +143,21 @@ print(json.dumps({"snapshotAt": snapshot_at, "checkedAt": checked_at, "status": 
     fi
   }
   trap 'finish_verification "$?"' EXIT
+  # Only instances whose volume is on this host: a deleted instance keeps its last snapshot for KEEP_DAYS, and one taken
+  # before 2026-11-21 holds no database, so picking it failed the weekly check (2026-11-22).
+  vols=$(docker volume ls -q --filter name=hermes-data-)
+  live=$(printf '%s\n' "$vols" | sed -n -E 's/^hermes-data-([0-9a-f-]{36})$/inst-\1/p')
+  [ -n "$live" ] || { echo "no tenant volumes on this host; nothing to verify"; exit 0; }
   snap_json=$(restic snapshots --tag tenant-vol --host "$BACKUP_HOST" --json)
   pick=$(printf '%s' "$snap_json" | python3 -c 'import sys,json,random
-s=json.load(sys.stdin)
-if not s: sys.exit(1)
+live=set(sys.argv[1].split())
 by={}
-for x in s:
+for x in json.load(sys.stdin):
     t=[t for t in x["tags"] if t.startswith("inst-")][0]
-    if t not in by or x["time"]>by[t]["time"]: by[t]=x
-x=random.choice(list(by.values())); print(x["short_id"], [t for t in x["tags"] if t.startswith("inst-")][0], x["time"])') || { echo "no tenant snapshots to verify" >&2; exit 1; }
+    if t in live and (t not in by or x["time"]>by[t]["time"]): by[t]=x
+if not by: sys.exit(1)
+x=random.choice(list(by.values())); print(x["short_id"], [t for t in x["tags"] if t.startswith("inst-")][0], x["time"])' "$live") \
+    || { echo "no snapshot of a tenant volume on this host to verify" >&2; exit 1; }
   read -r id tag taken <<< "$pick"
   echo "verifying snapshot $id $tag"
   restic restore "$id" --target "$tmp" --quiet
