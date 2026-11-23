@@ -4,7 +4,7 @@ Last updated: 2026-11-23 (multi-node fleet live in production; dashboard action 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
-## Tenant verify picks only live instances (2026-11-23, branch, not deployed)
+## Tenant verify picks only live instances (2026-11-23, PR #137, deployed)
 
 - **Cause:** the weekly `hermes-tenant-verify` on `jkt-1` failed (2026-11-22 21:01 UTC, `verify FAILED: the snapshot restored
   no SQLite databases in staging`). It picked at random among every instance with a snapshot from this host, including deleted
@@ -13,9 +13,11 @@ several still describe branches as "not committed" or billing as "OFF" that have
 - **Fix:** `--verify` picks only instances whose `hermes-data-<id>` volume is on this host. No tenant volumes: exit 0, "nothing
   to verify" (an empty node such as `jkt-2`). Volumes but no snapshot of any of them: exit 1.
 - **Checks:** `test/unit/tenant-backup-verify.test.ts` runs the script with fake `docker` and `restic` (Linux only; skipped on
-  Windows): 3 passed in a `node:22-bookworm` container, and all 3 fail against the previous script.
-- **After merge:** install `hermes-tenant-backup` on `jkt-1` and `jkt-2`, then `sudo systemctl start hermes-tenant-verify` on
-  `jkt-1` to clear the failed state.
+  Windows): 3 passed in a `node:22-bookworm` container and in CI, and all 3 fail against the previous script.
+- **Deployed (2026-11-23):** `hermes-tenant-backup` from `8d3235a` installed on `jkt-1` and `jkt-2` (previous copies
+  `/usr/local/sbin/hermes-tenant-backup.bak-b28c77b`). `hermes-tenant-verify` run by hand: `jkt-1` verified live instance
+  `4819e2fc` (377 files, databases pass `integrity_check`), unit no longer failed, watchdog `RECOVERED hermes-tenant-verify`
+  and no open alerts; `jkt-2` printed `no tenant volumes on this host; nothing to verify` and exited 0.
 
 ## Tenant backup `.env` exclusion, watchdog tenant-backup alerts, `routerKeyId` (2026-11-23, PR #136, deployed)
 
