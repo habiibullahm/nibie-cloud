@@ -10,8 +10,9 @@ several still describe branches as "not committed" or billing as "OFF" that have
   `HERMES_RUNTIME_FLEET_FILE=/etc/hermes-cloud/fleet/fleet.json`; `jkt-1` and `jkt-2` are both online and schedulable.
   Migrations `20261122500000_runtime_node_reservations` and `20261122510000_retired_runtime_copies` were applied by the
   automatic deploy of `bfe7056` (database dump taken first; another dump was taken right before fleet mode was turned on).
-- **Budgets (host-private manifest):** `jkt-1` 3000 millis CPU, 12288 MB RAM, 92160 MB disk; `jkt-2` 1500 millis CPU,
-  6144 MB RAM, 20480 MB disk. Both rows use region `id-jakarta`. `jkt-2` is a Tencent Cloud Lighthouse server in the
+- **Budgets (host-private manifest):** `jkt-1` 8000 millis CPU, 12288 MB RAM, 92160 MB disk; `jkt-2` 4000 millis CPU,
+  6144 MB RAM, 20480 MB disk. CPU is 2x the cores: the first values (3000 / 1500) left `jkt-1` full with its 3 free
+  instances and no node able to take a Pro plan, because the scheduler adds up plan `cpuMillis` without looking at load. Both rows use region `id-jakarta`. `jkt-2` is a Tencent Cloud Lighthouse server in the
   Singapore region, not in Jakarta.
 - **Link:** `jkt-1` runs `hermes-fleet-tunnel-jkt-2.service` (systemd, `ssh -NT` with `Restart=always`) forwarding
   `127.0.0.1:19443` to the agent on `jkt-2` `127.0.0.1:9443`. Its dedicated key is limited on `jkt-2` to
@@ -34,6 +35,7 @@ several still describe branches as "not committed" or billing as "OFF" that have
   quota inventory pushed, ACTIVE (authenticated readiness), NibieRouter key attached with restart, then deleted with container,
   volume and network removed. Not yet exercised in production: cross-node recovery, a nightly fleet backup and retention run on
   `jkt-2`.
+- **Resizing a node, adding a node and updating agents:** [runbook-multi-node.md](runbook-multi-node.md).
 
 ## Pro plans and node A stock (2026-11-23, production DB; landing and docs pending deploy)
 

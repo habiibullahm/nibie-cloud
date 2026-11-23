@@ -53,6 +53,90 @@ stays on its own host until an operator performs recovery.
 4. Keep the fleet-aware backend active until the last remote instance and its reservations have been
    evacuated. Rollback to an older backend requires all live instances to be on its local node.
 
+## Capacity budgets
+
+The scheduler adds up the full `cpuMillis`, `memoryMb` and `storageMb` of every plan placed on a node (live
+instances, open reservations, staged recovery copies) and places only while each sum stays within the node's
+budget. It does not look at real load. A plan's `cpuMillis` is a per-container ceiling, so a CPU budget of
+about 2x the cores is reasonable while measured load stays low. RAM and disk are the real limits: keep RAM
+below the host's memory minus host overhead, and disk below the XFS mount minus backup working space.
+Production uses 2x cores for CPU since 2026-11-23.
+
+## Resize a node (bigger VPS)
+
+1. Resize the server at the provider. For more customer disk, grow the XFS volume mount on that host first.
+2. On the control plane, back up the manifest and change the node's numbers:
+   `sudo cp -p /etc/hermes-cloud/fleet/fleet.json /etc/hermes-cloud/fleet/fleet.json.bak-<date>`, then edit
+   `cpuMillis`, `memoryMb` or `storageMb`. Never change `name` or `region`: they must match the database row,
+   or the backend refuses to start.
+3. Recreate the backend with the overlay and wait for `/readyz`:
+   `sudo docker compose --env-file /etc/hermes-cloud/backend.env -f deploy/compose.prod.yaml -f deploy/compose.fleet.yaml up -d --no-build --force-recreate backend`
+   (from `/opt/hermes-cloud`). Only the API restarts; tenant containers keep running. If it is not ready,
+   restore the backup and recreate again.
+4. Raise plan stock in the admin panel if the extra room should be sold.
+
+## Add another runtime node
+
+Do the steps in this order. Use a new node name (`jkt-3`, …) and a new local tunnel port (`19444`, …).
+
+1. **Host.** Prepare the VPS as in "Prepare a runtime VPS" above. Install `hermes-usage`,
+   `hermes-volume-quota`, `hermes-tenant-backup` and `hermes-tenant-restore` from the release the control plane
+   runs, pre-pull `HERMES_IMAGE` and `HERMES_CANARY_IMAGE` by the same digests as the control plane.
+2. **Provider access.** At the new host's provider firewall, allow TCP 22 from the control plane's public
+   address. Add the new host's public address to the IP allowlist of the R2 token that restic uses.
+3. **Certificate.** On the machine that holds the runtime CA key, sign a server certificate for the node:
+   ```bash
+   openssl ecparam -name prime256v1 -genkey -noout -out <node>-server.key
+   openssl req -new -key <node>-server.key -subj "/CN=<node>" -out <node>-server.csr
+   printf "subjectAltName=IP:127.0.0.1\nextendedKeyUsage=serverAuth\nkeyUsage=critical,digitalSignature\nbasicConstraints=CA:FALSE\n" > srv.ext
+   openssl x509 -req -in <node>-server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -days 365 -sha256 -extfile srv.ext -out <node>-server.crt
+   ```
+   Install `ca.crt`, the server certificate as `tls.crt` and its key as `tls.key` in
+   `/etc/hermes-cloud/agent-tls/` on the node (owner uid 1000, key mode 600). The control plane's existing client
+   certificate works for every node because all agents trust the same CA: copy
+   `/etc/hermes-cloud/fleet/<existing-node>/` to `/etc/hermes-cloud/fleet/<node>/` on the control plane.
+4. **Agent image.** Copy the backend image the control plane runs:
+   `ssh <control-plane> 'sudo docker save hermes-cloud-backend:<tag> | gzip -1' | ssh <node> 'gunzip | sudo docker load'`.
+5. **Agent.** On the node, write `/etc/hermes-cloud/runtime-agent.env` from
+   [the example](../deploy/runtime-agent.env.example): `HERMES_BACKEND_IMAGE=hermes-cloud-backend:<tag>`,
+   `HERMES_AGENT_NAME=<node>`, `DOCKER_GID` from `stat -c %g /var/run/docker.sock`, the control plane's
+   `HERMES_CANARY_IMAGE` and `HERMES_DNS_RESOLVERS`, and `HERMES_CANARY_PRIVATE_IP` set to the node's own private
+   address. Create `/var/lib/hermes-quota-policy` owned by uid 1000. Copy
+   [the agent Compose file](../deploy/compose.runtime-agent.yaml) to `/opt/hermes-cloud/deploy/` and run
+   `sudo docker compose --env-file /etc/hermes-cloud/runtime-agent.env -f compose.runtime-agent.yaml up -d`.
+   The log must end with `runtime agent ready`; otherwise it names the failed host check.
+6. **Node timers.** Install the backup, verify and quota units and timers, with drop-ins
+   (`/etc/systemd/system/<unit>.service.d/fleet.conf`): `hermes-tenant-backup` and `hermes-tenant-verify` get
+   `RESTIC_RETENTION_MODE=fleet`, `RESTIC_BACKUP_HOST=<node>` and
+   `DESIRED_QUOTAS_FILE=/var/lib/hermes-quota-policy/desired.json`; `hermes-volume-quota` gets the same
+   `DESIRED_QUOTAS_FILE`. Copy `/etc/restic/r2/env` and `/etc/restic/r2/password` from the control plane (root,
+   mode 600) and check `restic cat config` works from the node.
+7. **Tunnel.** On the control plane, make a dedicated key (`ssh-keygen -t ed25519 -f ~/.ssh/hermes_fleet_<node>`),
+   add it to the node's `~/.ssh/authorized_keys` as
+   `restrict,port-forwarding,permitopen="127.0.0.1:9443",command="/usr/bin/false" <public key>`, pin the node's
+   host key in a known-hosts file, and add a systemd unit `hermes-fleet-tunnel-<node>.service` like the existing
+   one, forwarding `127.0.0.1:<local port>` to the node's `127.0.0.1:9443` with `Restart=always`. Enable it and
+   check from the control plane:
+   `curl --cacert ca.crt --cert tls.crt --key tls.key -d '{"op":"ready"}' -H 'content-type: application/json' https://127.0.0.1:<local port>/v1/runtime`
+   (in `/etc/hermes-cloud/fleet/<node>/`) answers `200` with the node's name.
+8. **Manifest.** Back up the database (`sudo /usr/local/sbin/hermes-db-backup`) and the manifest, add an entry
+   to `remote` with the node's name, region, budgets, `"origin": "https://127.0.0.1:<local port>"` and
+   `"tlsDir": "/etc/hermes-cloud/fleet/<node>"`, then recreate the backend as in "Resize a node". The node
+   registers cordoned; `GET /api/v1/runtime-nodes` must show it online.
+9. **Test, then open.** Open the node (`POST /api/v1/runtime-nodes/<node>/schedulable` with
+   `{"schedulable":true}`), cordon the other nodes for a moment, create one internal instance through the
+   operator API, uncordon the other nodes immediately after the create call returns, and check the container
+   on the node (`runsc`, read-only rootfs, XFS quota, ACTIVE). Delete it and check the container, volume and
+   network are gone.
+10. Record the change in `docs/CURRENT_STATE.md`. Keep host addresses out of the repository.
+
+## After each backend release
+
+Automatic deploys update only the control plane. When a release changes the runtime or the agent protocol,
+copy the new image to every node (step 4 above), set `HERMES_BACKEND_IMAGE` in
+`/etc/hermes-cloud/runtime-agent.env` and recreate the agent with the same Compose command. Use the same release
+on the control plane and on the agents.
+
 ## Backup and restore
 
 Use the same encrypted Restic repository across the fleet. Set `RESTIC_RETENTION_MODE=fleet` and one
