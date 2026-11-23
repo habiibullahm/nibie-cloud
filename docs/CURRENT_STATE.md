@@ -1,8 +1,39 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-23 (dashboard action confirmations; AI balance and BYOK model discovery). Earlier entries below keep their own dates, and
+Last updated: 2026-11-23 (multi-node fleet live in production; dashboard action confirmations; AI balance and BYOK model discovery). Earlier entries below keep their own dates, and
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
+
+## Multi-node fleet in production (2026-11-23)
+
+- **State:** fleet mode is on in production. The control plane (`jkt-1`) runs backend `b604968` with
+  `HERMES_RUNTIME_FLEET_FILE=/etc/hermes-cloud/fleet/fleet.json`; `jkt-1` and `jkt-2` are both online and schedulable.
+  Migrations `20261122500000_runtime_node_reservations` and `20261122510000_retired_runtime_copies` were applied by the
+  automatic deploy of `bfe7056` (database dump taken first; another dump was taken right before fleet mode was turned on).
+- **Budgets (host-private manifest):** `jkt-1` 3000 millis CPU, 12288 MB RAM, 92160 MB disk; `jkt-2` 1500 millis CPU,
+  6144 MB RAM, 20480 MB disk. Both rows use region `id-jakarta`. `jkt-2` is a Tencent Cloud Lighthouse server in the
+  Singapore region, not in Jakarta.
+- **Link:** `jkt-1` runs `hermes-fleet-tunnel-jkt-2.service` (systemd, `ssh -NT` with `Restart=always`) forwarding
+  `127.0.0.1:19443` to the agent on `jkt-2` `127.0.0.1:9443`. Its dedicated key is limited on `jkt-2` to
+  `permitopen="127.0.0.1:9443"` and no command. The provider firewall of `jkt-2` allows SSH from `jkt-1`'s public address only.
+  mTLS uses a dedicated runtime CA (EC P-256); the server and client certificates expire on 2027-11-22. The CA key is not on
+  either server.
+- **Agent on `jkt-2`:** `hermes-runtime-agent` (Compose project, `/opt/hermes-cloud/deploy/compose.runtime-agent.yaml`, env
+  `/etc/hermes-cloud/runtime-agent.env`), image `hermes-cloud-backend:b604968` copied from `jkt-1` with `docker save | docker load`.
+  **Automatic deploys update only `jkt-1`:** after a backend release that changes the runtime or agent protocol, copy the new image
+  to `jkt-2`, set `HERMES_BACKEND_IMAGE` in that env file and recreate the agent.
+- **Deploys keep fleet mode:** `ops/host/deploy.sh` adds `deploy/compose.fleet.yaml` when the manifest exists (PR #132).
+- **Backups:** both nodes use the shared restic repository on R2 with `RESTIC_RETENTION_MODE=fleet` (drop-ins `fleet.conf` on
+  `hermes-tenant-backup` and `hermes-tenant-verify`); backup hosts are `nibie-cloud` (`jkt-1`, unchanged default) and `jkt-2`.
+  `hermes-tenant-retention.timer` runs on `jkt-1` only (21:30 UTC). The R2 token's IP allowlist now includes `jkt-2`.
+  `jkt-1`'s host scripts (`hermes-tenant-backup`, `hermes-tenant-restore`, `hermes-volume-quota`) were updated to the fleet
+  versions; the old copies are `/usr/local/sbin/*.bak-prefleet`. `jkt-2`'s `hermes-volume-quota` reads
+  `DESIRED_QUOTAS_FILE=/var/lib/hermes-quota-policy/desired.json`, which the agent writes from the controller's inventory.
+- **Verified in production (2026-11-23):** mTLS `ready` over the tunnel (and refused without a client certificate); one internal
+  free instance placed on `jkt-2` while `jkt-1` was cordoned for about a minute: `runsc`, read-only rootfs, 1 GiB XFS project quota,
+  quota inventory pushed, ACTIVE (authenticated readiness), NibieRouter key attached with restart, then deleted with container,
+  volume and network removed. Not yet exercised in production: cross-node recovery, a nightly fleet backup and retention run on
+  `jkt-2`.
 
 ## Pro plans and node A stock (2026-11-23, production DB; landing and docs pending deploy)
 
