@@ -4,7 +4,20 @@ Last updated: 2026-11-23 (multi-node fleet live in production; dashboard action 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
-## Tenant backup `.env` exclusion, watchdog tenant-backup alerts, `routerKeyId` (2026-11-23, branch, not deployed)
+## Tenant verify picks only live instances (2026-11-23, branch, not deployed)
+
+- **Cause:** the weekly `hermes-tenant-verify` on `jkt-1` failed (2026-11-22 21:01 UTC, `verify FAILED: the snapshot restored
+  no SQLite databases in staging`). It picked at random among every instance with a snapshot from this host, including deleted
+  instance `b67a2cd5`, whose last snapshot (2026-11-21 04:00 CST, before the staging fix) is kept for 7 days and holds no
+  database. The watchdog (4c) alerts on the failed unit hourly until the unit succeeds again.
+- **Fix:** `--verify` picks only instances whose `hermes-data-<id>` volume is on this host. No tenant volumes: exit 0, "nothing
+  to verify" (an empty node such as `jkt-2`). Volumes but no snapshot of any of them: exit 1.
+- **Checks:** `test/unit/tenant-backup-verify.test.ts` runs the script with fake `docker` and `restic` (Linux only; skipped on
+  Windows): 3 passed in a `node:22-bookworm` container, and all 3 fail against the previous script.
+- **After merge:** install `hermes-tenant-backup` on `jkt-1` and `jkt-2`, then `sudo systemctl start hermes-tenant-verify` on
+  `jkt-1` to clear the failed state.
+
+## Tenant backup `.env` exclusion, watchdog tenant-backup alerts, `routerKeyId` (2026-11-23, PR #136, deployed)
 
 - **Backups:** `hermes-tenant-backup` now excludes `$data/**/.env*` (any `.env` a customer or the agent wrote into the volume);
   a restored instance comes back without it. Pattern checked with restic 0.17.3 in a container: `/data/.env`, `/data/.env.bak`
@@ -12,12 +25,16 @@ several still describe branches as "not committed" or billing as "OFF" that have
 - **Watchdog:** step 4c alerts when the last tenant backup run with `0 failed` is older than 26 hours (only where
   `hermes-tenant-backup.timer` is enabled), and when `hermes-tenant-verify` or `hermes-tenant-retention` has failed. Checked:
   `bash -n`, and the log parser on fake logs (fresh run recovers; an old good run followed by a failed one, `10 failed`, and a
-  missing log alert). Not run on a host; install with the same `git show origin/main:... | install` step as the 4b change.
+  missing log alert).
 - **NibieRouter:** `RouterProvisioning.routerKeyId` (migration `20261123100000_router_key_id`) records the id of each `inst-`
   key right after it is created, before the secret is attached. A run that finds our own recorded key with no provider revokes
   and replaces it instead of stopping at `orphan_key`; an unrecorded key still gives `orphan_key`. Key creation now runs under a
   per-instance advisory lock (`router-key:<instanceId>`) so two runs of one instance cannot create two keys or revoke each
   other's. `test/integration/router-provisioner.test.ts`: 32 passed (two new cases; the race case fails with the lock removed).
+- **Deployed (2026-11-23 05:32 UTC):** auto-deploy put backend `b28c77b` on `jkt-1` (migration applied, `/readyz` ok).
+  `hermes-tenant-backup` installed on `jkt-1` and `jkt-2`, `hermes-watchdog` on `jkt-1` (it was older than the repository and
+  lacked step 4b too); previous copies kept as `/usr/local/sbin/*.bak-b604968`. `jkt-2` has no watchdog. The first watchdog
+  run raised only `hermes-tenant-verify` (see the entry above).
 - **Still manual (owner):** an off-VPS copy of the runtime CA folder and of the restic R2 password.
 
 ## Multi-node fleet in production (2026-11-23)
