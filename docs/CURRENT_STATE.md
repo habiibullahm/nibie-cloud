@@ -12,8 +12,9 @@ several still describe branches as "not committed" or billing as "OFF" that have
   automatic deploy of `bfe7056` (database dump taken first; another dump was taken right before fleet mode was turned on).
 - **Budgets (host-private manifest):** `jkt-1` 8000 millis CPU, 12288 MB RAM, 92160 MB disk; `jkt-2` 4000 millis CPU,
   6144 MB RAM, 20480 MB disk. CPU is 2x the cores: the first values (3000 / 1500) left `jkt-1` full with its 3 free
-  instances and no node able to take a Pro plan, because the scheduler adds up plan `cpuMillis` without looking at load. Both rows use region `id-jakarta`. `jkt-2` is a Tencent Cloud Lighthouse server in the
-  Singapore region, not in Jakarta.
+  instances and no node able to take a Pro plan, because the scheduler adds up plan `cpuMillis` without looking at load. Regions: `jkt-1` `id-jakarta`, `jkt-2` `sg-singapore` (relabelled 2026-11-23 in the database row and the manifest
+  together). `jkt-2` is a Tencent Cloud Lighthouse server in Singapore; its name stays `jkt-2` because the agent, tunnel,
+  certificate folder and backup host use it.
 - **Link:** `jkt-1` runs `hermes-fleet-tunnel-jkt-2.service` (systemd, `ssh -NT` with `Restart=always`) forwarding
   `127.0.0.1:19443` to the agent on `jkt-2` `127.0.0.1:9443`. Its dedicated key is limited on `jkt-2` to
   `permitopen="127.0.0.1:9443"` and no command. The provider firewall of `jkt-2` allows SSH from `jkt-1`'s public address only.
