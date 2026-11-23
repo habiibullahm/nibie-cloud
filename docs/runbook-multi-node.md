@@ -13,6 +13,10 @@ stays on its own host until an operator performs recovery.
    staging because the Ubuntu Docker 29.1.3 build rejected the DNS file's volume subpath.
    Install `hermes-usage`,
    `hermes-volume-quota`, `hermes-tenant-backup` and `hermes-tenant-restore` on each node.
+   Install `hermes-watchdog` (script and its `.service`/`.timer`) with `/etc/hermes-cloud/ops.env` (mode 600) holding
+   only `OPS_TELEGRAM_BOT_TOKEN`, `OPS_TELEGRAM_CHAT_ID` and `OPS_ROLE=node`. In node mode it checks the runtime agent
+   container, disk and tenant backups and skips readyz, the database dumps and the public API. Leave `OPS_HEARTBEAT_URL`
+   unset there: a node's green heartbeat would hide a control-plane outage.
 2. Supply and pre-pull both `HERMES_IMAGE` and the configured pinned canary image. The agent refuses
    to start unless Docker, runsc, disk quota, egress and the tenant DNS setup are ready. Pre-pulling
    `HERMES_IMAGE` avoids multi-minute pulls during a customer's first provision. Use the same backend
@@ -80,8 +84,8 @@ Production uses 2x cores for CPU since 2026-11-23.
 Do the steps in this order. Use a new node name (`jkt-3`, …) and a new local tunnel port (`19444`, …).
 
 1. **Host.** Prepare the VPS as in "Prepare a runtime VPS" above. Install `hermes-usage`,
-   `hermes-volume-quota`, `hermes-tenant-backup` and `hermes-tenant-restore` from the release the control plane
-   runs, pre-pull `HERMES_IMAGE` and `HERMES_CANARY_IMAGE` by the same digests as the control plane.
+   `hermes-volume-quota`, `hermes-tenant-backup`, `hermes-tenant-restore` and `hermes-watchdog` (`OPS_ROLE=node`) from the
+   release the control plane runs, pre-pull `HERMES_IMAGE` and `HERMES_CANARY_IMAGE` by the same digests as the control plane.
 2. **Provider access.** At the new host's provider firewall, allow TCP 22 from the control plane's public
    address. Add the new host's public address to the IP allowlist of the R2 token that restic uses.
 3. **Certificate.** On the machine that holds the runtime CA key, sign a server certificate for the node:

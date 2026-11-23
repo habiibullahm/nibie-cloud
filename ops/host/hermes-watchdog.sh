@@ -6,6 +6,8 @@
 #   OPS_TELEGRAM_BOT_TOKEN, OPS_TELEGRAM_CHAT_ID   (both empty: only the journal gets the message)
 #   OPS_HEARTBEAT_URL   (optional; called after every fully green run, for an external uptime monitor)
 #   OPS_API_HOST        (public API host name, for the public and certificate checks)
+#   OPS_ROLE            (control, the default, or node: a runtime node has no backend, Redis, Caddy or database dumps,
+#                        so it checks only the runtime agent container, disk and tenant backups)
 set -uo pipefail
 umask 077
 ENV_FILE=${OPS_ENV_FILE:-/etc/hermes-cloud/ops.env}
@@ -20,6 +22,7 @@ mkdir -p "$STATE"
 # shellcheck disable=SC1090
 [ -f "$ENV_FILE" ] && { set -a; . "$ENV_FILE"; set +a; }
 HOST_NAME=$(hostname)
+ROLE=${OPS_ROLE:-control}
 
 now=$(date +%s)
 log() { echo "watchdog: $*"; }
@@ -45,30 +48,37 @@ recover() {
   if [ -f "$f" ]; then log "RECOVERED $key"; send_telegram "[Nibie Cloud] PULIH ($HOST_NAME) $msg"; rm -f "$f"; fi
 }
 
+# A typo in OPS_ROLE must not turn the watchdog off quietly.
+case "$ROLE" in control|node) ;; *) alert role "OPS_ROLE '$ROLE' tidak dikenal (harus control atau node); watchdog tidak memeriksa apa pun"; exit 1 ;; esac
+
 green=1
 
-# 1. Backend readiness, with a guarded restart.
-fails=0; [ -f "$STATE/readyz.fails" ] && fails=$(cat "$STATE/readyz.fails")
-if body=$(curl -fsS --max-time 5 "$READYZ" 2>/dev/null); then
-  echo 0 > "$STATE/readyz.fails"; recover readyz "backend siap lagi"
-else
-  green=0; fails=$((fails + 1)); echo "$fails" > "$STATE/readyz.fails"
-  log "readyz failed ($fails in a row)"
-  if [ "$fails" -ge 3 ]; then
-    hist="$STATE/restarts"; touch "$hist"
-    awk -v cutoff=$((now - 3600)) '$1 >= cutoff' "$hist" > "$hist.tmp" && mv "$hist.tmp" "$hist"
-    if [ "$(wc -l < "$hist")" -lt 3 ]; then
-      alert readyz "backend tidak siap $fails kali berturut-turut, dijalankan restart otomatis"
-      docker restart "$BACKEND" >/dev/null 2>&1 && echo "$now" >> "$hist"
-      echo 0 > "$STATE/readyz.fails"
-    else
-      alert readyz-giveup "backend masih tidak siap setelah 3 restart dalam 1 jam; butuh tindakan manual"
+# 1. Backend readiness, with a guarded restart. Control plane only.
+if [ "$ROLE" = control ]; then
+  fails=0; [ -f "$STATE/readyz.fails" ] && fails=$(cat "$STATE/readyz.fails")
+  if body=$(curl -fsS --max-time 5 "$READYZ" 2>/dev/null); then
+    echo 0 > "$STATE/readyz.fails"; recover readyz "backend siap lagi"
+  else
+    green=0; fails=$((fails + 1)); echo "$fails" > "$STATE/readyz.fails"
+    log "readyz failed ($fails in a row)"
+    if [ "$fails" -ge 3 ]; then
+      hist="$STATE/restarts"; touch "$hist"
+      awk -v cutoff=$((now - 3600)) '$1 >= cutoff' "$hist" > "$hist.tmp" && mv "$hist.tmp" "$hist"
+      if [ "$(wc -l < "$hist")" -lt 3 ]; then
+        alert readyz "backend tidak siap $fails kali berturut-turut, dijalankan restart otomatis"
+        docker restart "$BACKEND" >/dev/null 2>&1 && echo "$now" >> "$hist"
+        echo 0 > "$STATE/readyz.fails"
+      else
+        alert readyz-giveup "backend masih tidak siap setelah 3 restart dalam 1 jam; butuh tindakan manual"
+      fi
     fi
   fi
 fi
 
-# 2. Core containers running.
-for c in "$BACKEND" hermes-cloud-redis-1 hermes-cloud-caddy-1; do
+# 2. Core containers running (on a runtime node: the runtime agent).
+if [ "$ROLE" = control ]; then core="$BACKEND hermes-cloud-redis-1 hermes-cloud-caddy-1"
+else core=${OPS_AGENT_CONTAINER:-hermes-runtime-agent-agent-1}; fi
+for c in $core; do
   if [ "$(docker inspect -f '{{.State.Running}}' "$c" 2>/dev/null)" = "true" ]; then recover "container-$c" "container $c jalan lagi"
   else green=0; alert "container-$c" "container $c tidak berjalan"; fi
 done
@@ -80,18 +90,21 @@ for mnt in / /var/lib/docker/volumes; do
   if [ "$pct" -ge 85 ]; then green=0; alert "disk-$mnt" "disk $mnt terisi ${pct}%"; else recover "disk-$mnt" "disk $mnt turun ke ${pct}%"; fi
 done
 
-# 4. The newest local database dump must be fresh (the daily job runs at 19:00 UTC).
-newest=$(ls -1t "$DUMP_DIR"/hermes-*.dump 2>/dev/null | head -n1 || true)
-if [ -n "$newest" ] && [ $((now - $(stat -c %Y "$newest"))) -le $((26 * 3600)) ]; then recover backup "backup database harian normal lagi"
-else green=0; alert backup "backup database lokal lebih tua dari 26 jam atau tidak ada"; fi
+# 4 and 4b: the database lives on the control plane only.
+if [ "$ROLE" = control ]; then
+  # 4. The newest local database dump must be fresh (the daily job runs at 19:00 UTC).
+  newest=$(ls -1t "$DUMP_DIR"/hermes-*.dump 2>/dev/null | head -n1 || true)
+  if [ -n "$newest" ] && [ $((now - $(stat -c %Y "$newest"))) -le $((26 * 3600)) ]; then recover backup "backup database harian normal lagi"
+  else green=0; alert backup "backup database lokal lebih tua dari 26 jam atau tidak ada"; fi
 
-# 4b. The dump must also reach R2 (hermes-db-offsite, 19:30 UTC), and the weekly restore drill from R2 must pass.
-# A failed oneshot unit stays "failed" until its next successful run, so the alert lasts exactly that long.
-last_ok=$(grep -o '^\[[0-9TZ:-]*\] OK: uploaded' "$OFFSITE_LOG" 2>/dev/null | tail -n1 | cut -d']' -f1 | tr -d '[')
-if [ -n "$last_ok" ] && [ $((now - $(date -d "$last_ok" +%s 2>/dev/null || echo 0))) -le $((26 * 3600)) ]; then recover offsite "salinan backup database ke R2 normal lagi"
-else green=0; alert offsite "salinan backup database ke R2 terakhir berhasil lebih dari 26 jam lalu atau tidak ada; lihat $OFFSITE_LOG"; fi
-if systemctl is-failed --quiet hermes-restore-drill.service; then green=0; alert restore-drill "uji restore database dari R2 gagal; lihat journalctl -u hermes-restore-drill"
-else recover restore-drill "uji restore database dari R2 lulus lagi"; fi
+  # 4b. The dump must also reach R2 (hermes-db-offsite, 19:30 UTC), and the weekly restore drill from R2 must pass.
+  # A failed oneshot unit stays "failed" until its next successful run, so the alert lasts exactly that long.
+  last_ok=$(grep -o '^\[[0-9TZ:-]*\] OK: uploaded' "$OFFSITE_LOG" 2>/dev/null | tail -n1 | cut -d']' -f1 | tr -d '[')
+  if [ -n "$last_ok" ] && [ $((now - $(date -d "$last_ok" +%s 2>/dev/null || echo 0))) -le $((26 * 3600)) ]; then recover offsite "salinan backup database ke R2 normal lagi"
+  else green=0; alert offsite "salinan backup database ke R2 terakhir berhasil lebih dari 26 jam lalu atau tidak ada; lihat $OFFSITE_LOG"; fi
+  if systemctl is-failed --quiet hermes-restore-drill.service; then green=0; alert restore-drill "uji restore database dari R2 gagal; lihat journalctl -u hermes-restore-drill"
+  else recover restore-drill "uji restore database dari R2 lulus lagi"; fi
+fi
 
 # 4c. Tenant volume backups, on hosts where hermes-tenant-backup.timer (20:00 UTC) is enabled: the last run in which no volume
 # failed must be under 26 hours old. The weekly verify and the fleet retention units must not be failed (where installed).
@@ -119,7 +132,7 @@ fi
 
 # 6. Daily summary at 09:00 WIB (02:00 UTC). A missing summary is itself a signal.
 if [ "$(date -u +%H%M)" = "0200" ]; then
-  send_telegram "[Nibie Cloud] Ringkasan harian ($HOST_NAME): backend $([ "$green" = 1 ] && echo sehat || echo BERMASALAH); dump terakhir: $(basename "${newest:-tidak ada}")"
+  send_telegram "[Nibie Cloud] Ringkasan harian ($HOST_NAME): $([ "$ROLE" = control ] && echo backend || echo node) $([ "$green" = 1 ] && echo sehat || echo BERMASALAH)$([ "$ROLE" = control ] && echo "; dump terakhir: $(basename "${newest:-tidak ada}")")"
 fi
 
 # 7. Heartbeat for an external uptime monitor, only when everything above was green.
