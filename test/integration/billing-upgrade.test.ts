@@ -129,4 +129,18 @@ describe('BillingService.upgrade', () => {
     await env.billing.endForInstance(s.tenant.id, freeInstanceId);
     expect((await prisma.subscription.findUniqueOrThrow({ where: { id: subscription.id } })).status).toBe('ENDED');
   });
+
+  it('upgrade of a free instance on a Singapore node is refused', async () => {
+    const sg = await prisma.runtimeNode.create({ data: { name: 'jkt-2', region: 'sg-singapore' } });
+    await prisma.instance.update({ where: { id: freeInstanceId }, data: { nodeId: sg.id } });
+    const pinned = makeBilling(prisma, { paidNodeRegions: ['id-jakarta'] });
+    const beforeSubs = await prisma.subscription.count();
+
+    await expect(
+      pinned.billing.upgrade({
+        tenantId: s.tenant.id, email: s.user.email, instanceId: freeInstanceId, planId: s.plan.id, idempotencyKey: randomUUID(),
+      }),
+    ).rejects.toMatchObject({ status: 409, code: 'region_not_for_paid' });
+    expect(await prisma.subscription.count()).toBe(beforeSubs);
+  });
 });

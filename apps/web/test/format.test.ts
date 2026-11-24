@@ -30,6 +30,7 @@ describe("admin enum labels", () => {
     expect(subscriptionStatusId("GRACE")).toBe("Masa tenggang")
     expect(paymentStatusId("PAID")).toBe("Dibayar")
     expect(paymentPurposeId("RENEWAL")).toBe("Perpanjangan")
+    expect(paymentPurposeId("PLAN_CHANGE")).toBe("Ganti paket")
   })
 
   it("shows an unknown value raw instead of hiding it", () => {

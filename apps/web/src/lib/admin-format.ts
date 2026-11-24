@@ -81,6 +81,7 @@ const PAYMENT_STATUS: Record<string, string> = {
 const PAYMENT_PURPOSE: Record<string, string> = {
   NEW: "Instance baru",
   RENEWAL: "Perpanjangan",
+  PLAN_CHANGE: "Ganti paket",
 }
 
 const INTEGRATION_STATUS: Record<string, string> = {

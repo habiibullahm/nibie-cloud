@@ -6,6 +6,7 @@ import type {
   BackupMetadata,
   BillingSubscription,
   ByokModel,
+  ChangePlanResult,
   CheckoutResult,
   CreateInstanceInput,
   FileEntry,
@@ -66,6 +67,8 @@ export interface BillingApi {
   checkout(input: CreateInstanceInput, idempotencyKey: string): Promise<CheckoutResult>
   /** Moves a free instance to a paid plan (data kept); the plan changes once the payment is verified. */
   upgrade(input: { instanceId: string; planId: string }, idempotencyKey: string): Promise<CheckoutResult>
+  /** Switches an active paid subscription to another paid plan; `payment` is null when immediate. */
+  changePlan(input: { subscriptionId: string; planId: string }, idempotencyKey: string): Promise<ChangePlanResult>
   /** A new (or still open) renewal invoice for an existing subscription. */
   renew(subscriptionId: string): Promise<CheckoutResult>
   /** Stops auto-renewal only; the paid period keeps running. */

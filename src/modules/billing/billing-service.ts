@@ -1,6 +1,6 @@
 import type { RouterProvisioner } from '../nibierouter/router-provisioner.js';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
-import type { Payment, PaymentMethod, PaymentPurpose, PaymentStatus, Plan, Prisma, PrismaClient, Subscription, SubscriptionStatus } from '@prisma/client';
+import type { InvoiceKind, Payment, PaymentMethod, PaymentPurpose, PaymentStatus, Plan, Prisma, PrismaClient, Subscription, SubscriptionStatus } from '@prisma/client';
 import { AppError, CapacityFullError, ConflictError, InstanceLimitError, NotFoundError, PlanSoldOutError, ValidationError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import { isUuid } from '../../shared/uuid.js';
@@ -9,6 +9,7 @@ import { validateName } from '../instances/instance-service.js';
 import { renderEmail, type EmailKind } from './email-templates.js';
 import { periodAfterPayment } from './lifecycle.js';
 import type { Mailer } from './mailer.js';
+import { canChangePlan, quotePlanChange, type PlanTerms } from './plan-change.js';
 import { hasStock, stockLeft, totalLoad } from '../instances/capacity.js';
 import type { NodeScheduler } from '../instances/node-scheduler.js';
 import type { PaymentClient } from './payment-client.js';
@@ -72,6 +73,8 @@ export interface BillingDeps {
   maxInstancesPerTenant: number;
   /** Whole-server cap (see capacity.ts). Absent or null: no cap. */
   maxTotalInstances?: number | null;
+  /** Regions where priced plans may be placed and upgraded. Empty or absent: any region. */
+  paidNodeRegions?: readonly string[];
   logger: Logger;
   /** NibieRouter key and credit for a freshly created paid instance. Absent: the operator attaches a provider by hand. */
   router?: Pick<RouterProvisioner, 'begin'>;
@@ -149,6 +152,10 @@ export class BillingService {
       : null;
   }
 
+  private get paidRegions(): readonly string[] | undefined {
+    return this.d.paidNodeRegions?.length ? this.d.paidNodeRegions : undefined;
+  }
+
   // ---- customer operations -------------------------------------------------------------------
 
   /**
@@ -183,7 +190,7 @@ export class BillingService {
       });
       await this.assertCapacity(tx, i.tenantId, now);
       await this.assertStock(tx, plan, now);
-      const reservedNodeId = await this.d.placement?.select(tx, plan, now);
+      const reservedNodeId = await this.d.placement?.select(tx, plan, now, this.paidRegions ? { regions: this.paidRegions } : undefined);
       // A new purchase is refused before any invoice exists when the server is full; paying customers are never blocked here.
       if (this.d.maxTotalInstances != null && (await totalLoad(tx, now)) >= this.d.maxTotalInstances) throw new CapacityFullError();
       const subscription = await tx.subscription.create({
@@ -214,7 +221,10 @@ export class BillingService {
     const now = this.now();
     const prepared = await this.d.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${i.tenantId}))`;
-      const inst = await tx.instance.findFirst({ where: { id: i.instanceId, tenantId: i.tenantId }, include: { plan: true } });
+      const inst = await tx.instance.findFirst({
+        where: { id: i.instanceId, tenantId: i.tenantId },
+        include: { plan: true, node: { select: { region: true } } },
+      });
       if (!inst || inst.status === 'DELETING' || inst.status === 'DELETED') throw new NotFoundError('Instance not found');
       if (inst.recoveryNodeId) throw new ConflictError('Instance is being restored by an operator');
       let existing = await tx.subscription.findUnique({ where: { instanceId: inst.id } });
@@ -225,6 +235,9 @@ export class BillingService {
       }
       if (existing && existing.status !== 'PENDING_PAYMENT') throw new AppError('This instance already has a paid plan', 409, 'already_subscribed');
       if (inst.plan.monthlyPriceIdr !== null) throw new AppError('Only a free instance can be upgraded', 409, 'not_free');
+      if (this.paidRegions && !this.paidRegions.includes(inst.node.region)) {
+        throw new AppError('Paid plans run in Jakarta only', 409, 'region_not_for_paid');
+      }
       if (existing) {
         if (existing.idempotencyKey === i.idempotencyKey) {
           if (existing.planId !== plan.id) throw new ConflictError('Idempotency-Key was already used with a different request');
@@ -237,7 +250,9 @@ export class BillingService {
         await tx.subscription.update({ where: { id: existing.id }, data: { status: 'ENDED', instanceId: null, idempotencyKey: null } });
       }
       await this.assertStock(tx, plan, now);
-      const reservedNodeId = await this.d.placement?.select(tx, plan, now, { fixedNodeId: inst.nodeId, currentPlan: inst.plan });
+      const reservedNodeId = await this.d.placement?.select(tx, plan, now, {
+        fixedNodeId: inst.nodeId, currentPlan: inst.plan, ...(this.paidRegions ? { regions: this.paidRegions } : {}),
+      });
       const subscription = await tx.subscription.create({
         data: { tenantId: i.tenantId, planId: plan.id, instanceId: inst.id, intendedName: inst.name, idempotencyKey: i.idempotencyKey, reservedNodeId },
       });
@@ -249,6 +264,128 @@ export class BillingService {
     const back = `/dashboard/instances/${i.instanceId}/billing`;
     const payment = prepared.needsInvoice ? await this.issueInvoice(prepared.payment, plan, i.email, back) : prepared.payment;
     return { subscription: await this.viewOf(prepared.subscription.id), payment: paymentView(payment, now) };
+  }
+
+  /**
+   * Moves an active paid subscription to another paid plan without changing its period end. Charges the prorated
+   * difference when >= SUMOPOD_MIN_AMOUNT_IDR; smaller differences (including price decreases) apply immediately without
+   * an invoice or credit. Refuses downgrades, ended/unpaid/late subscriptions, and open renewals.
+   */
+  async changePlan(i: {
+    tenantId: string; email: string; subscriptionId: string; planId: string; idempotencyKey: string;
+  }): Promise<{ subscription: SubscriptionView; payment: PaymentView | null }> {
+    if (!i.idempotencyKey || i.idempotencyKey.length > 128) throw new ValidationError('invalid idempotency key');
+    if (!isUuid(i.subscriptionId)) throw new NotFoundError('Subscription not found');
+    if (!isUuid(i.planId)) throw new NotFoundError('Plan not found');
+    const target = await this.d.prisma.plan.findUnique({ where: { id: i.planId } });
+    if (!target || !target.active) throw new NotFoundError('Plan not found');
+    if (target.monthlyPriceIdr === null || target.monthlyPriceIdr < SUMOPOD_MIN_AMOUNT_IDR) throw new PlanNotForSaleError();
+
+    const now = this.now();
+    const changeKey = `pc:${i.subscriptionId}:${target.id}:${i.idempotencyKey}`;
+    const prepared = await this.d.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${i.tenantId}))`;
+      const [locked] = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "Subscription" WHERE id = ${i.subscriptionId}::uuid AND "tenantId" = ${i.tenantId}::uuid FOR UPDATE`;
+      if (!locked) throw new NotFoundError('Subscription not found');
+      const sub = await tx.subscription.findUniqueOrThrow({
+        where: { id: locked.id },
+        include: { plan: true, instance: { include: { plan: true } } },
+      });
+      if (sub.status !== 'ACTIVE' || !sub.currentPeriodEnd || sub.currentPeriodEnd.getTime() <= now.getTime()) {
+        throw new AppError('This subscription cannot change plan right now', 409, 'subscription_not_changeable');
+      }
+      const inst = sub.instance;
+      if (!inst || inst.status === 'DELETING' || inst.status === 'DELETED') {
+        throw new AppError('This subscription cannot change plan right now', 409, 'subscription_not_changeable');
+      }
+      if (inst.recoveryNodeId) throw new ConflictError('Instance is being restored by an operator');
+
+      const prefix = `pc:${sub.id}:`;
+      if (sub.idempotencyKey?.startsWith(prefix)) {
+        const rest = sub.idempotencyKey.slice(prefix.length);
+        const recordedPlanId = rest.slice(0, 36);
+        const recordedKey = rest.slice(37);
+        if (recordedKey === i.idempotencyKey) {
+          if (recordedPlanId !== target.id) throw new ConflictError('Idempotency-Key was already used with a different request');
+          const latest = await tx.payment.findFirst({
+            where: { subscriptionId: sub.id, purpose: 'PLAN_CHANGE', targetPlanId: target.id },
+            orderBy: { createdAt: 'desc' },
+          });
+          if (sub.planId === target.id) {
+            return { subscription: sub, payment: latest?.status === 'PAID' ? latest : null, needsInvoice: false, applyImmediate: false };
+          }
+          if (latest && latest.status === 'PENDING' && latest.paymentUrl !== null && latest.expiresAt.getTime() > now.getTime()) {
+            return { subscription: sub, payment: latest, needsInvoice: false, applyImmediate: false };
+          }
+          if (latest && latest.status === 'PENDING' && latest.paymentUrl === null) {
+            await tx.payment.update({ where: { id: latest.id }, data: { status: 'FAILED' } });
+          }
+        }
+      }
+
+      const currentPrice = sub.plan.monthlyPriceIdr;
+      if (currentPrice === null || target.id === sub.planId) {
+        throw new AppError('Cannot change to this plan', 409, 'plan_change_not_allowed');
+      }
+      const currentTerms: PlanTerms = {
+        monthlyPriceIdr: currentPrice, includedCreditNano: sub.plan.includedCreditNano,
+        cpuMillis: sub.plan.cpuMillis, memoryMb: sub.plan.memoryMb, storageMb: sub.plan.storageMb,
+      };
+      const targetTerms: PlanTerms = {
+        monthlyPriceIdr: target.monthlyPriceIdr!, includedCreditNano: target.includedCreditNano,
+        cpuMillis: target.cpuMillis, memoryMb: target.memoryMb, storageMb: target.storageMb,
+      };
+      if (!canChangePlan(currentTerms, targetTerms)) {
+        throw new AppError('Cannot change to this plan', 409, 'plan_change_not_allowed');
+      }
+
+      const openRenewal = await tx.payment.findFirst({
+        where: { subscriptionId: sub.id, purpose: 'RENEWAL', status: 'PENDING', expiresAt: { gt: now } },
+        select: { id: true },
+      });
+      if (openRenewal) throw new AppError('Pay or let the open renewal invoice expire first', 409, 'renewal_open');
+
+      await this.assertStock(tx, target, now);
+      await this.d.placement?.select(tx, target, now, {
+        fixedNodeId: inst.nodeId, currentPlan: inst.plan, subscriptionId: sub.id,
+        ...(this.paidRegions ? { regions: this.paidRegions } : {}),
+      });
+
+      const quote = quotePlanChange({ current: currentTerms, target: targetTerms, now, periodEnd: sub.currentPeriodEnd });
+      await tx.payment.updateMany({ where: { subscriptionId: sub.id, purpose: 'PLAN_CHANGE', status: 'PENDING' }, data: { status: 'EXPIRED' } });
+
+      if (quote.immediate) {
+        const updated = await tx.subscription.update({
+          where: { id: sub.id },
+          data: { planId: target.id, idempotencyKey: changeKey, ...(this.d.placement ? { reservedNodeId: inst.nodeId } : {}) },
+        });
+        return { subscription: updated, payment: null, needsInvoice: false, applyImmediate: true };
+      }
+
+      await tx.subscription.update({ where: { id: sub.id }, data: { idempotencyKey: changeKey } });
+      const payment = await tx.payment.create({
+        data: {
+          ...this.newPayment(sub.id, 'PLAN_CHANGE', quote.amountIdr, now),
+          fromPlanId: sub.planId,
+          targetPlanId: target.id,
+          creditNano: quote.creditNano,
+        },
+      });
+      return { subscription: sub, payment, needsInvoice: true, applyImmediate: false };
+    });
+
+    if (prepared.applyImmediate) {
+      try {
+        await this.applyPlanChange(prepared.subscription.id);
+      } catch (e) {
+        this.d.logger.error({ subscriptionId: prepared.subscription.id, errName: (e as Error).name }, 'immediate plan change instance action failed; retried');
+      }
+      return { subscription: await this.viewOf(prepared.subscription.id), payment: null };
+    }
+    const back = `/dashboard/instances/${prepared.subscription.instanceId}/billing`;
+    const payment = prepared.needsInvoice ? await this.issueInvoice(prepared.payment!, target, i.email, back) : prepared.payment;
+    return { subscription: await this.viewOf(prepared.subscription.id), payment: payment ? paymentView(payment, now) : null };
   }
 
   /** A new invoice for the next period of an existing subscription (active, in grace, or suspended). */
@@ -459,22 +596,98 @@ export class BillingService {
       return finish(back.applied ? 'credited_to_wallet' : 'already_paid');
     }
 
-    const activation = await this.activate(tx, payment, now);
-    return activation ? finish('activated', activation) : finish('paid_after_end');
+    const activated = await this.activate(tx, payment, now);
+    return activated.outcome === 'activated' ? finish('activated', activated.activation) : finish(activated.outcome);
   }
 
   /**
-   * What a paid hosting invoice buys, inside the transaction that marked it paid: its invoice, then 30 more days (from
-   * the end of a running period, else from now). Null when the subscription had already ended: the money was received
-   * (so the invoice is still issued) but nothing is reactivated; the operator refunds.
+   * What a paid hosting invoice buys, inside the transaction that marked it paid: its invoice, then either a mid-period
+   * plan change (keeping the period end, or crediting the wallet if superseded/ended) or 30 more days (from the end of
+   * a running period, else from now).
    */
-  private async activate(tx: Prisma.TransactionClient, payment: Payment, now: Date): Promise<Activation | null> {
-    const sub = await tx.subscription.findUniqueOrThrow({ where: { id: payment.subscriptionId }, include: { plan: { select: { name: true } } } });
-    await issueInvoice(tx, {
-      tenantId: sub.tenantId, kind: payment.purpose === 'RENEWAL' ? 'HOSTING_RENEWAL' : 'HOSTING_NEW', amountIdr: payment.amountIdr,
-      paidAt: now, planName: sub.plan.name, instanceName: sub.intendedName, paymentId: payment.id,
+  private async activate(tx: Prisma.TransactionClient, payment: Payment, now: Date): Promise<ActivateResult> {
+    const sub = await tx.subscription.findUniqueOrThrow({
+      where: { id: payment.subscriptionId },
+      include: { plan: { select: { name: true, includedCreditNano: true } }, instance: { select: { nodeId: true } } },
     });
-    if (sub.status === 'ENDED') return null;
+    const targetPlan = payment.purpose === 'PLAN_CHANGE' && payment.targetPlanId
+      ? await tx.plan.findUnique({ where: { id: payment.targetPlanId }, select: { id: true, name: true } })
+      : null;
+    const invoiceKind: InvoiceKind =
+      payment.purpose === 'RENEWAL' ? 'HOSTING_RENEWAL' : payment.purpose === 'PLAN_CHANGE' ? 'HOSTING_PLAN_CHANGE' : 'HOSTING_NEW';
+    await issueInvoice(tx, {
+      tenantId: sub.tenantId, kind: invoiceKind, amountIdr: payment.amountIdr,
+      paidAt: now, planName: targetPlan?.name ?? sub.plan.name, instanceName: sub.intendedName, paymentId: payment.id,
+    });
+    if (payment.purpose === 'PLAN_CHANGE') {
+      const newer = await tx.payment.findFirst({
+        where: {
+          subscriptionId: sub.id,
+          purpose: 'PLAN_CHANGE',
+          id: { not: payment.id },
+          OR: [{ status: 'PENDING' }, { createdAt: { gt: payment.createdAt } }],
+        },
+        select: { id: true },
+      });
+      const applicable =
+        (sub.status === 'ACTIVE' || sub.status === 'GRACE') &&
+        payment.fromPlanId !== null &&
+        targetPlan !== null &&
+        sub.planId === payment.fromPlanId &&
+        newer === null;
+      if (!applicable) {
+        await moveWallet(tx, {
+          tenantId: sub.tenantId,
+          amountIdr: payment.amountIdr,
+          kind: 'TOPUP',
+          refId: `plan-change:${payment.id}`,
+          note: 'Ganti paket tidak diterapkan, dana masuk ke saldo',
+        });
+        return { outcome: 'credited_to_wallet' };
+      }
+      await tx.subscription.update({
+        where: { id: sub.id },
+        data: {
+          planId: targetPlan.id,
+          ...(this.d.placement && sub.instance ? { reservedNodeId: sub.instance.nodeId } : {}),
+        },
+      });
+      // A renewal invoice opened while this change was unpaid is priced on the old plan: it must not buy a period of the new one.
+      await tx.payment.updateMany({ where: { subscriptionId: sub.id, purpose: 'RENEWAL', status: 'PENDING' }, data: { status: 'EXPIRED' } });
+      if (payment.creditNano && payment.creditNano > 0n) {
+        await tx.creditGrant.upsert({
+          where: { paymentId: payment.id },
+          create: {
+            tenantId: sub.tenantId,
+            paymentId: payment.id,
+            amountNano: payment.creditNano,
+            note: `nibie-cloud credit payment ${payment.id}`,
+          },
+          update: {},
+        });
+      }
+      return {
+        outcome: 'activated',
+        activation: {
+          subscriptionId: sub.id, tenantId: sub.tenantId, wasSuspended: false, instanceId: sub.instanceId,
+          periodEnd: sub.currentPeriodEnd, amountIdr: payment.amountIdr,
+        },
+      };
+    }
+    if (sub.status === 'ENDED') return { outcome: 'paid_after_end' };
+    if (payment.purpose === 'RENEWAL' && sub.plan.includedCreditNano && sub.plan.includedCreditNano > 0n) {
+      // shortcut: credit lands within about 7 minutes of a renewal, deliver inline if customers ask
+      await tx.creditGrant.upsert({
+        where: { paymentId: payment.id },
+        create: {
+          tenantId: sub.tenantId,
+          paymentId: payment.id,
+          amountNano: sub.plan.includedCreditNano,
+          note: `nibie-cloud credit payment ${payment.id}`,
+        },
+        update: {},
+      });
+    }
     const { end } = periodAfterPayment({ now, status: sub.status, currentPeriodEnd: sub.currentPeriodEnd });
     await tx.subscription.update({
       where: { id: sub.id },
@@ -484,8 +697,11 @@ export class BillingService {
       },
     });
     return {
-      subscriptionId: sub.id, tenantId: sub.tenantId, wasSuspended: sub.status === 'SUSPENDED', instanceId: sub.instanceId,
-      periodEnd: end, amountIdr: payment.amountIdr,
+      outcome: 'activated',
+      activation: {
+        subscriptionId: sub.id, tenantId: sub.tenantId, wasSuspended: sub.status === 'SUSPENDED', instanceId: sub.instanceId,
+        periodEnd: end, amountIdr: payment.amountIdr,
+      },
     };
   }
 
@@ -496,7 +712,7 @@ export class BillingService {
    * subscription row lock. The ledger entry is keyed on the payment id, so an invoice is charged at most once; a balance
    * that is too low throws `insufficient_balance` and the transaction rolls back.
    */
-  private async chargeWallet(tx: Prisma.TransactionClient, payment: Payment, kind: 'HOSTING' | 'AUTO_RENEW', now: Date): Promise<Activation> {
+  private async chargeWallet(tx: Prisma.TransactionClient, payment: Payment, kind: 'HOSTING' | 'AUTO_RENEW', now: Date): Promise<Activation | null> {
     const sub = await tx.subscription.findUniqueOrThrow({ where: { id: payment.subscriptionId }, select: { tenantId: true, status: true } });
     if (sub.status === 'ENDED') throw new AppError('This subscription has ended', 409, 'subscription_ended');
     await moveWallet(tx, {
@@ -504,13 +720,15 @@ export class BillingService {
       note: kind === 'AUTO_RENEW' ? 'Perpanjangan otomatis' : 'Pembayaran hosting',
     });
     const paid = await tx.payment.update({ where: { id: payment.id }, data: { status: 'PAID', method: 'WALLET', resultCode: '00', paidAt: now } });
-    return (await this.activate(tx, paid, now))!;
+    const res = await this.activate(tx, paid, now);
+    if (res.outcome === 'paid_after_end') throw new AppError('This subscription has ended', 409, 'subscription_ended');
+    return res.outcome === 'activated' ? res.activation : null;
   }
 
   /**
-   * Pays an open hosting invoice (a purchase, an upgrade or a renewal) from the wallet instead of QRIS. Only an invoice
-   * that is still payable: an expired purchase gets a new invoice first, so capacity and stock are checked again. The
-   * returned `postActions` (instance, plan change, receipt) run after the response, like the webhook's.
+   * Pays an open hosting invoice (a purchase, an upgrade, a plan change, or a renewal) from the wallet instead of QRIS.
+   * Only an invoice that is still payable: an expired purchase gets a new invoice first, so capacity and stock are checked
+   * again. The returned `postActions` (instance, plan change, receipt) run after the response, like the webhook's.
    */
   async payWithWallet(tenantId: string, paymentId: string): Promise<{ subscription: SubscriptionView; payment: PaymentView; postActions: () => Promise<void> }> {
     if (!isUuid(paymentId)) throw new NotFoundError('Payment not found');
@@ -526,6 +744,10 @@ export class BillingService {
       }
       return this.chargeWallet(tx, payment, 'HOSTING', now);
     });
+    if (!activation) {
+      const payment = await this.d.prisma.payment.findUniqueOrThrow({ where: { id: found.id } });
+      return { subscription: await this.viewOf(found.subscriptionId), payment: paymentView(payment, now), postActions: none };
+    }
     // The customer is waiting on this response: create a new purchase's instance now, so the dashboard can open it. The
     // post actions call this again (a no-op then); a failure here is repaired by them or by the billing tick.
     try {
@@ -655,12 +877,14 @@ export class BillingService {
           tx.plan.findUniqueOrThrow({ where: { id: inst.planId } }),
           tx.plan.findUniqueOrThrow({ where: { id: sub.planId } }),
         ]);
-        await this.d.placement.select(tx, plan, this.now(), { fixedNodeId: inst.nodeId, currentPlan: current, subscriptionId });
+        await this.d.placement.select(tx, plan, this.now(), {
+          fixedNodeId: inst.nodeId, currentPlan: current, subscriptionId, ...(this.paidRegions ? { regions: this.paidRegions } : {}),
+        });
       }
       const n = await tx.instance.updateMany({ where: { id: inst.id, planId: inst.planId, recoveryNodeId: null }, data: { planId: sub.planId, configRevision: { increment: 1 } } });
       if (n.count === 1) {
         if (this.d.placement) await tx.subscription.update({ where: { id: sub.id }, data: { reservedNodeId: null } });
-        await tx.instanceEvent.create({ data: { instanceId: inst.id, type: 'plan.changed', message: 'Plan upgraded after payment' } });
+        await tx.instanceEvent.create({ data: { instanceId: inst.id, type: 'plan.changed', message: 'Plan changed after payment' } });
       }
       return n.count === 1;
     });
@@ -732,6 +956,7 @@ export class BillingService {
       ]);
       const reservedNodeId = await this.d.placement.select(tx, plan, now, {
         subscriptionId: existing.id, preferredNodeId: existing.reservedNodeId, fixedNodeId: inst?.nodeId, currentPlan: inst?.plan,
+        ...(this.paidRegions ? { regions: this.paidRegions } : {}),
       });
       existing = await tx.subscription.update({ where: { id: existing.id }, data: { reservedNodeId } });
     }
@@ -811,9 +1036,14 @@ interface Activation {
   tenantId: string;
   wasSuspended: boolean;
   instanceId: string | null;
-  periodEnd: Date;
+  periodEnd: Date | null;
   amountIdr: number;
 }
+
+type ActivateResult =
+  | { outcome: 'activated'; activation: Activation }
+  | { outcome: 'credited_to_wallet' }
+  | { outcome: 'paid_after_end' };
 
 /** An amount sent as text: whole rupiah, optionally with a zero fraction. */
 function parseAmount(raw: string): number | null {

@@ -245,7 +245,7 @@ export const ID: Record<string, string> = {
   "and we will email you when a plan opens for you.": "dan kami akan mengirim email saat ada plan yang terbuka untukmu.",
   "Out of stock": "Habis",
   "per month": "per bulan",
-  "Includes US${amount} AI credit, one-time, in NibieRouter": "Termasuk kredit AI US${amount}, sekali, di NibieRouter",
+  "Includes US${amount} AI credit every month, in NibieRouter": "Termasuk kredit AI US${amount} setiap bulan, di NibieRouter",
   Memory: "Memori",
   Storage: "Penyimpanan",
   Processes: "Proses",
@@ -275,7 +275,7 @@ export const ID: Record<string, string> = {
   Resources: "Sumber daya",
   Price: "Harga",
   "AI credit": "Kredit AI",
-  "US${amount}, one-time, with the first payment": "US${amount}, sekali, bersama pembayaran pertama",
+  "US${amount} with every paid period": "US${amount} setiap periode yang dibayar",
   "Pay with QRIS": "Bayar lewat QRIS",
   "Free during the beta": "Gratis selama beta",
   "You pay by QRIS on the SumoPod payment page. Your instance is created after the payment is confirmed, usually within a minute.":
@@ -392,6 +392,7 @@ export const ID: Record<string, string> = {
   "Nibie Cloud balance top-up": "Top-up saldo Nibie Cloud",
   "{plan} plan, 30 days: {name}": "Paket {plan}, 30 hari: {name}",
   "{plan} plan renewal, 30 days: {name}": "Perpanjangan paket {plan}, 30 hari: {name}",
+  "Plan change to {plan}: {name}": "Ganti paket ke {plan}: {name}",
 
   // Paying hosting from the wallet.
   "Paying…": "Membayar…",
@@ -517,7 +518,7 @@ export const ID: Record<string, string> = {
   "Ends on": "Berakhir pada",
   "Paid until": "Dibayar sampai",
   "Subscription": "Langganan",
-  "Includes US${amount} AI credit, given once with the first payment. More AI usage is paid from your AI balance or your own provider.": "Termasuk kredit AI US${amount}, diberikan sekali bersama pembayaran pertama. Pemakaian AI berikutnya dibayar dari saldo AI atau provider kamu sendiri.",
+  "Includes US${amount} AI credit with every paid period. More AI usage is paid from your AI balance or your own provider.": "Termasuk kredit AI US${amount} setiap periode yang dibayar. Pemakaian AI berikutnya dibayar dari saldo AI atau provider kamu sendiri.",
   "Hosting only. AI usage is billed separately by NibieRouter or your own provider.": "Hanya hosting. Pemakaian AI ditagih terpisah oleh NibieRouter atau provider kamu sendiri.",
   "Monthly (30 days)": "Bulanan (30 hari)",
   "Grace ends": "Masa tenggang berakhir",
@@ -536,8 +537,17 @@ export const ID: Record<string, string> = {
   "Current": "Sekarang",
   "Price {price}": "Harga {price}",
   "Current plan": "Paket sekarang",
-  "Switch plan (coming soon)": "Ganti paket (segera hadir)",
-  "When plan changes arrive, an upgrade will apply after payment and a capacity check. If the new plan does not fit on the current node, we will schedule a migration and tell you first.": "Saat ganti paket tersedia, upgrade berlaku setelah pembayaran dan pengecekan kapasitas. Kalau paket baru tidak muat di node sekarang, kami menjadwalkan migrasi dan memberi tahu kamu dulu.",
+  "Plan changed": "Paket berhasil diganti",
+  "Plan change is waiting for payment": "Perubahan paket menunggu pembayaran",
+  "Plan change for {name}": "Ganti paket untuk {name}",
+  "Switch to {plan}": "Pindah ke {plan}",
+  "Switch to {plan}?": "Pindah ke {plan}?",
+  "The difference for the remaining days is charged now.": "Selisih harga untuk sisa hari pada periode ini ditagihkan sekarang.",
+  "Not available as a switch": "Tidak tersedia untuk perpindahan paket",
+  "You pay the price difference for the days left in this period. The period end stays the same. Moving to a smaller plan is not possible yet.": "Kamu membayar selisih harga untuk sisa hari di periode ini. Tanggal akhir periode tetap sama. Pindah ke paket lebih kecil belum tersedia.",
+  "Pay or let the open renewal invoice expire first.": "Bayar dulu tagihan perpanjangan yang terbuka atau tunggu sampai kedaluwarsa.",
+  "You cannot switch to this plan.": "Kamu tidak bisa pindah ke paket ini.",
+  "This subscription cannot change plan right now.": "Langganan ini tidak bisa ganti paket sekarang.",
   "Free beta instance": "Instance beta gratis",
   "This instance is on the free beta. Upgrade to a paid plan to keep it running after the beta, with everything it already has: your agent, its memory and your Telegram bot.": "Instance ini memakai beta gratis. Upgrade ke paket berbayar agar tetap berjalan setelah beta, lengkap dengan semua yang sudah ada: agent kamu, memorinya, dan bot Telegram kamu.",
   "Upgrade to {plan} is waiting for payment": "Upgrade ke {plan} menunggu pembayaran",
@@ -547,10 +557,12 @@ export const ID: Record<string, string> = {
   "Upgrade to a paid plan": "Upgrade ke paket berbayar",
   "No paid plan is for sale right now.": "Belum ada paket berbayar yang dijual saat ini.",
   "{price} per 30 days": "{price} per 30 hari",
-  "includes US${amount} AI credit": "termasuk kredit AI US${amount}",
+  "includes US${amount} AI credit every month": "termasuk kredit AI US${amount} setiap bulan",
   "Not available yet": "Belum tersedia",
   "Upgrade to {plan} from balance": "Upgrade ke {plan} dari saldo",
   "Upgrade to {plan}": "Upgrade ke {plan}",
+  "This instance runs in Singapore. Paid plans run in Jakarta. Contact support to move it first.":
+    "Instance ini berjalan di Singapura. Paket berbayar berjalan di Jakarta. Hubungi bantuan untuk memindahkannya dulu.",
   "The price is taken from your Nibie Cloud balance when it covers it, otherwise you pay by QRIS on the SumoPod page. After the payment, the instance restarts once to apply the new plan.": "Harga diambil dari saldo Nibie Cloud kamu bila cukup, kalau tidak kamu membayar dengan QRIS di halaman SumoPod. Setelah pembayaran, instance dimulai ulang sekali untuk menerapkan paket baru.",
 
   // Action confirmations
@@ -619,4 +631,10 @@ export const ID: Record<string, string> = {
   "Your reply will be sent to the Nibie Cloud team.": "Balasan kamu akan dikirim ke tim Nibie Cloud.",
   "Close ticket?": "Tutup tiket?",
   "You can reopen the ticket by replying to it.": "Kamu bisa membuka kembali tiket dengan mengirim balasan.",
+
+  // Free instance upsell
+  "Free plan uses free AI models": "Paket gratis memakai model AI gratis",
+  "Free models can be slow or limited when busy. {plan} costs {price} per month and includes US${credit} AI credit every month for faster models.":
+    "Model gratis bisa lambat atau terbatas saat ramai. {plan} seharga {price} per bulan dan termasuk kredit AI US${credit} setiap bulan untuk model yang lebih cepat.",
+  "See paid plans": "Lihat paket berbayar",
 }

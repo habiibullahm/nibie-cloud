@@ -218,6 +218,49 @@ describe('billing API', () => {
       expect(del.statusCode).toBe(202);
       expect((await prisma.subscription.findFirstOrThrow()).status).toBe('ENDED');
     });
+
+    it('change-plan returns 201 with a payment, enforces tenant isolation, needs Idempotency-Key, and obeys PAID_CHECKOUT_OPEN', async () => {
+      const a = app();
+      const alice = await user('alice@example.test');
+      const bob = await user('bob@example.test');
+      const pro = await prisma.plan.create({
+        data: { slug: 'test-pro', name: 'Test pro', cpuMillis: 1000, memoryMb: 512, pids: 256, storageMb: 2048, monthlyPriceIdr: PRICE + 20_000 },
+      });
+      const { subscription, payment } = (await checkout(a, alice)).json();
+      await post(a, webhookBody({ orderId: (await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).merchantOrderId }));
+      await settle();
+
+      const missingKey = await a.inject({
+        method: 'POST', url: `/api/v1/subscriptions/${subscription.id}/change-plan`, headers: alice, payload: { planId: pro.id },
+      });
+      expect(missingKey.statusCode).toBe(400);
+
+      const otherTenant = await a.inject({
+        method: 'POST', url: `/api/v1/subscriptions/${subscription.id}/change-plan`,
+        headers: { ...bob, 'idempotency-key': randomUUID() }, payload: { planId: pro.id },
+      });
+      expect(otherTenant.statusCode).toBe(404);
+
+      const closed = buildServer({
+        service: env.service, commands: env.commands, logger: silentLogger,
+        config: testConfig('hermes-stub:0.2.0', TEST_MASTER_KEY, { betaAllowedEmails: ['invited@example.test'], paidCheckoutOpen: false, billing: billingCfg, maxInstancesPerTenant: 1 }),
+        customer: { verify: auth.verify, identity: new IdentityService({ prisma }), prisma },
+        billing: env.billing,
+      });
+      const refused = await closed.inject({
+        method: 'POST', url: `/api/v1/subscriptions/${subscription.id}/change-plan`,
+        headers: { ...alice, 'idempotency-key': randomUUID() }, payload: { planId: pro.id },
+      });
+      expect(refused.statusCode).toBe(403);
+      expect(refused.json().error.code).toBe('billing_not_open');
+
+      const ok = await a.inject({
+        method: 'POST', url: `/api/v1/subscriptions/${subscription.id}/change-plan`,
+        headers: { ...alice, 'idempotency-key': randomUUID() }, payload: { planId: pro.id },
+      });
+      expect(ok.statusCode).toBe(201);
+      expect(ok.json().payment).toMatchObject({ purpose: 'PLAN_CHANGE', amountIdr: 20_000, status: 'PENDING' });
+    });
   });
 
   describe('SumoPod webhook route', () => {

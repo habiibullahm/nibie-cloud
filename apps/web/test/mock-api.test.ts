@@ -160,4 +160,32 @@ describe("mock billing", () => {
     const api = createMockApi({ latencyMs: 0 })
     await expect(api.billing.checkout({ name: "a", planId: "x" }, "k")).rejects.toMatchObject({ code: "plan_not_for_sale" })
   })
+
+  it("changePlan returns a payment for a price increase and null for a decrease", async () => {
+    const priced = [
+      { ...PLANS[0]!, id: "p-small", name: "Hosting", cpuMillis: 1000, memoryMb: 1024, storageMb: 5120, monthlyPriceIdr: 25_000 },
+      { ...PLANS[1]!, id: "p-kredit", name: "Hosting + Kredit", cpuMillis: 1000, memoryMb: 1024, storageMb: 10240, monthlyPriceIdr: 50_000 },
+      { ...PLANS[2]!, id: "p-pro", name: "Pro", cpuMillis: 2000, memoryMb: 4096, storageMb: 20480, monthlyPriceIdr: 49_000 },
+    ]
+    const api = createMockApi({ latencyMs: 0, empty: true, plans: priced })
+    const inst = await api.instances.create({ name: "demo", planId: priced[0]!.id }, "k-inst")
+    await vi.advanceTimersByTimeAsync(STEP_MS * 4)
+    const sub = (await api.billing.list()).find((s) => s.instanceId === inst.id)!
+
+    const inc = await api.billing.changePlan({ subscriptionId: sub.id, planId: priced[1]!.id }, "pc-1")
+    expect(inc.payment).toMatchObject({ purpose: "PLAN_CHANGE", amountIdr: 25_000, paymentUrl: MOCK_PAYMENT_URL })
+    expect(inc.subscription.planId).toBe(priced[0]!.id)
+
+    const paid = await api.billing.payWithWallet(inc.payment!.id)
+    expect(paid.subscription.planId).toBe(priced[1]!.id)
+    expect(paid.subscription.currentPeriodEnd).toBe(sub.currentPeriodEnd)
+
+    await expect(api.billing.changePlan({ subscriptionId: sub.id, planId: priced[0]!.id }, "pc-down")).rejects.toMatchObject({
+      code: "plan_change_not_allowed",
+    })
+
+    const dec = await api.billing.changePlan({ subscriptionId: sub.id, planId: priced[2]!.id }, "pc-2")
+    expect(dec.payment).toBeNull()
+    expect(dec.subscription.planId).toBe(priced[2]!.id)
+  })
 })

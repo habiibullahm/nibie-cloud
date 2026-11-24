@@ -85,7 +85,7 @@ const retireCopies = fleet ? (instanceId: string) => retireDeletedCopies({ prism
 const logService = new LogService({ prisma, runtime, loader: runtimeConfig, masterKey: config.masterKey });
 const service = new InstanceService({
   prisma, runtime, image: config.hermesImage, production: config.nodeEnv === 'production', logger,
-  masterKey: config.masterKey, containerRuntime: config.runtime, dnsResolvers: config.dnsResolvers, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy, runtimeConfig, placement, localNodeId: fleet?.localNodeId(), ...(purge ? { purgeIntegrations: purge } : {}), ...(retireCopies ? { retireCopies } : {}),
+  masterKey: config.masterKey, containerRuntime: config.runtime, dnsResolvers: config.dnsResolvers, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy, runtimeConfig, placement, localNodeId: fleet?.localNodeId(), paidNodeRegions: config.paidNodeRegions, ...(purge ? { purgeIntegrations: purge } : {}), ...(retireCopies ? { retireCopies } : {}),
 });
 // With a job queue the sweeper owns PENDING rows; the reaper must not fail them first.
 const reconciler = new Reconciler({ prisma, runtime, logger, masterKey: config.masterKey, containerRuntime: config.runtime, dnsResolvers: config.dnsResolvers, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy, reapPending: config.redisUrl === null, runtimeConfig, ...(purge ? { purgeIntegrations: purge } : {}), ...(retireCopies ? { retireCopies } : {}) });
@@ -112,7 +112,8 @@ const billing = config.billing && config.dashboardOrigin
       paymentClient: createSumoPodClient(config.billing.sumopod),
       sumopodAuth: { webhookToken: config.billing.sumopod.webhookToken, webhookSecret: config.billing.sumopod.webhookSecret ?? null },
       commands, mailer, placement,
-      dashboardOrigin: config.dashboardOrigin, maxInstancesPerTenant: config.maxInstancesPerTenant, maxTotalInstances: config.maxTotalInstances, logger,
+      dashboardOrigin: config.dashboardOrigin, maxInstancesPerTenant: config.maxInstancesPerTenant, maxTotalInstances: config.maxTotalInstances,
+      paidNodeRegions: config.paidNodeRegions, logger,
       ...(router ? { router } : {}),
       walletEnabled: config.walletEnabled === true,
       walletAutoRenew: config.walletEnabled === true && config.walletAutoRenew === true,

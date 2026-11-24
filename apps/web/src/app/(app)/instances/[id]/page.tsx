@@ -8,7 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { PreviewNote } from "@/components/app/preview-note"
 import { QueryFallback } from "@/components/app/query-fallback"
 import { ProvisionProgress } from "@/components/app/provision-progress"
-import { useApiMode, useEvents, useInstance, useProvider, useSubscriptions, useTelegram } from "@/hooks/use-hermes"
+import { FreeUpsell } from "@/components/app/free-upsell"
+import { useApiMode, useEvents, useInstance, usePlans, useProvider, useSubscriptions, useTelegram } from "@/hooks/use-hermes"
 import { isTransitional, presentStatus, provisionStepIndex } from "@/lib/api/status"
 import { billingNotice, subscriptionOfInstance } from "@/lib/billing"
 import type { Instance } from "@/lib/api/types"
@@ -19,6 +20,7 @@ import { useInstanceId } from "./instance-frame"
 export default function OverviewPage() {
   const id = useInstanceId()
   const { data: instance } = useInstance(id)
+  const plans = usePlans()
   if (!instance) return <Skeleton className="h-64 bg-card" />
 
   const provisioning = provisionStepIndex(instance.status) >= 0 && instance.status !== "ACTIVE" && instance.status !== "DEGRADED"
@@ -36,6 +38,7 @@ export default function OverviewPage() {
           </CardContent>
         </Card>
       ) : null}
+      <FreeUpsell instanceId={instance.id} planId={instance.planId} plans={plans.data} className="lg:col-span-2" />
       <StatusCard instance={instance} />
       <HealthCard instance={instance} />
       <EventsCard instance={instance} />

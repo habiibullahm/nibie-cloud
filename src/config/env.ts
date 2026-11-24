@@ -123,6 +123,8 @@ const schema = z.object({
   TURNSTILE_SECRET_KEY: z.preprocess(emptyToUndefined, z.string().max(200).optional()),
   /** `false` hides the priced plans and refuses checkout for everyone except invited accounts (a launch switch). Default: open. */
   PAID_CHECKOUT_OPEN: z.preprocess(emptyToUndefined, z.enum(['true', 'false']).default('true')),
+  /** Comma-separated node regions where paid plans may be placed or upgraded (e.g. `id-jakarta`). Empty: any region. */
+  PAID_NODE_REGIONS: z.preprocess(emptyToUndefined, z.string().optional()),
   /** `true` opens the customer wallet (top-up saldo) routes and the admin adjustment. Default: off (routes 404). */
   WALLET_ENABLED: z.preprocess(emptyToUndefined, z.enum(['true', 'false']).default('false')),
   /** `true` lets the billing tick renew subscriptions from the wallet (with WALLET_ENABLED). Default: off. */
@@ -307,6 +309,8 @@ export interface Config {
   freeBetaSlots: number;
   /** False: priced plans and checkout are for invited accounts only. */
   paidCheckoutOpen: boolean;
+  /** Node regions where paid plans may be placed and upgraded. Undefined when unset or empty (any region). */
+  paidNodeRegions?: string[];
   /** True: customer wallet routes and admin wallet adjustment exist. Absent or false: off. */
   walletEnabled?: boolean;
   /** True: the billing tick renews from the wallet (only together with `walletEnabled`). */
@@ -339,6 +343,7 @@ export function loadConfig(env: NodeJS.ProcessEnv | Record<string, string | unde
     throw new Error(`Invalid configuration: ${keys}`);
   }
   const e = parsed.data;
+  const paidNodeRegions = e.PAID_NODE_REGIONS ? splitList(e.PAID_NODE_REGIONS) : [];
   return {
     nodeEnv: e.NODE_ENV,
     databaseUrl: e.DATABASE_URL,
@@ -369,6 +374,7 @@ export function loadConfig(env: NodeJS.ProcessEnv | Record<string, string | unde
     maxTotalInstances: e.MAX_TOTAL_INSTANCES ?? null,
     freeBetaSlots: e.FREE_BETA_SLOTS,
     paidCheckoutOpen: e.PAID_CHECKOUT_OPEN === 'true',
+    paidNodeRegions: paidNodeRegions.length > 0 ? paidNodeRegions : undefined,
     walletEnabled: e.WALLET_ENABLED === 'true',
     walletAutoRenew: e.WALLET_AUTO_RENEW === 'true',
     turnstileSecret: e.TURNSTILE_SECRET_KEY ?? null,

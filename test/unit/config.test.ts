@@ -567,3 +567,16 @@ describe('operator alerting settings', () => {
     expect(message).not.toContain('AAHdqTcv');
   });
 });
+
+describe('PAID_NODE_REGIONS', () => {
+  it('is undefined when unset or empty, and parses a trimmed comma-separated list', () => {
+    expect(loadConfig(base).paidNodeRegions).toBeUndefined();
+    expect(loadConfig({ ...base, PAID_NODE_REGIONS: '' }).paidNodeRegions).toBeUndefined();
+    expect(loadConfig({ ...base, PAID_NODE_REGIONS: ' , ' }).paidNodeRegions).toBeUndefined();
+    expect(loadConfig({ ...base, PAID_NODE_REGIONS: 'id-jakarta' }).paidNodeRegions).toEqual(['id-jakarta']);
+    expect(loadConfig({ ...base, PAID_NODE_REGIONS: ' id-jakarta , sg-singapore ' }).paidNodeRegions).toEqual([
+      'id-jakarta',
+      'sg-singapore',
+    ]);
+  });
+});

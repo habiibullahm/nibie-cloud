@@ -219,7 +219,7 @@ export interface Account {
 
 export type BillingStatus = "PENDING_PAYMENT" | "ACTIVE" | "GRACE" | "SUSPENDED" | "ENDED"
 export type PaymentStatus = "PENDING" | "PAID" | "FAILED" | "EXPIRED"
-export type PaymentPurpose = "NEW" | "RENEWAL"
+export type PaymentPurpose = "NEW" | "RENEWAL" | "PLAN_CHANGE"
 
 /** Mirrors PaymentView. `paymentUrl` is only set while the SumoPod invoice can still be paid. */
 export interface BillingPayment {
@@ -258,6 +258,11 @@ export interface BillingSubscription {
 export interface CheckoutResult {
   subscription: BillingSubscription
   payment: BillingPayment
+}
+
+export interface ChangePlanResult {
+  subscription: BillingSubscription
+  payment: BillingPayment | null
 }
 
 /** Mirrors TopupView: one QRIS top-up of the Nibie Cloud wallet. `paymentUrl` only while it can still be paid. */
@@ -348,7 +353,7 @@ export interface AiPurchase {
   createdAt: string
 }
 
-export type InvoiceKind = "HOSTING_NEW" | "HOSTING_RENEWAL" | "TOPUP"
+export type InvoiceKind = "HOSTING_NEW" | "HOSTING_RENEWAL" | "HOSTING_PLAN_CHANGE" | "TOPUP"
 
 /** A paid hosting payment or top-up (`GET /invoices`). Plan and instance names are as they were when it was paid. */
 export interface Invoice {

@@ -10,8 +10,8 @@ test("the pricing page shows all four plans with normal and beta prices", async 
   await expect(page.getByText(/Beta · diskon 33\s?%/)).toBeVisible()
   await expect(page.getByText(/Beta · diskon 38\s?%/)).toBeVisible()
   await expect(page.getByText(/Beta · diskon 34\s?%/)).toBeVisible()
-  await expect(page.getByText("$2, sekali di awal")).toBeVisible()
-  await expect(page.getByText("$3, sekali di awal")).toBeVisible()
+  await expect(page.getByText("$2 setiap bulan")).toBeVisible()
+  await expect(page.getByText("$3 setiap bulan")).toBeVisible()
   await expect(page.getByText("tidak termasuk", { exact: true })).toHaveCount(2)
 })
 

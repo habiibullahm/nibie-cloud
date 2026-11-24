@@ -1,8 +1,77 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-24 (stale integration test expectations updated; watchdog node role on `jkt-2`). Earlier entries below keep their own dates, and
+Last updated: 2026-11-25 (paid-to-paid plan changes on `feat/paid-plan-change`, local). Earlier entries below keep their own dates, and
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
+
+## Sales funnel branch checks (2026-11-25, `claude/sales-funnel`, local)
+
+- One branch carries the plan `docs/superpowers/plans/2026-11-25-sales-funnel.md`: AI credit every paid period, paid
+  plans limited to `PAID_NODE_REGIONS`, paid-to-paid plan change with prorated price and credit, landing copy (hero
+  unchanged on owner request), free-instance upsell notice, landing and docs marked live.
+- Checks on the merged branch (Windows, Docker Desktop Postgres and Redis): backend `pnpm build`; `pnpm test:unit` 561
+  passed, 2 failed (`egress-canary`, known on Windows); integration `billing-plan-change`, `billing-service`,
+  `billing-upgrade`, `billing-api`, `sumopod-webhook`, `billing-tick`, `ai-credit-purchase`, `router-provisioner`,
+  `multi-node-fleet`: 172 passed; web typecheck, lint, 231 tests; landing typecheck, lint, 77 tests; docs typecheck, lint.
+- Not done: real-money payment, deploy. After deploy the owner sets `PAID_NODE_REGIONS=id-jakarta` on the control plane.
+
+## Paid-to-paid plan changes (2026-11-25, branch `feat/paid-plan-change`)
+
+- **Schema & migration:** Added `PaymentPurpose.PLAN_CHANGE`, `InvoiceKind.HOSTING_PLAN_CHANGE`, and nullable `Payment.fromPlanId`, `Payment.targetPlanId`, and `Payment.creditNano` (`prisma/schema.prisma`, `prisma/migrations/20261125200000_plan_change_payment/migration.sql`). Regenerated Prisma client (`pnpm prisma generate`).
+- **Quote & decisions (`src/modules/billing/plan-change.ts`, `src/modules/billing/billing-service.ts`):**
+  - Only active paid subscriptions with an active period end (`ACTIVE`, `currentPeriodEnd > now`) may change plan; `SUSPENDED`, `GRACE`, `ENDED`, or expired periods return `409 subscription_not_changeable`.
+  - No downgrade (`canChangePlan`): target plan must be priced, differ from the current plan, and have `cpuMillis`, `memoryMb`, and `storageMb` all >= the current plan's (`409 plan_change_not_allowed`), so XFS disk quotas never shrink.
+  - Refuses with `409 renewal_open` while an unexpired `PENDING` `RENEWAL` payment exists on the subscription.
+  - Prorated price and credit: charge is `ceil((targetPrice - currentPrice) * remainingMs / 30d)` (clamped >= 0) and period end stays unchanged. When the charge is under Rp 1.000 (`SUMOPOD_MIN_AMOUNT_IDR`, including price decreases), the plan switches immediately without an invoice and without prorated AI credit (`creditNano = 0n`). Otherwise `creditNano = max(0n, (targetCredit - currentCredit) * remainingMs / 30d)` rounded down in nano-USD.
+  - Requesting a plan change checks target stock (`assertStock`) and node capacity (`NodeScheduler.select` with `paidNodeRegions`), and expires prior `PENDING` `PLAN_CHANGE` payments on the subscription.
+  - Payment activation (`activate`, both SumoPod QRIS webhook and `payWithWallet`): issues `HOSTING_PLAN_CHANGE` invoice, does not extend `currentPeriodEnd`, updates `Subscription.planId`, upserts a `PENDING` `CreditGrant` keyed on `paymentId` when `creditNano > 0n` (delivered by `AiAccountService.retryPurchases`), and runs `applyPlanChange` (which logs `Plan changed after payment`). Stale plan-change payments (after subscription ended, replaced by a newer plan change, or plan already moved) do not change the plan and credit `payment.amountIdr` to the tenant's wallet (`credited_to_wallet`, ref `plan-change:<paymentId>`).
+- **HTTP route & docs:** Added `POST /api/v1/subscriptions/:subscriptionId/change-plan` (`src/http/billing-routes.ts`), gated behind `gate(p.email)` (`PAID_CHECKOUT_OPEN` / sandbox beta gate) with `Idempotency-Key` and 10 req / 10 min rate limit; documented in `apps/docs/content/docs/api-reference/langganan.mdx` and removed the stale placeholder in `endpoint-berikutnya.mdx`.
+- **Dashboard (`apps/web`):** Added `billing.changePlan` (`types.ts`, `client.ts`, `live.ts`, `mock.ts`), `useChangePlan` and `renewal_open` / `plan_change_not_allowed` / `subscription_not_changeable` error mapping (`src/hooks/use-hermes.ts`), `HOSTING_PLAN_CHANGE` invoice label (`src/lib/invoice.ts`), `PLAN_CHANGE` admin label (`src/lib/admin-format.ts`), `PlanChangeSection` (`src/app/(app)/instances/[id]/billing/plan-change-section.tsx` and `page.tsx`), and Indonesian translations (`src/lib/i18n-id.ts`). Plan change is live behind the existing checkout gate.
+- **Checks run (Windows):**
+  - Root: `pnpm prisma generate`, `pnpm build` (`tsc -p tsconfig.json --noEmit`), and `pnpm test:unit` (43 non-egress files passed, 2 skipped, 549 tests passed, 6 skipped, including 8 new tests in `test/unit/plan-change.test.ts`; the 2 pre-existing Windows-only Linux-shell failures in `test/unit/egress-rules.test.ts` and `test/unit/egress-canary.test.ts` totaling 14 tests failed as on `main`).
+  - Integration tests (`test/integration/billing-plan-change.test.ts`, `billing-upgrade.test.ts`, `billing-service.test.ts`, `billing-api.test.ts`, `sumopod-webhook.test.ts`): type-checked via `pnpm build`, not run (`docker info` timed out and Postgres at `127.0.0.1:5433` was unreachable).
+  - `apps/docs`: `pnpm typecheck` and `pnpm lint` passed.
+  - `apps/web`: `pnpm typecheck`, `pnpm lint`, `pnpm test` (26 files, 226 tests), and `pnpm build` passed.
+
+## Paid plans pinned to `PAID_NODE_REGIONS` (2026-11-25, local)
+
+- **Backend placement and billing:** Added `PAID_NODE_REGIONS` (`src/config/env.ts`, `.env.example`, `deploy/backend.env.example`; comma-separated list, unset or empty keeps any-region behaviour). `NodeScheduler.select` (`src/modules/instances/node-scheduler.ts`) accepts `regions?: readonly string[]` to filter candidate nodes by `RuntimeNode.region`. `BillingService` (`src/modules/billing/billing-service.ts`, wired in `src/main.ts`) passes `paidNodeRegions` on priced-plan `select` calls (`checkout`, `upgrade`, `applyPlanChange`, `replay`), and `upgrade` refuses free instances on nodes outside `paidNodeRegions` with `409 region_not_for_paid` before `select`. `WaitlistInviter` and `NodeRecovery` stay unrestricted.
+- **Dashboard & landing:** `apps/web` (`src/hooks/use-hermes.ts`, `src/lib/i18n-id.ts`) maps `region_not_for_paid` to an English/Indonesian message instructing the customer to contact support to move the instance first. `apps/landing` updates `kebijakan-privasi/page.tsx` (legal copy pending owner approval) and `lib/metadata.ts` so paid plans state Jakarta while free beta instances state Jakarta or Singapore.
+- **Ops step (owner action after merge):** Set `PAID_NODE_REGIONS=id-jakarta` on the control plane (`jkt-1`). A free instance on `jkt-2` (`sg-singapore`) requesting an upgrade must be moved by the operator first via [runbook-multi-node.md](runbook-multi-node.md).
+- **Checks run:**
+  - Backend: `pnpm build` (`tsc -p tsconfig.json --noEmit`) passed; `pnpm test:unit` passed 42/44 non-Linux-shell unit files (541 passed, 6 skipped), including new `test/unit/node-scheduler.test.ts` and `PAID_NODE_REGIONS` tests in `test/unit/config.test.ts`; the 2 pre-existing Windows-failing files (`test/unit/egress-rules.test.ts`, `test/unit/egress-canary.test.ts`, 14 tests) failed as on `main`. Integration tests (`test/integration/multi-node-fleet.test.ts`, `billing-upgrade.test.ts`, `billing-service.test.ts`) were added and type-checked, not run (`docker info` timed out and Postgres at `127.0.0.1:5433` was unreachable).
+  - Dashboard (`apps/web`): `pnpm typecheck`, `pnpm lint`, `pnpm test` (26 files, 221 tests), and `pnpm build` passed.
+  - Landing (`apps/landing`): `pnpm typecheck`, `pnpm lint`, `pnpm test` (5 files, 77 tests), and `pnpm build` passed.
+
+## AI credit on every paid period (2026-11-25, branch `feat/plan-credit-every-period`)
+
+- **Schema & migration:** Added nullable unique `CreditGrant.paymentId` (`prisma/schema.prisma`, `prisma/migrations/20261125100000_credit_grant_payment/migration.sql`) and updated `CreditGrant_purchase_shape` so payment-keyed grants (with `subscriptionId` null, `amountIdr` null, and `idempotencyKey` null) pass the check constraint. Regenerated Prisma client (`pnpm prisma generate`).
+- **Billing:** `BillingService.activate` (`src/modules/billing/billing-service.ts`) now upserts a `PENDING` `CreditGrant` keyed on `paymentId` on paid `RENEWAL` payments when `plan.includedCreditNano > 0n` and the subscription has not ended (both QRIS/wallet payments and `autoRenew`). Existing `AiAccountService.retryPurchases` picks up `subscriptionId: null` grants on the billing tick. Added five renewal-credit integration test cases in `test/integration/billing-service.test.ts`.
+- **Copy:** Updated landing (`apps/landing/src/components/site/pricing.tsx`, `faq.tsx`, `apps/landing/src/app/syarat-layanan/page.tsx`), docs (`apps/docs/content/docs/(panduan)/index.mdx`, `paket-dan-penagihan.mdx`, `provider-ai.mdx`, `api-reference/akun-dan-paket.mdx`), and dashboard (`apps/web/src/app/(app)/instances/[id]/billing/page.tsx`, `deploy/deploy-form.tsx`, `apps/web/src/lib/i18n-id.ts`) so Kredit plans state the NibieRouter credit is granted every paid period (and unused credit stays in the AI balance).
+- **Checks run (Windows):**
+  - Root: `pnpm prisma generate` and `pnpm build` (`tsc --noEmit`) passed; `pnpm test:unit` ran 45 files (41 passed, 538 tests passed, 6 skipped; 2 pre-existing Windows-only Linux-shell failures in `test/unit/egress-canary.test.ts` and `test/unit/egress-rules.test.ts` totaling 14 tests).
+  - Integration tests (`billing-service`, `billing-tick`, `ai-credit-purchase`, `router-provisioner`): not run (`127.0.0.1:5433` Postgres and Docker daemon were unreachable on this host).
+  - `apps/landing`: `pnpm typecheck`, `pnpm lint`, `pnpm test` (5 files, 77 tests), and `pnpm build` passed.
+  - `apps/docs`: `pnpm typecheck` and `pnpm lint` passed.
+  - `apps/web`: `pnpm typecheck`, `pnpm lint`, `pnpm test` (26 files, 220 tests), and `pnpm build` passed.
+Last updated: 2026-11-25 (outcome-led landing copy on `feat/landing-outcome-copy`, not deployed). Earlier entries below keep their own dates, and
+several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
+[HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
+
+## Outcome-led landing copy (2026-11-25, `feat/landing-outcome-copy`, not deployed)
+
+- Updated `apps/landing` (`src/components/site/features.tsx`, `src/components/site/pricing.tsx`, `src/app/harga/page.tsx`, `src/lib/metadata.ts`) to describe Telegram assistant outcomes, expand the isolation and volume facts in `features.tsx`, and add the outline badge `Disarankan untuk mulai` on `hosting-kredit`. The hero copy stays as it was (owner, 2026-11-25).
+- Not deployed. Owner must confirm the outcome claims in the meta descriptions (summarizing links, tracking tasks, running commands) match what Hermes does before merge/deploy.
+- Checks in `apps/landing`: `pnpm typecheck`, `pnpm lint`, `pnpm test` (5 files, 77 tests), and `pnpm build` (14 static pages, 12 CSP hashes) passed.
+Last updated: 2026-11-25 (upsell notice on free instances in `apps/web`). Earlier entries below keep their own dates, and
+several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
+[HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
+
+## Free instance upsell notice (2026-11-25, branch `feat/free-upsell-notice`, local)
+
+- Added `<FreeUpsell>` (`apps/web/src/components/app/free-upsell.tsx`) to the instance overview page (`apps/web/src/app/(app)/instances/[id]/page.tsx`) with Indonesian copy in `apps/web/src/lib/i18n-id.ts`.
+- Renders a shadcn `Alert` with a button linking to `/instances/{id}/billing` only when the instance is on a free plan (`monthlyPriceIdr === null`) and the `hosting-kredit` plan is available, reading its name, Rupiah price, and monthly AI credit from the plans query.
+- Checks passed in `apps/web`: `pnpm typecheck`, `pnpm lint`, `pnpm test` (27 files, 225 tests, including 5 new cases in `test/free-upsell.test.ts`), and `pnpm build`.
 
 ## Integration test alignment (2026-11-24, local)
 
@@ -111,7 +180,7 @@ several still describe branches as "not committed" or billing as "OFF" that have
   was deleted on the owner's request.
 - **Resizing a node, adding a node and updating agents:** [runbook-multi-node.md](runbook-multi-node.md).
 
-## Pro plans and node A stock (2026-11-23, production DB; landing and docs pending deploy)
+## Pro plans and node A stock (2026-11-23, production DB; landing and docs live)
 
 - Owner decision: two new plans, 2 CPU, 2 GB RAM, 20 GB storage. `pro` Rp 49.000 (normal Rp 79.000), no AI credit;
   `pro-kredit` Rp 79.000 (normal Rp 119.000), one-time NibieRouter credit US$3.
@@ -123,7 +192,8 @@ several still describe branches as "not committed" or billing as "OFF" that have
   RAM and disk and relies on real use (about 315 MB RAM per tenant so far) staying far below the caps. Not measured under load.
 - Landing (`apps/landing/src/lib/plans.ts`, pricing cards, `/harga`, FAQ, terms, refund policy) and docs (`paket-dan-penagihan`,
   index, `provider-ai`) now list four plans with per-plan CPU and RAM. Checks passed: landing typecheck, lint, 72 tests, build;
-  docs typecheck and lint. **Not deployed yet**: until it is, the live landing shows two plans while checkout already offers Pro.
+  docs typecheck and lint. Live through Workers Builds from `main` (checked 2026-11-25: `/harga` and
+  `/docs/paket-dan-penagihan` show four plans).
 - Not done: changing an existing instance's plan to Pro (plan change is still "segera hadir"); multi-node (backlog, a second
   2 vCPU / 8 GB node is planned).
 

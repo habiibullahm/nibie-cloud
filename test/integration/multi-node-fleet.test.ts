@@ -345,4 +345,26 @@ describe('multi-node fleet placement, reservations, and recovery', () => {
     expect(await prisma.retiredRuntime.count({ where: { instanceId: instance.id } })).toBe(0);
     expect((await fleet.runtimeForNode(localNode.id).inspect(instance.id)).volumePresent).toBe(false);
   });
+
+  it('select with regions skips nodes outside them', async () => {
+    await prisma.runtimeNode.update({ where: { id: localNode.id }, data: { region: 'id-jakarta' } });
+    await prisma.runtimeNode.update({ where: { id: remoteNode.id }, data: { region: 'sg-singapore' } });
+
+    const t1 = await prisma.tenant.create({ data: { name: 't1' } });
+    await prisma.instance.create({
+      data: {
+        tenantId: t1.id, planId: freePlan.id, nodeId: localNode.id,
+        name: 'jkt-full', idempotencyKey: 'jkt-full', image: IMAGE, status: 'ACTIVE',
+      },
+    });
+
+    const demand = { cpuMillis: 1000, memoryMb: 512, storageMb: 1024 };
+    const now = new Date();
+    await expect(
+      prisma.$transaction((tx) => placement.select(tx, demand, now, { regions: ['id-jakarta'] })),
+    ).rejects.toBeInstanceOf(CapacityFullError);
+
+    const chosen = await prisma.$transaction((tx) => placement.select(tx, demand, now));
+    expect(chosen).toBe(remoteNode.id);
+  });
 });
