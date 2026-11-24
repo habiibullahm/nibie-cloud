@@ -106,7 +106,7 @@ export default function BillingPage() {
           <CardTitle>{t("Subscription")}</CardTitle>
           <CardDescription>
             {current?.includedCreditUsd
-              ? t("Includes US${amount} AI credit, given once with the first payment. More AI usage is paid from your AI balance or your own provider.", { amount: current.includedCreditUsd })
+              ? t("Includes US${amount} AI credit with every paid period. More AI usage is paid from your AI balance or your own provider.", { amount: current.includedCreditUsd })
               : t("Hosting only. AI usage is billed separately by NibieRouter or your own provider.")}
           </CardDescription>
           {mock ? <PreviewNote what="Subscription" /> : null}
@@ -291,7 +291,7 @@ function FreeUpgrade({ instanceId, plans, pending }: { instanceId: string; plans
                 </p>
                 <p className="text-muted-foreground">
                   {t("{price} per 30 days", { price: formatPriceIdr(p.monthlyPriceIdr, lang) })}
-                  {p.includedCreditUsd ? ` · ${t("includes US${amount} AI credit", { amount: p.includedCreditUsd })}` : ""}
+                  {p.includedCreditUsd ? ` · ${t("includes US${amount} AI credit every month", { amount: p.includedCreditUsd })}` : ""}
                 </p>
                 <Button
                   variant="outline"

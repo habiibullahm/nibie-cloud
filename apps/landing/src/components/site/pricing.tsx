@@ -14,9 +14,9 @@ export function Pricing({ headingLevel = "section" }: { headingLevel?: "section"
       </div>
       <p role="note" className="mt-4 max-w-[840px] rounded-md border border-input bg-elevated p-4 text-muted-foreground">
         <strong className="font-normal text-foreground">Soal pemakaian AI. </strong>
-        Kredit $2 atau $3 diberikan satu kali di awal, bukan setiap bulan. Setelah kredit habis, atau pada paket tanpa kredit,
-        pemakaian AI ditagih terpisah oleh NibieRouter atau provider pilihanmu. Tidak ada janji pemakaian AI tanpa
-        batas.
+        Kredit $2 atau $3 diberikan setiap periode yang dibayar. Kredit yang tidak terpakai tetap di saldo AI. Di luar
+        kredit itu, atau pada paket tanpa kredit, pemakaian AI ditagih terpisah oleh NibieRouter atau provider
+        pilihanmu. Tidak ada janji pemakaian AI tanpa batas.
       </p>
       <p className="mt-4 max-w-[840px] text-[0.8125rem] text-muted-foreground">
         Harga beta khusus untuk pengguna beta ({BETA_USERS} pengguna pertama). Setelah beta, harga normal yang dicoret
@@ -41,7 +41,7 @@ function PlanCard({ plan }: { plan: Plan }) {
     ["RAM", `${plan.ramGb} GB`],
     ["Penyimpanan", `${plan.storageGb} GB`],
     ["Region", PLAN_SPECS.region],
-    ["Kredit NibieRouter", plan.creditUsd > 0 ? `$${plan.creditUsd}, sekali di awal` : "tidak termasuk"],
+    ["Kredit NibieRouter", plan.creditUsd > 0 ? `$${plan.creditUsd} setiap bulan` : "tidak termasuk"],
   ]
   return (
     <article className="grid content-start gap-4 rounded-md border bg-card p-6">
