@@ -169,7 +169,7 @@ several still describe branches as "not committed" or billing as "OFF" that have
   was deleted on the owner's request.
 - **Resizing a node, adding a node and updating agents:** [runbook-multi-node.md](runbook-multi-node.md).
 
-## Pro plans and node A stock (2026-11-23, production DB; landing and docs pending deploy)
+## Pro plans and node A stock (2026-11-23, production DB; landing and docs live)
 
 - Owner decision: two new plans, 2 CPU, 2 GB RAM, 20 GB storage. `pro` Rp 49.000 (normal Rp 79.000), no AI credit;
   `pro-kredit` Rp 79.000 (normal Rp 119.000), one-time NibieRouter credit US$3.
@@ -181,7 +181,8 @@ several still describe branches as "not committed" or billing as "OFF" that have
   RAM and disk and relies on real use (about 315 MB RAM per tenant so far) staying far below the caps. Not measured under load.
 - Landing (`apps/landing/src/lib/plans.ts`, pricing cards, `/harga`, FAQ, terms, refund policy) and docs (`paket-dan-penagihan`,
   index, `provider-ai`) now list four plans with per-plan CPU and RAM. Checks passed: landing typecheck, lint, 72 tests, build;
-  docs typecheck and lint. **Not deployed yet**: until it is, the live landing shows two plans while checkout already offers Pro.
+  docs typecheck and lint. Live through Workers Builds from `main` (checked 2026-11-25: `/harga` and
+  `/docs/paket-dan-penagihan` show four plans).
 - Not done: changing an existing instance's plan to Pro (plan change is still "segera hadir"); multi-node (backlog, a second
   2 vCPU / 8 GB node is planned).
 
