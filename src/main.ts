@@ -85,7 +85,7 @@ const retireCopies = fleet ? (instanceId: string) => retireDeletedCopies({ prism
 const logService = new LogService({ prisma, runtime, loader: runtimeConfig, masterKey: config.masterKey });
 const service = new InstanceService({
   prisma, runtime, image: config.hermesImage, production: config.nodeEnv === 'production', logger,
-  masterKey: config.masterKey, containerRuntime: config.runtime, dnsResolvers: config.dnsResolvers, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy, runtimeConfig, placement, localNodeId: fleet?.localNodeId(), ...(purge ? { purgeIntegrations: purge } : {}), ...(retireCopies ? { retireCopies } : {}),
+  masterKey: config.masterKey, containerRuntime: config.runtime, dnsResolvers: config.dnsResolvers, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy, runtimeConfig, placement, localNodeId: fleet?.localNodeId(), paidNodeRegions: config.paidNodeRegions, ...(purge ? { purgeIntegrations: purge } : {}), ...(retireCopies ? { retireCopies } : {}),
 });
 // With a job queue the sweeper owns PENDING rows; the reaper must not fail them first.
 const reconciler = new Reconciler({ prisma, runtime, logger, masterKey: config.masterKey, containerRuntime: config.runtime, dnsResolvers: config.dnsResolvers, diskQuota: config.diskQuota, egressPolicy: config.egressPolicy, reapPending: config.redisUrl === null, runtimeConfig, ...(purge ? { purgeIntegrations: purge } : {}), ...(retireCopies ? { retireCopies } : {}) });

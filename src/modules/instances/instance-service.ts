@@ -67,6 +67,8 @@ export interface InstanceServiceDeps {
   now?: () => Date;
   placement?: NodeScheduler;
   localNodeId?: string;
+  /** Regions where priced plans may be placed (`PAID_NODE_REGIONS`). Empty or absent: any region. */
+  paidNodeRegions?: readonly string[];
 }
 
 class HealthTimeout extends Error {}
@@ -136,6 +138,7 @@ export class InstanceService {
   private readonly retireCopies: (instanceId: string) => Promise<void>;
   private readonly placement?: NodeScheduler;
   private readonly localNodeId?: string;
+  private readonly paidNodeRegions?: readonly string[];
 
   constructor(deps: InstanceServiceDeps) {
     assertPinnedImage(deps.image, { production: deps.production });
@@ -158,6 +161,7 @@ export class InstanceService {
     this.retireCopies = deps.retireCopies ?? (async () => undefined);
     this.placement = deps.placement;
     this.localNodeId = deps.localNodeId;
+    this.paidNodeRegions = deps.paidNodeRegions;
   }
 
   /**
@@ -240,6 +244,8 @@ export class InstanceService {
       const nodeId = await placement.select(tx, plan, now, {
         subscriptionId: purchase?.id, waitlistEmail: invite?.email,
         preferredNodeId: purchase?.reservedNodeId ?? invite?.reservedNodeId,
+        // The reservation is only a preference: without this, a full Jakarta node would let a paid plan land elsewhere.
+        ...(plan.monthlyPriceIdr !== null && this.paidNodeRegions?.length ? { regions: this.paidNodeRegions } : {}),
       });
       if (input.maxTotalInstances !== undefined && (await totalLoad(tx, now)) >= input.maxTotalInstances) {
         throw new CapacityFullError();
