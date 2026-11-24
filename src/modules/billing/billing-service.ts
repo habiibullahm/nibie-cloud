@@ -1,6 +1,6 @@
 import type { RouterProvisioner } from '../nibierouter/router-provisioner.js';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
-import type { Payment, PaymentMethod, PaymentPurpose, PaymentStatus, Plan, Prisma, PrismaClient, Subscription, SubscriptionStatus } from '@prisma/client';
+import type { InvoiceKind, Payment, PaymentMethod, PaymentPurpose, PaymentStatus, Plan, Prisma, PrismaClient, Subscription, SubscriptionStatus } from '@prisma/client';
 import { AppError, CapacityFullError, ConflictError, InstanceLimitError, NotFoundError, PlanSoldOutError, ValidationError } from '../../shared/errors.js';
 import type { Logger } from '../../shared/logger.js';
 import { isUuid } from '../../shared/uuid.js';
@@ -596,25 +596,83 @@ export class BillingService {
       return finish(back.applied ? 'credited_to_wallet' : 'already_paid');
     }
 
-    const activation = await this.activate(tx, payment, now);
-    return activation ? finish('activated', activation) : finish('paid_after_end');
+    const activated = await this.activate(tx, payment, now);
+    return activated.outcome === 'activated' ? finish('activated', activated.activation) : finish(activated.outcome);
   }
 
   /**
-   * What a paid hosting invoice buys, inside the transaction that marked it paid: its invoice, then 30 more days (from
-   * the end of a running period, else from now). Null when the subscription had already ended: the money was received
-   * (so the invoice is still issued) but nothing is reactivated; the operator refunds.
+   * What a paid hosting invoice buys, inside the transaction that marked it paid: its invoice, then either a mid-period
+   * plan change (keeping the period end, or crediting the wallet if superseded/ended) or 30 more days (from the end of
+   * a running period, else from now).
    */
-  private async activate(tx: Prisma.TransactionClient, payment: Payment, now: Date): Promise<Activation | null> {
+  private async activate(tx: Prisma.TransactionClient, payment: Payment, now: Date): Promise<ActivateResult> {
     const sub = await tx.subscription.findUniqueOrThrow({
       where: { id: payment.subscriptionId },
-      include: { plan: { select: { name: true, includedCreditNano: true } } },
+      include: { plan: { select: { name: true, includedCreditNano: true } }, instance: { select: { nodeId: true } } },
     });
+    const targetPlan = payment.purpose === 'PLAN_CHANGE' && payment.targetPlanId
+      ? await tx.plan.findUnique({ where: { id: payment.targetPlanId }, select: { id: true, name: true } })
+      : null;
+    const invoiceKind: InvoiceKind =
+      payment.purpose === 'RENEWAL' ? 'HOSTING_RENEWAL' : payment.purpose === 'PLAN_CHANGE' ? 'HOSTING_PLAN_CHANGE' : 'HOSTING_NEW';
     await issueInvoice(tx, {
-      tenantId: sub.tenantId, kind: payment.purpose === 'RENEWAL' ? 'HOSTING_RENEWAL' : 'HOSTING_NEW', amountIdr: payment.amountIdr,
-      paidAt: now, planName: sub.plan.name, instanceName: sub.intendedName, paymentId: payment.id,
+      tenantId: sub.tenantId, kind: invoiceKind, amountIdr: payment.amountIdr,
+      paidAt: now, planName: targetPlan?.name ?? sub.plan.name, instanceName: sub.intendedName, paymentId: payment.id,
     });
-    if (sub.status === 'ENDED') return null;
+    if (payment.purpose === 'PLAN_CHANGE') {
+      const newer = await tx.payment.findFirst({
+        where: {
+          subscriptionId: sub.id,
+          purpose: 'PLAN_CHANGE',
+          id: { not: payment.id },
+          OR: [{ status: 'PENDING' }, { createdAt: { gt: payment.createdAt } }],
+        },
+        select: { id: true },
+      });
+      const applicable =
+        (sub.status === 'ACTIVE' || sub.status === 'GRACE') &&
+        payment.fromPlanId !== null &&
+        targetPlan !== null &&
+        sub.planId === payment.fromPlanId &&
+        newer === null;
+      if (!applicable) {
+        await moveWallet(tx, {
+          tenantId: sub.tenantId,
+          amountIdr: payment.amountIdr,
+          kind: 'TOPUP',
+          refId: `plan-change:${payment.id}`,
+          note: 'Ganti paket tidak diterapkan, dana masuk ke saldo',
+        });
+        return { outcome: 'credited_to_wallet' };
+      }
+      await tx.subscription.update({
+        where: { id: sub.id },
+        data: {
+          planId: targetPlan.id,
+          ...(this.d.placement && sub.instance ? { reservedNodeId: sub.instance.nodeId } : {}),
+        },
+      });
+      if (payment.creditNano && payment.creditNano > 0n) {
+        await tx.creditGrant.upsert({
+          where: { paymentId: payment.id },
+          create: {
+            tenantId: sub.tenantId,
+            paymentId: payment.id,
+            amountNano: payment.creditNano,
+            note: `nibie-cloud credit payment ${payment.id}`,
+          },
+          update: {},
+        });
+      }
+      return {
+        outcome: 'activated',
+        activation: {
+          subscriptionId: sub.id, tenantId: sub.tenantId, wasSuspended: false, instanceId: sub.instanceId,
+          periodEnd: sub.currentPeriodEnd, amountIdr: payment.amountIdr,
+        },
+      };
+    }
+    if (sub.status === 'ENDED') return { outcome: 'paid_after_end' };
     if (payment.purpose === 'RENEWAL' && sub.plan.includedCreditNano && sub.plan.includedCreditNano > 0n) {
       // shortcut: credit lands within about 7 minutes of a renewal, deliver inline if customers ask
       await tx.creditGrant.upsert({
@@ -637,8 +695,11 @@ export class BillingService {
       },
     });
     return {
-      subscriptionId: sub.id, tenantId: sub.tenantId, wasSuspended: sub.status === 'SUSPENDED', instanceId: sub.instanceId,
-      periodEnd: end, amountIdr: payment.amountIdr,
+      outcome: 'activated',
+      activation: {
+        subscriptionId: sub.id, tenantId: sub.tenantId, wasSuspended: sub.status === 'SUSPENDED', instanceId: sub.instanceId,
+        periodEnd: end, amountIdr: payment.amountIdr,
+      },
     };
   }
 
@@ -649,7 +710,7 @@ export class BillingService {
    * subscription row lock. The ledger entry is keyed on the payment id, so an invoice is charged at most once; a balance
    * that is too low throws `insufficient_balance` and the transaction rolls back.
    */
-  private async chargeWallet(tx: Prisma.TransactionClient, payment: Payment, kind: 'HOSTING' | 'AUTO_RENEW', now: Date): Promise<Activation> {
+  private async chargeWallet(tx: Prisma.TransactionClient, payment: Payment, kind: 'HOSTING' | 'AUTO_RENEW', now: Date): Promise<Activation | null> {
     const sub = await tx.subscription.findUniqueOrThrow({ where: { id: payment.subscriptionId }, select: { tenantId: true, status: true } });
     if (sub.status === 'ENDED') throw new AppError('This subscription has ended', 409, 'subscription_ended');
     await moveWallet(tx, {
@@ -657,13 +718,15 @@ export class BillingService {
       note: kind === 'AUTO_RENEW' ? 'Perpanjangan otomatis' : 'Pembayaran hosting',
     });
     const paid = await tx.payment.update({ where: { id: payment.id }, data: { status: 'PAID', method: 'WALLET', resultCode: '00', paidAt: now } });
-    return (await this.activate(tx, paid, now))!;
+    const res = await this.activate(tx, paid, now);
+    if (res.outcome === 'paid_after_end') throw new AppError('This subscription has ended', 409, 'subscription_ended');
+    return res.outcome === 'activated' ? res.activation : null;
   }
 
   /**
-   * Pays an open hosting invoice (a purchase, an upgrade or a renewal) from the wallet instead of QRIS. Only an invoice
-   * that is still payable: an expired purchase gets a new invoice first, so capacity and stock are checked again. The
-   * returned `postActions` (instance, plan change, receipt) run after the response, like the webhook's.
+   * Pays an open hosting invoice (a purchase, an upgrade, a plan change, or a renewal) from the wallet instead of QRIS.
+   * Only an invoice that is still payable: an expired purchase gets a new invoice first, so capacity and stock are checked
+   * again. The returned `postActions` (instance, plan change, receipt) run after the response, like the webhook's.
    */
   async payWithWallet(tenantId: string, paymentId: string): Promise<{ subscription: SubscriptionView; payment: PaymentView; postActions: () => Promise<void> }> {
     if (!isUuid(paymentId)) throw new NotFoundError('Payment not found');
@@ -679,6 +742,10 @@ export class BillingService {
       }
       return this.chargeWallet(tx, payment, 'HOSTING', now);
     });
+    if (!activation) {
+      const payment = await this.d.prisma.payment.findUniqueOrThrow({ where: { id: found.id } });
+      return { subscription: await this.viewOf(found.subscriptionId), payment: paymentView(payment, now), postActions: none };
+    }
     // The customer is waiting on this response: create a new purchase's instance now, so the dashboard can open it. The
     // post actions call this again (a no-op then); a failure here is repaired by them or by the billing tick.
     try {
@@ -815,7 +882,7 @@ export class BillingService {
       const n = await tx.instance.updateMany({ where: { id: inst.id, planId: inst.planId, recoveryNodeId: null }, data: { planId: sub.planId, configRevision: { increment: 1 } } });
       if (n.count === 1) {
         if (this.d.placement) await tx.subscription.update({ where: { id: sub.id }, data: { reservedNodeId: null } });
-        await tx.instanceEvent.create({ data: { instanceId: inst.id, type: 'plan.changed', message: 'Plan upgraded after payment' } });
+        await tx.instanceEvent.create({ data: { instanceId: inst.id, type: 'plan.changed', message: 'Plan changed after payment' } });
       }
       return n.count === 1;
     });
@@ -967,9 +1034,14 @@ interface Activation {
   tenantId: string;
   wasSuspended: boolean;
   instanceId: string | null;
-  periodEnd: Date;
+  periodEnd: Date | null;
   amountIdr: number;
 }
+
+type ActivateResult =
+  | { outcome: 'activated'; activation: Activation }
+  | { outcome: 'credited_to_wallet' }
+  | { outcome: 'paid_after_end' };
 
 /** An amount sent as text: whole rupiah, optionally with a zero fraction. */
 function parseAmount(raw: string): number | null {
