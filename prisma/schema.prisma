@@ -302,6 +302,7 @@ model Subscription {
 enum PaymentPurpose {
   NEW
   RENEWAL
+  PLAN_CHANGE
 }
 
 enum PaymentMethod {
@@ -331,6 +332,9 @@ model Payment {
   resultCode      String?
   expiresAt       DateTime       @db.Timestamptz(3)
   paidAt          DateTime?      @db.Timestamptz(3)
+  fromPlanId      String?        @db.Uuid
+  targetPlanId    String?        @db.Uuid
+  creditNano      BigInt?
   createdAt       DateTime       @default(now()) @db.Timestamptz(3)
   updatedAt       DateTime       @updatedAt @db.Timestamptz(3)
 
@@ -434,6 +438,7 @@ model WalletTopup {
 enum InvoiceKind {
   HOSTING_NEW
   HOSTING_RENEWAL
+  HOSTING_PLAN_CHANGE
   TOPUP
 }
 

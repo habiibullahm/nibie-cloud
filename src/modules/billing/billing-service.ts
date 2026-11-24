@@ -9,6 +9,7 @@ import { validateName } from '../instances/instance-service.js';
 import { renderEmail, type EmailKind } from './email-templates.js';
 import { periodAfterPayment } from './lifecycle.js';
 import type { Mailer } from './mailer.js';
+import { canChangePlan, quotePlanChange, type PlanTerms } from './plan-change.js';
 import { hasStock, stockLeft, totalLoad } from '../instances/capacity.js';
 import type { NodeScheduler } from '../instances/node-scheduler.js';
 import type { PaymentClient } from './payment-client.js';
@@ -263,6 +264,128 @@ export class BillingService {
     const back = `/dashboard/instances/${i.instanceId}/billing`;
     const payment = prepared.needsInvoice ? await this.issueInvoice(prepared.payment, plan, i.email, back) : prepared.payment;
     return { subscription: await this.viewOf(prepared.subscription.id), payment: paymentView(payment, now) };
+  }
+
+  /**
+   * Moves an active paid subscription to another paid plan without changing its period end. Charges the prorated
+   * difference when >= SUMOPOD_MIN_AMOUNT_IDR; smaller differences (including price decreases) apply immediately without
+   * an invoice or credit. Refuses downgrades, ended/unpaid/late subscriptions, and open renewals.
+   */
+  async changePlan(i: {
+    tenantId: string; email: string; subscriptionId: string; planId: string; idempotencyKey: string;
+  }): Promise<{ subscription: SubscriptionView; payment: PaymentView | null }> {
+    if (!i.idempotencyKey || i.idempotencyKey.length > 128) throw new ValidationError('invalid idempotency key');
+    if (!isUuid(i.subscriptionId)) throw new NotFoundError('Subscription not found');
+    if (!isUuid(i.planId)) throw new NotFoundError('Plan not found');
+    const target = await this.d.prisma.plan.findUnique({ where: { id: i.planId } });
+    if (!target || !target.active) throw new NotFoundError('Plan not found');
+    if (target.monthlyPriceIdr === null || target.monthlyPriceIdr < SUMOPOD_MIN_AMOUNT_IDR) throw new PlanNotForSaleError();
+
+    const now = this.now();
+    const changeKey = `pc:${i.subscriptionId}:${target.id}:${i.idempotencyKey}`;
+    const prepared = await this.d.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${i.tenantId}))`;
+      const [locked] = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM "Subscription" WHERE id = ${i.subscriptionId}::uuid AND "tenantId" = ${i.tenantId}::uuid FOR UPDATE`;
+      if (!locked) throw new NotFoundError('Subscription not found');
+      const sub = await tx.subscription.findUniqueOrThrow({
+        where: { id: locked.id },
+        include: { plan: true, instance: { include: { plan: true } } },
+      });
+      if (sub.status !== 'ACTIVE' || !sub.currentPeriodEnd || sub.currentPeriodEnd.getTime() <= now.getTime()) {
+        throw new AppError('This subscription cannot change plan right now', 409, 'subscription_not_changeable');
+      }
+      const inst = sub.instance;
+      if (!inst || inst.status === 'DELETING' || inst.status === 'DELETED') {
+        throw new AppError('This subscription cannot change plan right now', 409, 'subscription_not_changeable');
+      }
+      if (inst.recoveryNodeId) throw new ConflictError('Instance is being restored by an operator');
+
+      const prefix = `pc:${sub.id}:`;
+      if (sub.idempotencyKey?.startsWith(prefix)) {
+        const rest = sub.idempotencyKey.slice(prefix.length);
+        const recordedPlanId = rest.slice(0, 36);
+        const recordedKey = rest.slice(37);
+        if (recordedKey === i.idempotencyKey) {
+          if (recordedPlanId !== target.id) throw new ConflictError('Idempotency-Key was already used with a different request');
+          const latest = await tx.payment.findFirst({
+            where: { subscriptionId: sub.id, purpose: 'PLAN_CHANGE', targetPlanId: target.id },
+            orderBy: { createdAt: 'desc' },
+          });
+          if (sub.planId === target.id) {
+            return { subscription: sub, payment: latest?.status === 'PAID' ? latest : null, needsInvoice: false, applyImmediate: false };
+          }
+          if (latest && latest.status === 'PENDING' && latest.paymentUrl !== null && latest.expiresAt.getTime() > now.getTime()) {
+            return { subscription: sub, payment: latest, needsInvoice: false, applyImmediate: false };
+          }
+          if (latest && latest.status === 'PENDING' && latest.paymentUrl === null) {
+            await tx.payment.update({ where: { id: latest.id }, data: { status: 'FAILED' } });
+          }
+        }
+      }
+
+      const currentPrice = sub.plan.monthlyPriceIdr;
+      if (currentPrice === null || target.id === sub.planId) {
+        throw new AppError('Cannot change to this plan', 409, 'plan_change_not_allowed');
+      }
+      const currentTerms: PlanTerms = {
+        monthlyPriceIdr: currentPrice, includedCreditNano: sub.plan.includedCreditNano,
+        cpuMillis: sub.plan.cpuMillis, memoryMb: sub.plan.memoryMb, storageMb: sub.plan.storageMb,
+      };
+      const targetTerms: PlanTerms = {
+        monthlyPriceIdr: target.monthlyPriceIdr!, includedCreditNano: target.includedCreditNano,
+        cpuMillis: target.cpuMillis, memoryMb: target.memoryMb, storageMb: target.storageMb,
+      };
+      if (!canChangePlan(currentTerms, targetTerms)) {
+        throw new AppError('Cannot change to this plan', 409, 'plan_change_not_allowed');
+      }
+
+      const openRenewal = await tx.payment.findFirst({
+        where: { subscriptionId: sub.id, purpose: 'RENEWAL', status: 'PENDING', expiresAt: { gt: now } },
+        select: { id: true },
+      });
+      if (openRenewal) throw new AppError('Pay or let the open renewal invoice expire first', 409, 'renewal_open');
+
+      await this.assertStock(tx, target, now);
+      await this.d.placement?.select(tx, target, now, {
+        fixedNodeId: inst.nodeId, currentPlan: inst.plan, subscriptionId: sub.id,
+        ...(this.paidRegions ? { regions: this.paidRegions } : {}),
+      });
+
+      const quote = quotePlanChange({ current: currentTerms, target: targetTerms, now, periodEnd: sub.currentPeriodEnd });
+      await tx.payment.updateMany({ where: { subscriptionId: sub.id, purpose: 'PLAN_CHANGE', status: 'PENDING' }, data: { status: 'EXPIRED' } });
+
+      if (quote.immediate) {
+        const updated = await tx.subscription.update({
+          where: { id: sub.id },
+          data: { planId: target.id, idempotencyKey: changeKey, ...(this.d.placement ? { reservedNodeId: inst.nodeId } : {}) },
+        });
+        return { subscription: updated, payment: null, needsInvoice: false, applyImmediate: true };
+      }
+
+      await tx.subscription.update({ where: { id: sub.id }, data: { idempotencyKey: changeKey } });
+      const payment = await tx.payment.create({
+        data: {
+          ...this.newPayment(sub.id, 'PLAN_CHANGE', quote.amountIdr, now),
+          fromPlanId: sub.planId,
+          targetPlanId: target.id,
+          creditNano: quote.creditNano,
+        },
+      });
+      return { subscription: sub, payment, needsInvoice: true, applyImmediate: false };
+    });
+
+    if (prepared.applyImmediate) {
+      try {
+        await this.applyPlanChange(prepared.subscription.id);
+      } catch (e) {
+        this.d.logger.error({ subscriptionId: prepared.subscription.id, errName: (e as Error).name }, 'immediate plan change instance action failed; retried');
+      }
+      return { subscription: await this.viewOf(prepared.subscription.id), payment: null };
+    }
+    const back = `/dashboard/instances/${prepared.subscription.instanceId}/billing`;
+    const payment = prepared.needsInvoice ? await this.issueInvoice(prepared.payment!, target, i.email, back) : prepared.payment;
+    return { subscription: await this.viewOf(prepared.subscription.id), payment: payment ? paymentView(payment, now) : null };
   }
 
   /** A new invoice for the next period of an existing subscription (active, in grace, or suspended). */
