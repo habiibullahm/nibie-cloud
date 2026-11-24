@@ -3,7 +3,7 @@ import { SITE } from "@/lib/site"
 
 export const DEFAULT_TITLE = `${SITE.name} — Hosting Agent AI Hermes, Tanpa Urus Server`
 export const DEFAULT_DESCRIPTION =
-  "Satu container terisolasi & volume khusus per pelanggan di Jakarta. Tinggal deploy, hubungkan Telegram, tanpa VPS. Harga dalam Rupiah."
+  "Satu container terisolasi & volume khusus per pelanggan, paket berbayar di Jakarta. Tinggal deploy, hubungkan Telegram, tanpa VPS. Harga dalam Rupiah."
 
 export const OG_IMAGE = {
   url: "/og-image.png",

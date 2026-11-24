@@ -67,7 +67,10 @@ export default function KebijakanPrivasiPage() {
           <p>Kami memakai penyedia berikut untuk menjalankan layanan:</p>
           <ul>
             <li>Supabase untuk autentikasi dan basis data (data akun, instance, dan pembayaran), di region Singapura.</li>
-            <li>Tencent Cloud untuk server tempat instance berjalan, di Jakarta, Indonesia.</li>
+            <li>
+              Tencent Cloud untuk server tempat instance berjalan: paket berbayar di Jakarta, Indonesia; instance beta
+              gratis bisa berjalan di Jakarta atau Singapura.
+            </li>
             <li>SumoPod untuk pemrosesan pembayaran (QRIS) dan pengiriman email tagihan dan layanan.</li>
             <li>Penyedia email untuk email konfirmasi akun dan kode masuk yang dikirim lewat Supabase.</li>
             <li>
@@ -84,7 +87,8 @@ export default function KebijakanPrivasiPage() {
           </ul>
           <p>
             Karena basis data kami berada di Singapura, data akun dan pembayaranmu disimpan di luar Indonesia. Data
-            yang kamu simpan di instance tetap berada di server Jakarta.
+            yang kamu simpan di instance tetap berada di server Jakarta untuk paket berbayar, dan di Jakarta atau
+            Singapura untuk instance beta gratis.
           </p>
         </section>
         <section>

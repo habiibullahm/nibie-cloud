@@ -1,8 +1,18 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-24 (stale integration test expectations updated; watchdog node role on `jkt-2`). Earlier entries below keep their own dates, and
+Last updated: 2026-11-25 (paid plans pinned to `PAID_NODE_REGIONS` and landing region copy updated, local). Earlier entries below keep their own dates, and
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
+
+## Paid plans pinned to `PAID_NODE_REGIONS` (2026-11-25, local)
+
+- **Backend placement and billing:** Added `PAID_NODE_REGIONS` (`src/config/env.ts`, `.env.example`, `deploy/backend.env.example`; comma-separated list, unset or empty keeps any-region behaviour). `NodeScheduler.select` (`src/modules/instances/node-scheduler.ts`) accepts `regions?: readonly string[]` to filter candidate nodes by `RuntimeNode.region`. `BillingService` (`src/modules/billing/billing-service.ts`, wired in `src/main.ts`) passes `paidNodeRegions` on priced-plan `select` calls (`checkout`, `upgrade`, `applyPlanChange`, `replay`), and `upgrade` refuses free instances on nodes outside `paidNodeRegions` with `409 region_not_for_paid` before `select`. `WaitlistInviter` and `NodeRecovery` stay unrestricted.
+- **Dashboard & landing:** `apps/web` (`src/hooks/use-hermes.ts`, `src/lib/i18n-id.ts`) maps `region_not_for_paid` to an English/Indonesian message instructing the customer to contact support to move the instance first. `apps/landing` updates `kebijakan-privasi/page.tsx` (legal copy pending owner approval) and `lib/metadata.ts` so paid plans state Jakarta while free beta instances state Jakarta or Singapore.
+- **Ops step (owner action after merge):** Set `PAID_NODE_REGIONS=id-jakarta` on the control plane (`jkt-1`). A free instance on `jkt-2` (`sg-singapore`) requesting an upgrade must be moved by the operator first via [runbook-multi-node.md](runbook-multi-node.md).
+- **Checks run:**
+  - Backend: `pnpm build` (`tsc -p tsconfig.json --noEmit`) passed; `pnpm test:unit` passed 42/44 non-Linux-shell unit files (541 passed, 6 skipped), including new `test/unit/node-scheduler.test.ts` and `PAID_NODE_REGIONS` tests in `test/unit/config.test.ts`; the 2 pre-existing Windows-failing files (`test/unit/egress-rules.test.ts`, `test/unit/egress-canary.test.ts`, 14 tests) failed as on `main`. Integration tests (`test/integration/multi-node-fleet.test.ts`, `billing-upgrade.test.ts`, `billing-service.test.ts`) were added and type-checked, not run (`docker info` timed out and Postgres at `127.0.0.1:5433` was unreachable).
+  - Dashboard (`apps/web`): `pnpm typecheck`, `pnpm lint`, `pnpm test` (26 files, 221 tests), and `pnpm build` passed.
+  - Landing (`apps/landing`): `pnpm typecheck`, `pnpm lint`, `pnpm test` (5 files, 77 tests), and `pnpm build` passed.
 
 ## Integration test alignment (2026-11-24, local)
 
