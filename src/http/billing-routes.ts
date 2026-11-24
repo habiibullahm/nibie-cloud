@@ -9,6 +9,7 @@ import { clientIp } from './public-routes.js';
 
 const checkoutBody = z.object({ name: z.string(), planId: z.string().uuid() }).strict();
 const upgradeBody = z.object({ instanceId: z.string().uuid(), planId: z.string().uuid() }).strict();
+const changePlanBody = z.object({ planId: z.string().uuid() }).strict();
 const idempotencyKey = z.string().min(1).max(128);
 const topupBody = z.object({ amountIdr: z.number().int().min(TOPUP_MIN_IDR).max(TOPUP_MAX_IDR) }).strict();
 const autoRenewBody = z.object({ enabled: z.boolean() }).strict();
@@ -57,6 +58,18 @@ export function registerBillingRoutes(
     const key = idempotencyKey.parse(req.headers['idempotency-key']);
     const body = upgradeBody.parse(req.body);
     const out = await billing.upgrade({ tenantId: p.tenantId, email: p.email, instanceId: body.instanceId, planId: body.planId, idempotencyKey: key });
+    return reply.status(201).send(out);
+  });
+
+  // Moves an active paid subscription to another paid plan with at least the same resources.
+  api.post<{ Params: SubParams }>('/subscriptions/:subscriptionId/change-plan', { config: { rateLimit: { max: 10, timeWindow: '10 minutes' } } }, async (req, reply) => {
+    const p = principalOf(req);
+    await gate(p.email);
+    const key = idempotencyKey.parse(req.headers['idempotency-key']);
+    const body = changePlanBody.parse(req.body);
+    const out = await billing.changePlan({
+      tenantId: p.tenantId, email: p.email, subscriptionId: req.params.subscriptionId, planId: body.planId, idempotencyKey: key,
+    });
     return reply.status(201).send(out);
   });
 

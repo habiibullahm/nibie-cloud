@@ -12,6 +12,8 @@ Endpoint ini hanya aktif bila penagihan dinyalakan di server. Selama pembayaran 
 | `GET /subscriptions` | Daftar langgananmu: `{ "subscriptions": [ … ] }`. |
 | `GET /subscriptions/:subscriptionId` | Satu langganan: `{ "subscription": { … } }`. |
 | `POST /subscriptions/checkout` | Memulai langganan baru dan membuat invoice pertama. |
+| `POST /subscriptions/upgrade` | Menaikkan instance beta gratis ke paket berbayar. |
+| `POST /subscriptions/:subscriptionId/change-plan` | Mengganti paket langganan berbayar ke paket berbayar lain. |
 | `POST /subscriptions/:subscriptionId/renew` | Membuat invoice untuk periode berikutnya. |
 | `POST /subscriptions/:subscriptionId/cancel` | Menghentikan perpanjangan di akhir periode yang sudah dibayar. |
 | `GET /payments/:paymentId` | Status satu pembayaran: `{ "payment": { … } }`. |
@@ -29,13 +31,39 @@ Respons `201 Created` berisi `subscription` dan `payment`. Arahkan pengguna ke `
 Instance dibuat setelah server menerima konfirmasi pembayaran dari payment gateway, bukan saat pengguna kembali
 dari halaman pembayaran.
 
+## POST /subscriptions/upgrade
+
+Menaikkan instance beta gratis ke paket berbayar sambil mempertahankan instance dan datanya. Memerlukan header
+[`Idempotency-Key`](/api-reference/error-dan-idempotensi#idempotency-key).
+
+| Body | Tipe | Keterangan |
+| --- | --- | --- |
+| `instanceId` | string (UUID) | ID instance gratis milikmu. |
+| `planId` | string (UUID) | ID paket berbayar dari `GET /plans`. |
+
+Respons `201 Created` berisi `subscription` dan `payment`. Paket berubah setelah pembayaran terverifikasi.
+
+## POST /subscriptions/:subscriptionId/change-plan
+
+Mengganti paket langganan berbayar yang masih `ACTIVE` ke paket berbayar lain yang batas CPU, memori, dan
+penyimpanannya tidak lebih kecil. Memerlukan header
+[`Idempotency-Key`](/api-reference/error-dan-idempotensi#idempotency-key).
+
+| Body | Tipe | Keterangan |
+| --- | --- | --- |
+| `planId` | string (UUID) | ID paket berbayar tujuan dari `GET /plans`. |
+
+Selisih harga dihitung prorata untuk sisa hari di periode berjalan, dengan tanggal akhir periode tetap sama. Respons
+`201 Created` berisi `{ "subscription": { … }, "payment": { … } }` atau `"payment": null` bila selisih di bawah Rp 1.000
+(perubahan langsung diterapkan tanpa invoice dan tanpa kredit prorata).
+
 ## POST /subscriptions/:subscriptionId/renew
 
 Untuk langganan yang aktif, dalam masa tenggang, atau di-suspend. Bila masih ada invoice perpanjangan yang belum
 kedaluwarsa, invoice itu yang dikembalikan, bukan invoice baru. Respons `201 Created` berisi `subscription` dan
 `payment`.
 
-`checkout` dan `renew` dibatasi 10 permintaan per 10 menit.
+`checkout`, `upgrade`, `change-plan`, dan `renew` dibatasi 10 permintaan per 10 menit.
 
 ## Status langganan
 
