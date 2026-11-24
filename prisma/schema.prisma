@@ -82,7 +82,7 @@ model Plan {
   pids               Int
   storageMb          Int
   monthlyPriceIdr    Int?
-  /// One-time NibieRouter credit granted with the first payment, in nano-USD (US$1 = 1_000_000_000). Null: none.
+  /// NibieRouter credit granted with every paid period, in nano-USD (US$1 = 1_000_000_000). Null: none.
   includedCreditNano BigInt?
   /// Stock of a priced plan, set from the admin panel: how many instances plus open purchases it may have. Null: no limit.
   /// Ignored on the free plan, which FREE_BETA_SLOTS limits.
@@ -479,6 +479,8 @@ model CreditGrant {
   id               String            @id @default(uuid()) @db.Uuid
   tenantId         String            @db.Uuid
   subscriptionId   String?           @unique @db.Uuid
+  /// Set for the credit of a renewal or plan change payment; the first payment's credit stays keyed on `subscriptionId`.
+  paymentId        String?           @unique @db.Uuid
   amountNano       BigInt
   /// Purchases only: the Rupiah taken from the wallet.
   amountIdr        Int?

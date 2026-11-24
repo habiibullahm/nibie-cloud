@@ -483,12 +483,28 @@ export class BillingService {
    * (so the invoice is still issued) but nothing is reactivated; the operator refunds.
    */
   private async activate(tx: Prisma.TransactionClient, payment: Payment, now: Date): Promise<Activation | null> {
-    const sub = await tx.subscription.findUniqueOrThrow({ where: { id: payment.subscriptionId }, include: { plan: { select: { name: true } } } });
+    const sub = await tx.subscription.findUniqueOrThrow({
+      where: { id: payment.subscriptionId },
+      include: { plan: { select: { name: true, includedCreditNano: true } } },
+    });
     await issueInvoice(tx, {
       tenantId: sub.tenantId, kind: payment.purpose === 'RENEWAL' ? 'HOSTING_RENEWAL' : 'HOSTING_NEW', amountIdr: payment.amountIdr,
       paidAt: now, planName: sub.plan.name, instanceName: sub.intendedName, paymentId: payment.id,
     });
     if (sub.status === 'ENDED') return null;
+    if (payment.purpose === 'RENEWAL' && sub.plan.includedCreditNano && sub.plan.includedCreditNano > 0n) {
+      // shortcut: credit lands within about 7 minutes of a renewal, deliver inline if customers ask
+      await tx.creditGrant.upsert({
+        where: { paymentId: payment.id },
+        create: {
+          tenantId: sub.tenantId,
+          paymentId: payment.id,
+          amountNano: sub.plan.includedCreditNano,
+          note: `nibie-cloud credit payment ${payment.id}`,
+        },
+        update: {},
+      });
+    }
     const { end } = periodAfterPayment({ now, status: sub.status, currentPeriodEnd: sub.currentPeriodEnd });
     await tx.subscription.update({
       where: { id: sub.id },

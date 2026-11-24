@@ -1,6 +1,6 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-25 (paid plans pinned to `PAID_NODE_REGIONS` and landing region copy updated, local). Earlier entries below keep their own dates, and
+Last updated: 2026-11-25 (merged `feat/paid-region-pin` and `feat/plan-credit-every-period` into `feat/paid-plan-change`). Earlier entries below keep their own dates, and
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
@@ -13,6 +13,18 @@ several still describe branches as "not committed" or billing as "OFF" that have
   - Backend: `pnpm build` (`tsc -p tsconfig.json --noEmit`) passed; `pnpm test:unit` passed 42/44 non-Linux-shell unit files (541 passed, 6 skipped), including new `test/unit/node-scheduler.test.ts` and `PAID_NODE_REGIONS` tests in `test/unit/config.test.ts`; the 2 pre-existing Windows-failing files (`test/unit/egress-rules.test.ts`, `test/unit/egress-canary.test.ts`, 14 tests) failed as on `main`. Integration tests (`test/integration/multi-node-fleet.test.ts`, `billing-upgrade.test.ts`, `billing-service.test.ts`) were added and type-checked, not run (`docker info` timed out and Postgres at `127.0.0.1:5433` was unreachable).
   - Dashboard (`apps/web`): `pnpm typecheck`, `pnpm lint`, `pnpm test` (26 files, 221 tests), and `pnpm build` passed.
   - Landing (`apps/landing`): `pnpm typecheck`, `pnpm lint`, `pnpm test` (5 files, 77 tests), and `pnpm build` passed.
+
+## AI credit on every paid period (2026-11-25, branch `feat/plan-credit-every-period`)
+
+- **Schema & migration:** Added nullable unique `CreditGrant.paymentId` (`prisma/schema.prisma`, `prisma/migrations/20261125100000_credit_grant_payment/migration.sql`) and updated `CreditGrant_purchase_shape` so payment-keyed grants (with `subscriptionId` null, `amountIdr` null, and `idempotencyKey` null) pass the check constraint. Regenerated Prisma client (`pnpm prisma generate`).
+- **Billing:** `BillingService.activate` (`src/modules/billing/billing-service.ts`) now upserts a `PENDING` `CreditGrant` keyed on `paymentId` on paid `RENEWAL` payments when `plan.includedCreditNano > 0n` and the subscription has not ended (both QRIS/wallet payments and `autoRenew`). Existing `AiAccountService.retryPurchases` picks up `subscriptionId: null` grants on the billing tick. Added five renewal-credit integration test cases in `test/integration/billing-service.test.ts`.
+- **Copy:** Updated landing (`apps/landing/src/components/site/pricing.tsx`, `faq.tsx`, `apps/landing/src/app/syarat-layanan/page.tsx`), docs (`apps/docs/content/docs/(panduan)/index.mdx`, `paket-dan-penagihan.mdx`, `provider-ai.mdx`, `api-reference/akun-dan-paket.mdx`), and dashboard (`apps/web/src/app/(app)/instances/[id]/billing/page.tsx`, `deploy/deploy-form.tsx`, `apps/web/src/lib/i18n-id.ts`) so Kredit plans state the NibieRouter credit is granted every paid period (and unused credit stays in the AI balance).
+- **Checks run (Windows):**
+  - Root: `pnpm prisma generate` and `pnpm build` (`tsc --noEmit`) passed; `pnpm test:unit` ran 45 files (41 passed, 538 tests passed, 6 skipped; 2 pre-existing Windows-only Linux-shell failures in `test/unit/egress-canary.test.ts` and `test/unit/egress-rules.test.ts` totaling 14 tests).
+  - Integration tests (`billing-service`, `billing-tick`, `ai-credit-purchase`, `router-provisioner`): not run (`127.0.0.1:5433` Postgres and Docker daemon were unreachable on this host).
+  - `apps/landing`: `pnpm typecheck`, `pnpm lint`, `pnpm test` (5 files, 77 tests), and `pnpm build` passed.
+  - `apps/docs`: `pnpm typecheck` and `pnpm lint` passed.
+  - `apps/web`: `pnpm typecheck`, `pnpm lint`, `pnpm test` (26 files, 220 tests), and `pnpm build` passed.
 
 ## Integration test alignment (2026-11-24, local)
 

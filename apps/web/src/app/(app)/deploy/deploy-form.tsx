@@ -201,7 +201,7 @@ export function DeployForm() {
                     </span>
                     {p.includedCreditUsd !== null ? (
                       <span className="text-muted-foreground">
-                        {t("Includes US${amount} AI credit, one-time, in NibieRouter", { amount: p.includedCreditUsd })}
+                        {t("Includes US${amount} AI credit every month, in NibieRouter", { amount: p.includedCreditUsd })}
                       </span>
                     ) : null}
                     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-t pt-2">
@@ -275,7 +275,7 @@ export function DeployForm() {
               ...(priced ? [{ k: t("Billing"), v: t("Monthly") }] : []),
               ...(plan ? [{ k: t("Price"), v: formatPriceIdr(plan.monthlyPriceIdr, lang) }] : []),
               ...(plan && plan.includedCreditUsd !== null
-                ? [{ k: t("AI credit"), v: t("US${amount}, one-time, with the first payment", { amount: plan.includedCreditUsd }) }]
+                ? [{ k: t("AI credit"), v: t("US${amount} with every paid period", { amount: plan.includedCreditUsd }) }]
                 : []),
             ]}
           />

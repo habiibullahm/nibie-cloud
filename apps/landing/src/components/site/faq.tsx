@@ -8,7 +8,7 @@ const FAQ = [
   },
   {
     q: "Apakah pemakaian AI sudah termasuk di paket?",
-    a: "Paket Hosting dan Pro tidak termasuk pemakaian AI. Paket Hosting + Kredit AI memberi kredit NibieRouter $2, dan Pro + Kredit AI $3, satu kali di awal. Selebihnya pemakaian AI ditagih terpisah, lewat NibieRouter atau API key provider milikmu sendiri. Kami tidak menjanjikan pemakaian AI tanpa batas.",
+    a: "Paket Hosting dan Pro tidak termasuk pemakaian AI. Paket Hosting + Kredit AI memberi kredit NibieRouter $2, dan Pro + Kredit AI $3, setiap periode yang dibayar. Kredit yang tidak terpakai tetap di saldo AI. Di luar kredit itu, pemakaian AI ditagih terpisah, lewat NibieRouter atau API key provider milikmu sendiri. Kami tidak menjanjikan pemakaian AI tanpa batas.",
   },
   {
     q: "Seberapa terisolasi instance saya dari pelanggan lain?",

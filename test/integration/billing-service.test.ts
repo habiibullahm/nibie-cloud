@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createPrisma } from '../../src/db/client.js';
+import { moveWallet } from '../../src/modules/billing/wallet.js';
 import { CapacityFullError, ConflictError, InstanceLimitError, NotFoundError, PaymentProviderUnavailableError, PlanSoldOutError } from '../../src/shared/errors.js';
 import { PlanNotForSaleError } from '../../src/modules/billing/billing-service.js';
 import { NodeScheduler } from '../../src/modules/instances/node-scheduler.js';
@@ -394,6 +395,70 @@ describe('BillingService', () => {
       const out = await pay(await orderIdOf(r.payment.id), { reference: 'REF-R' });
       expect(out).toMatchObject({ outcome: 'paid_after_end' });
       expect((await prisma.subscription.findUniqueOrThrow({ where: { id } })).status).toBe('ENDED');
+    });
+
+    it('renewal of a Kredit plan creates one PENDING credit grant keyed on the payment', async () => {
+      await prisma.plan.update({ where: { id: s.plan.id }, data: { slug: 'hosting-kredit', includedCreditNano: 2_000_000_000n } });
+      const id = await active();
+      const r = await env.billing.renew({ tenantId: s.tenant.id, email: s.user.email, subscriptionId: id });
+      await pay(await orderIdOf(r.payment.id), { reference: 'REF-R-KREDIT' });
+      const grants = await prisma.creditGrant.findMany({ where: { paymentId: { not: null } } });
+      expect(grants).toHaveLength(1);
+      expect(grants[0]).toMatchObject({
+        tenantId: s.tenant.id,
+        paymentId: r.payment.id,
+        amountNano: 2_000_000_000n,
+        subscriptionId: null,
+        status: 'PENDING',
+      });
+    });
+
+    it('renewal of a plan without credit creates no grant', async () => {
+      const id = await active();
+      const r = await env.billing.renew({ tenantId: s.tenant.id, email: s.user.email, subscriptionId: id });
+      await pay(await orderIdOf(r.payment.id), { reference: 'REF-R-NOCREDIT' });
+      expect(await prisma.creditGrant.count({ where: { paymentId: { not: null } } })).toBe(0);
+    });
+
+    it('wallet auto-renew of a Kredit plan grants the credit', async () => {
+      env = makeBilling(prisma, { wallet: true });
+      await prisma.plan.update({ where: { id: s.plan.id }, data: { slug: 'hosting-kredit', includedCreditNano: 2_000_000_000n } });
+      const id = await active();
+      await prisma.$transaction((tx) => moveWallet(tx, { tenantId: s.tenant.id, amountIdr: PRICE, kind: 'ADMIN_CREDIT', refId: randomUUID() }));
+      env.clock.advanceDays(29.5);
+      expect(await env.billing.autoRenew(id, env.clock.now)).toBe(true);
+      const grants = await prisma.creditGrant.findMany({ where: { paymentId: { not: null } } });
+      expect(grants).toHaveLength(1);
+      expect(grants[0]).toMatchObject({
+        tenantId: s.tenant.id,
+        amountNano: 2_000_000_000n,
+        subscriptionId: null,
+        status: 'PENDING',
+      });
+    });
+
+    it('renewal paid by wallet then by QRIS grants once', async () => {
+      env = makeBilling(prisma, { wallet: true });
+      await prisma.plan.update({ where: { id: s.plan.id }, data: { slug: 'hosting-kredit', includedCreditNano: 2_000_000_000n } });
+      const id = await active();
+      await prisma.$transaction((tx) => moveWallet(tx, { tenantId: s.tenant.id, amountIdr: PRICE, kind: 'ADMIN_CREDIT', refId: randomUUID() }));
+      const r = await env.billing.renew({ tenantId: s.tenant.id, email: s.user.email, subscriptionId: id });
+      await env.billing.payWithWallet(s.tenant.id, r.payment.id);
+      const cb = await pay(await orderIdOf(r.payment.id), { reference: 'REF-R-QRIS-DUP' });
+      expect(cb).toMatchObject({ accepted: true, outcome: 'credited_to_wallet' });
+      const grants = await prisma.creditGrant.findMany({ where: { paymentId: { not: null } } });
+      expect(grants).toHaveLength(1);
+      expect(grants[0]!.paymentId).toBe(r.payment.id);
+    });
+
+    it('payment for an ended subscription grants nothing', async () => {
+      await prisma.plan.update({ where: { id: s.plan.id }, data: { slug: 'hosting-kredit', includedCreditNano: 2_000_000_000n } });
+      const id = await active();
+      const r = await env.billing.renew({ tenantId: s.tenant.id, email: s.user.email, subscriptionId: id });
+      await prisma.subscription.update({ where: { id }, data: { status: 'ENDED' } });
+      const out = await pay(await orderIdOf(r.payment.id), { reference: 'REF-R-ENDED' });
+      expect(out).toMatchObject({ outcome: 'paid_after_end' });
+      expect(await prisma.creditGrant.count({ where: { paymentId: { not: null } } })).toBe(0);
     });
   });
 

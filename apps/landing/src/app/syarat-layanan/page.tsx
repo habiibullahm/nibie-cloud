@@ -49,8 +49,8 @@ export default function SyaratLayananPage() {
               memverifikasi pembayaran, bukan hanya karena kamu kembali dari halaman pembayaran.
             </li>
             <li>
-              Paket Hosting + Kredit AI memberi kredit NibieRouter sebesar $2, dan paket Pro + Kredit AI sebesar $3, satu kali di
-              awal, bukan setiap bulan.
+              Paket Hosting + Kredit AI memberi kredit NibieRouter sebesar $2, dan paket Pro + Kredit AI sebesar $3, setiap periode
+              yang dibayar. Kredit yang tidak terpakai tetap di saldo AI.
             </li>
             <li>
               Pemakaian AI di luar kredit tersebut ditagih terpisah oleh NibieRouter atau provider yang kamu pilih.
