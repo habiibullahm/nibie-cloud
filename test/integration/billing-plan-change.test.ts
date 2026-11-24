@@ -201,6 +201,20 @@ describe('applying a paid plan change', () => {
     expect(ev?.message).toBe('Plan changed after payment');
   });
 
+  it('applying a paid plan change expires a renewal invoice opened on the old plan', async () => {
+    const sub = await activeSub(hosting);
+    env.clock.advanceDays(15);
+    const { payment } = await env.billing.changePlan({
+      tenantId: s.tenant.id, email: s.user.email, subscriptionId: sub.id, planId: pro.id, idempotencyKey: randomUUID(),
+    });
+    // Opened after the change was requested, so the renewal_open guard did not see it; priced on Hosting.
+    const renewal = await env.billing.renew({ tenantId: s.tenant.id, email: s.user.email, subscriptionId: sub.id });
+    expect(renewal.payment.amountIdr).toBe(25_000);
+    const orderId = (await prisma.payment.findUniqueOrThrow({ where: { id: payment!.id } })).merchantOrderId;
+    await payOrder(orderId, payment!.amountIdr);
+    expect((await prisma.payment.findUniqueOrThrow({ where: { id: renewal.payment.id } })).status).toBe('EXPIRED');
+  });
+
   it('paid plan change to a Kredit plan creates a credit grant with the prorated amount', async () => {
     const sub = await activeSub(hosting);
     env.clock.advanceDays(15);

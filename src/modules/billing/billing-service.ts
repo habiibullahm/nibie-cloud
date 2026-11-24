@@ -652,6 +652,8 @@ export class BillingService {
           ...(this.d.placement && sub.instance ? { reservedNodeId: sub.instance.nodeId } : {}),
         },
       });
+      // A renewal invoice opened while this change was unpaid is priced on the old plan: it must not buy a period of the new one.
+      await tx.payment.updateMany({ where: { subscriptionId: sub.id, purpose: 'RENEWAL', status: 'PENDING' }, data: { status: 'EXPIRED' } });
       if (payment.creditNano && payment.creditNano > 0n) {
         await tx.creditGrant.upsert({
           where: { paymentId: payment.id },
