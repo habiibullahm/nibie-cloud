@@ -551,6 +551,8 @@ export const ID: Record<string, string> = {
   "Not available yet": "Belum tersedia",
   "Upgrade to {plan} from balance": "Upgrade ke {plan} dari saldo",
   "Upgrade to {plan}": "Upgrade ke {plan}",
+  "This instance runs in Singapore. Paid plans run in Jakarta. Contact support to move it first.":
+    "Instance ini berjalan di Singapura. Paket berbayar berjalan di Jakarta. Hubungi bantuan untuk memindahkannya dulu.",
   "The price is taken from your Nibie Cloud balance when it covers it, otherwise you pay by QRIS on the SumoPod page. After the payment, the instance restarts once to apply the new plan.": "Harga diambil dari saldo Nibie Cloud kamu bila cukup, kalau tidak kamu membayar dengan QRIS di halaman SumoPod. Setelah pembayaran, instance dimulai ulang sekali untuk menerapkan paket baru.",
 
   // Action confirmations

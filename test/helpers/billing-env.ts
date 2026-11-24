@@ -3,6 +3,7 @@ import type { PrismaClient } from '@prisma/client';
 import { BillingService } from '../../src/modules/billing/billing-service.js';
 import type { InvoiceRequest, PaymentClient } from '../../src/modules/billing/payment-client.js';
 import type { Mailer, MailMessage } from '../../src/modules/billing/mailer.js';
+import type { NodeScheduler } from '../../src/modules/instances/node-scheduler.js';
 import { InstanceCommands } from '../../src/modules/instances/instance-commands.js';
 import { InstanceService } from '../../src/modules/instances/instance-service.js';
 import { PaymentProviderUnavailableError } from '../../src/shared/errors.js';
@@ -52,13 +53,25 @@ export async function seedBilling(prisma: PrismaClient, o: { price?: number | nu
   return { tenant, other, user, plan, node };
 }
 
-export function makeBilling(prisma: PrismaClient, o: { clock?: Clock; maxInstances?: number; maxTotal?: number | null; router?: NonNullable<ConstructorParameters<typeof BillingService>[0]['router']>; wallet?: boolean } = {}) {
+export function makeBilling(
+  prisma: PrismaClient,
+  o: {
+    clock?: Clock;
+    maxInstances?: number;
+    maxTotal?: number | null;
+    router?: NonNullable<ConstructorParameters<typeof BillingService>[0]['router']>;
+    wallet?: boolean;
+    placement?: NodeScheduler;
+    paidNodeRegions?: readonly string[];
+  } = {},
+) {
   const logger = createLogger({ level: 'silent' });
   const runtime = new FakeRuntime();
   const clock = o.clock ?? makeClock();
   const service = new InstanceService({
     prisma, runtime, image: 'hermes-stub:0.2.0', production: false, logger, pollIntervalMs: 20, healthTimeoutMs: 300,
     masterKey: TEST_MASTER_KEY, diskQuota: 'off', egressPolicy: 'off', containerRuntime: 'runc', now: () => clock.now,
+    ...(o.placement ? { placement: o.placement } : {}),
   });
   const commands = new InstanceCommands({ service, queue: null, logger });
   const sumopod = new FakeSumoPod();
@@ -67,6 +80,8 @@ export function makeBilling(prisma: PrismaClient, o: { clock?: Clock; maxInstanc
       prisma, paymentClient: sumopod, sumopodAuth: { webhookToken: WEBHOOK_TOKEN }, commands, mailer,
       dashboardOrigin: 'https://cloud.example.test', maxInstancesPerTenant: o.maxInstances ?? 1, maxTotalInstances: o.maxTotal ?? null, logger, now: () => clock.now,
       ...(o.router ? { router: o.router } : {}),
+      ...(o.placement ? { placement: o.placement } : {}),
+      ...(o.paidNodeRegions !== undefined ? { paidNodeRegions: o.paidNodeRegions } : {}),
       walletEnabled: o.wallet ?? false,
     });
   return { billing, sumopod, mailer, runtime, service, commands, clock, logger };

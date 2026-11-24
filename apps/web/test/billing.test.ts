@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest"
+import { errorMessage } from "../src/hooks/use-hermes"
+import { ApiError } from "../src/lib/api/client"
+import { translate } from "../src/lib/i18n"
 import type { BillingPayment, BillingSubscription } from "../src/lib/api/types"
 import {
   billingNotice,
@@ -195,5 +198,20 @@ describe("paymentText", () => {
   it("calls an unpaid invoice past its expiry expired, not waiting", () => {
     expect(paymentText(payment(), t, "en", NOW)).toMatch(/waiting for payment$/)
     expect(paymentText(payment({ expiresAt: new Date(NOW - HOUR).toISOString() }), t, "en", NOW)).toMatch(/expired$/)
+  })
+})
+
+describe("errorMessage", () => {
+  it("maps region_not_for_paid to the Jakarta upgrade message", () => {
+    const err = new ApiError(409, "region_not_for_paid", "Paid plans run in Jakarta only")
+    expect(errorMessage(err, (s) => translate("en", s))).toBe(
+      "This instance runs in Singapore. Paid plans run in Jakarta. Contact support to move it first."
+    )
+    expect(errorMessage(err)).toBe(
+      "Instance ini berjalan di Singapura. Paket berbayar berjalan di Jakarta. Hubungi bantuan untuk memindahkannya dulu."
+    )
+    expect(errorMessage(err, (s) => translate("id", s))).toBe(
+      "Instance ini berjalan di Singapura. Paket berbayar berjalan di Jakarta. Hubungi bantuan untuk memindahkannya dulu."
+    )
   })
 })

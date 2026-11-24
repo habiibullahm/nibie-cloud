@@ -3,6 +3,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createPrisma } from '../../src/db/client.js';
 import { CapacityFullError, ConflictError, InstanceLimitError, NotFoundError, PaymentProviderUnavailableError, PlanSoldOutError } from '../../src/shared/errors.js';
 import { PlanNotForSaleError } from '../../src/modules/billing/billing-service.js';
+import { NodeScheduler } from '../../src/modules/instances/node-scheduler.js';
 import { resetDb } from '../helpers/db.js';
 import { PRICE, WEBHOOK_TOKEN, makeBilling, makeClock, seedBilling, webhookBody } from '../helpers/billing-env.js';
 
@@ -163,6 +164,22 @@ describe('BillingService', () => {
       const ok = await checkout(key);
       expect(ok.payment.status).toBe('PENDING');
       expect(ok.payment.paymentUrl).not.toBeNull();
+    });
+
+    it('checkout with paidNodeRegions reserves a Jakarta node', async () => {
+      await prisma.runtimeNode.update({ where: { id: s.node.id }, data: { name: 'jkt-2', region: 'sg-singapore' } });
+      const jkt = await prisma.runtimeNode.create({ data: { name: 'jkt-1', region: 'id-jakarta' } });
+      const placement = new NodeScheduler(() => [
+        { id: s.node.id, cpuMillis: 4000, memoryMb: 4096, storageMb: 20480 },
+        { id: jkt.id, cpuMillis: 4000, memoryMb: 4096, storageMb: 20480 },
+      ]);
+      const pinned = makeBilling(prisma, { placement, paidNodeRegions: ['id-jakarta'] });
+
+      const { subscription } = await pinned.billing.checkout({
+        tenantId: s.tenant.id, email: s.user.email, planId: s.plan.id, name: 'jkt-agent', idempotencyKey: randomUUID(),
+      });
+      const row = await prisma.subscription.findUniqueOrThrow({ where: { id: subscription.id } });
+      expect(row.reservedNodeId).toBe(jkt.id);
     });
   });
 

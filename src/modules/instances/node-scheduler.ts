@@ -10,6 +10,7 @@ type Reservation = {
   fixedNodeId?: string;
   preferredNodeId?: string | null;
   currentPlan?: NodeCapacity;
+  regions?: readonly string[];
 };
 
 function add(used: NodeCapacity, requested: NodeCapacity, previous?: NodeCapacity) {
@@ -37,8 +38,9 @@ export class NodeScheduler {
     await this.lock(tx);
     const live = this.reachable().filter(({ id }) => !claim.fixedNodeId || id === claim.fixedNodeId);
     const needsCordonCheck = claim.fixedNodeId === undefined;
+    const regionFilter = claim.regions?.length ? { region: { in: [...claim.regions] } } : {};
     const candidates = await tx.runtimeNode.findMany({
-      where: { id: { in: live.map((node) => node.id) }, ...(needsCordonCheck ? { schedulable: true } : {}) },
+      where: { id: { in: live.map((node) => node.id) }, ...(needsCordonCheck ? { schedulable: true } : {}), ...regionFilter },
       select: { id: true }, orderBy: { name: 'asc' },
     });
     const ids = candidates.map(({ id }) => id);

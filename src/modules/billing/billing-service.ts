@@ -72,6 +72,8 @@ export interface BillingDeps {
   maxInstancesPerTenant: number;
   /** Whole-server cap (see capacity.ts). Absent or null: no cap. */
   maxTotalInstances?: number | null;
+  /** Regions where priced plans may be placed and upgraded. Empty or absent: any region. */
+  paidNodeRegions?: readonly string[];
   logger: Logger;
   /** NibieRouter key and credit for a freshly created paid instance. Absent: the operator attaches a provider by hand. */
   router?: Pick<RouterProvisioner, 'begin'>;
@@ -149,6 +151,10 @@ export class BillingService {
       : null;
   }
 
+  private get paidRegions(): readonly string[] | undefined {
+    return this.d.paidNodeRegions?.length ? this.d.paidNodeRegions : undefined;
+  }
+
   // ---- customer operations -------------------------------------------------------------------
 
   /**
@@ -183,7 +189,7 @@ export class BillingService {
       });
       await this.assertCapacity(tx, i.tenantId, now);
       await this.assertStock(tx, plan, now);
-      const reservedNodeId = await this.d.placement?.select(tx, plan, now);
+      const reservedNodeId = await this.d.placement?.select(tx, plan, now, this.paidRegions ? { regions: this.paidRegions } : undefined);
       // A new purchase is refused before any invoice exists when the server is full; paying customers are never blocked here.
       if (this.d.maxTotalInstances != null && (await totalLoad(tx, now)) >= this.d.maxTotalInstances) throw new CapacityFullError();
       const subscription = await tx.subscription.create({
@@ -214,7 +220,10 @@ export class BillingService {
     const now = this.now();
     const prepared = await this.d.prisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${i.tenantId}))`;
-      const inst = await tx.instance.findFirst({ where: { id: i.instanceId, tenantId: i.tenantId }, include: { plan: true } });
+      const inst = await tx.instance.findFirst({
+        where: { id: i.instanceId, tenantId: i.tenantId },
+        include: { plan: true, node: { select: { region: true } } },
+      });
       if (!inst || inst.status === 'DELETING' || inst.status === 'DELETED') throw new NotFoundError('Instance not found');
       if (inst.recoveryNodeId) throw new ConflictError('Instance is being restored by an operator');
       let existing = await tx.subscription.findUnique({ where: { instanceId: inst.id } });
@@ -225,6 +234,9 @@ export class BillingService {
       }
       if (existing && existing.status !== 'PENDING_PAYMENT') throw new AppError('This instance already has a paid plan', 409, 'already_subscribed');
       if (inst.plan.monthlyPriceIdr !== null) throw new AppError('Only a free instance can be upgraded', 409, 'not_free');
+      if (this.paidRegions && !this.paidRegions.includes(inst.node.region)) {
+        throw new AppError('Paid plans run in Jakarta only', 409, 'region_not_for_paid');
+      }
       if (existing) {
         if (existing.idempotencyKey === i.idempotencyKey) {
           if (existing.planId !== plan.id) throw new ConflictError('Idempotency-Key was already used with a different request');
@@ -237,7 +249,9 @@ export class BillingService {
         await tx.subscription.update({ where: { id: existing.id }, data: { status: 'ENDED', instanceId: null, idempotencyKey: null } });
       }
       await this.assertStock(tx, plan, now);
-      const reservedNodeId = await this.d.placement?.select(tx, plan, now, { fixedNodeId: inst.nodeId, currentPlan: inst.plan });
+      const reservedNodeId = await this.d.placement?.select(tx, plan, now, {
+        fixedNodeId: inst.nodeId, currentPlan: inst.plan, ...(this.paidRegions ? { regions: this.paidRegions } : {}),
+      });
       const subscription = await tx.subscription.create({
         data: { tenantId: i.tenantId, planId: plan.id, instanceId: inst.id, intendedName: inst.name, idempotencyKey: i.idempotencyKey, reservedNodeId },
       });
@@ -655,7 +669,9 @@ export class BillingService {
           tx.plan.findUniqueOrThrow({ where: { id: inst.planId } }),
           tx.plan.findUniqueOrThrow({ where: { id: sub.planId } }),
         ]);
-        await this.d.placement.select(tx, plan, this.now(), { fixedNodeId: inst.nodeId, currentPlan: current, subscriptionId });
+        await this.d.placement.select(tx, plan, this.now(), {
+          fixedNodeId: inst.nodeId, currentPlan: current, subscriptionId, ...(this.paidRegions ? { regions: this.paidRegions } : {}),
+        });
       }
       const n = await tx.instance.updateMany({ where: { id: inst.id, planId: inst.planId, recoveryNodeId: null }, data: { planId: sub.planId, configRevision: { increment: 1 } } });
       if (n.count === 1) {
@@ -732,6 +748,7 @@ export class BillingService {
       ]);
       const reservedNodeId = await this.d.placement.select(tx, plan, now, {
         subscriptionId: existing.id, preferredNodeId: existing.reservedNodeId, fixedNodeId: inst?.nodeId, currentPlan: inst?.plan,
+        ...(this.paidRegions ? { regions: this.paidRegions } : {}),
       });
       existing = await tx.subscription.update({ where: { id: existing.id }, data: { reservedNodeId } });
     }

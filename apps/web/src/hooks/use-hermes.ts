@@ -6,6 +6,8 @@ import { ApiError, getApi, type CreateInstanceInput, type Instance, type LogLeve
 import { isTransitional, type InstanceAction } from "@/lib/api/status"
 import type { AiAlert } from "@/lib/api/types"
 import { authConfigured, getSupabase } from "@/lib/auth/supabase"
+import { translate, useT, type T } from "@/lib/i18n"
+import { DEFAULT_LANG, parseLang } from "@/lib/prefs-core"
 import { fetchSupportContact } from "@/lib/support"
 import { isPayable } from "@/lib/wallet"
 
@@ -92,8 +94,17 @@ export function useSupportContact() {
   return useQuery({ queryKey: keys.supportContact, queryFn: () => fetchSupportContact(), staleTime: 60_000 })
 }
 
-export function errorMessage(e: unknown): string {
-  if (e instanceof ApiError) return e.message
+function currentLang() {
+  return typeof document !== "undefined" ? parseLang(document.documentElement.lang) : DEFAULT_LANG
+}
+
+export function errorMessage(e: unknown, t: T = (s) => translate(currentLang(), s)): string {
+  if (e instanceof ApiError) {
+    if (e.code === "region_not_for_paid") {
+      return t("This instance runs in Singapore. Paid plans run in Jakarta. Contact support to move it first.")
+    }
+    return e.message
+  }
   // Not from the API client (a bug in the page, or the sign-in library): name the error so support can tell them apart.
   const name = e instanceof Error && e.name !== "Error" ? ` (${e.name})` : ""
   return `Something went wrong${name}. Try again.`
@@ -169,11 +180,12 @@ export function useCheckout() {
 /** Upgrades a free instance; the caller sends the customer to `payment.paymentUrl`. */
 export function useUpgrade() {
   const qc = useQueryClient()
+  const t = useT()
   return useMutation({
     mutationFn: ({ instanceId, planId, idempotencyKey }: { instanceId: string; planId: string; idempotencyKey: string }) =>
       getApi().billing.upgrade({ instanceId, planId }, idempotencyKey),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.subscriptions }),
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => toast.error(errorMessage(e, t)),
   })
 }
 
