@@ -6,8 +6,8 @@ several still describe branches as "not committed" or billing as "OFF" that have
 
 ## Outcome-led landing copy (2026-11-25, `feat/landing-outcome-copy`, not deployed)
 
-- Updated `apps/landing` (`src/components/site/hero.tsx`, `src/components/site/features.tsx`, `src/components/site/pricing.tsx`, `src/app/harga/page.tsx`, `src/lib/metadata.ts`) to lead with Telegram assistant outcomes, move the technical isolation and volume facts into `features.tsx`, and add the outline badge `Disarankan untuk mulai` on `hosting-kredit`.
-- Not deployed. Owner must confirm the hero claims (summarizing links and news, tracking tasks, running commands in its own workspace) match what Hermes does before merge/deploy.
+- Updated `apps/landing` (`src/components/site/features.tsx`, `src/components/site/pricing.tsx`, `src/app/harga/page.tsx`, `src/lib/metadata.ts`) to describe Telegram assistant outcomes, expand the isolation and volume facts in `features.tsx`, and add the outline badge `Disarankan untuk mulai` on `hosting-kredit`. The hero copy stays as it was (owner, 2026-11-25).
+- Not deployed. Owner must confirm the outcome claims in the meta descriptions (summarizing links, tracking tasks, running commands) match what Hermes does before merge/deploy.
 - Checks in `apps/landing`: `pnpm typecheck`, `pnpm lint`, `pnpm test` (5 files, 77 tests), and `pnpm build` (14 static pages, 12 CSP hashes) passed.
 
 ## Integration test alignment (2026-11-24, local)
