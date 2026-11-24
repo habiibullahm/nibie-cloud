@@ -148,10 +148,13 @@ export interface MockOptions {
    * never seen. Synthesize a row for them instead of answering 404.
    */
   synthesizeUnknown?: boolean
+  /** Override sample plans (for tests that exercise priced plan flows). */
+  plans?: Plan[]
 }
 
 export function createMockApi(opts: MockOptions = {}): HermesApi {
   const latency = opts.latencyMs ?? 120
+  const plans = opts.plans ?? PLANS
   const rows = new Map<string, Row>()
   const providers = new Map<string, ProviderConfig>()
   const telegrams = new Map<string, TelegramConfig>()
@@ -173,7 +176,7 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       id,
       tenantId: MOCK_TENANT_ID,
       name,
-      planId: PLANS[planIdx]!.id,
+      planId: plans[planIdx]!.id,
       status,
       statusReason: reason,
       accessUrl: running ? `https://${name}.hermes.example` : null,
@@ -198,7 +201,7 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
     rows.set(id, {
       instance,
       meta: {
-        planId: PLANS[planIdx]!.id,
+        planId: plans[planIdx]!.id,
         regionId: "jkt-1",
         runtime: planIdx === 2 ? "runsc" : "runc",
         image: "hermes-agent:2026.11",
@@ -343,7 +346,7 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       if (name.length < 1 || name.length > 63 || /\p{Cc}/u.test(name)) {
         throw new ApiError(400, "validation_error", "Name must be 1–63 characters without control characters")
       }
-      const plan = PLANS.find((p) => p.id === input.planId)
+      const plan = plans.find((p) => p.id === input.planId)
       if (!plan) throw new ApiError(400, "validation_error", "Unknown plan")
       const existing = [...rows.values()].find((r) => r.idempotencyKey === idempotencyKey)
       if (existing) return snapshot(existing)
@@ -444,7 +447,7 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
     },
     async plans() {
       await wait()
-      return PLANS
+      return plans
     },
     async regions() {
       await wait()
@@ -469,7 +472,7 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
     async usage(id, range) {
       await wait()
       const row = previewRow(id)
-      const plan = PLANS.find((p) => p.id === row.meta.planId) ?? PLANS[0]!
+      const plan = plans.find((p) => p.id === row.meta.planId) ?? plans[0]!
       const n = range === "1h" ? 60 : range === "24h" ? 96 : 84
       const stepMs = range === "1h" ? 60_000 : range === "24h" ? 15 * 60_000 : 2 * HOUR
       const r = rng(seedHash(id + range))
@@ -696,6 +699,7 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
    * payment page in mock mode, so invoices carry MOCK_PAYMENT_URL and the UI says so.
    */
   const subs = new Map<string, BillingSubscription>()
+  const pendingPlanChangeTargets = new Map<string, Plan>()
   function paymentFor(subscriptionId: string, purpose: BillingPayment["purpose"], amountIdr: number): BillingPayment {
     return {
       id: uuid(),
@@ -712,7 +716,7 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
   function billingFor(row: Row): BillingSubscription {
     const existing = [...subs.values()].find((x) => x.instanceId === row.instance.id)
     if (existing) return existing
-    const plan = PLANS.find((p) => p.id === row.meta.planId) ?? PLANS[0]!
+    const plan = plans.find((p) => p.id === row.meta.planId) ?? plans[0]!
     const status: BillingStatus =
       row.instance.status === "STOPPED" ? "SUSPENDED" : row.instance.status === "DEGRADED" ? "GRACE" : "ACTIVE"
     const created = new Date(row.instance.createdAt).getTime()
@@ -734,6 +738,18 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
     subs.set(sub.id, sub)
     return sub
   }
+  function applyMockPlan(sub: BillingSubscription, target: Plan, latestPayment: BillingPayment | null): BillingSubscription {
+    const next = { ...sub, planId: target.id, planName: target.name, latestPayment }
+    subs.set(sub.id, next)
+    if (sub.instanceId) {
+      const r = rows.get(sub.instanceId)
+      if (r) {
+        r.instance = { ...r.instance, planId: target.id }
+        r.meta = { ...r.meta, planId: target.id }
+      }
+    }
+    return next
+  }
   const billing: BillingApi = {
     async list() {
       await wait()
@@ -748,13 +764,40 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       await wait()
       throw new ApiError(404, "plan_not_for_sale", "Plans have no price in preview mode, so there is nothing to buy.")
     },
+    async changePlan(input) {
+      await wait()
+      const sub = subs.get(input.subscriptionId)
+      if (!sub || sub.status !== "ACTIVE") {
+        throw new ApiError(409, "subscription_not_changeable", "This subscription cannot change plan right now.")
+      }
+      const current = plans.find((p) => p.id === sub.planId)
+      const target = plans.find((p) => p.id === input.planId)
+      if (!current || !target) throw new ApiError(404, "not_found", "Plan not found")
+      if (
+        target.id === current.id ||
+        target.cpuMillis < current.cpuMillis ||
+        target.memoryMb < current.memoryMb ||
+        target.storageMb < current.storageMb
+      ) {
+        throw new ApiError(409, "plan_change_not_allowed", "Cannot change to this plan")
+      }
+      const diff = (target.monthlyPriceIdr ?? 0) - (current.monthlyPriceIdr ?? 0)
+      if (diff <= 0) {
+        return { subscription: applyMockPlan(sub, target, sub.latestPayment), payment: null }
+      }
+      const payment = paymentFor(sub.id, "PLAN_CHANGE", diff)
+      pendingPlanChangeTargets.set(payment.id, target)
+      const next = { ...sub, latestPayment: payment }
+      subs.set(sub.id, next)
+      return { subscription: next, payment }
+    },
     async renew(subscriptionId) {
       await wait()
       const sub = subs.get(subscriptionId)
       if (!sub || sub.status === "ENDED" || sub.status === "PENDING_PAYMENT") {
         throw new ApiError(409, "subscription_not_renewable", "This subscription cannot be renewed.")
       }
-      const payment = paymentFor(sub.id, "RENEWAL", PLANS.find((p) => p.id === sub.planId)?.monthlyPriceIdr ?? 0)
+      const payment = paymentFor(sub.id, "RENEWAL", plans.find((p) => p.id === sub.planId)?.monthlyPriceIdr ?? 0)
       const next = { ...sub, latestPayment: payment }
       subs.set(sub.id, next)
       return { subscription: next, payment }
@@ -798,6 +841,13 @@ export function createMockApi(opts: MockOptions = {}): HermesApi {
       wallet.balanceIdr -= payment.amountIdr
       wallet.entries.unshift({ id: uuid(), amountIdr: -payment.amountIdr, kind: "HOSTING", balanceAfterIdr: wallet.balanceIdr, note: null, createdAt: now })
       const paid = { ...payment, status: "PAID" as const, method: "WALLET" as const, paymentUrl: null, paidAt: now }
+      if (payment.purpose === "PLAN_CHANGE") {
+        const target = pendingPlanChangeTargets.get(payment.id)
+        pendingPlanChangeTargets.delete(payment.id)
+        const next = target ? applyMockPlan(sub, target, paid) : { ...sub, latestPayment: paid }
+        subs.set(sub.id, next)
+        return { subscription: next, payment: paid }
+      }
       const from = sub.status === "ACTIVE" && sub.currentPeriodEnd ? Date.parse(sub.currentPeriodEnd) : Date.now()
       const next = {
         ...sub, status: "ACTIVE" as const, currentPeriodEnd: new Date(from + 30 * DAY).toISOString(),

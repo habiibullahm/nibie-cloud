@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { ComingSoon } from "@/components/app/coming-soon"
 import { KeyValue } from "@/components/app/key-value"
 import { PreviewNote } from "@/components/app/preview-note"
 import { QueryFallback } from "@/components/app/query-fallback"
@@ -22,6 +21,7 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { PayButton, usePay } from "@/components/app/pay-button"
 import { useActionConfirmation } from "@/components/app/action-confirmation"
+import { PlanChangeSection } from "./plan-change-section"
 import {
   useApiMode,
   useInstance,
@@ -47,7 +47,6 @@ import {
 import { formatCpu, formatDate, formatMb, formatPriceIdr } from "@/lib/format"
 import { useT } from "@/lib/i18n"
 import { useLang } from "@/lib/prefs"
-import { cn } from "@/lib/utils"
 import { useInstanceId } from "../instance-frame"
 
 export default function BillingPage() {
@@ -55,9 +54,11 @@ export default function BillingPage() {
   const lang = useLang()
   const id = useInstanceId()
   const subs = useSubscriptions()
-  // Poll while an upgrade's invoice can still be paid, so the page turns into the subscription once the payment lands.
+  // Poll while an upgrade or plan change invoice can still be paid, so the page updates once the payment lands.
   const pending = pendingUpgradeOf(subs.data, id)
-  useSubscriptions(pending !== null && payableUrl(pending.latestPayment) !== null)
+  const sub = subscriptionOfInstance(subs.data, id)
+  const pendingPlanChange = sub?.latestPayment?.purpose === "PLAN_CHANGE" && payableUrl(sub.latestPayment) !== null
+  useSubscriptions((pending !== null && payableUrl(pending.latestPayment) !== null) || pendingPlanChange)
   const plans = usePlans()
   const instance = useInstance(id)
   const renew = useRenew()
@@ -72,7 +73,6 @@ export default function BillingPage() {
   if (!subs.data || !plans.data || !instance.data) {
     return <QueryFallback what={t("your subscription")} queries={[subs, plans, instance]} className="h-64" />
   }
-  const sub = subscriptionOfInstance(subs.data, id)
   if (!sub) {
     const own = plans.data.find((p) => p.id === instance.data.planId)
     if (own && own.monthlyPriceIdr !== null) {
@@ -197,38 +197,7 @@ export default function BillingPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <section className="grid gap-3" aria-labelledby="change-plan-title">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 id="change-plan-title" className="type-label">
-            {t("Change plan")}
-          </h2>
-          <ComingSoon />
-        </div>
-        <ul className="grid gap-4 md:grid-cols-3">
-          {plans.data.map((p) => {
-            const isCurrent = p.id === current?.id
-            return (
-              <li key={p.id} className={cn("grid gap-3 rounded-md border bg-card p-4", isCurrent && "border-foreground")}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="type-label">{p.name}</span>
-                  {isCurrent ? <span className="type-label rounded-sm border px-2 py-1 text-muted-foreground">{t("Current")}</span> : null}
-                </div>
-                <p className="type-mono text-muted-foreground">
-                  {formatCpu(p.cpuMillis)} · {formatMb(p.memoryMb)} · {formatMb(p.storageMb)}
-                </p>
-                <p className="text-muted-foreground">{t("Price {price}", { price: formatPriceIdr(p.monthlyPriceIdr, lang) })}</p>
-                {/* TODO(billing): plan switching needs payment plus a capacity check (PRD §5.5); the backend has no upgrade yet. */}
-                <Button variant="outline" disabled className="mt-auto">
-                  {isCurrent ? t("Current plan") : t("Switch plan (coming soon)")}
-                </Button>
-              </li>
-            )
-          })}
-        </ul>
-        <p className="text-muted-foreground">
-          {t("When plan changes arrive, an upgrade will apply after payment and a capacity check. If the new plan does not fit on the current node, we will schedule a migration and tell you first.")}
-        </p>
-      </section>
+      <PlanChangeSection sub={sub} current={current} plans={plans.data} />
       {confirm}
     </div>
   )

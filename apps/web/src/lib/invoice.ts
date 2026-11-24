@@ -14,5 +14,7 @@ export function invoiceItem(inv: Pick<Invoice, "kind" | "planName" | "instanceNa
       return t("{plan} plan, 30 days: {name}", vars)
     case "HOSTING_RENEWAL":
       return t("{plan} plan renewal, 30 days: {name}", vars)
+    case "HOSTING_PLAN_CHANGE":
+      return t("Plan change to {plan}: {name}", vars)
   }
 }

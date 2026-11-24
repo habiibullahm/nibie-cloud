@@ -103,6 +103,15 @@ export function errorMessage(e: unknown, t: T = (s) => translate(currentLang(), 
     if (e.code === "region_not_for_paid") {
       return t("This instance runs in Singapore. Paid plans run in Jakarta. Contact support to move it first.")
     }
+    if (e.code === "renewal_open") {
+      return t("Pay or let the open renewal invoice expire first.")
+    }
+    if (e.code === "plan_change_not_allowed") {
+      return t("You cannot switch to this plan.")
+    }
+    if (e.code === "subscription_not_changeable") {
+      return t("This subscription cannot change plan right now.")
+    }
     return e.message
   }
   // Not from the API client (a bug in the page, or the sign-in library): name the error so support can tell them apart.
@@ -185,6 +194,26 @@ export function useUpgrade() {
     mutationFn: ({ instanceId, planId, idempotencyKey }: { instanceId: string; planId: string; idempotencyKey: string }) =>
       getApi().billing.upgrade({ instanceId, planId }, idempotencyKey),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.subscriptions }),
+    onError: (e) => toast.error(errorMessage(e, t)),
+  })
+}
+
+/** Switches an active paid subscription to another paid plan; `payment` is null when immediate. */
+export function useChangePlan() {
+  const qc = useQueryClient()
+  const t = useT()
+  return useMutation({
+    mutationFn: ({ subscriptionId, planId, idempotencyKey }: { subscriptionId: string; planId: string; idempotencyKey: string }) =>
+      getApi().billing.changePlan({ subscriptionId, planId }, idempotencyKey),
+    onSuccess: (res) => {
+      void qc.invalidateQueries({ queryKey: keys.subscriptions })
+      void qc.invalidateQueries({ queryKey: keys.instances })
+      if (res.subscription.instanceId) {
+        void qc.invalidateQueries({ queryKey: keys.instance(res.subscription.instanceId) })
+        void qc.invalidateQueries({ queryKey: keys.events(res.subscription.instanceId) })
+      }
+      if (!res.payment) toast.success(t("Plan changed"))
+    },
     onError: (e) => toast.error(errorMessage(e, t)),
   })
 }
@@ -298,7 +327,9 @@ export function useWalletPay() {
     mutationFn: ({ paymentId, captchaToken }: { paymentId: string; captchaToken?: string }) =>
       getApi().billing.payWithWallet(paymentId, captchaToken),
     onSuccess: () => {
-      for (const key of [keys.subscriptions, keys.wallet, keys.invoices, keys.instances]) void qc.invalidateQueries({ queryKey: key })
+      for (const key of [keys.subscriptions, keys.wallet, keys.invoices, keys.instances, ["instance"]]) {
+        void qc.invalidateQueries({ queryKey: key })
+      }
       toast.success("Paid from your balance.")
     },
     onError: (e) => toast.error(errorMessage(e)),

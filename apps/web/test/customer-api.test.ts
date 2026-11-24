@@ -196,6 +196,14 @@ describe("customer billing client", () => {
     const cancelled = await api.billing.cancel(SUB)
     expect(fetchMock.mock.calls[1]![0]).toBe(`https://api.example.test/api/v1/subscriptions/${SUB}/cancel`)
     expect(cancelled.cancelAtPeriodEnd).toBe(true)
+
+    fetchMock.mockResolvedValueOnce(json({ subscription, payment: null }, 201))
+    const changed = await api.billing.changePlan({ subscriptionId: SUB, planId: ID }, "key-pc")
+    expect(fetchMock.mock.calls[2]![0]).toBe(`https://api.example.test/api/v1/subscriptions/${SUB}/change-plan`)
+    expect(fetchMock.mock.calls[2]![1]!.method).toBe("POST")
+    expect((fetchMock.mock.calls[2]![1]!.headers as Record<string, string>)["idempotency-key"]).toBe("key-pc")
+    expect(JSON.parse(fetchMock.mock.calls[2]![1]!.body as string)).toEqual({ planId: ID })
+    expect(changed.payment).toBeNull()
   })
 
   it("surfaces billing error codes such as plan_not_for_sale", async () => {

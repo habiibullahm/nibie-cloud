@@ -1,13 +1,23 @@
-import { describe, expect, it } from "vitest"
+import { createElement } from "react"
+import { renderToStaticMarkup } from "react-dom/server"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { describe, expect, it, vi } from "vitest"
+
+vi.mock("next/navigation", () => ({ usePathname: () => "/instances/i1/billing" }))
+
+import { ActionConfirmation } from "../src/components/app/action-confirmation"
+import { PlanChangeSection } from "../src/app/(app)/instances/[id]/billing/plan-change-section"
 import { errorMessage } from "../src/hooks/use-hermes"
 import { ApiError } from "../src/lib/api/client"
-import { translate } from "../src/lib/i18n"
-import type { BillingPayment, BillingSubscription } from "../src/lib/api/types"
+import { FixedLang, translate } from "../src/lib/i18n"
+import { invoiceItem } from "../src/lib/invoice"
+import type { BillingPayment, BillingSubscription, Plan } from "../src/lib/api/types"
 import {
   billingNotice,
   billingStatusLabel,
   canCancelRenewal,
   canRenew,
+  canSwitchToPlan,
   deployAgainHref,
   evaluateReturn,
   isPendingPurchase,
@@ -213,5 +223,89 @@ describe("errorMessage", () => {
     expect(errorMessage(err, (s) => translate("id", s))).toBe(
       "Instance ini berjalan di Singapura. Paket berbayar berjalan di Jakarta. Hubungi bantuan untuk memindahkannya dulu."
     )
+  })
+
+  it("maps plan change errors to clear English and Indonesian messages", () => {
+    const en = (s: string) => translate("en", s)
+    const id = (s: string) => translate("id", s)
+    const renewalOpen = new ApiError(409, "renewal_open", "open")
+    expect(errorMessage(renewalOpen, en)).toBe("Pay or let the open renewal invoice expire first.")
+    expect(errorMessage(renewalOpen, id)).toBe("Bayar dulu tagihan perpanjangan yang terbuka atau tunggu sampai kedaluwarsa.")
+
+    const notAllowed = new ApiError(409, "plan_change_not_allowed", "no")
+    expect(errorMessage(notAllowed, en)).toBe("You cannot switch to this plan.")
+    expect(errorMessage(notAllowed, id)).toBe("Kamu tidak bisa pindah ke paket ini.")
+
+    const notChangeable = new ApiError(409, "subscription_not_changeable", "no")
+    expect(errorMessage(notChangeable, en)).toBe("This subscription cannot change plan right now.")
+    expect(errorMessage(notChangeable, id)).toBe("Langganan ini tidak bisa ganti paket sekarang.")
+  })
+})
+
+describe("plan change UI", () => {
+  const mkPlan = (over: Partial<Plan> & Pick<Plan, "id" | "name">): Plan => ({
+    slug: over.name.toLowerCase(),
+    cpuMillis: 1000,
+    memoryMb: 1024,
+    storageMb: 5120,
+    pids: 128,
+    backupRetentionDays: null,
+    customDomain: null,
+    monthlyPriceIdr: 25_000,
+    includedCreditUsd: null,
+    available: true,
+    ...over,
+  })
+  const free = mkPlan({ id: "p-free", name: "Free", cpuMillis: 500, memoryMb: 256, storageMb: 1024, monthlyPriceIdr: null })
+  const hosting = mkPlan({ id: "p-host", name: "Hosting", storageMb: 5120, monthlyPriceIdr: 25_000 })
+  const hostingKredit = mkPlan({ id: "p-hk", name: "Hosting + Kredit", storageMb: 10240, monthlyPriceIdr: 50_000, includedCreditUsd: 2 })
+  const pro = mkPlan({ id: "p-pro", name: "Pro", cpuMillis: 2000, memoryMb: 4096, storageMb: 20480, monthlyPriceIdr: 49_000 })
+  const proKredit = mkPlan({ id: "p-pk", name: "Pro + Kredit", cpuMillis: 2000, memoryMb: 4096, storageMb: 20480, monthlyPriceIdr: 79_000, includedCreditUsd: 3 })
+
+  it("canSwitchToPlan allows only priced non-current plans with no smaller resources", () => {
+    expect(canSwitchToPlan(hostingKredit, free)).toBe(false)
+    expect(canSwitchToPlan(hostingKredit, hosting)).toBe(false)
+    expect(canSwitchToPlan(hostingKredit, hostingKredit)).toBe(false)
+    expect(canSwitchToPlan(hostingKredit, pro)).toBe(true)
+    expect(canSwitchToPlan(pro, proKredit)).toBe(true)
+  })
+
+  it("billing page offers a switch only to plans with no smaller resources", () => {
+    const html = renderToStaticMarkup(
+      createElement(
+        QueryClientProvider,
+        { client: new QueryClient() },
+        createElement(
+          FixedLang,
+          { value: "en" },
+          createElement(
+            ActionConfirmation,
+            null,
+            createElement(PlanChangeSection, {
+              sub: sub({ planId: hostingKredit.id, planName: hostingKredit.name }),
+              current: hostingKredit,
+              plans: [free, hosting, hostingKredit, pro, proKredit],
+            })
+          )
+        )
+      )
+    )
+    expect(html).toContain("Switch to Pro")
+    expect(html).toContain("Switch to Pro + Kredit")
+    expect(html).toContain("Current plan")
+    expect(html).toContain("Not available as a switch")
+    expect(html).not.toContain("Switch to Free")
+    expect(html).not.toContain("Switch to Hosting")
+    expect(html).not.toContain("coming soon")
+    expect(html).toContain("The period end stays the same. Moving to a smaller plan is not possible yet.")
+  })
+
+  it("renders HOSTING_PLAN_CHANGE invoice items in English and Indonesian", () => {
+    expect(
+      invoiceItem({ kind: "HOSTING_PLAN_CHANGE", planName: "Pro", instanceName: "my-bot" }, (s, v) => translate("en", s, v))
+    ).toBe("Plan change to Pro: my-bot")
+    expect(
+      invoiceItem({ kind: "HOSTING_PLAN_CHANGE", planName: "Pro", instanceName: "my-bot" }, (s, v) => translate("id", s, v))
+    ).toBe("Ganti paket ke Pro: my-bot")
   })
 })

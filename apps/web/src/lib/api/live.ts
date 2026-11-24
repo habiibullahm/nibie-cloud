@@ -1,5 +1,5 @@
 import { ApiError, type BillingApi, type InstancesApi } from "./client"
-import type { AiAccount, AiAlert, AiKeys, AiModels, AiPurchase, BillingSubscription, CreatedAiKey, CheckoutResult, Instance, InstanceEvent, InstanceStatusView, Invoice, Wallet, WalletTopup } from "./types"
+import type { AiAccount, AiAlert, AiKeys, AiModels, AiPurchase, BillingSubscription, ChangePlanResult, CreatedAiKey, CheckoutResult, Instance, InstanceEvent, InstanceStatusView, Invoice, Wallet, WalletTopup } from "./types"
 
 const BASE = (process.env.NEXT_PUBLIC_BASE_PATH ?? "") + "/api/hermes"
 
@@ -103,6 +103,12 @@ export function buildBillingApi(call: Call): BillingApi {
         headers: { "content-type": "application/json", "idempotency-key": idempotencyKey },
         body: JSON.stringify({ instanceId: input.instanceId, planId: input.planId }),
       }),
+    changePlan: (input, idempotencyKey) =>
+      call<ChangePlanResult>(`/subscriptions/${id(input.subscriptionId)}/change-plan`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "idempotency-key": idempotencyKey },
+        body: JSON.stringify({ planId: input.planId }),
+      }),
     renew: (subscriptionId) => call<CheckoutResult>(`/subscriptions/${id(subscriptionId)}/renew`, { method: "POST" }),
     cancel: async (subscriptionId) =>
       (await call<{ subscription: BillingSubscription }>(`/subscriptions/${id(subscriptionId)}/cancel`, { method: "POST" }))
@@ -197,7 +203,7 @@ export function buildBillingApi(call: Call): BillingApi {
 export function createUnavailableBillingApi(): BillingApi {
   const refuse = () => Promise.reject(new ApiError(404, "billing_unavailable", "Billing is not available in this mode."))
   return {
-    list: async () => [], checkout: refuse, upgrade: refuse, renew: refuse, cancel: refuse,
+    list: async () => [], checkout: refuse, upgrade: refuse, changePlan: refuse, renew: refuse, cancel: refuse,
     wallet: async () => null, topup: refuse, payWithWallet: refuse, setAutoRenew: refuse, ai: async () => null, setAiAlert: refuse, buyAiCredit: refuse,
     aiKeys: async () => null, createAiKey: refuse, revokeAiKey: refuse, aiModels: async () => null,
     invoices: async () => [], invoice: refuse,

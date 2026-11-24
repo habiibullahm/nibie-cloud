@@ -1,8 +1,26 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-25 (merged `feat/paid-region-pin` and `feat/plan-credit-every-period` into `feat/paid-plan-change`). Earlier entries below keep their own dates, and
+Last updated: 2026-11-25 (paid-to-paid plan changes on `feat/paid-plan-change`, local). Earlier entries below keep their own dates, and
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
+
+## Paid-to-paid plan changes (2026-11-25, branch `feat/paid-plan-change`)
+
+- **Schema & migration:** Added `PaymentPurpose.PLAN_CHANGE`, `InvoiceKind.HOSTING_PLAN_CHANGE`, and nullable `Payment.fromPlanId`, `Payment.targetPlanId`, and `Payment.creditNano` (`prisma/schema.prisma`, `prisma/migrations/20261125200000_plan_change_payment/migration.sql`). Regenerated Prisma client (`pnpm prisma generate`).
+- **Quote & decisions (`src/modules/billing/plan-change.ts`, `src/modules/billing/billing-service.ts`):**
+  - Only active paid subscriptions with an active period end (`ACTIVE`, `currentPeriodEnd > now`) may change plan; `SUSPENDED`, `GRACE`, `ENDED`, or expired periods return `409 subscription_not_changeable`.
+  - No downgrade (`canChangePlan`): target plan must be priced, differ from the current plan, and have `cpuMillis`, `memoryMb`, and `storageMb` all >= the current plan's (`409 plan_change_not_allowed`), so XFS disk quotas never shrink.
+  - Refuses with `409 renewal_open` while an unexpired `PENDING` `RENEWAL` payment exists on the subscription.
+  - Prorated price and credit: charge is `ceil((targetPrice - currentPrice) * remainingMs / 30d)` (clamped >= 0) and period end stays unchanged. When the charge is under Rp 1.000 (`SUMOPOD_MIN_AMOUNT_IDR`, including price decreases), the plan switches immediately without an invoice and without prorated AI credit (`creditNano = 0n`). Otherwise `creditNano = max(0n, (targetCredit - currentCredit) * remainingMs / 30d)` rounded down in nano-USD.
+  - Requesting a plan change checks target stock (`assertStock`) and node capacity (`NodeScheduler.select` with `paidNodeRegions`), and expires prior `PENDING` `PLAN_CHANGE` payments on the subscription.
+  - Payment activation (`activate`, both SumoPod QRIS webhook and `payWithWallet`): issues `HOSTING_PLAN_CHANGE` invoice, does not extend `currentPeriodEnd`, updates `Subscription.planId`, upserts a `PENDING` `CreditGrant` keyed on `paymentId` when `creditNano > 0n` (delivered by `AiAccountService.retryPurchases`), and runs `applyPlanChange` (which logs `Plan changed after payment`). Stale plan-change payments (after subscription ended, replaced by a newer plan change, or plan already moved) do not change the plan and credit `payment.amountIdr` to the tenant's wallet (`credited_to_wallet`, ref `plan-change:<paymentId>`).
+- **HTTP route & docs:** Added `POST /api/v1/subscriptions/:subscriptionId/change-plan` (`src/http/billing-routes.ts`), gated behind `gate(p.email)` (`PAID_CHECKOUT_OPEN` / sandbox beta gate) with `Idempotency-Key` and 10 req / 10 min rate limit; documented in `apps/docs/content/docs/api-reference/langganan.mdx` and removed the stale placeholder in `endpoint-berikutnya.mdx`.
+- **Dashboard (`apps/web`):** Added `billing.changePlan` (`types.ts`, `client.ts`, `live.ts`, `mock.ts`), `useChangePlan` and `renewal_open` / `plan_change_not_allowed` / `subscription_not_changeable` error mapping (`src/hooks/use-hermes.ts`), `HOSTING_PLAN_CHANGE` invoice label (`src/lib/invoice.ts`), `PLAN_CHANGE` admin label (`src/lib/admin-format.ts`), `PlanChangeSection` (`src/app/(app)/instances/[id]/billing/plan-change-section.tsx` and `page.tsx`), and Indonesian translations (`src/lib/i18n-id.ts`). Plan change is live behind the existing checkout gate.
+- **Checks run (Windows):**
+  - Root: `pnpm prisma generate`, `pnpm build` (`tsc -p tsconfig.json --noEmit`), and `pnpm test:unit` (43 non-egress files passed, 2 skipped, 549 tests passed, 6 skipped, including 8 new tests in `test/unit/plan-change.test.ts`; the 2 pre-existing Windows-only Linux-shell failures in `test/unit/egress-rules.test.ts` and `test/unit/egress-canary.test.ts` totaling 14 tests failed as on `main`).
+  - Integration tests (`test/integration/billing-plan-change.test.ts`, `billing-upgrade.test.ts`, `billing-service.test.ts`, `billing-api.test.ts`, `sumopod-webhook.test.ts`): type-checked via `pnpm build`, not run (`docker info` timed out and Postgres at `127.0.0.1:5433` was unreachable).
+  - `apps/docs`: `pnpm typecheck` and `pnpm lint` passed.
+  - `apps/web`: `pnpm typecheck`, `pnpm lint`, `pnpm test` (26 files, 226 tests), and `pnpm build` passed.
 
 ## Paid plans pinned to `PAID_NODE_REGIONS` (2026-11-25, local)
 

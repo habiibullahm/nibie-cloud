@@ -1,4 +1,4 @@
-import type { BillingPayment, BillingStatus, BillingSubscription } from "./api/types"
+import type { BillingPayment, BillingStatus, BillingSubscription, Plan } from "./api/types"
 import { formatDate, formatPriceIdr } from "./format"
 import { translate, type T } from "./i18n"
 import type { Lang } from "./prefs"
@@ -56,6 +56,15 @@ export function canRenew(sub: BillingSubscription): boolean {
 
 export function canCancelRenewal(sub: BillingSubscription): boolean {
   return (sub.status === "ACTIVE" || sub.status === "GRACE" || sub.status === "SUSPENDED") && !sub.cancelAtPeriodEnd
+}
+
+/** Paid-to-paid plan changes require a priced, non-current plan with no smaller CPU, memory, or storage. */
+export function canSwitchToPlan(
+  current: Pick<Plan, "id" | "cpuMillis" | "memoryMb" | "storageMb"> | undefined,
+  target: Pick<Plan, "id" | "cpuMillis" | "memoryMb" | "storageMb" | "monthlyPriceIdr">
+): boolean {
+  if (!current || target.id === current.id || target.monthlyPriceIdr === null) return false
+  return target.storageMb >= current.storageMb && target.memoryMb >= current.memoryMb && target.cpuMillis >= current.cpuMillis
 }
 
 export interface BillingNotice {
