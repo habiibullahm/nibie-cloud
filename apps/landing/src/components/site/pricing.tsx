@@ -45,9 +45,12 @@ function PlanCard({ plan }: { plan: Plan }) {
   ]
   return (
     <article className="grid content-start gap-4 rounded-md border bg-card p-6">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="type-label text-muted-foreground">{plan.name}</h3>
-        <Badge variant="outline">Beta · diskon {discountPercent(plan)}%</Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          {plan.id === "hosting-kredit" ? <Badge variant="outline">Disarankan untuk mulai</Badge> : null}
+          <Badge variant="outline">Beta · diskon {discountPercent(plan)}%</Badge>
+        </div>
       </div>
       <p className="font-heading text-[2rem] leading-tight font-bold tracking-tight">
         <s className="mr-1 font-sans text-base font-normal text-muted-foreground">
