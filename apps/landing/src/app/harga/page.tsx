@@ -6,7 +6,7 @@ import { BETA_USERS, PRICING_INTRO } from "@/lib/plans"
 
 export const metadata: Metadata = pageMetadata({
   title: "Harga",
-  description: "Asisten AI pribadi Hermes di Telegram aktif 24 jam, tanpa VPS. Paket Hosting dan Pro harga beta untuk 100 pengguna pertama. Harga dalam Rupiah.",
+  description: "Asisten AI pribadi Hermes di Telegram aktif 24 jam, tanpa VPS. Paket Hosting dan Pro dengan harga beta untuk 100 pengguna pertama. Harga dalam Rupiah.",
   path: "/harga",
 })
 
