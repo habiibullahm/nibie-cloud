@@ -1,8 +1,13 @@
 # Current State — Hermes Cloud
 
-Last updated: 2026-11-23 (multi-node fleet live in production; dashboard action confirmations; AI balance and BYOK model discovery). Earlier entries below keep their own dates, and
+Last updated: 2026-11-24 (stale integration test expectations updated; watchdog node role on `jkt-2`). Earlier entries below keep their own dates, and
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
+
+## Integration test alignment (2026-11-24, local)
+
+- Updated the 3 pre-existing stale integration expectations to match `/24` IP masking and `sessions.auto_prune: true`:
+  `test/integration/customer-auth.test.ts` (13/13 passed) and `test/integration/runtime-config.test.ts` (8/8 passed) against local Docker + Postgres `:5433`, plus `pnpm build` (`tsc --noEmit`).
 
 ## Watchdog on runtime nodes, `OPS_ROLE=node` (2026-11-23, installed on `jkt-2`)
 
