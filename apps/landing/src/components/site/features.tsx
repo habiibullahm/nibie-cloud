@@ -9,8 +9,8 @@ type Feature = { icon: LucideIcon; title: string; body: string; planned?: boolea
 const FEATURES: Feature[] = [
   {
     icon: SquareTerminal,
-    title: "Container terisolasi dengan shell penuh",
-    body: "Hermes berjalan di container khusus milikmu. Di dalamnya kamu punya akses shell penuh dan semua fitur Hermes. Tidak ada akses ke server host, dan jaringan antar pelanggan dipisahkan.",
+    title: "Satu container dan volume terisolasi dengan shell penuh",
+    body: "Setiap pelanggan mendapat satu container terisolasi dan satu volume penyimpanan sendiri. Di dalam container tersedia shell penuh dan semua fitur Hermes. Tidak ada akses ke server host, dan jaringan antar pelanggan dipisahkan.",
     span: "lg:col-span-4",
   },
   {

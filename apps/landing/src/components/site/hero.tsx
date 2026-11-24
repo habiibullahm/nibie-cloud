@@ -20,10 +20,9 @@ export function Hero() {
             <span aria-hidden className="size-1.5 rounded-full bg-foreground" />
             {open ? "Beta terbuka" : freeBeta ? <FreeBetaBadgeText /> : "Beta gratis · slot terbatas"}
           </Badge>
-          <h1 className="type-display hc-rise hc-rise-1 mt-4">Agent <span className="whitespace-nowrap">Hermes-mu</span> aktif 24 jam, tanpa kamu mengurus server.</h1>
+          <h1 className="type-display hc-rise hc-rise-1 mt-4">Asisten AI pribadimu di Telegram, aktif 24 jam.</h1>
           <p className="type-lead hc-rise hc-rise-2 mt-6 max-w-[52ch] text-muted-foreground">
-            {SITE.name} menjalankan satu container terisolasi dan satu volume penyimpanan khusus untuk setiap
-            pelanggan. Kamu tinggal deploy, hubungkan platform pesanmu (saat ini Telegram), dan pakai. Tanpa VPS, tanpa Docker, tanpa perawatan.
+            Kirim pesan, agen Hermes mengerjakan: merangkum tautan dan berita, mencatat tugas, menjalankan perintah di ruang kerjanya sendiri. Tanpa sewa VPS, tanpa Docker, tanpa perawatan server.
           </p>
           <div className="hc-rise hc-rise-3 mt-8 flex flex-wrap gap-3">
             {freeBeta ? (
@@ -38,9 +37,9 @@ export function Hero() {
             )}
           </div>
           <ul className="hc-rise hc-rise-4 mt-8 flex flex-wrap gap-x-6 gap-y-2 text-[0.8125rem] text-muted-foreground">
-            <li>1 container per pelanggan</li>
-            <li>Shell penuh di dalam container</li>
-            <li>Tanpa akses ke server host</li>
+            <li>Tersambung ke Telegram dalam beberapa menit</li>
+            <li>Ingatan dan file tersimpan di volume milikmu</li>
+            <li>Bayar bulanan dengan QRIS</li>
           </ul>
         </div>
         <InstancePanel />
