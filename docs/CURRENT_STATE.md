@@ -52,6 +52,15 @@ several still describe branches as "not committed" or billing as "OFF" that have
 - Updated `apps/landing` (`src/components/site/hero.tsx`, `src/components/site/features.tsx`, `src/components/site/pricing.tsx`, `src/app/harga/page.tsx`, `src/lib/metadata.ts`) to lead with Telegram assistant outcomes, move the technical isolation and volume facts into `features.tsx`, and add the outline badge `Disarankan untuk mulai` on `hosting-kredit`.
 - Not deployed. Owner must confirm the hero claims (summarizing links and news, tracking tasks, running commands in its own workspace) match what Hermes does before merge/deploy.
 - Checks in `apps/landing`: `pnpm typecheck`, `pnpm lint`, `pnpm test` (5 files, 77 tests), and `pnpm build` (14 static pages, 12 CSP hashes) passed.
+Last updated: 2026-11-25 (upsell notice on free instances in `apps/web`). Earlier entries below keep their own dates, and
+several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
+[HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
+
+## Free instance upsell notice (2026-11-25, branch `feat/free-upsell-notice`, local)
+
+- Added `<FreeUpsell>` (`apps/web/src/components/app/free-upsell.tsx`) to the instance overview page (`apps/web/src/app/(app)/instances/[id]/page.tsx`) with Indonesian copy in `apps/web/src/lib/i18n-id.ts`.
+- Renders a shadcn `Alert` with a button linking to `/instances/{id}/billing` only when the instance is on a free plan (`monthlyPriceIdr === null`) and the `hosting-kredit` plan is available, reading its name, Rupiah price, and monthly AI credit from the plans query.
+- Checks passed in `apps/web`: `pnpm typecheck`, `pnpm lint`, `pnpm test` (27 files, 225 tests, including 5 new cases in `test/free-upsell.test.ts`), and `pnpm build`.
 
 ## Integration test alignment (2026-11-24, local)
 

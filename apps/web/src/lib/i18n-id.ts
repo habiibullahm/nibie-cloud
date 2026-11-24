@@ -631,4 +631,10 @@ export const ID: Record<string, string> = {
   "Your reply will be sent to the Nibie Cloud team.": "Balasan kamu akan dikirim ke tim Nibie Cloud.",
   "Close ticket?": "Tutup tiket?",
   "You can reopen the ticket by replying to it.": "Kamu bisa membuka kembali tiket dengan mengirim balasan.",
+
+  // Free instance upsell
+  "Free plan uses free AI models": "Paket gratis memakai model AI gratis",
+  "Free models can be slow or limited when busy. {plan} costs {price} per month and includes US${credit} AI credit every month for faster models.":
+    "Model gratis bisa lambat atau terbatas saat ramai. {plan} seharga {price} per bulan dan termasuk kredit AI US${credit} setiap bulan untuk model yang lebih cepat.",
+  "See paid plans": "Lihat paket berbayar",
 }
