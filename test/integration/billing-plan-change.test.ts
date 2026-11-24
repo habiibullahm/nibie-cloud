@@ -308,4 +308,3 @@ describe('applying a paid plan change', () => {
     });
   });
 });
-

@@ -4,6 +4,17 @@ Last updated: 2026-11-25 (paid-to-paid plan changes on `feat/paid-plan-change`, 
 several still describe branches as "not committed" or billing as "OFF" that have since merged or changed; the first section and
 [HANDOFF.md](HANDOFF.md) win. Index of all docs: [README.md](README.md). New session? Start with [HANDOFF.md](HANDOFF.md) and [START_PROMPT.md](START_PROMPT.md).
 
+## Sales funnel branch checks (2026-11-25, `claude/sales-funnel`, local)
+
+- One branch carries the plan `docs/superpowers/plans/2026-11-25-sales-funnel.md`: AI credit every paid period, paid
+  plans limited to `PAID_NODE_REGIONS`, paid-to-paid plan change with prorated price and credit, landing copy (hero
+  unchanged on owner request), free-instance upsell notice, landing and docs marked live.
+- Checks on the merged branch (Windows, Docker Desktop Postgres and Redis): backend `pnpm build`; `pnpm test:unit` 561
+  passed, 2 failed (`egress-canary`, known on Windows); integration `billing-plan-change`, `billing-service`,
+  `billing-upgrade`, `billing-api`, `sumopod-webhook`, `billing-tick`, `ai-credit-purchase`, `router-provisioner`,
+  `multi-node-fleet`: 172 passed; web typecheck, lint, 231 tests; landing typecheck, lint, 77 tests; docs typecheck, lint.
+- Not done: real-money payment, deploy. After deploy the owner sets `PAID_NODE_REGIONS=id-jakarta` on the control plane.
+
 ## Paid-to-paid plan changes (2026-11-25, branch `feat/paid-plan-change`)
 
 - **Schema & migration:** Added `PaymentPurpose.PLAN_CHANGE`, `InvoiceKind.HOSTING_PLAN_CHANGE`, and nullable `Payment.fromPlanId`, `Payment.targetPlanId`, and `Payment.creditNano` (`prisma/schema.prisma`, `prisma/migrations/20261125200000_plan_change_payment/migration.sql`). Regenerated Prisma client (`pnpm prisma generate`).
